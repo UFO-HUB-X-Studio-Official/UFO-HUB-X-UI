@@ -183,3 +183,41 @@ end
 --==========================================================
 -- END
 --==========================================================
+--==========================================================
+-- UFO HUB X • toggle button
+--==========================================================
+
+local CoreGui = game:GetService("CoreGui")
+local UIS     = game:GetService("UserInputService")
+
+local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+if not GUI then return end
+
+-- ปุ่ม Toggle
+local ToggleBtn = Instance.new("ImageButton")
+ToggleBtn.Name = "ToggleUI"
+ToggleBtn.Parent = GUI
+ToggleBtn.BackgroundTransparency = 0
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0) -- พื้นหลังสีดำ
+ToggleBtn.Size = UDim2.new(0, 48, 0, 48)          -- ขนาดปุ่ม (สี่เหลี่ยมพอดี)
+ToggleBtn.Position = UDim2.new(0, 50, 0, 250)     -- << ปรับตรงนี้ให้ตรงกรอบที่คุณวงดำไว้
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Image = "rbxassetid://117052960049460"  -- ไอคอนที่คุณให้มา
+ToggleBtn.ImageColor3 = Color3.fromRGB(0,255,140) -- ขอบ/โทนสีเขียว
+
+-- Stroke (ขอบสีเขียว)
+local stroke = Instance.new("UIStroke", ToggleBtn)
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(0,255,140)
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Corner
+local corner = Instance.new("UICorner", ToggleBtn)
+corner.CornerRadius = UDim.new(0,6)
+
+-- Event toggle
+local visible = true
+ToggleBtn.MouseButton1Click:Connect(function()
+    visible = not visible
+    GUI.Enabled = visible
+end)
