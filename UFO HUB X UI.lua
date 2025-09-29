@@ -66,6 +66,13 @@ local themeStyles = {
         TextColor = Color3.fromRGB(255,255,255),
         ElementColor = Color3.fromRGB(20, 20, 20)
     },
+	UFOHUBX = {
+       SchemeColor  = Color3.fromRGB(0,255,140), -- สีเขียวหลัก
+       Background   = Color3.fromRGB(16,16,16),  -- พื้นหลัง
+       Header       = Color3.fromRGB(0,0,0),     -- แถบหัว
+       TextColor    = Color3.fromRGB(235,235,235),
+       ElementColor = Color3.fromRGB(22,22,22)   -- กล่อง/ปุ่ม
+	},
     LightTheme = {
         SchemeColor = Color3.fromRGB(150, 150, 150),
         Background = Color3.fromRGB(255,255,255),
