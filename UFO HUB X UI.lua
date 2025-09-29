@@ -117,14 +117,14 @@ end
 -- ===== UFO + TITLE (ปรับตามคำขอ) =====
 do
     local UFO_Y_OFFSET   = 84  -- ⬇️ ยานลงมาใกล้กรอบ
-    local TITLE_Y_OFFSET = 8 -- ⬆️ ชื่อขึ้นไปอีกนิด
+    local TITLE_Y_OFFSET = 8   -- ⬆️ ชื่อขึ้นไปอีกนิด
 
     -- UFO
     local UFO = Instance.new("ImageLabel", Window)
     UFO.Name = "UFO_Top"; UFO.BackgroundTransparency = 1; UFO.Image = IMG_UFO
     UFO.Size = UDim2.new(0,168,0,168)
     UFO.AnchorPoint = Vector2.new(0.5,1)
-    UFO.Position = UDim2.new(0.5, 0, 0, UFO_Y_OFFSET) -- ปรับตรงนี้ถ้าจะขยับเพิ่ม
+    UFO.Position = UDim2.new(0.5, 0, 0, UFO_Y_OFFSET)
     UFO.ZIndex = 60
 
     local Halo = Instance.new("ImageLabel", Window)
@@ -136,7 +136,7 @@ do
     -- TITLE
     local TitleCenter = Instance.new("TextLabel", Header)
     TitleCenter.BackgroundTransparency = 1; TitleCenter.AnchorPoint = Vector2.new(0.5,0)
-    TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET) -- ปรับตรงนี้ถ้าจะขยับเพิ่ม
+    TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET)
     TitleCenter.Size = UDim2.new(0.8, 0, 0, 36)
     TitleCenter.Font = Enum.Font.GothamBold; TitleCenter.RichText = true; TitleCenter.TextScaled = true
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
@@ -180,6 +180,30 @@ do local vis=true
         if not gp and i.KeyCode==Enum.KeyCode.RightShift then vis=not vis; GUI.Enabled=vis end
     end)
 end
+
+--==========================================================
+-- AFK SHIELD (Auto-Idle Protector) • เริ่มทำงานทันทีเมื่อ UI เปิด
+--==========================================================
+do
+    local Players     = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local VirtualUser = game:GetService("VirtualUser")
+    local afkEnabled  = true  -- เปิดไว้ตลอด (ภายใน UI นี้)
+
+    -- กันโดนเตะเมื่อระบบตรวจจับ Idle (ปกติ ~20 นาที)
+    -- เมื่อเหตุการณ์ Idled เกิดขึ้น จะส่งอินพุตจำลองให้เกมรับรู้ว่าเรายัง “แอคทีฟ”
+    LocalPlayer.Idled:Connect(function()
+        if afkEnabled and GUI.Enabled then
+            -- จับคอนโทรลแล้วคลิกขวาเสมือน (ไม่น่ารบกวนการเล่น)
+            VirtualUser:CaptureController()
+            -- ใช้ตำแหน่ง/เฟรมของกล้องถ้ามี เพื่อความปลอดภัย
+            local cam = workspace.CurrentCamera
+            local pos = cam and cam.CFrame.Position or Vector3.new()
+            VirtualUser:ClickButton2(Vector2.new(0,0), CFrame.new(pos))
+        end
+    end)
+end
+
 --==========================================================
 -- END
 --==========================================================
