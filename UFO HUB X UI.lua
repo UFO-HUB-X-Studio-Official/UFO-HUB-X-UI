@@ -1,5 +1,5 @@
 --==========================================================
--- UFO HUB X • Layout เหมือนภาพตัวอย่าง (2 ช่อง: ซ้ายแคบ/ขวากว้าง)
+-- UFO HUB X • Layout (2 ช่อง: ซ้ายเล็ก/ขวาใหญ่) + ใส่รูปแยก
 --==========================================================
 
 -- เคลียร์ของเก่า
@@ -17,15 +17,16 @@ local BG_PANEL     = Color3.fromRGB(22,22,22)
 local BG_INNER     = Color3.fromRGB(20,20,20)
 local TEXT_WHITE   = Color3.fromRGB(235,235,235)
 
-local WIN_W, WIN_H = 820, 460  -- ขนาดหน้าต่าง
-local GAP_OUTER    = 18        -- ระยะขอบด้านในตัวหน้าต่าง
-local GAP_BETWEEN  = 14        -- ระยะห่างระหว่างการ์ดซ้าย/ขวา
-local LEFT_RATIO   = 0.35      -- ซ้ายแคบประมาณ 35%
-local RIGHT_RATIO  = 0.65      -- ขวากว้างประมาณ 65%
+local WIN_W, WIN_H = 820, 460  
+local GAP_OUTER    = 18        
+local GAP_BETWEEN  = 14        
+
+local LEFT_RATIO   = 0.35      
+local RIGHT_RATIO  = 0.65      
 
 -- รูปภาพ Roblox
-local IMAGE_ID = 95486407220826
-local IMG = "rbxassetid://"..tostring(IMAGE_ID)
+local IMG_SMALL = "rbxassetid://95514334029879"      -- ช่องเล็ก
+local IMG_LARGE = "rbxassetid://117055535552131"     -- ช่องใหญ่
 
 -- ===== HELPERS =====
 local function corner(gui, r)
@@ -77,7 +78,7 @@ Glow.ImageTransparency = 0.72
 Glow.ScaleType = Enum.ScaleType.Slice
 Glow.SliceCenter = Rect.new(24,24,276,276)
 
--- ปรับสเกลให้พอดีจอ
+-- ปรับสเกล
 local UIScale = Instance.new("UIScale", Window)
 local function fit()
     local v = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
@@ -93,7 +94,6 @@ Header.BorderSizePixel = 0
 Header.ZIndex = 2
 corner(Header, 10)
 
--- จุดเขียวเล็กซ้ายมือ (เหมือนในภาพ)
 local Dot = Instance.new("Frame", Header)
 Dot.BackgroundColor3 = GREEN
 Dot.BorderSizePixel = 0
@@ -111,7 +111,6 @@ TitleLbl.TextSize = 16
 TitleLbl.TextColor3 = TEXT_WHITE
 TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
--- ปุ่ม X สีแดง
 local BtnClose = Instance.new("TextButton", Header)
 BtnClose.Size = UDim2.new(0,28,0,28)
 BtnClose.Position = UDim2.new(1,-38,0.5,-14)
@@ -127,24 +126,7 @@ BtnClose.MouseEnter:Connect(function() BtnClose.BackgroundColor3 = Color3.fromRG
 BtnClose.MouseLeave:Connect(function() BtnClose.BackgroundColor3 = Color3.fromRGB(200,40,40) end)
 BtnClose.MouseButton1Click:Connect(function() GUI.Enabled = false end)
 
--- ลากด้วย Header
-do
-    local dragging, start, startPos
-    Header.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            dragging=true; start=i.Position; startPos=Window.Position
-            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-            local d=i.Position-start
-            Window.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
-        end
-    end)
-end
-
--- ===== BODY & INNER =====
+-- ===== BODY =====
 local Body = Instance.new("Frame", Window)
 Body.BackgroundTransparency = 1
 Body.Position = UDim2.new(0,0,0,44)
@@ -157,7 +139,7 @@ Inner.Position = UDim2.new(0,10,0,10)
 Inner.Size = UDim2.new(1,-20,1,-20)
 corner(Inner, 10)
 
--- ===== CONTENT AREA (สองการ์ด: ซ้ายแคบ / ขวากว้าง) =====
+-- ===== CONTENT AREA =====
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
 Content.BorderSizePixel = 0
@@ -165,13 +147,12 @@ Content.Position = UDim2.new(0, GAP_OUTER, 0, GAP_OUTER)
 Content.Size = UDim2.new(1, -GAP_OUTER*2, 1, -GAP_OUTER*2)
 corner(Content, 10); stroke(Content, 1, GREEN)
 
--- กล่องรวม 2 คอลัมน์ (กำหนดเองเพื่อควบคุมอัตราส่วน)
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0, 8, 0, 8)
 Columns.Size = UDim2.new(1, -16, 1, -16)
 
--- ซ้าย (แคบ)
+-- ซ้าย (เล็ก)
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftCard"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -181,7 +162,7 @@ Left.Position = UDim2.new(0, 0, 0, 0)
 Left.ClipsDescendants = true
 corner(Left, 10); stroke(Left, 1, GREEN)
 
--- ขวา (กว้าง)
+-- ขวา (ใหญ่)
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightCard"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -191,20 +172,20 @@ Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
 Right.ClipsDescendants = true
 corner(Right, 10); stroke(Right, 1, GREEN)
 
--- ===== IMAGES (Crop ให้เต็มช่อง) =====
+-- ===== IMAGES =====
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1
 imgL.Size = UDim2.new(1,0,1,0)
-imgL.Image = IMG
+imgL.Image = IMG_SMALL
 imgL.ScaleType = Enum.ScaleType.Crop
 
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1
 imgR.Size = UDim2.new(1,0,1,0)
-imgR.Image = IMG
+imgR.Image = IMG_LARGE
 imgR.ScaleType = Enum.ScaleType.Crop
 
--- ===== Toggle ซ่อน/โชว์ ด้วย RightShift =====
+-- Toggle ซ่อน/โชว์ด้วย RightShift
 do
     local vis = true
     UIS.InputBegan:Connect(function(i, gp)
@@ -214,6 +195,4 @@ do
         end
     end)
 end
---==========================================================
--- END
 --==========================================================
