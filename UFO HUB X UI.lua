@@ -116,8 +116,8 @@ end
 
 -- ===== UFO + TITLE (ปรับตามคำขอ) =====
 do
-    local UFO_Y_OFFSET   = 64  -- ⬇️ ยานลงมาใกล้กรอบ
-    local TITLE_Y_OFFSET = 19  -- ⬆️ ชื่อขึ้นไปอีกนิด
+    local UFO_Y_OFFSET   = 66  -- ⬇️ ยานลงมาใกล้กรอบ
+    local TITLE_Y_OFFSET = 18.5  -- ⬆️ ชื่อขึ้นไปอีกนิด
 
     -- UFO
     local UFO = Instance.new("ImageLabel", Window)
