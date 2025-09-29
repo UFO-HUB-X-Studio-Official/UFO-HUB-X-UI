@@ -1,5 +1,5 @@
 --==========================================================
--- UFO HUB X • UFO ชิดหัว, ขอบเขียวหนาขึ้น, การ์ดเขียว + เส้นขาวซ้อน
+-- UFO HUB X • UFO ลงมาใกล้หัวกว่าเดิม + เส้นขาวบาง/จาง
 --==========================================================
 
 -- เคลียร์ของเดิม
@@ -15,12 +15,12 @@ local BG_PANEL     = Color3.fromRGB(22,22,22)
 local BG_INNER     = Color3.fromRGB(20,20,20)
 local TEXT_WHITE   = Color3.fromRGB(235,235,235)
 
--- ขนาดรวม (เล็กกระชับ)
+-- ขนาดรวม
 local WIN_W, WIN_H = 640, 360
 local GAP_OUTER    = 14
 local GAP_BETWEEN  = 12
-local LEFT_RATIO   = 0.22   -- ซ้ายเล็ก
-local RIGHT_RATIO  = 0.78   -- ขวาใหญ่
+local LEFT_RATIO   = 0.22
+local RIGHT_RATIO  = 0.78
 
 -- รูปภาพ
 local IMG_SMALL = "rbxassetid://95514334029879"      -- ซ้าย
@@ -51,9 +51,9 @@ local Window=Instance.new("Frame",GUI)
 Window.AnchorPoint=Vector2.new(0.5,0.5); Window.Position=UDim2.new(0.5,0,0.5,0)
 Window.Size=UDim2.fromOffset(WIN_W,WIN_H); Window.BackgroundColor3=BG_WINDOW; Window.BorderSizePixel=0
 corner(Window,10)
-stroke(Window,2.2,GREEN)  -- << ขอบเขียวรอบ UI ใหญ่ให้หนาขึ้น
+stroke(Window,2.2,GREEN)
 
--- Glow เบา ๆ
+-- Glow
 do
     local Glow=Instance.new("ImageLabel",Window)
     Glow.BackgroundTransparency=1; Glow.AnchorPoint=Vector2.new(0.5,0.5); Glow.Position=UDim2.new(0.5,0,0.5,0)
@@ -62,7 +62,7 @@ do
     Glow.ScaleType=Enum.ScaleType.Slice; Glow.SliceCenter=Rect.new(24,24,276,276)
 end
 
--- ปรับสเกลตามจอ
+-- สเกล
 local UIScale=Instance.new("UIScale",Window)
 local function fit()
     local v=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
@@ -88,32 +88,15 @@ BtnClose.TextSize=13; BtnClose.TextColor3=Color3.new(1,1,1); BtnClose.BorderSize
 corner(BtnClose,6); stroke(BtnClose,1,Color3.fromRGB(255,0,0))
 BtnClose.MouseButton1Click:Connect(function() GUI.Enabled=false end)
 
--- ลากด้วย Header
-do
-    local dragging, start, startPos
-    Header.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 then
-            dragging=true; start=i.Position; startPos=Window.Position
-            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
-            local d=i.Position-start
-            Window.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
-        end
-    end)
-end
-
--- ===== UFO ให้ "ชิด" ขอบบนจริง ๆ (กินหัวลงมาเล็กน้อย) =====
+-- ===== UFO =====
 do
     local UFO=Instance.new("ImageLabel",Window)
     UFO.Name="UFO_Top"; UFO.BackgroundTransparency=1; UFO.Image=IMG_UFO
     UFO.Size=UDim2.new(0,84,0,84)
     UFO.AnchorPoint=Vector2.new(0.5,1)
     UFO.ZIndex=60
-    -- วางให้ "กึ่งกลาง" และให้ก้นยานลงมาทับหัว ~12px (จะไม่ดูสูงแล้ว)
-    UFO.Position=UDim2.new(0.5,0,0,12)
+    -- เลื่อนลงมาให้ชิดหัวกว่าเดิม
+    UFO.Position=UDim2.new(0.5,0,0,28)
 end
 
 -- ===== BODY =====
@@ -123,36 +106,37 @@ Body.BackgroundTransparency=1; Body.Position=UDim2.new(0,0,0,40); Body.Size=UDim
 local Inner=Instance.new("Frame",Body)
 Inner.BackgroundColor3=BG_INNER; Inner.Position=UDim2.new(0,8,0,8); Inner.Size=UDim2.new(1,-16,1,-16); corner(Inner,10)
 
--- กรอบใหญ่ด้านใน (ขอบ "ขาว")
+-- กรอบใหญ่ (ขอบขาวบาง+จาง)
 local Content=Instance.new("Frame",Body)
 Content.BackgroundColor3=BG_PANEL; Content.Position=UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
 Content.Size=UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
 corner(Content,10)
-stroke(Content,1.1,WHITE)  -- << เส้นที่ล้อมรอบเป็นสีขาว (ตามที่สั่ง)
+local outerStroke=stroke(Content,0.7,WHITE)
+outerStroke.Transparency=0.35
 
 local Columns=Instance.new("Frame",Content)
 Columns.BackgroundTransparency=1; Columns.Position=UDim2.new(0,8,0,8); Columns.Size=UDim2.new(1,-16,1,-16)
 
--- === การ์ดซ้าย (เขียว + เส้นขาวซ้อน)
+-- ซ้าย (เขียว + เส้นขาวบางจาง)
 local Left=Instance.new("Frame",Columns)
 Left.BackgroundColor3=Color3.fromRGB(16,16,16)
 Left.Size=UDim2.new(LEFT_RATIO,-GAP_BETWEEN/2,1,0)
 Left.ClipsDescendants=true; corner(Left,10)
-stroke(Left,1.2,GREEN)                     -- กรอบเขียวกลับมา
-local LeftWhite=stroke(Left,0.9,WHITE)     -- ซ้อนเส้นขาวด้านในบาง ๆ
-LeftWhite.Transparency = 0.15
+stroke(Left,1.2,GREEN)
+local LeftWhite=stroke(Left,0.6,WHITE)
+LeftWhite.Transparency=0.4
 
--- === การ์ดขวา (เขียว + เส้นขาวซ้อน)
+-- ขวา (เขียว + เส้นขาวบางจาง)
 local Right=Instance.new("Frame",Columns)
 Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(LEFT_RATIO,GAP_BETWEEN,0,0)
 Right.Size=UDim2.new(RIGHT_RATIO,-GAP_BETWEEN/2,1,0)
 Right.ClipsDescendants=true; corner(Right,10)
-stroke(Right,1.2,GREEN)                    -- กรอบเขียวกลับมา
-local RightWhite=stroke(Right,0.9,WHITE)   -- ซ้อนเส้นขาวด้านในบาง ๆ
-RightWhite.Transparency = 0.15
+stroke(Right,1.2,GREEN)
+local RightWhite=stroke(Right,0.6,WHITE)
+RightWhite.Transparency=0.4
 
--- รูปภาพ (Crop เต็มกรอบ)
+-- รูปภาพ
 local imgL=Instance.new("ImageLabel",Left)
 imgL.BackgroundTransparency=1; imgL.Size=UDim2.new(1,0,1,0); imgL.Image=IMG_SMALL; imgL.ScaleType=Enum.ScaleType.Crop
 
