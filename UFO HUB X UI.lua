@@ -1,38 +1,37 @@
 --==========================================================
--- UFO HUB X • Hi-Tech UI (neon mint), thinner inner lines,
--- UFO docked to header
+-- UFO HUB X • UFO sits on top border, big; center title under it
+-- "UFO" (white) + "HUB X" (green)
 --==========================================================
 
--- ล้างของเดิม
+-- เคลียร์ของเดิม
 pcall(function()
     local g = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
     if g then g:Destroy() end
 end)
 
 -- ===== THEME / SIZE =====
-local TITLE         = "UFO  HUB X"
+local TITLE_RAW    = "UFO  HUB X" -- ใช้เฉพาะ fallback
+local GREEN        = Color3.fromRGB(0,255,140)         -- เขียวหลัก
+local MINT         = Color3.fromRGB(120,255,220)       -- เส้นมิ้นต์บาง
+local MINT_SOFT    = Color3.fromRGB(90,210,190)        -- glow อ่อน
+local BG_WINDOW    = Color3.fromRGB(16,16,16)
+local BG_HEADER    = Color3.fromRGB(6,6,6)
+local BG_PANEL     = Color3.fromRGB(22,22,22)
+local BG_INNER     = Color3.fromRGB(18,18,18)
+local TEXT_WHITE   = Color3.fromRGB(235,235,235)
+local DANGER_RED   = Color3.fromRGB(200,40,40)
 
-local GREEN         = Color3.fromRGB(0,255,140)     -- เขียวหลัก
-local MINT          = Color3.fromRGB(120,255,220)   -- เส้นโทนมิ้นต์ (แทนขาว)
-local MINT_SOFT     = Color3.fromRGB(90,210,190)    -- accent อ่อน
-local BG_WINDOW     = Color3.fromRGB(16,16,16)
-local BG_HEADER     = Color3.fromRGB(6,6,6)
-local BG_PANEL      = Color3.fromRGB(22,22,22)
-local BG_INNER      = Color3.fromRGB(18,18,18)
-local TEXT_WHITE    = Color3.fromRGB(235,235,235)
-local DANGER_RED    = Color3.fromRGB(200,40,40)
-
--- ขนาดรวม (กะทัดรัด)
+-- ขนาดรวม
 local WIN_W, WIN_H  = 640, 360
 local GAP_OUTER     = 14
 local GAP_BETWEEN   = 12
 local LEFT_RATIO    = 0.22
 local RIGHT_RATIO   = 0.78
 
--- รูปภาพ
-local IMG_SMALL     = "rbxassetid://95514334029879"      -- ซ้าย (เล็ก)
-local IMG_LARGE     = "rbxassetid://117055535552131"     -- ขวา (ใหญ่)
-local IMG_UFO       = "rbxassetid://100650447103028"     -- UFO
+-- รูป
+local IMG_SMALL     = "rbxassetid://95514334029879"
+local IMG_LARGE     = "rbxassetid://117055535552131"
+local IMG_UFO       = "rbxassetid://100650447103028"
 
 -- ===== HELPERS =====
 local function corner(gui, r)
@@ -40,7 +39,6 @@ local function corner(gui, r)
     c.CornerRadius = UDim.new(0, r or 10)
     return c
 end
-
 local function stroke(gui, t, col, trans)
     local s = Instance.new("UIStroke", gui)
     s.Thickness = t or 1
@@ -50,7 +48,6 @@ local function stroke(gui, t, col, trans)
     s.LineJoinMode = Enum.LineJoinMode.Round
     return s
 end
-
 local function gradient(gui, col1, col2, rot)
     local g = Instance.new("UIGradient", gui)
     g.Color = ColorSequence.new(col1, col2)
@@ -73,12 +70,12 @@ GUI.Parent = CoreGui
 -- ===== WINDOW =====
 local Window = Instance.new("Frame", GUI)
 Window.AnchorPoint = Vector2.new(0.5,0.5)
-Window.Position = UDim2.new(0.5,0,0.5,0)
-Window.Size = UDim2.fromOffset(WIN_W, WIN_H)
+Window.Position    = UDim2.new(0.5,0,0.5,0)
+Window.Size        = UDim2.fromOffset(WIN_W, WIN_H)
 Window.BackgroundColor3 = BG_WINDOW
-Window.BorderSizePixel = 0
+Window.BorderSizePixel  = 0
 corner(Window, 12)
-stroke(Window, 2.4, GREEN, 0) -- ขอบเขียวรอบ UI ใหญ่ (หนา)
+stroke(Window, 2.6, GREEN, 0) -- ขอบเขียวรอบนอก (หนา)
 
 -- Glow รอบนอก
 do
@@ -95,7 +92,7 @@ do
     Glow.SliceCenter = Rect.new(24,24,276,276)
 end
 
--- Scale ให้พอดีจอ
+-- Auto scale
 local UIScale = Instance.new("UIScale", Window)
 local function fit()
     local v = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
@@ -103,7 +100,7 @@ local function fit()
 end
 fit(); RunS.RenderStepped:Connect(fit)
 
--- ===== HEADER (ไฮเทค + กราเดียนต์) =====
+-- ===== HEADER (แถบด้านบน) =====
 local Header = Instance.new("Frame", Window)
 Header.Size = UDim2.new(1,0,0,42)
 Header.BackgroundColor3 = BG_HEADER
@@ -111,44 +108,24 @@ Header.BorderSizePixel = 0
 corner(Header, 12)
 gradient(Header, Color3.fromRGB(10,10,10), Color3.fromRGB(0,0,0), 0)
 
--- Accent bar มิ้นต์เส้นบางใต้หัว
+-- เส้น accent ใต้หัว
 local HeadAccent = Instance.new("Frame", Header)
 HeadAccent.AnchorPoint = Vector2.new(0.5,1)
-HeadAccent.Position = UDim2.new(0.5,0,1,0)
-HeadAccent.Size = UDim2.new(1,-20,0,1)
+HeadAccent.Position     = UDim2.new(0.5,0,1,0)
+HeadAccent.Size         = UDim2.new(1,-20,0,1)
 HeadAccent.BackgroundColor3 = MINT
-HeadAccent.BorderSizePixel = 0
 HeadAccent.BackgroundTransparency = 0.35
+HeadAccent.BorderSizePixel = 0
 
--- จุดมิ้นต์ทางซ้าย (แทน dot เขียวหนา ๆ)
+-- จุดซ้าย
 local Dot = Instance.new("Frame", Header)
 Dot.BackgroundColor3 = MINT
 Dot.Position = UDim2.new(0,14,0.5,-4)
-Dot.Size = UDim2.new(0,8,0,8)
+Dot.Size     = UDim2.new(0,8,0,8)
 Dot.BorderSizePixel = 0
 corner(Dot, 4)
 
--- glow เล็ก ๆ ของจุด
-local DotGlow = Instance.new("ImageLabel", Header)
-DotGlow.BackgroundTransparency = 1
-DotGlow.Image = "rbxassetid://5028857084"
-DotGlow.ImageColor3 = MINT
-DotGlow.ImageTransparency = 0.6
-DotGlow.Position = UDim2.new(0,8,0.5,-10)
-DotGlow.Size = UDim2.new(0,20,0,20)
-DotGlow.ZIndex = 1
-
-local TitleLbl = Instance.new("TextLabel", Header)
-TitleLbl.BackgroundTransparency = 1
-TitleLbl.Position = UDim2.new(0,30,0,0)
-TitleLbl.Size = UDim2.new(1,-90,1,0)
-TitleLbl.Font = Enum.Font.GothamBold
-TitleLbl.Text = TITLE
-TitleLbl.TextSize = 15
-TitleLbl.TextColor3 = TEXT_WHITE
-TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
--- ปุ่ม X แดง
+-- ปุ่มปิด
 local BtnClose = Instance.new("TextButton", Header)
 BtnClose.Size = UDim2.new(0,24,0,24)
 BtnClose.Position = UDim2.new(1,-34,0.5,-12)
@@ -160,9 +137,9 @@ BtnClose.TextColor3 = Color3.new(1,1,1)
 BtnClose.BorderSizePixel = 0
 corner(BtnClose, 6)
 stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
-BtnClose.MouseButton1Click:Connect(function() GUI.Enabled = false end)
+BtnClose.MouseButton1Click:Connect(function() GUI.Enabled=false end)
 
--- ลากด้วย Header
+-- ลากหน้าต่าง
 do
     local dragging, start, startPos
     Header.InputBegan:Connect(function(i)
@@ -179,115 +156,89 @@ do
     end)
 end
 
--- ===== UFO Dock (ให้ยาน “ติดหัว UI” จริง ๆ + มีฐานเรืองแสง) =====
+-- ===== UFO + ชื่ออยู่ใต้ UFO (กลางหัว) =====
 do
-    -- แผ่นฐานเรืองกลางหัว (ฮาโล่)
-    local Dock = Instance.new("ImageLabel", Window)
-    Dock.BackgroundTransparency = 1
-    Dock.AnchorPoint = Vector2.new(0.5,0)
-    Dock.Position = UDim2.new(0.5,0,0,0)  -- ชิดขอบบนสุดของ Window
-    Dock.Size = UDim2.new(0,110,0,36)
-    Dock.Image = "rbxassetid://5028857084"
-    Dock.ImageColor3 = MINT_SOFT
-    Dock.ImageTransparency = 0.68
-    Dock.ZIndex = 50
-
+    -- UFO ใหญ่ขึ้น และ "นั่งบนเส้นเขียวบนสุด" (ขอบของ Window)
     local UFO = Instance.new("ImageLabel", Window)
     UFO.Name = "UFO_Top"
     UFO.BackgroundTransparency = 1
     UFO.Image = IMG_UFO
-    UFO.Size = UDim2.new(0,86,0,86)
-    UFO.AnchorPoint = Vector2.new(0.5,0)                 -- อ้างอิงด้านบนของยาน
-    UFO.Position = UDim2.new(0.5,0,0,2)                  -- 2px จากขอบบน = เรียกว่าติดหัว
+    UFO.Size = UDim2.new(0,118,0,118)     -- ขยายให้พอดี UI
+    UFO.AnchorPoint = Vector2.new(0.5,1)  -- อ้าง "ด้านล่าง" ของรูป
+    UFO.Position = UDim2.new(0.5,0,0,0)   -- ด้านล่างรูปตรงกับขอบบนพอดี (นั่งบนเส้นเขียว)
     UFO.ZIndex = 60
+
+    -- ฮาโล่ฐาน
+    local Halo = Instance.new("ImageLabel", Window)
+    Halo.BackgroundTransparency = 1
+    Halo.AnchorPoint = Vector2.new(0.5,0)
+    Halo.Position = UDim2.new(0.5,0,0,0)
+    Halo.Size = UDim2.new(0,140,0,40)
+    Halo.Image = "rbxassetid://5028857084"
+    Halo.ImageColor3 = MINT_SOFT
+    Halo.ImageTransparency = 0.7
+    Halo.ZIndex = 50
+
+    -- ชื่ออยู่ "ใต้ UFO" (กลางหัว)
+    local TitleCenter = Instance.new("TextLabel", Header)
+    TitleCenter.BackgroundTransparency = 1
+    TitleCenter.AnchorPoint = Vector2.new(0.5,0)
+    TitleCenter.Position = UDim2.new(0.5,0,0,18) -- ใต้ UFO/เหนือเส้น accent เล็กน้อย
+    TitleCenter.Size = UDim2.new(0.6,0,0,18)
+    TitleCenter.Font = Enum.Font.GothamBold
+    TitleCenter.TextScaled = true
+    TitleCenter.RichText = true
+    -- UFO (white) + HUB X (green)
+    TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
+    TitleCenter.TextColor3 = TEXT_WHITE
 end
 
 -- ===== BODY =====
 local Body = Instance.new("Frame", Window)
 Body.BackgroundTransparency = 1
 Body.Position = UDim2.new(0,0,0,42)
-Body.Size = UDim2.new(1,0,1,-42)
+Body.Size     = UDim2.new(1,0,1,-42)
 
 local Inner = Instance.new("Frame", Body)
 Inner.BackgroundColor3 = BG_INNER
 Inner.BorderSizePixel = 0
 Inner.Position = UDim2.new(0,8,0,8)
-Inner.Size = UDim2.new(1,-16,1,-16)
+Inner.Size     = UDim2.new(1,-16,1,-16)
 corner(Inner, 12)
 
--- กรอบใหญ่ด้านใน (เส้นมิ้นต์ “บางและจาง” แทนสีขาว)
+-- กรอบใหญ่ด้านใน (เส้นมิ้นต์ บาง/โปร่ง)
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
 Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
-Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
+Content.Size     = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
 corner(Content, 12)
-stroke(Content, 0.5, MINT, 0.35) -- บางลง + จางลง (ไม่แยงตา)
+stroke(Content, 0.5, MINT, 0.35)
 
--- พื้นหลังสแกนไลน์เบา ๆ (ไฮเทค)
-local Scan = Instance.new("Frame", Content)
-Scan.BackgroundColor3 = Color3.fromRGB(255,255,255)
-Scan.BackgroundTransparency = 1
-Scan.Size = UDim2.fromScale(1,1)
-local sg = gradient(Scan, Color3.fromRGB(255,255,255), Color3.fromRGB(255,255,255), 90)
-sg.Transparency = NumberSequence.new{
-    NumberSequenceKeypoint.new(0,1),
-    NumberSequenceKeypoint.new(0.48,1),
-    NumberSequenceKeypoint.new(0.5,0.85),
-    NumberSequenceKeypoint.new(0.52,1),
-    NumberSequenceKeypoint.new(1,1)
-}
-
--- คอลัมน์ 2 ช่อง
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0,8,0,8)
-Columns.Size = UDim2.new(1,-16,1,-16)
+Columns.Size     = UDim2.new(1,-16,1,-16)
 
--- === การ์ดซ้าย (กรอบเขียวหลัก + เส้นมิ้นต์บางซ้อน) ===
+-- การ์ดซ้าย
 local Left = Instance.new("Frame", Columns)
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Left.ClipsDescendants = true
 corner(Left, 10)
-stroke(Left, 1.2, GREEN, 0)        -- กรอบนอกเขียว
-stroke(Left, 0.45, MINT, 0.35)     -- เส้นในมิ้นต์ บาง+โปร่ง
+stroke(Left, 1.2, GREEN, 0)
+stroke(Left, 0.45, MINT, 0.35)
 
--- มุมเรือง (corner accents)
-for _, pos in ipairs({"TL","TR","BL","BR"}) do
-    local a = Instance.new("Frame", Left)
-    a.BackgroundColor3 = MINT
-    a.BorderSizePixel = 0
-    a.Size = UDim2.new(0,10,0,2)
-    if pos=="TL" then a.Position = UDim2.new(0,6,0,6)
-    elseif pos=="TR" then a.Position = UDim2.new(1,-16,0,6)
-    elseif pos=="BL" then a.Position = UDim2.new(0,6,1,-8)
-    else a.Position = UDim2.new(1,-16,1,-8) end
-    a.BackgroundTransparency = 0.25
-end
-
--- === การ์ดขวา (เหมือนซ้าย) ===
+-- การ์ดขวา
 local Right = Instance.new("Frame", Columns)
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
-Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Right.Size     = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Right.ClipsDescendants = true
 corner(Right, 10)
 stroke(Right, 1.2, GREEN, 0)
 stroke(Right, 0.45, MINT, 0.35)
 
-for _, pos in ipairs({"TL","TR","BL","BR"}) do
-    local a = Instance.new("Frame", Right)
-    a.BackgroundColor3 = MINT
-    a.BorderSizePixel = 0
-    a.Size = UDim2.new(0,10,0,2)
-    if pos=="TL" then a.Position = UDim2.new(0,6,0,6)
-    elseif pos=="TR" then a.Position = UDim2.new(1,-16,0,6)
-    elseif pos=="BL" then a.Position = UDim2.new(0,6,1,-8)
-    else a.Position = UDim2.new(1,-16,1,-8) end
-    a.BackgroundTransparency = 0.25
-end
-
--- ===== รูปภาพ (Crop เต็มกรอบ) =====
+-- รูป
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1
 imgL.Size = UDim2.new(1,0,1,0)
@@ -303,7 +254,7 @@ imgR.ScaleType = Enum.ScaleType.Crop
 -- Toggle ซ่อน/โชว์ด้วย RightShift
 do
     local vis = true
-    UIS.InputBegan:Connect(function(i, gp)
+    UIS.InputBegan:Connect(function(i,gp)
         if not gp and i.KeyCode == Enum.KeyCode.RightShift then
             vis = not vis
             GUI.Enabled = vis
