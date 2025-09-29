@@ -1,5 +1,6 @@
 --==========================================================
 -- UFO HUB X • tuned layout (title higher, UFO lower)
+-- (Full file with AFK Always-On integrated)
 --==========================================================
 
 pcall(function()
@@ -174,7 +175,7 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 
--- toggle show/hide
+-- toggle show/hide (RightShift)
 do local vis=true
     UIS.InputBegan:Connect(function(i,gp)
         if not gp and i.KeyCode==Enum.KeyCode.RightShift then vis=not vis; GUI.Enabled=vis end
@@ -182,28 +183,53 @@ do local vis=true
 end
 
 --==========================================================
--- AFK SHIELD (Auto-Idle Protector) • เริ่มทำงานทันทีเมื่อ UI เปิด
+-- AFK SHIELD (Always-On) • ทำงานแม้ปิด/ซ่อน UI • ตลอดที่อยู่ในเกม
 --==========================================================
 do
-    local Players     = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local VirtualUser = game:GetService("VirtualUser")
-    local afkEnabled  = true  -- เปิดไว้ตลอด (ภายใน UI นี้)
+    local Players            = game:GetService("Players")
+    local UserInputService   = game:GetService("UserInputService")
+    local LocalPlayer        = Players.LocalPlayer
+    local VirtualUser        = game:GetService("VirtualUser")
 
-    -- กันโดนเตะเมื่อระบบตรวจจับ Idle (ปกติ ~20 นาที)
-    -- เมื่อเหตุการณ์ Idled เกิดขึ้น จะส่งอินพุตจำลองให้เกมรับรู้ว่าเรายัง “แอคทีฟ”
-    LocalPlayer.Idled:Connect(function()
-        if afkEnabled and GUI.Enabled then
-            -- จับคอนโทรลแล้วคลิกขวาเสมือน (ไม่น่ารบกวนการเล่น)
+    -- ป้องกันโหลดซ้ำ / cleanup คอนเนกชันเดิมถ้ามี
+    getgenv().UFO_AFK_SHIELD = getgenv().UFO_AFK_SHIELD or {}
+    local Shield = getgenv().UFO_AFK_SHIELD
+
+    if Shield.conn then pcall(function() Shield.conn:Disconnect() end) end
+    if Shield.keepaliveLoop then Shield.keepaliveLoop = false end
+
+    Shield.enabled = true
+
+    -- เมื่อ Roblox มองว่า Idle → ส่งอินพุตจำลองปลุกทันที (เบา/ไม่รบกวน)
+    Shield.conn = LocalPlayer.Idled:Connect(function()
+        if Shield.enabled then
             VirtualUser:CaptureController()
-            -- ใช้ตำแหน่ง/เฟรมของกล้องถ้ามี เพื่อความปลอดภัย
             local cam = workspace.CurrentCamera
             local pos = cam and cam.CFrame.Position or Vector3.new()
             VirtualUser:ClickButton2(Vector2.new(0,0), CFrame.new(pos))
         end
     end)
-end
 
+    -- ติดตามอินพุตจริงจากผู้เล่น เพื่อไม่แทรกตอนเล่นอยู่
+    local lastRealInput = os.clock()
+    UserInputService.InputBegan:Connect(function() lastRealInput = os.clock() end)
+    UserInputService.InputChanged:Connect(function() lastRealInput = os.clock() end)
+
+    -- ประกันเพิ่ม: ถ้าเงียบเกิน ~9 นาที ให้สะกิดเอง 1 ครั้ง
+    Shield.keepaliveLoop = true
+    task.spawn(function()
+        while Shield.keepaliveLoop and Shield.enabled do
+            task.wait(30) -- เช็คทุก 30 วิ (ภาระต่ำ)
+            if os.clock() - lastRealInput > 540 then -- ~9 นาที
+                VirtualUser:CaptureController()
+                local cam = workspace.CurrentCamera
+                local pos = cam and cam.CFrame.Position or Vector3.new()
+                VirtualUser:ClickButton2(Vector2.new(0,0), CFrame.new(pos))
+                lastRealInput = os.clock()
+            end
+        end
+    end)
+end
 --==========================================================
 -- END
 --==========================================================
