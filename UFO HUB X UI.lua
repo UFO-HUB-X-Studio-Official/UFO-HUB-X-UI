@@ -184,80 +184,69 @@ end
 -- END
 --==========================================================
 --==========================================================
--- UFO HUB X • Toggle button (ใหญ่ขึ้น/ย้ายขึ้น) + แก้รูปติดสี
--- ใช้คู่กับสคริปต์หลักของคุณที่สร้าง GUI: "UFO_HUB_X_UI"
+-- UFO HUB X • Toggle button (ปรับตำแหน่งลง-ขวา + ลากได้) + ล้างสีภาพ
+-- ใช้คู่กับ ScreenGui หลักชื่อ "UFO_HUB_X_UI"
 --==========================================================
 local CoreGui = game:GetService("CoreGui")
 local UIS     = game:GetService("UserInputService")
 
-local MAIN_GUI   = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+local MAIN_GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
 if not MAIN_GUI then return end
 
--- หา "หน้าต่างหลัก" ที่จะซ่อน/แสดง (Frame ตัวแรกใน ScreenGui)
+-- หน้าต่างหลักที่จะซ่อน/แสดง
 local WINDOW = MAIN_GUI:FindFirstChildOfClass("Frame")
 
--- 1) แก้รูปภาพติดสีเขียว (เอาทุก ImageLabel ใน GUI ให้เป็นสีขาวจริง)
-do
-    for _, obj in ipairs(MAIN_GUI:GetDescendants()) do
-        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            obj.ImageColor3 = Color3.new(1,1,1) -- ล้าง tint
-        end
+-- ล้าง tint สีรูปภาพให้เป็นสีจริง
+for _, o in ipairs(MAIN_GUI:GetDescendants()) do
+    if o:IsA("ImageLabel") or o:IsA("ImageButton") then
+        o.ImageColor3 = Color3.new(1,1,1)
     end
 end
 
--- 2) ลบ Toggle เดิม (ถ้ามี) แล้วสร้างใหม่เป็น ScreenGui แยก
+-- ลบ Toggle เดิม (ถ้ามี) แล้วสร้างใหม่ใน ScreenGui แยก
 local OLD = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
 if OLD then OLD:Destroy() end
 
 local ToggleGui = Instance.new("ScreenGui")
 ToggleGui.Name = "UFO_HUB_X_Toggle"
 ToggleGui.IgnoreGuiInset = true
-ToggleGui.ResetOnSpawn = false
+ToggleGui.ResetOnSpawn   = false
 ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ToggleGui.Parent = CoreGui
 
--- 3) ปุ่มสี่เหลี่ยม (ใหญ่ขึ้น + ย้ายขึ้น)
+-- ปุ่มสี่เหลี่ยม (ใหญ่ขึ้น + ย้ายลง/ขวา)
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleUI"
 ToggleBtn.Parent = ToggleGui
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- พื้นหลังสีดำ (ตามที่ชี้ตำแหน่งไว้)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
 ToggleBtn.BorderSizePixel  = 0
-ToggleBtn.Size     = UDim2.new(0, 64, 0, 64)         -- << ขนาดปุ่ม (ใหญ่ขึ้น)
-ToggleBtn.Position = UDim2.new(0, 144, 0, 120)       -- << ตำแหน่ง “ขึ้นข้างบนอีก”
-ToggleBtn.Image    = "rbxassetid://117052960049460"  -- รูปไอคอนปุ่ม
-ToggleBtn.ImageColor3 = Color3.new(1,1,1)            -- ไอคอนสีจริง ไม่ติดเขียว
+ToggleBtn.Size     = UDim2.new(0, 64, 0, 64)
+ToggleBtn.Position = UDim2.new(0, 170, 0, 150) -- << ขวานิดนึง (X=170) + ลงนิดนึง (Y=150)
+ToggleBtn.Image    = "rbxassetid://117052960049460"
+ToggleBtn.ImageColor3 = Color3.new(1,1,1)
 ToggleBtn.AutoButtonColor = false
 
--- ขอบสีเขียว
+local corner = Instance.new("UICorner", ToggleBtn)
+corner.CornerRadius = UDim.new(0, 8)
+
 local stroke = Instance.new("UIStroke", ToggleBtn)
 stroke.Thickness = 2
 stroke.Color = Color3.fromRGB(0,255,140)
 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 stroke.LineJoinMode    = Enum.LineJoinMode.Round
 
--- โค้งมุม
-local corner = Instance.new("UICorner", ToggleBtn)
-corner.CornerRadius = UDim.new(0, 8)
+ToggleBtn.MouseEnter:Connect(function() stroke.Thickness = 3 end)
+ToggleBtn.MouseLeave:Connect(function() stroke.Thickness = 2 end)
 
--- เอฟเฟ็กต์ hover เล็กน้อย
-ToggleBtn.MouseEnter:Connect(function()
-    stroke.Thickness = 3
-end)
-ToggleBtn.MouseLeave:Connect(function()
-    stroke.Thickness = 2
-end)
-
--- 4) การทำงานของปุ่ม: ซ่อน/แสดงเฉพาะ "WINDOW" (ปุ่มไม่หาย)
+-- ซ่อน/แสดงเฉพาะหน้าต่าง (ปุ่มไม่หาย)
 local visible = true
 local function setVisible(v)
     visible = v
     if WINDOW then WINDOW.Visible = v end
 end
-ToggleBtn.MouseButton1Click:Connect(function()
-    setVisible(not visible)
-end)
+ToggleBtn.MouseButton1Click:Connect(function() setVisible(not visible) end)
 
--- 5) เผื่ออยากใช้คีย์ลัด (RightShift) เหมือนเดิม
+-- คีย์ลัด RightShift เหมือนเดิม
 UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
@@ -265,22 +254,30 @@ UIS.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- 6) ถ้าปุ่มควร “ล็อก” ตำแหน่งไว้แถวสี่เหลี่ยมดำจริง ๆ ให้ปรับสองเลขนี้:
---    ToggleBtn.Position = UDim2.new(0, X, 0, Y)
---    X = ระยะจากขอบซ้ายจอ (พิกเซล), Y = ระยะจากขอบบนจอ (พิกเซล)
---    ตอนนี้ตั้งไว้เป็น (144, 120) ถ้าอยากสูงขึ้นอีกก็ลดค่า Y เช่น 96 หรือ 80
-
--- 7) กันรูปในคอลัมน์ติดสีเขียว (ซ้ำกันอีกชั้น เผื่อมีการสร้างใหม่ทีหลัง)
-local function deTintInside()
-    if not WINDOW then return end
-    for _, obj in ipairs(WINDOW:GetDescendants()) do
-        if obj:IsA("ImageLabel") then
-            obj.ImageColor3 = Color3.new(1,1,1)
-        end
+-- ทำให้ "ปุ่ม" ลากได้ (เผื่ออยากขยับจุดเล็กน้อยแบบไม่ต้องแก้โค้ด)
+do
+    local dragging = false
+    local startPos, startMouse
+    local function setPos(px, py)
+        ToggleBtn.Position = UDim2.new(0, px, 0, py)
     end
+    ToggleBtn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            startPos = Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
+            startMouse = i.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local delta = i.Position - startMouse
+            setPos(startPos.X + delta.X, startPos.Y + delta.Y)
+        end
+    end)
 end
-deTintInside()
-
 --==========================================================
 -- END
 --==========================================================
