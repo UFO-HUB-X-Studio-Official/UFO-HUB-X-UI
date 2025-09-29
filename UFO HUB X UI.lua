@@ -1,5 +1,5 @@
 --==========================================================
--- UFO HUB X • tuned layout (precise offsets)
+-- UFO HUB X • Final tuned layout (precise offsets & balance)
 --==========================================================
 
 pcall(function()
@@ -26,9 +26,9 @@ local LEFT_RATIO   = 0.22
 local RIGHT_RATIO  = 0.78
 
 -- IMAGES
-local IMG_SMALL = "rbxassetid://95514334029879"
-local IMG_LARGE = "rbxassetid://117055535552131"
-local IMG_UFO   = "rbxassetid://100650447103028"
+local IMG_SMALL = "rbxassetid://95514334029879"      -- ซ้าย (อันเล็ก)
+local IMG_LARGE = "rbxassetid://117055535552131"     -- ขวา (อันใหญ่)
+local IMG_UFO   = "rbxassetid://100650447103028"     -- UFO
 
 -- HELPERS
 local function corner(gui, r)
@@ -57,14 +57,21 @@ GUI.ResetOnSpawn = false; GUI.Parent = CoreGui
 local Window = Instance.new("Frame", GUI)
 Window.AnchorPoint = Vector2.new(0.5,0.5); Window.Position = UDim2.new(0.5,0,0.5,0)
 Window.Size = UDim2.fromOffset(WIN_W, WIN_H); Window.BackgroundColor3 = BG_WINDOW; Window.BorderSizePixel = 0
-corner(Window, 12); stroke(Window, 2.8, GREEN, 0)
+corner(Window, 12); stroke(Window, 3, GREEN, 0)
 
-do -- soft glow
+-- soft glow รอบนอก
+do
     local Glow = Instance.new("ImageLabel", Window)
-    Glow.BackgroundTransparency = 1; Glow.AnchorPoint = Vector2.new(0.5,0.5)
-    Glow.Position = UDim2.new(0.5,0,0.5,0); Glow.Size = UDim2.new(1.07,0,1.09,0)
-    Glow.ZIndex = 0; Glow.Image = "rbxassetid://5028857084"; Glow.ImageColor3 = GREEN; Glow.ImageTransparency = 0.78
-    Glow.ScaleType = Enum.ScaleType.Slice; Glow.SliceCenter = Rect.new(24,24,276,276)
+    Glow.BackgroundTransparency = 1
+    Glow.AnchorPoint = Vector2.new(0.5,0.5)
+    Glow.Position = UDim2.new(0.5,0,0.5,0)
+    Glow.Size = UDim2.new(1.07,0,1.09,0)
+    Glow.Image = "rbxassetid://5028857084"
+    Glow.ImageColor3 = GREEN
+    Glow.ImageTransparency = 0.78
+    Glow.ScaleType = Enum.ScaleType.Slice
+    Glow.SliceCenter = Rect.new(24,24,276,276)
+    Glow.ZIndex = 0
 end
 
 -- autoscale
@@ -77,26 +84,41 @@ fit(); RunS.RenderStepped:Connect(fit)
 
 -- HEADER
 local Header = Instance.new("Frame", Window)
-Header.Size = UDim2.new(1,0,0,42); Header.BackgroundColor3 = BG_HEADER; Header.BorderSizePixel = 0
-corner(Header, 12); gradient(Header, Color3.fromRGB(10,10,10), Color3.fromRGB(0,0,0), 0)
+Header.Size = UDim2.new(1,0,0,46)  -- เพิ่มสูงขึ้นเล็กน้อยเพื่อให้ Title หายอึด
+Header.BackgroundColor3 = BG_HEADER
+Header.BorderSizePixel = 0
+corner(Header, 12)
+gradient(Header, Color3.fromRGB(10,10,10), Color3.fromRGB(0,0,0), 0)
 
 local HeadAccent = Instance.new("Frame", Header)
-HeadAccent.AnchorPoint = Vector2.new(0.5,1); HeadAccent.Position = UDim2.new(0.5,0,1,0)
-HeadAccent.Size = UDim2.new(1,-20,0,1); HeadAccent.BackgroundColor3 = MINT; HeadAccent.BackgroundTransparency = 0.35
+HeadAccent.AnchorPoint = Vector2.new(0.5,1)
+HeadAccent.Position = UDim2.new(0.5,0,1,0)
+HeadAccent.Size = UDim2.new(1,-20,0,1)
+HeadAccent.BackgroundColor3 = MINT
+HeadAccent.BackgroundTransparency = 0.35
 HeadAccent.BorderSizePixel = 0
 
 local Dot = Instance.new("Frame", Header)
-Dot.BackgroundColor3 = MINT; Dot.Position = UDim2.new(0,14,0.5,-4); Dot.Size = UDim2.new(0,8,0,8)
-Dot.BorderSizePixel = 0; corner(Dot, 4)
+Dot.BackgroundColor3 = MINT
+Dot.Position = UDim2.new(0,14,0.5,-4)
+Dot.Size = UDim2.new(0,8,0,8)
+Dot.BorderSizePixel = 0
+corner(Dot, 4)
 
 local BtnClose = Instance.new("TextButton", Header)
-BtnClose.Size = UDim2.new(0,24,0,24); BtnClose.Position = UDim2.new(1,-34,0.5,-12)
-BtnClose.BackgroundColor3 = DANGER_RED; BtnClose.Text = "X"; BtnClose.Font = Enum.Font.GothamBold
-BtnClose.TextSize = 13; BtnClose.TextColor3 = Color3.new(1,1,1); BtnClose.BorderSizePixel = 0
-corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
+BtnClose.Size = UDim2.new(0,24,0,24)
+BtnClose.Position = UDim2.new(1,-34,0.5,-12)
+BtnClose.BackgroundColor3 = DANGER_RED
+BtnClose.Text = "X"
+BtnClose.Font = Enum.Font.GothamBold
+BtnClose.TextSize = 13
+BtnClose.TextColor3 = Color3.new(1,1,1)
+BtnClose.BorderSizePixel = 0
+corner(BtnClose, 6)
+stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
 BtnClose.MouseButton1Click:Connect(function() GUI.Enabled = false end)
 
--- drag
+-- drag window
 do
     local dragging, start, startPos
     Header.InputBegan:Connect(function(i)
@@ -113,70 +135,102 @@ do
     end)
 end
 
--- UFO + TITLE (ตำแหน่ง “วัดระยะ” แล้ว)
+-- ===== UFO + TITLE (ระยะ “วัดแล้วพอดี”) =====
 do
-    -- ▲ UFO: ใหญ่และ “ลงมาใกล้ UI” พอดี (OFFSET_Y = 12px)
+    -- ▼ ปรับละเอียดได้ที่ตัวเลขท้าย 2 จุดนี้ (อธิบายด้านล่าง)
+    local UFO_Y_OFFSET   = 14  -- ระยะจากขอบบนกรอบใหญ่ลงมา (ยาน)
+    local TITLE_Y_OFFSET = 26  -- ระยะจากขอบบนของ Header ลงมา (ชื่อ)
+
+    -- UFO (ใหญ่ขึ้น + ชิดเส้นเขียวบนพอดี)
     local UFO = Instance.new("ImageLabel", Window)
-    UFO.Name = "UFO_Top"; UFO.BackgroundTransparency = 1; UFO.Image = IMG_UFO
-    UFO.Size = UDim2.new(0,162,0,162)      -- ขนาด UFO
+    UFO.Name = "UFO_Top"
+    UFO.BackgroundTransparency = 1
+    UFO.Image = IMG_UFO
+    UFO.Size = UDim2.new(0,168,0,168)         -- 168x168 (บาลานซ์กับความกว้างหน้าต่างนี้)
     UFO.AnchorPoint = Vector2.new(0.5,1)
-    UFO.Position = UDim2.new(0.5, 0, 0, 12) -- << ปรับเลื่อนขึ้น/ลงที่เลข 12
+    UFO.Position = UDim2.new(0.5, 0, 0, UFO_Y_OFFSET)  -- << ขยับยานขึ้น/ลงปรับที่ตัวนี้
     UFO.ZIndex = 60
 
+    -- ฮาโล่ใต้ UFO
     local Halo = Instance.new("ImageLabel", Window)
-    Halo.BackgroundTransparency = 1; Halo.AnchorPoint = Vector2.new(0.5,0)
-    Halo.Position = UDim2.new(0.5,0,0,0); Halo.Size = UDim2.new(0,196,0,60)
-    Halo.Image = "rbxassetid://5028857084"; Halo.ImageColor3 = MINT_SOFT; Halo.ImageTransparency = 0.72
+    Halo.BackgroundTransparency = 1
+    Halo.AnchorPoint = Vector2.new(0.5,0)
+    Halo.Position = UDim2.new(0.5,0,0,0)
+    Halo.Size = UDim2.new(0, 200, 0, 60)
+    Halo.Image = "rbxassetid://5028857084"
+    Halo.ImageColor3 = MINT_SOFT
+    Halo.ImageTransparency = 0.72
     Halo.ZIndex = 50
 
-    -- ▼ TITLE: ใหญ่และ “ต่ำลง” ใต้ UFO (OFFSET_Y = 26px ใน Header)
+    -- ชื่อใหญ่ ใต้ UFO (ไม่ชน ไม่ทับ)
     local TitleCenter = Instance.new("TextLabel", Header)
     TitleCenter.BackgroundTransparency = 1
     TitleCenter.AnchorPoint = Vector2.new(0.5,0)
-    TitleCenter.Position = UDim2.new(0.5, 0, 0, 26) -- << ปรับเลื่อนขึ้น/ลงที่เลข 26
-    TitleCenter.Size = UDim2.new(0.8, 0, 0, 36)     -- กรอบสูง 36 → ตัวใหญ่
+    TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET) -- << ขยับชื่อขึ้น/ลงปรับที่ตัวนี้
+    TitleCenter.Size = UDim2.new(0.8, 0, 0, 36)
     TitleCenter.Font = Enum.Font.GothamBold
-    TitleCenter.RichText = true; TitleCenter.TextScaled = true
+    TitleCenter.RichText = true
+    TitleCenter.TextScaled = true
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
-    TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
+    TitleCenter.TextColor3 = TEXT_WHITE
+    TitleCenter.ZIndex = 61
 end
 
 -- BODY
 local Body = Instance.new("Frame", Window)
-Body.BackgroundTransparency = 1; Body.Position = UDim2.new(0,0,0,42); Body.Size = UDim2.new(1,0,1,-42)
+Body.BackgroundTransparency = 1
+Body.Position = UDim2.new(0,0,0,46)
+Body.Size = UDim2.new(1,0,1,-46)
 
 local Inner = Instance.new("Frame", Body)
-Inner.BackgroundColor3 = BG_INNER; Inner.BorderSizePixel = 0
-Inner.Position = UDim2.new(0,8,0,8); Inner.Size = UDim2.new(1,-16,1,-16); corner(Inner, 12)
+Inner.BackgroundColor3 = BG_INNER
+Inner.BorderSizePixel = 0
+Inner.Position = UDim2.new(0,8,0,8)
+Inner.Size = UDim2.new(1,-16,1,-16)
+corner(Inner, 12)
 
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
 Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
 Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
-corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
+corner(Content, 12)
+stroke(Content, 0.5, MINT, 0.35)
 
 local Columns = Instance.new("Frame", Content)
-Columns.BackgroundTransparency = 1; Columns.Position = UDim2.new(0,8,0,8); Columns.Size = UDim2.new(1,-16,1,-16)
+Columns.BackgroundTransparency = 1
+Columns.Position = UDim2.new(0,8,0,8)
+Columns.Size = UDim2.new(1,-16,1,-16)
 
 local Left = Instance.new("Frame", Columns)
-Left.BackgroundColor3 = Color3.fromRGB(16,16,16); Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
-Left.ClipsDescendants = true; corner(Left, 10)
-stroke(Left, 1.2, GREEN, 0); stroke(Left, 0.45, MINT, 0.35)
+Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Left.ClipsDescendants = true
+corner(Left, 10)
+stroke(Left, 1.2, GREEN, 0)
+stroke(Left, 0.45, MINT, 0.35)
 
 local Right = Instance.new("Frame", Columns)
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
 Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
-Right.ClipsDescendants = true; corner(Right, 10)
-stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
+Right.ClipsDescendants = true
+corner(Right, 10)
+stroke(Right, 1.2, GREEN, 0)
+stroke(Right, 0.45, MINT, 0.35)
 
 local imgL = Instance.new("ImageLabel", Left)
-imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
+imgL.BackgroundTransparency = 1
+imgL.Size = UDim2.new(1,0,1,0)
+imgL.Image = IMG_SMALL
+imgL.ScaleType = Enum.ScaleType.Crop
 
 local imgR = Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
+imgR.BackgroundTransparency = 1
+imgR.Size = UDim2.new(1,0,1,0)
+imgR.Image = IMG_LARGE
+imgR.ScaleType = Enum.ScaleType.Crop
 
--- toggle with RightShift
+-- toggle show/hide with RightShift
 do local vis=true
     UIS.InputBegan:Connect(function(i,gp)
         if not gp and i.KeyCode==Enum.KeyCode.RightShift then vis=not vis; GUI.Enabled=vis end
