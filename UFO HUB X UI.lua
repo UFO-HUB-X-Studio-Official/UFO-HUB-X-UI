@@ -27,7 +27,7 @@ local RIGHT_RATIO  = 0.78
 
 -- IMAGES
 local IMG_SMALL = "rbxassetid://121069267171370"
-local IMG_LARGE = "rbxassetid://107165635996928"
+local IMG_LARGE = "rbxassetid://108408843188558"
 local IMG_UFO   = "rbxassetid://100650447103028"
 
 -- HELPERS
