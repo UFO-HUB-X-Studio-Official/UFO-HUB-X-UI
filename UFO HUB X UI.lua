@@ -184,7 +184,7 @@ end
 -- END
 --==========================================================
 --==========================================================
--- UFO HUB X • Toggle + Persist + Fix Close (drop-in)
+-- UFO HUB X • Toggle + Persist + Smart Default Gap
 --==========================================================
 local CoreGui = game:GetService("CoreGui")
 local UIS     = game:GetService("UserInputService")
@@ -194,7 +194,6 @@ local Http    = game:GetService("HttpService")
 local MAIN_GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
 if not MAIN_GUI then return end
 
--- หาเฟรมหลัก (หน้าต่าง UI) ตัวแรก ๆ ภายใต้ ScreenGui
 local WINDOW do
     for _,o in ipairs(MAIN_GUI:GetChildren()) do
         if o:IsA("Frame") then WINDOW = o break end
@@ -202,7 +201,7 @@ local WINDOW do
 end
 if not WINDOW then return end
 
--- 1) แก้ปุ่มกากบาท X ให้ปิดเฉพาะ WINDOW
+-- แก้ปุ่ม X ให้ซ่อนเฉพาะหน้าต่าง
 local function patchCloseButton(root)
     for _,o in ipairs(root:GetDescendants()) do
         if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
@@ -214,39 +213,14 @@ local function patchCloseButton(root)
 end
 patchCloseButton(MAIN_GUI)
 
--- 2) รีเซ็ตสีรูปภาพ (กันภาพดูเขียว)
+-- กันภาพอมเขียว
 for _,o in ipairs(MAIN_GUI:GetDescendants()) do
     if o:IsA("ImageLabel") or o:IsA("ImageButton") then
         o.ImageColor3 = Color3.new(1,1,1)
     end
 end
 
--- 3) ปุ่ม Toggle แยก ScreenGui (อยู่เสมอ)
-local FILE = "UFO_HUB_X_Toggle.json"
-local function canFS() return (typeof(writefile)=="function" and typeof(readfile)=="function" and typeof(isfile)=="function") end
-
-local function loadPos()
-    -- ถ้ามี FS ใช้ไฟล์, ไม่มีก็ใช้ getgenv()
-    if canFS() and isfile(FILE) then
-        local ok, data = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
-        if ok and typeof(data)=="table" and data.x and data.y then
-            return data.x, data.y
-        end
-    elseif getgenv then
-        getgenv().__UFO_TOGGLE_POS = getgenv().__UFO_TOGGLE_POS or {x=220,y=150}
-        return getgenv().__UFO_TOGGLE_POS.x, getgenv().__UFO_TOGGLE_POS.y
-    end
-    return 220, 150
-end
-local function savePos(x,y)
-    if canFS() then
-        pcall(function() writefile(FILE, Http:JSONEncode({x=x,y=y})) end)
-    elseif getgenv then
-        getgenv().__UFO_TOGGLE_POS = {x=x,y=y}
-    end
-end
-
--- ลบของเก่า
+-- Toggle GUI ใหม่
 local OLD = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
 if OLD then OLD:Destroy() end
 
@@ -257,17 +231,71 @@ ToggleGui.ResetOnSpawn   = false
 ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ToggleGui.Parent = CoreGui
 
--- โหลดตำแหน่งล่าสุด
-local startX, startY = loadPos()
+-- ---------- Persist helpers ----------
+local FILE = "UFO_HUB_X_Toggle.json"
+local function canFS()
+    return (typeof(writefile)=="function" and typeof(readfile)=="function" and typeof(isfile)=="function")
+end
+local function loadPos()
+    if canFS() and isfile(FILE) then
+        local ok, data = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
+        if ok and typeof(data)=="table" and data.x and data.y then
+            return data.x, data.y, true -- true = loaded
+        end
+    elseif getgenv then
+        local g = getgenv()
+        if g.__UFO_TOGGLE_POS then
+            return g.__UFO_TOGGLE_POS.x, g.__UFO_TOGGLE_POS.y, true
+        end
+    end
+    return nil, nil, false
+end
+local function savePos(x,y)
+    if canFS() then
+        pcall(function() writefile(FILE, Http:JSONEncode({x=x,y=y})) end)
+    elseif getgenv then
+        getgenv().__UFO_TOGGLE_POS = {x=x,y=y}
+    end
+end
 
--- ปุ่มสี่เหลี่ยม
+-- ---------- Smart default placement (ไม่ชิด UI) ----------
+local BTN_W, BTN_H = 64, 64
+local GAP = 48 -- ระยะห่างขั้นต่ำจากกรอบ UI (ปรับได้)
+local function viewport()
+    local cam = workspace.CurrentCamera
+    local v = cam and cam.ViewportSize or Vector2.new(1920,1080)
+    return v.X, v.Y
+end
+local function clamp(x,y)
+    local vx, vy = viewport()
+    x = math.clamp(x, 0, vx - BTN_W)
+    y = math.clamp(y, 0, vy - BTN_H)
+    return x, y
+end
+
+-- อ่านตำแหน่งที่เคยบันทึกไว้
+local px, py, loaded = loadPos()
+
+-- คำนวณเริ่มต้นแบบฉลาด (ถ้าไม่มีตำแหน่งเดิม)
+if not loaded then
+    -- ใช้ตำแหน่งจริงของหน้าต่าง
+    task.wait() -- ให้ AbsolutePosition/Size อัปเดต
+    local winPos = WINDOW.AbsolutePosition
+    local winSize = WINDOW.AbsoluteSize
+    -- วาง “ซ้ายมือของหน้าต่าง” และเลื่อนลงมานิดให้ดูสวย
+    px = (winPos.X - BTN_W - GAP)
+    py = (winPos.Y + math.floor(winSize.Y*0.15))
+    px, py = clamp(px, py)
+end
+
+-- ---------- สร้างปุ่ม ----------
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleUI"
 ToggleBtn.Parent = ToggleGui
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
 ToggleBtn.BorderSizePixel  = 0
-ToggleBtn.Size     = UDim2.new(0, 64, 0, 64)
-ToggleBtn.Position = UDim2.new(0, startX, 0, startY) -- เริ่มต้นทางขวาหน่อย
+ToggleBtn.Size     = UDim2.new(0, BTN_W, 0, BTN_H)
+ToggleBtn.Position = UDim2.new(0, px, 0, py)
 ToggleBtn.Image    = "rbxassetid://117052960049460"
 ToggleBtn.ImageColor3 = Color3.new(1,1,1)
 ToggleBtn.AutoButtonColor = false
@@ -284,12 +312,12 @@ stroke.LineJoinMode    = Enum.LineJoinMode.Round
 ToggleBtn.MouseEnter:Connect(function() stroke.Thickness = 3 end)
 ToggleBtn.MouseLeave:Connect(function() stroke.Thickness = 2 end)
 
--- กดปุ่ม -> เปิด/ปิดเฉพาะ WINDOW
+-- กด -> Toggle เฉพาะ WINDOW
 ToggleBtn.MouseButton1Click:Connect(function()
     WINDOW.Visible = not WINDOW.Visible
 end)
 
--- คีย์ลัด (RightShift) -> เปิด/ปิดเฉพาะ WINDOW
+-- คีย์ลัด RightShift -> Toggle
 UIS.InputBegan:Connect(function(input,gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
@@ -297,18 +325,10 @@ UIS.InputBegan:Connect(function(input,gp)
     end
 end)
 
--- 4) ทำให้ปุ่มลากได้ + บันทึกตำแหน่งเมื่อปล่อย
+-- ลากได้ + บันทึก
 do
     local dragging = false
     local startPos, startMouse
-    local function clampToViewport(px, py)
-        local cam = workspace.CurrentCamera
-        local vp  = cam and cam.ViewportSize or Vector2.new(1920,1080)
-        px = math.clamp(px, 0, vp.X - ToggleBtn.Size.X.Offset)
-        py = math.clamp(py, 0, vp.Y - ToggleBtn.Size.Y.Offset)
-        return px, py
-    end
-
     ToggleBtn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
             dragging = true
@@ -317,19 +337,15 @@ do
             i.Changed:Connect(function()
                 if i.UserInputState == Enum.UserInputState.End then
                     dragging = false
-                    -- บันทึกตำแหน่งตอนปล่อย
-                    local px = ToggleBtn.Position.X.Offset
-                    local py = ToggleBtn.Position.Y.Offset
-                    savePos(px, py)
+                    savePos(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
                 end
             end)
         end
     end)
-
     UIS.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
             local delta = i.Position - startMouse
-            local nx, ny = clampToViewport(startPos.X + delta.X, startPos.Y + delta.Y)
+            local nx, ny = clamp(startPos.X + delta.X, startPos.Y + delta.Y)
             ToggleBtn.Position = UDim2.new(0, nx, 0, ny)
         end
     end)
