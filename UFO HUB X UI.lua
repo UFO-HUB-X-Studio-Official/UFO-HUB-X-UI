@@ -184,40 +184,103 @@ end
 -- END
 --==========================================================
 --==========================================================
--- UFO HUB X • toggle button
+-- UFO HUB X • Toggle button (ใหญ่ขึ้น/ย้ายขึ้น) + แก้รูปติดสี
+-- ใช้คู่กับสคริปต์หลักของคุณที่สร้าง GUI: "UFO_HUB_X_UI"
 --==========================================================
-
 local CoreGui = game:GetService("CoreGui")
 local UIS     = game:GetService("UserInputService")
 
-local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-if not GUI then return end
+local MAIN_GUI   = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+if not MAIN_GUI then return end
 
--- ปุ่ม Toggle
+-- หา "หน้าต่างหลัก" ที่จะซ่อน/แสดง (Frame ตัวแรกใน ScreenGui)
+local WINDOW = MAIN_GUI:FindFirstChildOfClass("Frame")
+
+-- 1) แก้รูปภาพติดสีเขียว (เอาทุก ImageLabel ใน GUI ให้เป็นสีขาวจริง)
+do
+    for _, obj in ipairs(MAIN_GUI:GetDescendants()) do
+        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            obj.ImageColor3 = Color3.new(1,1,1) -- ล้าง tint
+        end
+    end
+end
+
+-- 2) ลบ Toggle เดิม (ถ้ามี) แล้วสร้างใหม่เป็น ScreenGui แยก
+local OLD = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
+if OLD then OLD:Destroy() end
+
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "UFO_HUB_X_Toggle"
+ToggleGui.IgnoreGuiInset = true
+ToggleGui.ResetOnSpawn = false
+ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ToggleGui.Parent = CoreGui
+
+-- 3) ปุ่มสี่เหลี่ยม (ใหญ่ขึ้น + ย้ายขึ้น)
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleUI"
-ToggleBtn.Parent = GUI
-ToggleBtn.BackgroundTransparency = 0
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0) -- พื้นหลังสีดำ
-ToggleBtn.Size = UDim2.new(0, 48, 0, 48)          -- ขนาดปุ่ม (สี่เหลี่ยมพอดี)
-ToggleBtn.Position = UDim2.new(0, 50, 0, 250)     -- << ปรับตรงนี้ให้ตรงกรอบที่คุณวงดำไว้
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Image = "rbxassetid://117052960049460"  -- ไอคอนที่คุณให้มา
-ToggleBtn.ImageColor3 = Color3.fromRGB(0,255,140) -- ขอบ/โทนสีเขียว
+ToggleBtn.Parent = ToggleGui
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- พื้นหลังสีดำ (ตามที่ชี้ตำแหน่งไว้)
+ToggleBtn.BorderSizePixel  = 0
+ToggleBtn.Size     = UDim2.new(0, 64, 0, 64)         -- << ขนาดปุ่ม (ใหญ่ขึ้น)
+ToggleBtn.Position = UDim2.new(0, 144, 0, 120)       -- << ตำแหน่ง “ขึ้นข้างบนอีก”
+ToggleBtn.Image    = "rbxassetid://117052960049460"  -- รูปไอคอนปุ่ม
+ToggleBtn.ImageColor3 = Color3.new(1,1,1)            -- ไอคอนสีจริง ไม่ติดเขียว
+ToggleBtn.AutoButtonColor = false
 
--- Stroke (ขอบสีเขียว)
+-- ขอบสีเขียว
 local stroke = Instance.new("UIStroke", ToggleBtn)
 stroke.Thickness = 2
 stroke.Color = Color3.fromRGB(0,255,140)
 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.LineJoinMode    = Enum.LineJoinMode.Round
 
--- Corner
+-- โค้งมุม
 local corner = Instance.new("UICorner", ToggleBtn)
-corner.CornerRadius = UDim.new(0,6)
+corner.CornerRadius = UDim.new(0, 8)
 
--- Event toggle
-local visible = true
-ToggleBtn.MouseButton1Click:Connect(function()
-    visible = not visible
-    GUI.Enabled = visible
+-- เอฟเฟ็กต์ hover เล็กน้อย
+ToggleBtn.MouseEnter:Connect(function()
+    stroke.Thickness = 3
 end)
+ToggleBtn.MouseLeave:Connect(function()
+    stroke.Thickness = 2
+end)
+
+-- 4) การทำงานของปุ่ม: ซ่อน/แสดงเฉพาะ "WINDOW" (ปุ่มไม่หาย)
+local visible = true
+local function setVisible(v)
+    visible = v
+    if WINDOW then WINDOW.Visible = v end
+end
+ToggleBtn.MouseButton1Click:Connect(function()
+    setVisible(not visible)
+end)
+
+-- 5) เผื่ออยากใช้คีย์ลัด (RightShift) เหมือนเดิม
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        setVisible(not visible)
+    end
+end)
+
+-- 6) ถ้าปุ่มควร “ล็อก” ตำแหน่งไว้แถวสี่เหลี่ยมดำจริง ๆ ให้ปรับสองเลขนี้:
+--    ToggleBtn.Position = UDim2.new(0, X, 0, Y)
+--    X = ระยะจากขอบซ้ายจอ (พิกเซล), Y = ระยะจากขอบบนจอ (พิกเซล)
+--    ตอนนี้ตั้งไว้เป็น (144, 120) ถ้าอยากสูงขึ้นอีกก็ลดค่า Y เช่น 96 หรือ 80
+
+-- 7) กันรูปในคอลัมน์ติดสีเขียว (ซ้ำกันอีกชั้น เผื่อมีการสร้างใหม่ทีหลัง)
+local function deTintInside()
+    if not WINDOW then return end
+    for _, obj in ipairs(WINDOW:GetDescendants()) do
+        if obj:IsA("ImageLabel") then
+            obj.ImageColor3 = Color3.new(1,1,1)
+        end
+    end
+end
+deTintInside()
+
+--==========================================================
+-- END
+--==========================================================
