@@ -1,6 +1,5 @@
 --==========================================================
--- UFO HUB X • UFO sits exactly on top green border (tight),
--- Bigger centered title: "UFO" (white) + "HUB X" (green)
+-- UFO HUB X • Full UI (UFO above big title, neon green sci-fi)
 --==========================================================
 
 -- ล้างของเดิม
@@ -20,16 +19,17 @@ local BG_INNER     = Color3.fromRGB(18,18,18)
 local TEXT_WHITE   = Color3.fromRGB(235,235,235)
 local DANGER_RED   = Color3.fromRGB(200,40,40)
 
+-- ขนาดรวม
 local WIN_W, WIN_H = 640, 360
 local GAP_OUTER    = 14
 local GAP_BETWEEN  = 12
 local LEFT_RATIO   = 0.22
 local RIGHT_RATIO  = 0.78
 
--- รูป
-local IMG_SMALL = "rbxassetid://95514334029879"
-local IMG_LARGE = "rbxassetid://117055535552131"
-local IMG_UFO   = "rbxassetid://100650447103028"
+-- รูปภาพ (ปรับใช้ของคุณ)
+local IMG_SMALL = "rbxassetid://95514334029879"      -- ซ้าย
+local IMG_LARGE = "rbxassetid://117055535552131"     -- ขวา
+local IMG_UFO   = "rbxassetid://100650447103028"     -- UFO
 
 -- ===== HELPERS =====
 local function corner(gui, r)
@@ -73,9 +73,9 @@ Window.Size = UDim2.fromOffset(WIN_W, WIN_H)
 Window.BackgroundColor3 = BG_WINDOW
 Window.BorderSizePixel = 0
 corner(Window, 12)
-local WindowStroke = stroke(Window, 2.8, GREEN, 0) -- ขอบเขียวหนา เห็นชัด
+stroke(Window, 2.8, GREEN, 0) -- ขอบนอกเขียว (หนา)
 
--- Glow เบา ๆ
+-- Glow รอบนอก
 do
     local Glow = Instance.new("ImageLabel", Window)
     Glow.BackgroundTransparency = 1
@@ -114,7 +114,6 @@ HeadAccent.BackgroundColor3 = MINT
 HeadAccent.BackgroundTransparency = 0.35
 HeadAccent.BorderSizePixel = 0
 
--- (ซ้าย) จุดมิ้นต์เล็ก
 local Dot = Instance.new("Frame", Header)
 Dot.BackgroundColor3 = MINT
 Dot.Position = UDim2.new(0,14,0.5,-4)
@@ -122,7 +121,6 @@ Dot.Size = UDim2.new(0,8,0,8)
 Dot.BorderSizePixel = 0
 corner(Dot, 4)
 
--- ปุ่มปิด
 local BtnClose = Instance.new("TextButton", Header)
 BtnClose.Size = UDim2.new(0,24,0,24)
 BtnClose.Position = UDim2.new(1,-34,0.5,-12)
@@ -153,42 +151,42 @@ do
     end)
 end
 
--- ===== UFO + TITLE (กลางหัว, นั่งบนขอบเขียว) =====
+-- ===== UFO + BIG TITLE (ยานอยู่เหนือชื่อ และชิดเส้นบน) =====
 do
-    -- UFO ใหญ่ขึ้น และ “นั่งบนขอบสีเขียว” จริง ๆ:
-    -- - ใช้ AnchorPoint = (0.5,1) ให้ "ก้นยาน" อ้างกับตำแหน่ง
-    -- - Position = (0.5, 0, 0, -1) ยกขึ้น 1px ให้ดูวางบนเส้นพอดี (ไม่จมเข้าไป)
+    -- UFO: ใหญ่ขึ้น และอยู่ใกล้เส้นเขียวบนของ UI
     local UFO = Instance.new("ImageLabel", Window)
     UFO.Name = "UFO_Top"
     UFO.BackgroundTransparency = 1
     UFO.Image = IMG_UFO
-    UFO.Size = UDim2.new(0,128,0,128)           -- ขยายให้พอดีกับ UI
+    UFO.Size = UDim2.new(0, 158, 0, 158)   -- ↑ ใหญ่ขึ้น (150→158)
     UFO.AnchorPoint = Vector2.new(0.5,1)
-    UFO.Position = UDim2.new(0.5,0,0,-1)        -- **นั่งบนขอบเขียว** (เลื่อนขึ้น -1px ให้ชิดเส้น)
+    -- “ก้นยาน” นั่งอยู่เหนือเส้นบนเล็กน้อย (offset +6 ให้ดูใกล้ UI เหมือนลอยอยู่)
+    UFO.Position = UDim2.new(0.5, 0, 0, 6)
     UFO.ZIndex = 60
 
-    -- ฮาโล่ฐานจาง ๆ (อยู่ตรงเส้นขอบ)
+    -- ฮาโล่ใต้ UFO
     local Halo = Instance.new("ImageLabel", Window)
     Halo.BackgroundTransparency = 1
     Halo.AnchorPoint = Vector2.new(0.5,0)
-    Halo.Position = UDim2.new(0.5,0,0,-6)
-    Halo.Size = UDim2.new(0,154,0,46)
+    Halo.Position = UDim2.new(0.5,0,0,0)
+    Halo.Size = UDim2.new(0, 190, 0, 60)
     Halo.Image = "rbxassetid://5028857084"
     Halo.ImageColor3 = MINT_SOFT
     Halo.ImageTransparency = 0.72
     Halo.ZIndex = 50
 
-    -- ชื่อ “UFO HUB X” ใต้ UFO (ใหญ่ขึ้น)
+    -- ชื่อใหญ่ขึ้น ใต้ UFO (UFO ขาว / HUB X เขียว)
     local TitleCenter = Instance.new("TextLabel", Header)
     TitleCenter.BackgroundTransparency = 1
     TitleCenter.AnchorPoint = Vector2.new(0.5,0)
-    TitleCenter.Position = UDim2.new(0.5,0,0,14)  -- ใต้ยาน/เหนือเส้น accent
-    TitleCenter.Size = UDim2.new(0.7,0,0,24)      -- สูงขึ้น => ตัวหนังสือใหญ่ขึ้น
+    TitleCenter.Position = UDim2.new(0.5, 0, 0, 14) -- อยู่ใต้ยานชัดเจน
+    TitleCenter.Size = UDim2.new(0.78, 0, 0, 34)    -- ↑ สูงขึ้น => ตัวใหญ่ขึ้น
     TitleCenter.Font = Enum.Font.GothamBold
     TitleCenter.RichText = true
-    TitleCenter.TextScaled = true                 -- ปรับอัตโนมัติให้เต็มกรอบ
+    TitleCenter.TextScaled = true
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
     TitleCenter.TextColor3 = TEXT_WHITE
+    TitleCenter.ZIndex = 61
 end
 
 -- ===== BODY =====
@@ -204,7 +202,7 @@ Inner.Position = UDim2.new(0,8,0,8)
 Inner.Size = UDim2.new(1,-16,1,-16)
 corner(Inner, 12)
 
--- กรอบใหญ่ด้านใน (เส้นมิ้นต์บาง/โปร่ง)
+-- กรอบใหญ่ด้านใน (เส้นมิ้นต์ บาง/โปร่ง ไม่ลายตา)
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
 Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
@@ -217,7 +215,7 @@ Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0,8,0,8)
 Columns.Size = UDim2.new(1,-16,1,-16)
 
--- ซ้ายเล็ก
+-- การ์ดซ้าย (เล็ก)
 local Left = Instance.new("Frame", Columns)
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
@@ -226,7 +224,7 @@ corner(Left, 10)
 stroke(Left, 1.2, GREEN, 0)
 stroke(Left, 0.45, MINT, 0.35)
 
--- ขวาใหญ่
+-- การ์ดขวา (ใหญ่)
 local Right = Instance.new("Frame", Columns)
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
