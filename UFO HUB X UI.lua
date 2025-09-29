@@ -1,66 +1,82 @@
 --==========================================================
--- UFO HUB X • Pure UI (ศูนย์จริง) + ขอบเขียวเรือง (Glow) + ปุ่ม X สีแดง
--- ก็อปวางใช้ได้ทันที
+-- UFO HUB X • Pure UI Starter (FULL) 
+-- - เขียว/ดำ • ขอบคม + Glow เบลอชัด • ปุ่ม X สีแดง
+-- - ศูนย์จริงๆ: ไม่มีปุ่ม/ท็อกเกิลอัตโนมัติ
+-- - มี API UFOUI ช่วยเพิ่มของทีหลัง
 --==========================================================
 
---====================[ THEME / CONFIG ]====================
-local TITLE          = "UFO  HUB X"
-local GREEN          = Color3.fromRGB(0,255,140)
-local GREEN_DARK     = Color3.fromRGB(0,180,100)
-local BG_WINDOW      = Color3.fromRGB(16,16,16)
-local BG_HEADER      = Color3.fromRGB(0,0,0)
-local BG_PANEL       = Color3.fromRGB(22,22,22)
-local TEXT_WHITE     = Color3.fromRGB(235,235,235)
+----------------------[ CONFIG / THEME ]---------------------
+local TITLE           = "UFO  HUB X"
+local GREEN           = Color3.fromRGB(0,255,140)
+local GREEN_DARK      = Color3.fromRGB(0,180,100)
+local BG_WINDOW       = Color3.fromRGB(16,16,16)
+local BG_HEADER       = Color3.fromRGB(0,0,0)
+local BG_PANEL        = Color3.fromRGB(22,22,22)
+local TEXT_WHITE      = Color3.fromRGB(235,235,235)
 
-local BORDER_THIN    = 2
-local BORDER_THICK   = 3
-local CORNER_RADIUS  = 10
-local WIN_SIZE       = Vector2.new(720, 420)
-local SIDEBAR_W      = 190
+local BORDER_THIN     = 2
+local BORDER_THICK    = 3
+local CORNER_RADIUS   = 10
+local WIN_SIZE        = Vector2.new(720, 420)  -- กxส
+local SIDEBAR_W       = 190
 
---====================[ UTILS ]====================
-local function corner(gui, radius)
+-- asset รูป Glow เบลอ (ของ Roblox ทางการ)
+local GLOW_IMAGE_ID   = "rbxassetid://5028857472" 
+
+----------------------[ UTIL HELPERS ]----------------------
+local function addCorner(gui, radius)
     local c = gui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", gui)
     c.CornerRadius = UDim.new(0, radius or CORNER_RADIUS)
     return c
 end
 
--- เส้นขอบคม
-local function stroke(gui, thickness, color)
+local function addStroke(gui, thickness, color, applyMode)
     local s = Instance.new("UIStroke")
-    s.Name = "UFOStroke"
     s.Parent = gui
     s.Thickness = thickness or BORDER_THIN
     s.Color = color or GREEN
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Transparency = 0
+    s.ApplyStrokeMode = applyMode or Enum.ApplyStrokeMode.Border
     s.LineJoinMode = Enum.LineJoinMode.Round
     return s
 end
 
--- ขอบเรือง (Glow) = เส้นนอกหนา + ไล่สี + โปร่งใสนิด ๆ
-local function glow(gui, thickness)
-    local g = Instance.new("UIStroke")
-    g.Name = "UFOGlow"
-    g.Parent = gui
-    g.Thickness = thickness or 6
-    g.Color = GREEN
-    g.Transparency = 0.35
-    g.ApplyStrokeMode = Enum.ApplyStrokeMode.Outline
-    g.LineJoinMode = Enum.LineJoinMode.Round
-
-    local grad = Instance.new("UIGradient")
-    grad.Name = "UFOGlowGradient"
-    grad.Parent = g
-    grad.Rotation = 90
-    grad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, GREEN),
-        ColorSequenceKeypoint.new(0.50, GREEN_DARK),
-        ColorSequenceKeypoint.new(1.00, GREEN),
-    })
-    return g
+-- Glow เบลอ: ใช้ ImageLabel ใหญ่กว่ากรอบเล็กน้อย
+local function addGlowBehind(gui, color, transparency, expand)
+    local glow = Instance.new("ImageLabel")
+    glow.Name = "UFO_Glow"
+    glow.BackgroundTransparency = 1
+    glow.Image = GLOW_IMAGE_ID
+    glow.ImageColor3 = color or GREEN
+    glow.ImageTransparency = (transparency ~= nil) and transparency or 0.35
+    glow.ScaleType = Enum.ScaleType.Slice
+    glow.SliceCenter = Rect.new(256,256,256,256) -- ให้ยืดแล้วเบลอพอดี
+    local ex = expand or 24
+    glow.Size = UDim2.new(1, ex*2, 1, ex*2)
+    glow.Position = UDim2.new(0, -ex, 0, -ex)
+    glow.ZIndex = (gui.ZIndex or 1) - 1
+    glow.Parent = gui
+    return glow
 end
 
---====================[ ROOT GUI ]====================
+local function makeButtonLike(parent, text, size, bg, fg, borderClr)
+    local b = Instance.new("TextButton")
+    b.Name = "Btn_"..(text or "")
+    b.Parent = parent
+    b.AutoButtonColor = false
+    b.Size = size or UDim2.new(0,100,0,36)
+    b.BackgroundColor3 = bg or Color3.fromRGB(12,40,25)
+    b.BorderSizePixel = 0
+    b.Font = Enum.Font.GothamSemibold
+    b.Text = text or ""
+    b.TextSize = 14
+    b.TextColor3 = fg or TEXT_WHITE
+    addCorner(b, 8)
+    addStroke(b, BORDER_THIN, borderClr or GREEN)
+    return b
+end
+
+----------------------[ ROOT GUI ]-------------------------
 local CoreGui = game:GetService("CoreGui")
 local UIS     = game:GetService("UserInputService")
 local RunS    = game:GetService("RunService")
@@ -72,7 +88,7 @@ GUI.IgnoreGuiInset = true
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = CoreGui
 
--- Hotkey ซ่อน/โชว์ (RightShift)
+-- Hotkey: RightShift ซ่อน/โชว์
 do
     local visible = true
     UIS.InputBegan:Connect(function(input, gp)
@@ -84,7 +100,7 @@ do
     end)
 end
 
---====================[ WINDOW + HEADER ]====================
+----------------------[ WINDOW + HEADER ]-------------------
 local Window = Instance.new("Frame")
 Window.Name = "Window"
 Window.AnchorPoint = Vector2.new(0.5,0.5)
@@ -92,12 +108,13 @@ Window.Position = UDim2.new(0.5,0,0.5,0)
 Window.Size = UDim2.fromOffset(WIN_SIZE.X, WIN_SIZE.Y)
 Window.BackgroundColor3 = BG_WINDOW
 Window.BorderSizePixel = 0
+Window.ZIndex = 50
 Window.Parent = GUI
-corner(Window, CORNER_RADIUS)
-glow(Window, 7)                          -- 🌟 Glow รอบกรอบ
-stroke(Window, BORDER_THICK, GREEN)      -- เส้นคมด้านใน
+addCorner(Window, CORNER_RADIUS)
+addGlowBehind(Window, GREEN, 0.28, 28)               -- 🌟 Glow ใหญ่รอบ Window
+addStroke(Window, BORDER_THICK, GREEN)                -- เส้นคม
 
--- Responsive scale
+-- Responsive scale (จอเล็กไม่ล้น)
 local UIScale = Instance.new("UIScale", Window)
 UIScale.Scale = 1
 local function fit()
@@ -106,17 +123,17 @@ local function fit()
     local sy = math.clamp(v.Y / 500, 0.75, 1.0)
     UIScale.Scale = math.min(sx, sy)
 end
-fit()
-RunS.RenderStepped:Connect(fit)
+fit(); RunS.RenderStepped:Connect(fit)
 
--- Header
+-- Header (ลากได้)
 local Header = Instance.new("Frame")
 Header.Name = "Header"
 Header.Parent = Window
 Header.BackgroundColor3 = BG_HEADER
 Header.BorderSizePixel = 0
 Header.Size = UDim2.new(1,0,0,40)
-corner(Header, CORNER_RADIUS)
+Header.ZIndex = 51
+addCorner(Header, CORNER_RADIUS)
 
 local Title = Instance.new("TextLabel")
 Title.Parent = Header
@@ -128,27 +145,17 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
 Title.Text = TITLE
 Title.TextColor3 = TEXT_WHITE
+Title.ZIndex = 52
 
--- 🔴 ปุ่มปิด (X) สีแดง + hover
-local BtnClose = Instance.new("TextButton")
-BtnClose.Name = "Close"
-BtnClose.Parent = Header
-BtnClose.AutoButtonColor = false
-BtnClose.Text = "X"
-BtnClose.Font = Enum.Font.GothamBold
-BtnClose.TextSize = 14
-BtnClose.TextColor3 = Color3.fromRGB(255,255,255)
-BtnClose.BackgroundColor3 = Color3.fromRGB(200,40,40) -- แดงพื้น
-BtnClose.BorderSizePixel = 0
+-- ปุ่ม X สีแดง
+local BtnClose = makeButtonLike(Header, "X", UDim2.new(0,28,0,28), Color3.fromRGB(200,40,40), TEXT_WHITE, Color3.fromRGB(255,0,0))
 BtnClose.Position = UDim2.new(1,-38,0.5,-14)
-BtnClose.Size = UDim2.new(0,28,0,28)
-corner(BtnClose, 8)
-stroke(BtnClose, 2, Color3.fromRGB(255,0,0))          -- ขอบแดงคม
+BtnClose.ZIndex = 52
 BtnClose.MouseEnter:Connect(function() BtnClose.BackgroundColor3 = Color3.fromRGB(255,60,60) end)
 BtnClose.MouseLeave:Connect(function() BtnClose.BackgroundColor3 = Color3.fromRGB(200,40,40) end)
 BtnClose.MouseButton1Click:Connect(function() GUI.Enabled = false end)
 
--- Drag by Header
+-- ลากหน้าต่างด้วย Header
 do
     local dragging, dragStart, startPos
     Header.InputBegan:Connect(function(input)
@@ -169,13 +176,14 @@ do
     end)
 end
 
---====================[ BODY: Sidebar + Content ]====================
+----------------------[ BODY LAYOUT ]----------------------
 local Body = Instance.new("Frame")
 Body.Name = "Body"
 Body.Parent = Window
 Body.BackgroundTransparency = 1
 Body.Position = UDim2.new(0,0,0,40)
 Body.Size = UDim2.new(1,0,1,-40)
+Body.ZIndex = 50
 
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
@@ -184,16 +192,17 @@ Sidebar.BackgroundColor3 = BG_PANEL
 Sidebar.BorderSizePixel = 0
 Sidebar.Position = UDim2.new(0,12,0,12)
 Sidebar.Size = UDim2.new(0,SIDEBAR_W,1,-24)
-corner(Sidebar, 10)
-glow(Sidebar, 6)                         -- 🌟 Glow กรอบซ้าย
-stroke(Sidebar, BORDER_THIN, GREEN)
+Sidebar.ZIndex = 50
+addCorner(Sidebar, 10)
+addGlowBehind(Sidebar, GREEN, 0.35, 18)             -- 🌟 Glow กรอบซ้าย
+addStroke(Sidebar, BORDER_THIN, GREEN)
 
+local sbPad = Instance.new("UIPadding", Sidebar)
+sbPad.PaddingTop, sbPad.PaddingLeft, sbPad.PaddingRight = UDim.new(0,12), UDim.new(0,12), UDim.new(0,12)
 local sbList = Instance.new("UIListLayout", Sidebar)
 sbList.Padding = UDim.new(0,8)
 sbList.FillDirection = Enum.FillDirection.Vertical
 sbList.SortOrder = Enum.SortOrder.LayoutOrder
-local sbPad = Instance.new("UIPadding", Sidebar)
-sbPad.PaddingTop, sbPad.PaddingLeft, sbPad.PaddingRight = UDim.new(0,12), UDim.new(0,12), UDim.new(0,12)
 
 local Content = Instance.new("Frame")
 Content.Name = "Content"
@@ -202,9 +211,56 @@ Content.BackgroundColor3 = BG_PANEL
 Content.BorderSizePixel = 0
 Content.Position = UDim2.new(0, 12+SIDEBAR_W+12, 0, 12)
 Content.Size = UDim2.new(1, -(12+SIDEBAR_W+12+12), 1, -24)
-corner(Content, 10)
-glow(Content, 6)                         -- 🌟 Glow กรอบขวา (ตำแหน่งลูกศร)
-stroke(Content, BORDER_THIN, GREEN)
+Content.ZIndex = 50
+addCorner(Content, 10)
+addGlowBehind(Content, GREEN, 0.35, 18)             -- 🌟 Glow กรอบขวา
+addStroke(Content, BORDER_THIN, GREEN)
 
--- ตอนนี้ยัง “ศูนย์จริง ๆ” (ไม่มีปุ่ม/ท็อกเกิล)
--- คุณพร้อมจะเติมอะไร ค่อยบอกมา เดี๋ยวผมต่อยอดให้ทันที
+----------------------[ API FOR EXTENSION ]-----------------
+local UFOUI = {}
+
+-- เพิ่มปุ่มใน Sidebar (คืนค่า button เผื่อผูก event ภายหลัง)
+function UFOUI:AddSidebarButton(text)
+    local b = makeButtonLike(Sidebar, text, UDim2.new(1,0,0,38), Color3.fromRGB(12,40,25), TEXT_WHITE, GREEN)
+    b.ZIndex = 51
+    b.MouseEnter:Connect(function() b.BackgroundColor3 = Color3.fromRGB(18,70,45) end)
+    b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(12,40,25) end)
+    return b
+end
+
+-- ล้างของในโซน Content ทั้งหมด
+function UFOUI:ClearContent()
+    for _, c in ipairs(Content:GetChildren()) do
+        if c:IsA("GuiObject") then c:Destroy() end
+    end
+end
+
+-- สร้างกรอบการ์ดว่าง ๆ ใน Content (ไว้ใส่ของเอง)
+function UFOUI:CreateCard(sizeY)
+    local card = Instance.new("Frame")
+    card.Name = "Card"
+    card.Parent = Content
+    card.BackgroundColor3 = BG_PANEL
+    card.BorderSizePixel = 0
+    card.Size = UDim2.new(1, 0, 0, sizeY or 120)
+    card.ZIndex = 51
+    addCorner(card, 8)
+    addStroke(card, BORDER_THIN, GREEN)
+    local pad = Instance.new("UIPadding", card)
+    pad.PaddingTop = UDim.new(0,10)
+    pad.PaddingLeft = UDim.new(0,10)
+    pad.PaddingRight = UDim.new(0,10)
+    pad.PaddingBottom = UDim.new(0,10)
+    return card
+end
+
+-- คืนอ้างอิงโครงหลักเผื่อใช้งาน
+function UFOUI:GetRoot()
+    return GUI, Window, Header, Sidebar, Content
+end
+
+-- (ไม่เรียกใช้ API ใด ๆ ที่ท้ายไฟล์ เพื่อคงสภาพ "ศูนย์จริงๆ")
+
+--==========================================================
+-- END (พร้อมใช้งาน / พร้อมต่อยอด)
+--==========================================================
