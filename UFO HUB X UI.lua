@@ -234,6 +234,100 @@ end
 -- END
 --==========================================================
 --==========================================================
+-- UFO POP-IN/OUT ANIM (วางท้ายไฟล์ หลังสร้าง GUI/Window)
+--==========================================================
+do
+    local TS   = game:GetService("TweenService")
+    local UIS  = game:GetService("UserInputService")
+    local CGui = game:GetService("CoreGui")
+
+    local GUI = CGui:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then return end
+
+    local Window = GUI:FindFirstChildWhichIsA("Frame")
+    if not Window then return end
+
+    local UIScale = Window:FindFirstChildOfClass("UIScale")
+    if not UIScale then UIScale = Instance.new("UIScale", Window); UIScale.Scale = 1 end
+
+    local stateVisible = Window.Visible ~= false
+    local animBusy = false
+
+    local function makeUFO()
+        task.wait()
+        local p, s = Window.AbsolutePosition, Window.AbsoluteSize
+        local cx, cy = p.X + s.X/2, p.Y + s.Y/2
+
+        local u = Instance.new("ImageLabel")
+        u.Image = "rbxassetid://140388309537044"
+        u.BackgroundTransparency = 1
+        u.ZIndex = 999
+        u.AnchorPoint = Vector2.new(0.5,0.5)
+        u.Position = UDim2.fromOffset(cx, cy)
+        u.Size = UDim2.fromOffset(40,40)
+        u.ImageTransparency = 1
+        u.Parent = GUI
+        return u
+    end
+
+    local function tween(obj, t, goal)
+        local tw = TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+        tw:Play(); tw.Completed:Wait()
+    end
+
+    local function showWithUFO()
+        if animBusy or stateVisible then return end
+        animBusy = true
+        local u = makeUFO()
+        tween(u,0.2,{ImageTransparency=0.1,Size=UDim2.fromOffset(220,220)})
+        Window.Visible = true
+        Window.GroupTransparency = 1
+        tween(Window,0.25,{GroupTransparency=0})
+        tween(u,0.15,{ImageTransparency=1})
+        u:Destroy()
+        stateVisible = true
+        animBusy = false
+    end
+
+    local function hideWithUFO()
+        if animBusy or not stateVisible then return end
+        animBusy = true
+        local u = makeUFO()
+        tween(u,0.15,{ImageTransparency=0.1,Size=UDim2.fromOffset(160,160)})
+        tween(Window,0.2,{GroupTransparency=1})
+        Window.Visible = false
+        tween(u,0.15,{ImageTransparency=1})
+        u:Destroy()
+        stateVisible = false
+        animBusy = false
+    end
+
+    -- Hook ปุ่ม X
+    for _,o in ipairs(Window:GetDescendants()) do
+        if o:IsA("TextButton") and o.Text:upper()=="X" then
+            o.MouseButton1Click:Connect(function()
+                if stateVisible then hideWithUFO() end
+            end)
+        end
+    end
+
+    -- Hook RightShift
+    UIS.InputBegan:Connect(function(i,gp)
+        if gp then return end
+        if i.KeyCode==Enum.KeyCode.RightShift then
+            if stateVisible then hideWithUFO() else showWithUFO() end
+        end
+    end)
+
+    -- โชว์ครั้งแรก
+    task.defer(function()
+        if stateVisible then
+            Window.Visible = false
+            showWithUFO()
+        end
+    end)
+end
+--==========================================================
 -- UFO HUB X • Toggle + Persist + Smart Default Gap
 --==========================================================
 local CoreGui = game:GetService("CoreGui")
@@ -402,155 +496,4 @@ do
 end
 --==========================================================
 -- END
---==========================================================
---==========================================================
--- UFO POP-IN/OUT ANIM (ครบ: เปิด/ปิด/ปุ่ม X + โชว์ครั้งแรก)
---==========================================================
-do
-    if getgenv().UFO_UFOANIM_ACTIVE then return end
-    getgenv().UFO_UFOANIM_ACTIVE = true
-
-    local TS   = game:GetService("TweenService")
-    local UIS  = game:GetService("UserInputService")
-    local CGui = game:GetService("CoreGui")
-
-    -- หา ScreenGui + หน้าต่างหลัก (Window)
-    local GUI = CGui:FindFirstChild("UFO_HUB_X_UI") or (typeof(GUI)=="Instance" and GUI) or nil
-    if not GUI then return end
-
-    local WindowRef = (typeof(Window)=="Instance" and Window) or nil
-    local Window
-    if WindowRef and WindowRef.Parent == GUI then
-        Window = WindowRef
-    else
-        for _,o in ipairs(GUI:GetChildren()) do
-            if o:IsA("Frame") then Window = o break end
-        end
-    end
-    if not Window then return end
-
-    -- UIScale (ใช้ของเดิมถ้ามี)
-    local UIScale = Window:FindFirstChildOfClass("UIScale")
-    if not UIScale then UIScale = Instance.new("UIScale", Window); UIScale.Scale = 1 end
-
-    -- กันกรณี toggle เดิมไปปิดทั้ง GUI
-    GUI.Enabled = true
-
-    -- สถานะเริ่มต้น
-    if Window.Visible == nil then Window.Visible = true end
-    local stateVisible = Window.Visible
-    local animBusy = false
-
-    -- สร้างยานกลาง "หน้าต่าง" ใช้รูปตามที่ขอ
-    local function makeUFOAtWindowCenter()
-        task.wait() -- ให้ AbsolutePosition/Size อัปเดต
-        local p  = Window.AbsolutePosition
-        local sz = Window.AbsoluteSize
-        local cx, cy = p.X + sz.X/2, p.Y + sz.Y/2
-
-        local u = Instance.new("ImageLabel")
-        u.Name = "UFO_Overlay"
-        u.BackgroundTransparency = 1
-        u.Image = "rbxassetid://140388309537044"
-        u.ZIndex = 999
-        u.AnchorPoint = Vector2.new(0.5,0.5)
-        u.Position = UDim2.fromOffset(cx, cy)
-        u.Size = UDim2.fromOffset(40,40)
-        u.ImageTransparency = 1
-        u.Parent = GUI
-        return u
-    end
-
-    local function tween(obj, t, goal, style, dir)
-        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
-        tw:Play(); tw.Completed:Wait()
-    end
-
-    local function showWithUFO()
-        if animBusy or stateVisible then return end
-        animBusy = true
-        GUI.Enabled = true
-
-        local u = makeUFOAtWindowCenter()
-        tween(u, 0.16, {ImageTransparency = 0.05})
-        tween(u, 0.26, {Size = UDim2.fromOffset(220,220)})
-
-        local s0 = UIScale.Scale
-        Window.Visible = true
-        Window.GroupTransparency = 1
-        UIScale.Scale = s0 * 0.96
-        tween(Window, 0.22, {GroupTransparency = 0})
-        tween(UIScale, 0.22, {Scale = s0})
-
-        tween(u, 0.14, {ImageTransparency = 1})
-        u:Destroy()
-
-        stateVisible = true
-        animBusy = false
-    end
-
-    local function hideWithUFO()
-        if animBusy or not stateVisible then return end
-        animBusy = true
-        GUI.Enabled = true
-
-        local u = makeUFOAtWindowCenter()
-        tween(u, 0.12, {ImageTransparency = 0.05, Size = UDim2.fromOffset(160,160)})
-
-        local s0 = UIScale.Scale
-        tween(Window, 0.18, {GroupTransparency = 1})
-        tween(UIScale, 0.18, {Scale = s0 * 0.96})
-        Window.Visible = false
-        UIScale.Scale = s0
-
-        tween(u, 0.12, {ImageTransparency = 1})
-        u:Destroy()
-
-        stateVisible = false
-        animBusy = false
-    end
-
-    -- ===== Hook แหล่งสั่งเปิด/ปิดทั้งหมด =====
-
-    -- 1) ปุ่มกากบาท X (ค้นหาในหัว UI ทั้งหมด)
-    for _,o in ipairs(Window:GetDescendants()) do
-        if o:IsA("TextButton") and (o.Text and o.Text:upper()=="X") then
-            o.MouseButton1Click:Connect(function()
-                if stateVisible then hideWithUFO() end
-            end)
-        end
-    end
-
-    -- 2) คีย์ RightShift
-    UIS.InputBegan:Connect(function(i, gp)
-        if gp then return end
-        if i.KeyCode == Enum.KeyCode.RightShift then
-            if stateVisible then hideWithUFO() else showWithUFO() end
-        end
-    end)
-
-    -- 3) ปุ่ม Toggle ลอย (ถ้ามี)
-    task.spawn(function()
-        for _=1,120 do
-            local tg = CGui:FindFirstChild("UFO_HUB_X_Toggle")
-            local btn = tg and tg:FindFirstChild("ToggleUI", true)
-            if btn and btn:IsA("ImageButton") then
-                btn.MouseButton1Click:Connect(function()
-                    if stateVisible then hideWithUFO() else showWithUFO() end
-                end)
-                break
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- ✅ โชว์ยาน "ครั้งแรก" ตอนเพิ่งโหลดสคริปต์
-    task.defer(function()
-        if stateVisible then
-            -- ซ่อนชั่วคราวเพื่อเล่นอนิเมชันเข้า
-            Window.Visible = false
-            showWithUFO()
-        end
-    end)
-end
 --==========================================================
