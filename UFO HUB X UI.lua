@@ -181,7 +181,459 @@ do local vis=true
         if not gp and i.KeyCode==Enum.KeyCode.RightShift then vis=not vis; GUI.Enabled=vis end
     end)
 end
+--==========================================================
+-- UFO-Widgets API (self-contained, theme-aware)
+-- Tabs / Sections / Button / Toggle / Slider / Dropdown / Keybind
+--==========================================================
+do
+  if getgenv().UFO_WIDGETS then return end
+  getgenv().UFO_WIDGETS = true
 
+  local CoreGui = game:GetService("CoreGui")
+  local UIS     = game:GetService("UserInputService")
+  local TS      = game:GetService("TweenService")
+
+  -- 1) หา/เดาหน้าต่างหลัก (Window) อัตโนมัติ
+  local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+  local WindowRef = rawget(getfenv(), "Window")  -- ถ้าไฟล์เพื่อนมีตัวแปร Window อยู่แล้ว
+  local Window = (typeof(WindowRef)=="Instance" and WindowRef) or nil
+  if (not GUI) then
+    for _,g in ipairs(CoreGui:GetChildren()) do
+      if g:IsA("ScreenGui") and (g.Name:lower():find("ufo") or g.Name:lower():find("hub")) then GUI=g break end
+    end
+  end
+  if (not Window) and GUI then
+    local biggest, area = nil, 0
+    for _,f in ipairs(GUI:GetDescendants()) do
+      if f:IsA("Frame") and f.Visible then
+        local s=f.AbsoluteSize; local a=s.X*s.Y
+        if a>area then area,a=f,a end
+      end
+    end
+    Window = biggest
+  end
+  if not Window then
+    warn("[UFO-Widgets] ไม่เจอหน้าต่างหลัก จะสร้างแผงของตัวเองใน CoreGui")
+    GUI = GUI or Instance.new("ScreenGui", CoreGui)
+    GUI.Name = "UFO_HUB_X_UI"
+    Window = Instance.new("Frame", GUI)
+    Window.Size = UDim2.fromOffset(640,360)
+    Window.Position = UDim2.fromScale(0.5,0.5)
+    Window.AnchorPoint = Vector2.new(0.5,0.5)
+    Window.BackgroundColor3 = Color3.fromRGB(16,16,16)
+    Window.BorderSizePixel=0
+    local c=Instance.new("UICorner",Window); c.CornerRadius=UDim.new(0,12)
+  end
+
+  -- 2) Theme (ดึงโทนจาก UI เดิมถ้ามี ไม่มีก็ใช้ค่าเริ่มต้น)
+  local THEME = {
+    fg         = Color3.fromRGB(235,235,235),
+    accent     = Color3.fromRGB(0,255,140),
+    accent2    = Color3.fromRGB(120,255,220),
+    panel      = Color3.fromRGB(22,22,22),
+    panel2     = Color3.fromRGB(16,16,16),
+    borderSoft = Color3.fromRGB(120,255,220),
+    danger     = Color3.fromRGB(200,40,40),
+  }
+
+  -- 3) สร้างพื้นที่ Widgets (ติดตั้งทับ “ฝั่งขวา” ถ้าเดาเจอ / ไม่งั้นจะวางพาเนลของเราเอง)
+  local Host = Window:FindFirstChild("UFO_WidgetsHost")
+  if not Host then
+    Host = Instance.new("Frame", Window)
+    Host.Name = "UFO_WidgetsHost"
+    -- ลองจับฝั่งขวา: ถ้าใน Window มี Frame ขนาดใหญ่ฝั่งขวา ให้ยึดตำแหน่งนั้น
+    local target = nil; local bestX = -math.huge
+    for _,f in ipairs(Window:GetDescendants()) do
+      if f:IsA("Frame") and f.Visible then
+        if f.AbsolutePosition.X > bestX and f.AbsoluteSize.X > 150 and f.AbsoluteSize.Y > 120 then
+          bestX = f.AbsolutePosition.X; target = f
+        end
+      end
+    end
+    if target and target.Parent == Window then
+      Host.BackgroundTransparency = 1
+      Host.Position = target.Position; Host.Size = target.Size
+    else
+      -- วางเป็นแผงในตัว Window (ปลอดภัยทุกกรณี)
+      Host.BackgroundTransparency=1
+      Host.AnchorPoint=Vector2.new(0,0); Host.Position=UDim2.fromOffset(18,60)
+      Host.Size=UDim2.fromOffset(math.max(360, Window.AbsoluteSize.X-200), Window.AbsoluteSize.Y-78)
+    end
+  end
+
+  -- 4) โครง TabBar + Content
+  local Root = Instance.new("Frame", Host)
+  Root.Name="UFO_Controls"; Root.BackgroundTransparency=1; Root.Size=UDim2.new(1,0,1,0)
+
+  local TabBar = Instance.new("Frame", Root)
+  TabBar.Name="TabBar"; TabBar.BackgroundColor3 = THEME.panel2; TabBar.Size=UDim2.new(1,0,0,36)
+  TabBar.BorderSizePixel=0
+  do local c=Instance.new("UICorner",TabBar); c.CornerRadius=UDim.new(0,10) end
+  do local s=Instance.new("UIStroke",TabBar); s.Color=THEME.accent; s.Transparency=0.6; s.Thickness=1 end
+
+  local TabsLayout = Instance.new("UIListLayout", TabBar)
+  TabsLayout.FillDirection = Enum.FillDirection.Horizontal
+  TabsLayout.Padding = UDim.new(0,8); TabsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+  TabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+  local TabsPad = Instance.new("UIPadding", TabBar)
+  TabsPad.PaddingLeft = UDim.new(0,10); TabsPad.PaddingRight = UDim.new(0,10)
+
+  local Content = Instance.new("Frame", Root)
+  Content.Name="Content"; Content.BackgroundColor3 = THEME.panel; Content.Size=UDim2.new(1,0,1,-44)
+  Content.Position = UDim2.new(0,0,0,44); Content.BorderSizePixel=0
+  do local c=Instance.new("UICorner",Content); c.CornerRadius=UDim.new(0,12) end
+  do local s=Instance.new("UIStroke",Content); s.Color=THEME.borderSoft; s.Transparency=0.35; s.Thickness=1 end
+
+  local function mkScroll(parent)
+    local sf = Instance.new("ScrollingFrame", parent)
+    sf.Name="Scroll"; sf.Active=true; sf.ScrollingDirection=Enum.ScrollingDirection.Y
+    sf.CanvasSize=UDim2.new(0,0,0,0); sf.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    sf.BackgroundTransparency=1; sf.BorderSizePixel=0; sf.Size=UDim2.new(1,-16,1,-16); sf.Position=UDim2.fromOffset(8,8)
+    local list = Instance.new("UIListLayout", sf)
+    list.Padding = UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
+    local pad = Instance.new("UIPadding", sf); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,8)
+    return sf
+  end
+
+  -- 5) API ภายใน
+  local UFO = {}
+  UFO.Tabs = {}
+  UFO.Theme = THEME
+
+  function UFO:SetTheme(colors)
+    for k,v in pairs(colors or {}) do if self.Theme[k] then self.Theme[k]=v end end
+    -- (เบา ๆ: ไม่รีสกินเดิมทั้งหน้าในทันที เพื่อลดโค้ด)
+  end
+
+  local function styleButton(btn)
+    btn.BackgroundColor3 = THEME.panel2; btn.BorderSizePixel=0; btn.TextColor3 = THEME.fg
+    btn.Font = Enum.Font.Gotham; btn.TextSize=14
+    local c=Instance.new("UICorner", btn); c.CornerRadius=UDim.new(0,10)
+    local s=Instance.new("UIStroke", btn); s.Color=THEME.accent; s.Transparency=0.35; s.Thickness=1
+    btn.AutoButtonColor=false
+    btn.MouseEnter:Connect(function() TS:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.panel}):Play() end)
+    btn.MouseLeave:Connect(function() TS:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.panel2}):Play() end)
+  end
+
+  local function mkSection(parent, title)
+    local box = Instance.new("Frame", parent)
+    box.BackgroundColor3 = THEME.panel2; box.BorderSizePixel=0; box.Size=UDim2.new(1,0,0,10)
+    box.AutomaticSize = Enum.AutomaticSize.Y
+    do local c=Instance.new("UICorner",box); c.CornerRadius=UDim.new(0,10) end
+    do local s=Instance.new("UIStroke",box); s.Color=THEME.accent; s.Transparency=0.6; s.Thickness=1 end
+    local vpad = Instance.new("UIPadding", box); vpad.PaddingTop=UDim.new(0,8); vpad.PaddingBottom=UDim.new(0,10); vpad.PaddingLeft=UDim.new(0,10); vpad.PaddingRight=UDim.new(0,10)
+
+    local titleLabel = Instance.new("TextLabel", box)
+    titleLabel.BackgroundTransparency=1; titleLabel.Text=title or "Section"
+    titleLabel.Font=Enum.Font.GothamBold; titleLabel.TextSize=16; titleLabel.TextColor3=THEME.fg
+    titleLabel.Size = UDim2.new(1, -8, 0, 20); titleLabel.TextXAlignment=Enum.TextXAlignment.Left
+
+    local body = Instance.new("Frame", box)
+    body.BackgroundTransparency=1; body.Size=UDim2.new(1,0,0,10); body.AutomaticSize=Enum.AutomaticSize.Y
+    body.Position = UDim2.new(0,0,0,26)
+
+    local list = Instance.new("UIListLayout", body)
+    list.Padding = UDim.new(0,6); list.SortOrder=Enum.SortOrder.LayoutOrder
+
+    return {
+      Body = body,
+      Title = titleLabel,
+      Box = box
+    }
+  end
+
+  -- 6) PUBLIC API
+  function UFO.CreateLib(title)
+    local lib = {}
+    lib._title = title or "UFO HUB X"
+    lib._tabs = {}
+
+    function lib:NewTab(name)
+      name = name or ("Tab "..tostring(#self._tabs+1))
+      local btn = Instance.new("TextButton", TabBar)
+      btn.Size = UDim2.new(0, math.max(90, (#name*7)+22), 1, -8)
+      btn.Position = UDim2.new(0,0,0,4)
+      btn.Text = name
+      styleButton(btn)
+
+      local page = Instance.new("Frame", Content)
+      page.Name = "Page_"..name; page.BackgroundTransparency=1; page.Size=UDim2.new(1,0,1,0); page.Visible=false
+      local scroll = mkScroll(page)
+
+      local tabObj = { Button = btn, Page = page, Scroll = scroll, Sections = {} }
+      table.insert(self._tabs, tabObj)
+
+      btn.MouseButton1Click:Connect(function()
+        for _,t in ipairs(self._tabs) do t.Page.Visible=false; TS:Create(t.Button, TweenInfo.new(0.15), {TextColor3=THEME.fg}):Play() end
+        page.Visible=true
+        TS:Create(btn, TweenInfo.new(0.15), {TextColor3=THEME.accent}):Play()
+      end)
+
+      -- ทำให้แท็บแรกเปิดอัตโนมัติ
+      if #self._tabs==1 then btn:Activate(); btn.MouseButton1Click:Fire() end
+
+      function tabObj:NewSection(title)
+        local sec = mkSection(scroll, title)
+        table.insert(self.Sections, sec)
+        -- Widgets API:
+        function sec:NewButton(text, desc, callback)
+          local b = Instance.new("TextButton", sec.Body)
+          b.Size = UDim2.new(1,0,0,36); b.Text = (text or "Button")
+          styleButton(b)
+          if desc and desc ~= "" then
+            local d = Instance.new("TextLabel", b)
+            d.BackgroundTransparency=1; d.Text = desc; d.Font=Enum.Font.Gotham; d.TextSize=12
+            d.TextColor3 = Color3.fromRGB(200,200,200); d.TextXAlignment=Enum.TextXAlignment.Left
+            d.Position = UDim2.new(0,10,0,20); d.Size = UDim2.new(1,-20,0,14)
+          end
+          b.MouseButton1Click:Connect(function() if typeof(callback)=="function" then callback() end end)
+          return b
+        end
+
+        function sec:NewToggle(text, desc, callback, default)
+          local holder = Instance.new("Frame", sec.Body)
+          holder.BackgroundTransparency=1; holder.Size=UDim2.new(1,0,0,38)
+
+          local b = Instance.new("TextButton", holder)
+          b.Size = UDim2.new(1,-46,1,0); b.Position=UDim2.new(0,0,0,0)
+          b.Text = text or "Toggle"; styleButton(b)
+
+          if desc and desc ~="" then
+            local d = Instance.new("TextLabel", b)
+            d.BackgroundTransparency=1; d.Text = desc; d.Font=Enum.Font.Gotham; d.TextSize=12
+            d.TextColor3 = Color3.fromRGB(200,200,200); d.TextXAlignment=Enum.TextXAlignment.Left
+            d.Position = UDim2.new(0,10,0,20); d.Size = UDim2.new(1,-20,0,14)
+          end
+
+          local knob = Instance.new("Frame", holder)
+          knob.Size=UDim2.fromOffset(36,36); knob.Position=UDim2.new(1,-36,0,1)
+          knob.BackgroundColor3 = Color3.fromRGB(60,60,60); knob.BorderSizePixel=0
+          local kc=Instance.new("UICorner",knob); kc.CornerRadius=UDim.new(0,10)
+          local ks=Instance.new("UIStroke",knob); ks.Color=THEME.accent; ks.Transparency=0.25
+
+          local dot = Instance.new("Frame", knob)
+          dot.Size=UDim2.fromOffset(18,18); dot.Position=UDim2.fromOffset(9,9)
+          dot.BackgroundColor3 = Color3.fromRGB(120,120,120); dot.BorderSizePixel=0
+          local dc=Instance.new("UICorner",dot); dc.CornerRadius=UDim.new(0,9)
+
+          local state = default and true or false
+          local function render()
+            TS:Create(knob, TweenInfo.new(0.15), {BackgroundColor3 = state and THEME.accent or Color3.fromRGB(60,60,60)}):Play()
+            TS:Create(dot, TweenInfo.new(0.15), {BackgroundColor3 = state and Color3.fromRGB(20,20,20) or Color3.fromRGB(120,120,120)}):Play()
+          end
+          render()
+
+          local function flip()
+            state = not state; render()
+            if typeof(callback)=="function" then callback(state) end
+          end
+
+          b.MouseButton1Click:Connect(flip)
+          knob.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then flip() end end)
+
+          return {
+            Set = function(_, v) state = not not v; render() end,
+            Get = function() return state end,
+          }
+        end
+
+        function sec:NewSlider(text, desc, max, min, callback, default)
+          max = max or 100; min = min or 0
+          local holder = Instance.new("Frame", sec.Body)
+          holder.BackgroundColor3 = THEME.panel2; holder.BorderSizePixel=0
+          holder.Size=UDim2.new(1,0,0,56)
+          local c=Instance.new("UICorner",holder); c.CornerRadius=UDim.new(0,10)
+          local s=Instance.new("UIStroke",holder); s.Color=THEME.accent; s.Transparency=0.35
+
+          local title = Instance.new("TextLabel", holder)
+          title.BackgroundTransparency=1; title.Text = text or "Slider"
+          title.Font=Enum.Font.GothamBold; title.TextSize=14; title.TextColor3=THEME.fg
+          title.Position=UDim2.fromOffset(10,6); title.Size=UDim2.new(1,-20,0,16); title.TextXAlignment=Enum.TextXAlignment.Left
+
+          if desc and desc ~="" then
+            local d = Instance.new("TextLabel", holder)
+            d.BackgroundTransparency=1; d.Text = desc; d.Font=Enum.Font.Gotham; d.TextSize=12
+            d.TextColor3 = Color3.fromRGB(200,200,200); d.TextXAlignment=Enum.TextXAlignment.Left
+            d.Position = UDim2.new(0,10,0,24); d.Size = UDim2.new(1,-20,0,14)
+          end
+
+          local bar = Instance.new("Frame", holder)
+          bar.BackgroundColor3 = Color3.fromRGB(60,60,60); bar.BorderSizePixel=0
+          bar.Position = UDim2.new(0,10,1,-12); bar.Size=UDim2.new(1,-20,0,6)
+          local bc=Instance.new("UICorner",bar); bc.CornerRadius=UDim.new(0,3)
+
+          local fill = Instance.new("Frame", bar)
+          fill.BackgroundColor3 = THEME.accent; fill.BorderSizePixel=0
+          fill.Size = UDim2.new(0,0,1,0)
+          local fc=Instance.new("UICorner",fill); fc.CornerRadius=UDim.new(0,3)
+
+          local val = default or min
+          local function render()
+            local pct = (val-min)/(max-min)
+            fill.Size = UDim2.new(math.clamp(pct,0,1),0,1,0)
+          end
+          render()
+
+          local dragging=false
+          local function setFromX(x)
+            local absPos = bar.AbsolutePosition.X
+            local width  = bar.AbsoluteSize.X
+            local pct = math.clamp((x-absPos)/math.max(1,width), 0, 1)
+            val = math.floor(min + pct*(max-min)+0.5)
+            render()
+            if typeof(callback)=="function" then callback(val) end
+          end
+
+          bar.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 then
+              dragging=true; setFromX(i.Position.X)
+            end
+          end)
+          UIS.InputChanged:Connect(function(i)
+            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement) then
+              setFromX(i.Position.X)
+            end
+          end)
+          UIS.InputEnded:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+          end)
+
+          return {
+            Set = function(_,v) val=math.clamp(tonumber(v) or val, min, max); render(); if callback then callback(val) end end,
+            Get = function() return val end,
+          }
+        end
+
+        function sec:NewDropdown(text, list, callback, defaultIndex)
+          list = list or {}
+          local holder = Instance.new("TextButton", sec.Body)
+          holder.Size=UDim2.new(1,0,0,36); holder.Text="" ; styleButton(holder)
+
+          local label = Instance.new("TextLabel", holder)
+          label.BackgroundTransparency=1; label.Text = text or "Dropdown"
+          label.Font=Enum.Font.GothamBold; label.TextSize=14; label.TextColor3=THEME.fg
+          label.Size=UDim2.new(1,-28,1,0); label.Position=UDim2.fromOffset(10,0); label.TextXAlignment=Enum.TextXAlignment.Left
+
+          local arrow = Instance.new("TextLabel", holder)
+          arrow.BackgroundTransparency=1; arrow.Size=UDim2.fromOffset(16,16); arrow.Position=UDim2.new(1,-22,0.5,-8)
+          arrow.Font=Enum.Font.GothamBold; arrow.TextSize=16; arrow.Text="▼"; arrow.TextColor3=THEME.fg
+
+          local open=false
+          local selected = defaultIndex and list[defaultIndex] or list[1]
+
+          local menu = Instance.new("Frame", holder)
+          menu.Visible=false; menu.BackgroundColor3=THEME.panel2; menu.BorderSizePixel=0
+          menu.Position=UDim2.new(0,0,1,6); menu.Size=UDim2.new(1,0,0, math.min(#list*28, 160))
+          local mc=Instance.new("UICorner",menu); mc.CornerRadius=UDim.new(0,10)
+          local ms=Instance.new("UIStroke",menu); ms.Color=THEME.accent; ms.Transparency=0.35
+          local scroll = mkScroll(menu); scroll.Size=UDim2.new(1,-10,1,-10); scroll.Position=UDim2.fromOffset(5,5)
+
+          local function rebuild()
+            scroll:ClearAllChildren()
+            for i,opt in ipairs(list) do
+              local b = Instance.new("TextButton", scroll)
+              b.Size=UDim2.new(1,0,0,26); b.Text = tostring(opt); styleButton(b)
+              b.MouseButton1Click:Connect(function()
+                selected = opt; menu.Visible=false; open=false
+                if callback then callback(selected, i) end
+              end)
+            end
+          end
+          rebuild()
+          if callback and selected then callback(selected, table.find(list, selected) or 1) end
+
+          holder.MouseButton1Click:Connect(function()
+            open = not open; menu.Visible=open
+          end)
+
+          return {
+            Refresh = function(_, newList)
+              list = newList or {}; rebuild()
+            end,
+            Get = function() return selected end
+          }
+        end
+
+        function sec:NewKeybind(text, desc, callback, defaultKeyCode)
+          local holder = Instance.new("TextButton", sec.Body)
+          holder.Size=UDim2.new(1,0,0,36); holder.Text=""; styleButton(holder)
+
+          local label = Instance.new("TextLabel", holder)
+          label.BackgroundTransparency=1; label.Text = text or "Keybind"
+          label.Font=Enum.Font.GothamBold; label.TextSize=14; label.TextColor3=THEME.fg
+          label.Size=UDim2.new(1,-100,1,0); label.Position=UDim2.fromOffset(10,0); label.TextXAlignment=Enum.TextXAlignment.Left
+
+          local keyBtn = Instance.new("TextButton", holder)
+          keyBtn.Size=UDim2.new(0,90,0,24); keyBtn.Position=UDim2.new(1,-100,0.5,-12)
+          keyBtn.Text = (defaultKeyCode and defaultKeyCode.Name) or "Set Key"
+          styleButton(keyBtn)
+
+          local waiting=false
+          keyBtn.MouseButton1Click:Connect(function()
+            waiting=true; keyBtn.Text="Press..."
+          end)
+
+          UIS.InputBegan:Connect(function(i,gp)
+            if gp then return end
+            if waiting then
+              waiting=false
+              if i.KeyCode and i.KeyCode ~= Enum.KeyCode.Unknown then
+                keyBtn.Text = i.KeyCode.Name
+                if callback then callback(i.KeyCode) end
+              else
+                keyBtn.Text="Set Key"
+              end
+            end
+          end)
+
+          return {
+            Set = function(_,kc) keyBtn.Text = kc and kc.Name or "Set Key" end
+          }
+        end
+
+        return sec
+      end
+
+      return tabObj
+    end
+
+    return lib
+  end
+
+  --========================================================
+  -- ⭐ ตัวอย่างใช้งานทันที (ถ้าไม่ต้องการ ลบส่วนนี้ออกได้)
+  --========================================================
+  local Library = UFO.CreateLib("UFO HUB X")
+  local TabHome = Library:NewTab("Home")
+  local S1 = TabHome:NewSection("Quick Controls")
+
+  S1:NewButton("Hello", "ทดสอบปุ่ม", function()
+    print("Hello from UFO-Widgets!")
+  end)
+
+  S1:NewToggle("AFK Shield", "เปิด/ปิดกันเตะ", function(state)
+    if getgenv().UFO_AFK_SHIELD then
+      getgenv().UFO_AFK_SHIELD.enabled = state and true or false
+    end
+    print("AFK:", state)
+  end, true)
+
+  S1:NewSlider("WalkSpeed", "ปรับความเร็วเดิน (เฉพาะเกมที่อนุญาต)", 100, 16, function(v)
+    local lp=game:GetService("Players").LocalPlayer
+    local ch=lp.Character or lp.CharacterAdded:Wait()
+    local hum=ch:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = v end
+  end, 16)
+
+  S1:NewDropdown("Select Mode", {"Normal","Pro","Alien"}, function(choice)
+    print("Mode:", choice)
+  end, 1)
+
+  S1:NewKeybind("Toggle UI (RightShift)", "ตั้งคีย์สลับ UI", function(key)
+    -- ตัวอย่าง: กดคีย์ที่ตั้งไว้ → ซ่อน/โชว์หน้าต่างหลัก
+    UIS.InputBegan:Connect(function(i,gp)
+      if gp then
 --==========================================================
 -- AFK SHIELD (Always-On) • ทำงานแม้ปิด/ซ่อน UI • ตลอดที่อยู่ในเกม
 --==========================================================
