@@ -224,67 +224,99 @@ do
 end
 
 --==========================================================
--- UFO CONTROLLER (แทน toggle เดิม): เปิด/ปิด + เล่นครั้งแรก
+-- UFO HARD INTRO/OUTRO (บังคับยานขึ้นก่อนเสมอด้วยแผ่นบัง)
+-- เปิด:  ยานขึ้น 2s -> เปิด UI -> ค้าง 2s -> ยานหาย -> เอาแผ่นบังออก
+-- ปิด:  ยานขึ้นสั้น -> ซ่อน UI -> ยานหาย
+-- ครอบทั้งครั้งแรก, RightShift, และปุ่ม X
 --==========================================================
 do
-    -- เวลาแสดงผล
-    local PRE_HOLD  = 2.0  -- ยานค้างก่อนโชว์ UI
-    local POST_HOLD = 2.0  -- ยานค้างต่อหลัง UI โผล่
+    local TS   = game:GetService("TweenService")
+    local UIS  = game:GetService("UserInputService")
+    local CP   = game:GetService("ContentProvider")
+    local CGui = game:GetService("CoreGui")
+
+    local GUI = CGui:FindFirstChild("UFO_HUB_X_UI"); if not GUI then return end
+    local Window = GUI:FindFirstChild("Window") or GUI:FindFirstChildWhichIsA("Frame"); if not Window then return end
+    local BtnClose = Window:FindFirstChild("CloseX") or Window:FindFirstChildWhichIsA("TextButton")
+    local UIScale = Window:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", Window); if UIScale.Scale==0 then UIScale.Scale=1 end
+
+    local UFO_ID   = "rbxassetid://140388309537044"
+    local PRE_HOLD = 2.0
+    local POST_HOLD= 2.0
 
     local animBusy = false
     local isShown  = (Window.Visible ~= false)
 
-    -- เครื่องมือ
-    local function tween(obj, t, goal, style, dir)
-        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
-        tw:Play(); tw.Completed:Wait()
-    end
-
-    local function makeUFOOverWindow()
-        -- คำนวนตำแหน่งทันที เพื่อให้ยานขึ้น "ก่อน" จริง ๆ
+    -- สร้างแผ่นบัง + ยานทับ “ตรงกลางหน้าต่าง”
+    local function makeOverlayAndUFO()
+        -- คำนวณพื้นที่หน้าต่าง
         local p, s = Window.AbsolutePosition, Window.AbsoluteSize
         local cx, cy = p.X + s.X/2, p.Y + s.Y/2
 
-        local u = Instance.new("ImageLabel")
+        -- ScreenGui overlay (ทับเหนือหน้าต่าง)
+        local overlay = Instance.new("ScreenGui")
+        overlay.Name = "UFO_HARD_OVERLAY"; overlay.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        overlay.IgnoreGuiInset = true; overlay.ResetOnSpawn = false; overlay.Parent = CGui
+
+        -- แผ่นบัง (บล็อกไม่ให้เห็น UI ก่อนเวลา)
+        local blocker = Instance.new("Frame", overlay)
+        blocker.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        blocker.BackgroundTransparency = 0 -- ทึบไว้ก่อน
+        blocker.BorderSizePixel = 0
+        blocker.ZIndex = 998
+        blocker.Size = UDim2.fromOffset(s.X, s.Y)
+        blocker.Position = UDim2.fromOffset(p.X, p.Y)
+
+        -- ยาน
+        local u = Instance.new("ImageLabel", overlay)
         u.Name = "UFO_Overlay"
         u.BackgroundTransparency = 1
-        u.Image = IMG_UFO_OVERLAY
+        u.Image = UFO_ID
         u.ZIndex = 999
         u.AnchorPoint = Vector2.new(0.5,0.5)
         u.Position = UDim2.fromOffset(cx, cy)
         u.Size = UDim2.fromOffset(40,40)
         u.ImageTransparency = 1
-        u.Parent = GUI
 
-        -- พรีโหลดรูปกันเฟรมแรกว่าง
         pcall(function() CP:PreloadAsync({u}) end)
-        return u
+
+        return overlay, blocker, u
+    end
+
+    local function tween(obj, t, goal, style, dir)
+        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
+        tw:Play(); tw.Completed:Wait()
     end
 
     local function playOpen()
         if animBusy or isShown then return end
         animBusy = true
 
-        -- บังคับซ่อน UI ก่อนทุกครั้ง เพื่อให้ยานนำหน้า
+        -- ซ่อน UI ไว้ก่อน (กันแอบโผล่)
         Window.Visible = false
         Window.GroupTransparency = 1
 
-        local u = makeUFOOverWindow()
+        local overlay, blocker, u = makeOverlayAndUFO()
+
+        -- ยานขึ้นก่อนแน่ๆ
         tween(u, 0.10, {ImageTransparency = 0.05})
         tween(u, 0.22, {Size = UDim2.fromOffset(220,220)})
-
         task.wait(PRE_HOLD)
 
+        -- เปิด UI
         local s0 = UIScale.Scale == 0 and 1 or UIScale.Scale
         UIScale.Scale = s0 * 0.96
         Window.Visible = true
         tween(Window, 0.22, {GroupTransparency = 0})
         tween(UIScale, 0.22, {Scale = s0})
 
+        -- ค้างยานต่อ แล้วค่อยหาย
         task.wait(POST_HOLD)
-
         tween(u, 0.14, {ImageTransparency = 1})
-        u:Destroy()
+
+        -- เอาแผ่นบังออก
+        tween(blocker, 0.12, {BackgroundTransparency = 1})
+        overlay:Destroy()
 
         isShown = true
         animBusy = false
@@ -294,7 +326,8 @@ do
         if animBusy or not isShown then return end
         animBusy = true
 
-        local u = makeUFOOverWindow()
+        local overlay, blocker, u = makeOverlayAndUFO()
+        -- ให้เห็นยานแวบก่อนปิด
         tween(u, 0.10, {ImageTransparency = 0.05, Size = UDim2.fromOffset(160,160)})
 
         local s0 = UIScale.Scale == 0 and 1 or UIScale.Scale
@@ -304,26 +337,29 @@ do
         UIScale.Scale = s0
 
         tween(u, 0.12, {ImageTransparency = 1})
-        u:Destroy()
+        tween(blocker, 0.08, {BackgroundTransparency = 1})
+        overlay:Destroy()
 
         isShown = false
         animBusy = false
     end
 
-    -- Hook ปุ่ม X
-    BtnClose.MouseButton1Click:Connect(function()
-        if isShown then playClose() end
-    end)
+    -- ปุ่ม X
+    if BtnClose and BtnClose:IsA("TextButton") then
+        BtnClose.MouseButton1Click:Connect(function()
+            if isShown then playClose() end
+        end)
+    end
 
-    -- Hook RightShift
+    -- RightShift
     UIS.InputBegan:Connect(function(i,gp)
         if gp then return end
-        if i.KeyCode==Enum.KeyCode.RightShift then
+        if i.KeyCode == Enum.KeyCode.RightShift then
             if isShown then playClose() else playOpen() end
         end
     end)
 
-    -- ✅ เล่นครั้งแรกทันทีเมื่อโหลดสคริปต์
+    -- เล่นครั้งแรกทันที (ยานต้องขึ้นก่อนเสมอ)
     task.defer(function()
         if isShown then
             Window.Visible = false
@@ -332,7 +368,4 @@ do
         playOpen()
     end)
 end
-
---==========================================================
--- END
 --==========================================================
