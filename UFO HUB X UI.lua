@@ -403,3 +403,150 @@ end
 --==========================================================
 -- END
 --==========================================================
+--==========================================================
+-- UFO POP-IN/OUT ANIM • ยานขึ้นกลางหน้าต่างเวลาเปิด/ปิด
+--==========================================================
+do
+    local TS  = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
+    local CoreGui = game:GetService("CoreGui")
+
+    -- หาองค์ประกอบหลัก
+    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then return end
+
+    local Window
+    for _,o in ipairs(GUI:GetChildren()) do
+        if o:IsA("Frame") then Window = o break end
+    end
+    if not Window then return end
+
+    -- ใช้ UIScale เดิมถ้ามี (จากไฟล์หลัก)
+    local UIScale = Window:FindFirstChildOfClass("UIScale")
+    if not UIScale then
+        UIScale = Instance.new("UIScale", Window)
+        UIScale.Scale = 1
+    end
+
+    -- สถานะหน้าต่าง
+    if Window.Visible == nil then Window.Visible = true end
+    local stateVisible = Window.Visible
+    local animBusy = false
+
+    -- สร้างยานตรง "กลางหน้าต่าง" (คำนวณจาก AbsolutePosition/Size)
+    local function makeUFOAtWindowCenter()
+        task.wait() -- เผื่อ Absolute อัปเดต
+        local pos = Window.AbsolutePosition
+        local size = Window.AbsoluteSize
+        local centerX = pos.X + size.X/2
+        local centerY = pos.Y + size.Y/2
+
+        local u = Instance.new("ImageLabel")
+        u.Name = "UFO_Overlay"
+        u.BackgroundTransparency = 1
+        u.Image = "rbxassetid://140388309537044"
+        u.ZIndex = 999
+        u.AnchorPoint = Vector2.new(0.5, 0.5)
+        u.Position = UDim2.fromOffset(centerX, centerY) -- วางกลาง "หน้าต่าง"
+        u.Size = UDim2.fromOffset(40, 40)
+        u.ImageTransparency = 1
+        -- วางบน ScreenGui ให้อยู่เหนือหน้าต่างเสมอ (แม้ Window.Visible false ก็ยังเห็นตอนเริ่ม/จบ)
+        u.Parent = GUI
+        return u
+    end
+
+    local function tween(obj, t, goal, style, dir)
+        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
+        tw:Play(); tw.Completed:Wait()
+    end
+
+    local function showWithUFO()
+        if animBusy or stateVisible then return end
+        animBusy = true
+        -- กันบล็อก RightShift เก่าที่ปิดทั้ง GUI
+        GUI.Enabled = true
+
+        local u = makeUFOAtWindowCenter()
+        tween(u, 0.16, {ImageTransparency = 0.05})
+        tween(u, 0.26, {Size = UDim2.fromOffset(220, 220)})
+
+        Window.Visible = true
+        local s0 = UIScale.Scale
+        Window.GroupTransparency = 1
+        UIScale.Scale = s0 * 0.96
+        tween(Window, 0.22, {GroupTransparency = 0})
+        tween(UIScale, 0.22, {Scale = s0})
+
+        tween(u, 0.14, {ImageTransparency = 1})
+        u:Destroy()
+
+        stateVisible = true
+        animBusy = false
+    end
+
+    local function hideWithUFO()
+        if animBusy or not stateVisible then return end
+        animBusy = true
+        -- กันบล็อก RightShift เก่าที่ปิดทั้ง GUI
+        GUI.Enabled = true
+
+        local u = makeUFOAtWindowCenter()
+        tween(u, 0.12, {ImageTransparency = 0.05, Size = UDim2.fromOffset(160,160)})
+
+        local s0 = UIScale.Scale
+        tween(Window, 0.18, {GroupTransparency = 1})
+        tween(UIScale, 0.18, {Scale = s0 * 0.96})
+        Window.Visible = false
+        UIScale.Scale = s0
+
+        tween(u, 0.12, {ImageTransparency = 1})
+        u:Destroy()
+
+        stateVisible = false
+        animBusy = false
+    end
+
+    -- ==== Hook แหล่งสั่งปิด/เปิดทั้งหมด ====
+
+    -- 1) ปุ่ม X บน Header (ไฟล์เดิมมี handler ที่ซ่อนทั้ง GUI/หรือ WINDOW เรา override ด้วยแอนิเมชัน)
+    local function hookCloseButtons(root)
+        for _,o in ipairs(root:GetDescendants()) do
+            if o:IsA("TextButton") and (o.Text and o.Text:upper()=="X") then
+                -- ใช้ Click ตามเดิม แต่เราจะ "บังคับ" ลำดับให้เปิด GUI กลับก่อน แล้วค่อยซ่อนแบบมีเอฟเฟกต์
+                o.MouseButton1Click:Connect(function()
+                    if stateVisible then
+                        GUI.Enabled = true -- เคลียร์ผลจาก handler เก่า
+                        hideWithUFO()
+                    end
+                end)
+            end
+        end
+    end
+    hookCloseButtons(Window)
+
+    -- 2) คีย์ RightShift (มีของเดิมอยู่ เราเพิ่มของเราอีกชั้น และรี-enable GUI)
+    UIS.InputBegan:Connect(function(i, gp)
+        if gp then return end
+        if i.KeyCode == Enum.KeyCode.RightShift then
+            GUI.Enabled = true
+            if stateVisible then hideWithUFO() else showWithUFO() end
+        end
+    end)
+
+    -- 3) ปุ่ม Toggle ลอย (จากแพตช์ท้ายไฟล์เดิม: UFO_HUB_X_Toggle/ToggleUI)
+    task.spawn(function()
+        -- รอให้ปุ่มถูกสร้าง
+        for _=1,120 do
+            local tgGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
+            local btn = tgGui and tgGui:FindFirstChild("ToggleUI", true)
+            if btn and btn:IsA("ImageButton") then
+                btn.MouseButton1Click:Connect(function()
+                    if stateVisible then hideWithUFO() else showWithUFO() end
+                end)
+                break
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+--==========================================================
