@@ -234,7 +234,8 @@ end
 -- END
 --==========================================================
 --==========================================================
--- UFO POP-IN/OUT ANIM (วางท้ายไฟล์ หลังสร้าง GUI/Window)
+-- UFO INTRO/OUTRO • เปิด: UFO โผล่ 2 วิ -> UI โผล่ -> อีก 2 วิ UFO หาย
+--                  ปิด: UFO โผล่สั้นๆ -> UI หาย -> UFO หาย
 --==========================================================
 do
     local TS   = game:GetService("TweenService")
@@ -244,89 +245,130 @@ do
     local GUI = CGui:FindFirstChild("UFO_HUB_X_UI")
     if not GUI then return end
 
+    -- หา "หน้าต่างหลัก" (Frame แรกใต้ GUI) ถ้าเพื่อนใช้ชื่อเฉพาะ ให้เปลี่ยนเป็น GUI.<ชื่อของเพื่อน>
     local Window = GUI:FindFirstChildWhichIsA("Frame")
     if not Window then return end
 
+    -- ใช้ UIScale เดิมถ้ามี
     local UIScale = Window:FindFirstChildOfClass("UIScale")
     if not UIScale then UIScale = Instance.new("UIScale", Window); UIScale.Scale = 1 end
 
-    local stateVisible = Window.Visible ~= false
-    local animBusy = false
+    -- ตั้งเวลา
+    local UFO_PRE  = 2.0  -- เวลาก่อนโชว์ UI (UFO ค้าง)
+    local UFO_POST = 2.0  -- เวลาให้ UFO ค้างต่อหลัง UI โผล่
 
-    local function makeUFO()
+    local animBusy = false
+    local isShown  = (Window.Visible ~= false)
+
+    -- เครื่องมือ
+    local function tween(obj, t, goal, style, dir)
+        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
+        tw:Play(); tw.Completed:Wait()
+    end
+
+    local function ufoAtWindowCenter()
+        -- เผื่อให้ AbsolutePosition/Size อัปเดต
         task.wait()
         local p, s = Window.AbsolutePosition, Window.AbsoluteSize
         local cx, cy = p.X + s.X/2, p.Y + s.Y/2
 
         local u = Instance.new("ImageLabel")
-        u.Image = "rbxassetid://140388309537044"
+        u.Name = "UFO_Overlay"
         u.BackgroundTransparency = 1
+        u.Image = "rbxassetid://140388309537044" -- ✅ รูปยานที่เพื่อนให้
         u.ZIndex = 999
         u.AnchorPoint = Vector2.new(0.5,0.5)
         u.Position = UDim2.fromOffset(cx, cy)
-        u.Size = UDim2.fromOffset(40,40)
+        u.Size = UDim2.fromOffset(40, 40)
         u.ImageTransparency = 1
         u.Parent = GUI
         return u
     end
 
-    local function tween(obj, t, goal)
-        local tw = TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
-        tw:Play(); tw.Completed:Wait()
-    end
-
-    local function showWithUFO()
-        if animBusy or stateVisible then return end
+    local function playOpen()
+        if animBusy or isShown then return end
         animBusy = true
-        local u = makeUFO()
-        tween(u,0.2,{ImageTransparency=0.1,Size=UDim2.fromOffset(220,220)})
+
+        -- 1) ยานขึ้นมาก่อน
+        local u = ufoAtWindowCenter()
+        tween(u, 0.18, {ImageTransparency = 0.05})
+        tween(u, 0.28, {Size = UDim2.fromOffset(220, 220)})
+
+        -- ค้าง 2 วินาที
+        task.wait(UFO_PRE)
+
+        -- 2) เปิด UI (เฟดอิน + scale เด้งเบาๆ)
+        local s0 = UIScale.Scale
         Window.Visible = true
         Window.GroupTransparency = 1
-        tween(Window,0.25,{GroupTransparency=0})
-        tween(u,0.15,{ImageTransparency=1})
+        UIScale.Scale = s0 * 0.96
+        tween(Window, 0.22, {GroupTransparency = 0})
+        tween(UIScale, 0.22, {Scale = s0})
+
+        -- 3) ค้างยานต่ออีก 2 วินาที
+        task.wait(UFO_POST)
+
+        -- 4) ยานค่อยๆ หาย
+        tween(u, 0.16, {ImageTransparency = 1})
         u:Destroy()
-        stateVisible = true
+
+        isShown = true
         animBusy = false
     end
 
-    local function hideWithUFO()
-        if animBusy or not stateVisible then return end
+    local function playClose()
+        if animBusy or not isShown then return end
         animBusy = true
-        local u = makeUFO()
-        tween(u,0.15,{ImageTransparency=0.1,Size=UDim2.fromOffset(160,160)})
-        tween(Window,0.2,{GroupTransparency=1})
+
+        -- 1) ยานขึ้นสั้นๆ (โชว์ก่อนปิด)
+        local u = ufoAtWindowCenter()
+        tween(u, 0.12, {ImageTransparency = 0.05, Size = UDim2.fromOffset(160,160)})
+
+        -- 2) ปิด UI (เฟดเอาต์ + ย่อเบาๆ)
+        local s0 = UIScale.Scale
+        tween(Window, 0.18, {GroupTransparency = 1})
+        tween(UIScale, 0.18, {Scale = s0 * 0.96})
         Window.Visible = false
-        tween(u,0.15,{ImageTransparency=1})
+        UIScale.Scale = s0
+
+        -- 3) ยานหาย
+        tween(u, 0.14, {ImageTransparency = 1})
         u:Destroy()
-        stateVisible = false
+
+        isShown = false
         animBusy = false
     end
 
-    -- Hook ปุ่ม X
-    for _,o in ipairs(Window:GetDescendants()) do
-        if o:IsA("TextButton") and o.Text:upper()=="X" then
+    -- Hook ปุ่ม X (หาปุ่ม X ที่หัว)
+    for _, o in ipairs(Window:GetDescendants()) do
+        if o:IsA("TextButton") and (o.Text and o.Text:upper() == "X") then
             o.MouseButton1Click:Connect(function()
-                if stateVisible then hideWithUFO() end
+                if isShown then
+                    playClose()
+                end
             end)
         end
     end
 
     -- Hook RightShift
-    UIS.InputBegan:Connect(function(i,gp)
+    UIS.InputBegan:Connect(function(i, gp)
         if gp then return end
-        if i.KeyCode==Enum.KeyCode.RightShift then
-            if stateVisible then hideWithUFO() else showWithUFO() end
+        if i.KeyCode == Enum.KeyCode.RightShift then
+            if isShown then playClose() else playOpen() end
         end
     end)
 
-    -- โชว์ครั้งแรก
+    -- เล่น "ครั้งแรก" ทันทีเมื่อโหลดไฟล์
     task.defer(function()
-        if stateVisible then
+        if isShown then
+            -- ซ่อนก่อน 1 เฟรมเพื่อเล่นอนิเมชันเปิดตามที่ต้องการ
             Window.Visible = false
-            showWithUFO()
+            isShown = false
         end
+        playOpen()
     end)
 end
+--==========================================================
 --==========================================================
 -- UFO HUB X • Toggle + Persist + Smart Default Gap
 --==========================================================
