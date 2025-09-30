@@ -222,99 +222,139 @@ do
         end
     end)
 end
-
 --==========================================================
--- UFO HARD INTRO/OUTRO (บังคับยานขึ้นก่อนเสมอด้วยแผ่นบัง)
--- เปิด:  ยานขึ้น 2s -> เปิด UI -> ค้าง 2s -> ยานหาย -> เอาแผ่นบังออก
--- ปิด:  ยานขึ้นสั้น -> ซ่อน UI -> ยานหาย
--- ครอบทั้งครั้งแรก, RightShift, และปุ่ม X
+-- UFO INTRO/OUTRO • FAILSAFE (ทำงานแม้หา Window ไม่เจอ)
 --==========================================================
 do
-    local TS   = game:GetService("TweenService")
-    local UIS  = game:GetService("UserInputService")
-    local CP   = game:GetService("ContentProvider")
-    local CGui = game:GetService("CoreGui")
+    local TS  = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
+    local CP  = game:GetService("ContentProvider")
+    local CG  = game:GetService("CoreGui")
 
-    local GUI = CGui:FindFirstChild("UFO_HUB_X_UI"); if not GUI then return end
-    local Window = GUI:FindFirstChild("Window") or GUI:FindFirstChildWhichIsA("Frame"); if not Window then return end
-    local BtnClose = Window:FindFirstChild("CloseX") or Window:FindFirstChildWhichIsA("TextButton")
-    local UIScale = Window:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", Window); if UIScale.Scale==0 then UIScale.Scale=1 end
+    -- หา ScreenGui ของเรา (พยายามหลายแบบ; ถ้าไม่เจอใช้อันแรก ๆ ใน CoreGui)
+    local GUI = CG:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then
+        for _,g in ipairs(CG:GetChildren()) do
+            if g:IsA("ScreenGui") and (g.Name:lower():find("ufo") or g.Name:lower():find("hub")) then GUI = g break end
+        end
+        GUI = GUI or CG:FindFirstChildWhichIsA("ScreenGui")
+        if not GUI then return end
+    end
+    GUI.Enabled = true
 
-    local UFO_ID   = "rbxassetid://140388309537044"
-    local PRE_HOLD = 2.0
-    local POST_HOLD= 2.0
+    -- หา "หน้าต่างหลัก" ให้แม่นที่สุด: 1) ชื่อ Window 2) เฟรมที่ใหญ่สุดใต้ GUI 3) ถ้าไม่เจอ ใช้ศูนย์กลางจอ
+    local Window = GUI:FindFirstChild("Window") or GUI:FindFirstChildWhichIsA("Frame")
+    do
+        local biggest, area = nil, 0
+        for _,f in ipairs(GUI:GetDescendants()) do
+            if f:IsA("Frame") and f.Visible then
+                local s = f.AbsoluteSize; local a = s.X*s.Y
+                if a > area then area, biggest = a, f end
+            end
+        end
+        if biggest then Window = biggest end
+    end
+
+    local UIScale = Window and Window:FindFirstChildOfClass("UIScale")
+    if Window and not UIScale then UIScale = Instance.new("UIScale", Window); UIScale.Scale = 1 end
+
+    local UFO_ID    = "rbxassetid://140388309537044"
+    local PRE_HOLD  = 2.0   -- ยานค้างก่อนโชว์ UI
+    local POST_HOLD = 2.0   -- ยานค้างหลัง UI โผล่
 
     local animBusy = false
-    local isShown  = (Window.Visible ~= false)
+    local isShown  = (not Window) or (Window.Visible ~= false) -- ถ้าไม่มี Window ถือว่า "แสดงอยู่"
 
-    -- สร้างแผ่นบัง + ยานทับ “ตรงกลางหน้าต่าง”
-    local function makeOverlayAndUFO()
-        -- คำนวณพื้นที่หน้าต่าง
-        local p, s = Window.AbsolutePosition, Window.AbsoluteSize
-        local cx, cy = p.X + s.X/2, p.Y + s.Y/2
+    -- เครื่องมือ
+    local function tween(o,t,goal,style,dir)
+        local tw = TS:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
+        tw:Play(); tw.Completed:Wait()
+    end
 
-        -- ScreenGui overlay (ทับเหนือหน้าต่าง)
+    local function getCenter()
+        if Window then
+            local p,s = Window.AbsolutePosition, Window.AbsoluteSize
+            return p.X + s.X/2, p.Y + s.Y/2, s.X, s.Y
+        else
+            local cam = workspace.CurrentCamera
+            local v = cam and cam.ViewportSize or Vector2.new(1280,720)
+            return v.X/2, v.Y/2, v.X, v.Y
+        end
+    end
+
+    local function makeOverlay()
+        -- สร้าง ScreenGui เลเยอร์บนสุด สำหรับแผ่นบัง + ยาน (ไม่แกะของเดิม)
         local overlay = Instance.new("ScreenGui")
-        overlay.Name = "UFO_HARD_OVERLAY"; overlay.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        overlay.IgnoreGuiInset = true; overlay.ResetOnSpawn = false; overlay.Parent = CGui
+        overlay.Name = "UFO_INTRO_FAILSAFE"; overlay.IgnoreGuiInset = true
+        overlay.ResetOnSpawn = false; overlay.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        overlay.DisplayOrder = 1_000_000 -- ให้อยู่บนสุด
+        overlay.Parent = CG
 
-        -- แผ่นบัง (บล็อกไม่ให้เห็น UI ก่อนเวลา)
+        -- ตำแหน่ง/ขนาดอิงหน้าต่าง ถ้าไม่มีใช้ทั้งจอ
+        local cx, cy, w, h = getCenter()
+
+        -- แผ่นบัง (กัน UI โผล่ก่อน)
         local blocker = Instance.new("Frame", overlay)
-        blocker.BackgroundColor3 = Color3.fromRGB(0,0,0)
-        blocker.BackgroundTransparency = 0 -- ทึบไว้ก่อน
+        blocker.BackgroundColor3 = Color3.new(0,0,0)
+        blocker.BackgroundTransparency = 0
         blocker.BorderSizePixel = 0
         blocker.ZIndex = 998
-        blocker.Size = UDim2.fromOffset(s.X, s.Y)
-        blocker.Position = UDim2.fromOffset(p.X, p.Y)
+        blocker.Size = UDim2.fromOffset(w, h)
+        blocker.Position = UDim2.fromOffset(cx - w/2, cy - h/2)
 
         -- ยาน
         local u = Instance.new("ImageLabel", overlay)
-        u.Name = "UFO_Overlay"
-        u.BackgroundTransparency = 1
-        u.Image = UFO_ID
-        u.ZIndex = 999
+        u.Name = "UFO_Overlay"; u.BackgroundTransparency = 1
+        u.Image = UFO_ID; u.ZIndex = 999
         u.AnchorPoint = Vector2.new(0.5,0.5)
         u.Position = UDim2.fromOffset(cx, cy)
         u.Size = UDim2.fromOffset(40,40)
         u.ImageTransparency = 1
-
         pcall(function() CP:PreloadAsync({u}) end)
 
         return overlay, blocker, u
     end
 
-    local function tween(obj, t, goal, style, dir)
-        local tw = TS:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
-        tw:Play(); tw.Completed:Wait()
+    local function showUI()
+        if Window then
+            local s0 = UIScale and (UIScale.Scale == 0 and 1 or UIScale.Scale) or 1
+            if UIScale then UIScale.Scale = s0 * 0.96 end
+            Window.Visible = true; Window.GroupTransparency = 1
+            tween(Window, 0.22, {GroupTransparency = 0})
+            if UIScale then tween(UIScale, 0.22, {Scale = s0}) end
+        else
+            GUI.Enabled = true
+        end
+    end
+
+    local function hideUI()
+        if Window then
+            local s0 = UIScale and (UIScale.Scale == 0 and 1 or UIScale.Scale) or 1
+            tween(Window, 0.18, {GroupTransparency = 1})
+            if UIScale then tween(UIScale, 0.18, {Scale = s0 * 0.96}) end
+            Window.Visible = false
+            if UIScale then UIScale.Scale = s0 end
+        else
+            GUI.Enabled = false
+        end
     end
 
     local function playOpen()
         if animBusy or isShown then return end
         animBusy = true
 
-        -- ซ่อน UI ไว้ก่อน (กันแอบโผล่)
-        Window.Visible = false
-        Window.GroupTransparency = 1
+        -- บังคับซ่อนก่อนเสมอ
+        if Window then Window.Visible = false; Window.GroupTransparency = 1 else GUI.Enabled = false end
 
-        local overlay, blocker, u = makeOverlayAndUFO()
-
-        -- ยานขึ้นก่อนแน่ๆ
+        local overlay, blocker, u = makeOverlay()
         tween(u, 0.10, {ImageTransparency = 0.05})
         tween(u, 0.22, {Size = UDim2.fromOffset(220,220)})
         task.wait(PRE_HOLD)
 
-        -- เปิด UI
-        local s0 = UIScale.Scale == 0 and 1 or UIScale.Scale
-        UIScale.Scale = s0 * 0.96
-        Window.Visible = true
-        tween(Window, 0.22, {GroupTransparency = 0})
-        tween(UIScale, 0.22, {Scale = s0})
+        showUI()
 
-        -- ค้างยานต่อ แล้วค่อยหาย
         task.wait(POST_HOLD)
         tween(u, 0.14, {ImageTransparency = 1})
-
-        -- เอาแผ่นบังออก
         tween(blocker, 0.12, {BackgroundTransparency = 1})
         overlay:Destroy()
 
@@ -326,15 +366,10 @@ do
         if animBusy or not isShown then return end
         animBusy = true
 
-        local overlay, blocker, u = makeOverlayAndUFO()
-        -- ให้เห็นยานแวบก่อนปิด
+        local overlay, blocker, u = makeOverlay()
         tween(u, 0.10, {ImageTransparency = 0.05, Size = UDim2.fromOffset(160,160)})
 
-        local s0 = UIScale.Scale == 0 and 1 or UIScale.Scale
-        tween(Window, 0.18, {GroupTransparency = 1})
-        tween(UIScale, 0.18, {Scale = s0 * 0.96})
-        Window.Visible = false
-        UIScale.Scale = s0
+        hideUI()
 
         tween(u, 0.12, {ImageTransparency = 1})
         tween(blocker, 0.08, {BackgroundTransparency = 1})
@@ -344,12 +379,17 @@ do
         animBusy = false
     end
 
-    -- ปุ่ม X
-    if BtnClose and BtnClose:IsA("TextButton") then
-        BtnClose.MouseButton1Click:Connect(function()
-            if isShown then playClose() end
-        end)
+    -- ปุ่ม X (ถ้ามี)
+    local function hookX()
+        local X = nil
+        for _,o in ipairs((Window or GUI):GetDescendants()) do
+            if o:IsA("TextButton") and o.Visible and (o.Text and o.Text:upper()=="X") then X = o break end
+        end
+        if X then
+            X.MouseButton1Click:Connect(function() if isShown then playClose() end end)
+        end
     end
+    hookX()
 
     -- RightShift
     UIS.InputBegan:Connect(function(i,gp)
@@ -362,7 +402,7 @@ do
     -- เล่นครั้งแรกทันที (ยานต้องขึ้นก่อนเสมอ)
     task.defer(function()
         if isShown then
-            Window.Visible = false
+            if Window then Window.Visible = false else GUI.Enabled = false end
             isShown = false
         end
         playOpen()
