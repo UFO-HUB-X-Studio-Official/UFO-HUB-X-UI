@@ -373,58 +373,69 @@ do
         end)
     end
 end
--- ปุ่ม Player (อยู่บนสุดเสมอ)
-local BtnPlayer = Instance.new("TextButton", Left)
+-- [LEFT] Player button
+if Left:FindFirstChild("BtnPlayer") then Left.BtnPlayer:Destroy() end
+
+local BtnPlayer = Instance.new("TextButton")
+BtnPlayer.Name = "BtnPlayer"
+BtnPlayer.Parent = Left
 BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
-BtnPlayer.Position = UDim2.new(0, 6, 0, 6) -- อยู่บนสุด
+BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
-corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
-
-BtnPlayer.Text = "Player"  -- ชื่ออย่างเดียว (ไม่ใช้อิโมจิ)
+BtnPlayer.AutoButtonColor = false
+BtnPlayer.Text = "Player"
 BtnPlayer.Font = Enum.Font.GothamBold
 BtnPlayer.TextSize = 14
 BtnPlayer.TextColor3 = TEXT_WHITE
-BtnPlayer.TextXAlignment = Enum.TextXAlignment.Left  -- ชิดซ้าย
+BtnPlayer.TextXAlignment = Enum.TextXAlignment.Left  -- 👈 ชิดซ้าย
+corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
 
 -- ไอคอนหน้าชื่อ (ใหญ่ขึ้น)
-local Icon = Instance.new("ImageLabel", BtnPlayer)
+local Icon = Instance.new("ImageLabel")
+Icon.Name = "Icon"
+Icon.Parent = BtnPlayer
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(24,24)     -- ⬅ ใหญ่ขึ้นจาก 20 → 24
-Icon.Position = UDim2.fromOffset(10,8)  -- จัดให้อยู่กลางแนวตั้งสวยขึ้น
+Icon.Size = UDim2.fromOffset(24, 24)       -- 👈 ใหญ่ขึ้น
+Icon.Position = UDim2.fromOffset(10, 8)
 Icon.Image = "rbxassetid://114530675624359"
 
--- ขยับตัวหนังสือไม่ให้ทับไอคอน
+-- กันข้อความทับไอคอน
 local pad = Instance.new("UIPadding", BtnPlayer)
 pad.PaddingLeft = UDim.new(0, 44)
--- เคลียร์หัวเก่า (กันซ้อน)
-for _, ch in ipairs(PlayerPage:GetChildren()) do
-    if ch.Name == "Header" then ch:Destroy() end
+-- [RIGHT] Header Bar on top (Player)
+for _,ch in ipairs(Right:GetChildren()) do
+    if ch.Name == "RightHeader" then ch:Destroy() end
 end
 
--- แถบหัวด้านบนของฝั่งขวา (ตรงจุดขาวๆ)
-local Header = Instance.new("Frame", PlayerPage)
-Header.Name = "Header"
-Header.Size = UDim2.new(1, -24, 0, 36)     -- กว้างเต็ม ลบขอบซ้ายขวานิดหน่อย
-Header.Position = UDim2.new(0, 12, 0, 8)   -- วางตรงตำแหน่งแถบหัว (แทน “จุดขาวๆ”)
+Right.ClipsDescendants = false  -- เผื่อ stroke/เงาโผล่เกินขอบ
+
+local Header = Instance.new("Frame")
+Header.Name = "RightHeader"
+Header.Parent = Right
+Header.Size = UDim2.new(1, -24, 0, 36)
+Header.Position = UDim2.fromOffset(12, 12)  -- 👈 ตำแหน่งบนสุดในกรอบขวา
 Header.BackgroundColor3 = BG_INNER
 Header.BorderSizePixel = 0
+Header.ZIndex = 50  -- 👈 ซ้อนทับรูปแน่นอน
 corner(Header, 10); stroke(Header, 1, MINT, 0.35)
 
--- ไอคอนหัวข้อ (อยู่หน้าชื่อ)
-local HIcon = Instance.new("ImageLabel", Header)
+local HIcon = Instance.new("ImageLabel")
+HIcon.Parent = Header
 HIcon.BackgroundTransparency = 1
-HIcon.Size = UDim2.fromOffset(22,22)
-HIcon.Position = UDim2.fromOffset(10,7)
+HIcon.Size = UDim2.fromOffset(22, 22)
+HIcon.Position = UDim2.fromOffset(10, 7)
 HIcon.Image = "rbxassetid://114530675624359"
+HIcon.ZIndex = 51
 
--- ชื่อหัวข้อ (เปลี่ยนเป็น Player)
-local HText = Instance.new("TextLabel", Header)
+local HText = Instance.new("TextLabel")
+HText.Parent = Header
 HText.BackgroundTransparency = 1
-HText.Text = "Player"
+HText.Text = "Player"          -- 👈 เปลี่ยนชื่อหัวเป็น Player
 HText.Font = Enum.Font.GothamBold
 HText.TextSize = 14
 HText.TextColor3 = TEXT_WHITE
 HText.TextXAlignment = Enum.TextXAlignment.Left
-HText.Position = UDim2.fromOffset(40, 8)  -- ขยับหลังไอคอน
+HText.Position = UDim2.fromOffset(40, 8)
 HText.Size = UDim2.new(1, -50, 1, -16)
+HText.ZIndex = 51
