@@ -373,49 +373,48 @@ do
         end)
     end
 end
--- 🔧 ตั้งชื่อ panel (ถ้ายังไม่ได้ตั้ง)
-Left.Name  = "LeftPanel"
-Right.Name = "RightPanel"
-
--- 🔧 เคลียร์รูปเดโม่ที่บังพื้นที่ (สำคัญสุด!)
-for _,v in ipairs(Left:GetChildren()) do
-    if v:IsA("ImageLabel") or v:IsA("ImageButton") then v:Destroy() end
-end
-for _,v in ipairs(Right:GetChildren()) do
-    if v:IsA("ImageLabel") or v:IsA("ImageButton") then v:Destroy() end
-end
-
 --==========================================================
--- TABS SYSTEM (Left buttons + Right pages)
+-- TABS SYSTEM (Drop-in; ใช้ Left/Right เดิมของไฟล์นี้)
 --==========================================================
 do
+    -- 0) กันรูปเดโม่บัง (สำคัญมาก)
+    for _,v in ipairs(Left:GetChildren()) do
+        if v:IsA("ImageLabel") or v:IsA("ImageButton") then v:Destroy() end
+    end
+    for _,v in ipairs(Right:GetChildren()) do
+        if v:IsA("ImageLabel") or v:IsA("ImageButton") then v:Destroy() end
+    end
+    Left.ClipsDescendants  = true
+    Right.ClipsDescendants = true
+
+    -- 1) รายการปุ่มแท็บฝั่งซ้าย
     local TabList = Instance.new("ScrollingFrame", Left)
     TabList.Name = "UFO_TabList"
     TabList.Active = true
     TabList.ScrollingDirection = Enum.ScrollingDirection.Y
     TabList.AutomaticCanvasSize = Enum.AutomaticSize.Y
     TabList.CanvasSize = UDim2.new(0,0,0,0)
-    TabList.ScrollBarThickness = 0
+    TabList.ScrollBarThickness = 0         -- ซ่อนเส้นขาว
     TabList.BackgroundTransparency = 1
     TabList.BorderSizePixel = 0
     TabList.Position = UDim2.fromOffset(6,6)
     TabList.Size     = UDim2.new(1,-12,1,-12)
-    TabList.ZIndex   = 50 -- ⬅ กันโดนของเก่าบัง
+    TabList.ZIndex   = 50                  -- กันโดนอะไรบัง
 
-    local ll = Instance.new("UIListLayout", TabList)
-    ll.Padding   = UDim.new(0,8)
-    ll.SortOrder = Enum.SortOrder.LayoutOrder
+    local LL = Instance.new("UIListLayout", TabList)
+    LL.Padding   = UDim.new(0,8)
+    LL.SortOrder = Enum.SortOrder.LayoutOrder
 
-    local Pages = Right:FindFirstChild("UFO_Pages") or Instance.new("Folder", Right)
+    -- 2) โฟลเดอร์หน้าเพจฝั่งขวา
+    local Pages = Instance.new("Folder", Right)
     Pages.Name = "UFO_Pages"
 
-    Window._tabs = {}
-
+    -- 3) สไตล์ปุ่ม
     local function styleTabButton(b, title)
-        b.Size = UDim2.new(1,0,0,40)
+        b.AutoButtonColor = false
         b.BackgroundColor3 = BG_INNER
         b.BorderSizePixel  = 0
-        b.AutoButtonColor  = false
+        b.Size = UDim2.new(1,0,0,40)
         b.Text = "  📄  "..title
         b.TextXAlignment = Enum.TextXAlignment.Left
         b.Font = Enum.Font.Gotham
@@ -425,33 +424,37 @@ do
         local pad = Instance.new("UIPadding", b); pad.PaddingLeft = UDim.new(0,10)
     end
 
+    -- 4) เก็บสถานะ
+    Window._tabs = {}
+
     local function selectTab(target)
         for _,t in ipairs(Window._tabs) do
-            t.Page.Visible = (t == target)
-            t.Button.TextColor3 = (t==target) and GREEN or TEXT_WHITE
-            t.Button.BackgroundColor3 = (t==target) and BG_PANEL or BG_INNER
+            local on = (t == target)
+            t.Page.Visible = on
+            t.Button.TextColor3 = on and GREEN or TEXT_WHITE
+            t.Button.BackgroundColor3 = on and BG_PANEL or BG_INNER
         end
     end
 
+    -- 5) API สร้างแท็บ (เหมือน Kavo: local t = Window:NewTab("ชื่อ"))
     function Window:NewTab(name)
         name = tostring(name or ("Tab "..(#self._tabs+1)))
 
-        -- ปุ่มเมนูซ้าย
+        -- ปุ่มฝั่งซ้าย
         local btn = Instance.new("TextButton")
-        btn.Name = "Tab_"..name
+        btn.Name   = "Tab_"..name
         btn.Parent = TabList
         styleTabButton(btn, name)
 
-        -- หน้าเพจขวา
+        -- หน้าเพจฝั่งขวา (เต็มพื้นที่ + วางของยาวได้)
         local page = Instance.new("Frame")
-        page.Name = "Page_"..name
+        page.Name   = "Page_"..name
         page.Parent = Pages
         page.BackgroundTransparency = 1
         page.Visible = false
         page.Position = UDim2.fromOffset(6,6)
         page.Size     = UDim2.new(1,-12,1,-12)
 
-        -- คอนเทนต์ภายในเพจ (เลื่อนยาวได้)
         local sf = Instance.new("ScrollingFrame", page)
         sf.Name = "Container"
         sf.Active = true
@@ -464,18 +467,16 @@ do
         sf.Size = UDim2.new(1,0,1,0)
 
         local lay = Instance.new("UIListLayout", sf)
-        lay.Padding = UDim.new(0,8)
+        lay.Padding   = UDim.new(0,8)
         lay.SortOrder = Enum.SortOrder.LayoutOrder
 
-        local record = { Button = btn, Page = page, Container = sf }
-        table.insert(self._tabs, record)
+        local rec = { Button = btn, Page = page, Container = sf }
+        table.insert(self._tabs, rec)
 
-        btn.MouseButton1Click:Connect(function() selectTab(record) end)
+        btn.MouseButton1Click:Connect(function() selectTab(rec) end)
+        if #self._tabs == 1 then selectTab(rec) end
 
-        if #self._tabs == 1 then
-            selectTab(record) -- แท็บแรกโชว์ทันที
-        end
-
-        return record
+        return rec
     end
 end
+return Window
