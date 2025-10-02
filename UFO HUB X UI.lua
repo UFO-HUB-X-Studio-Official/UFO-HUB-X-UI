@@ -373,32 +373,50 @@ do
         end)
     end
 end
-----------------------------------------------------------------
-    -- ปุ่ม Player (ตรึงบนสุดเสมอ)
-    ----------------------------------------------------------------
-    local PlayerTab = createPage("player", "👤 Player")
+-- ปุ่ม Player (อยู่บนสุดเสมอ)
+local BtnPlayer = Instance.new("TextButton", Left)
+BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
+BtnPlayer.Position = UDim2.new(0, 6, 0, 6) -- อยู่บนสุด
+BtnPlayer.BackgroundColor3 = BG_INNER
+BtnPlayer.BorderSizePixel = 0
+corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
+BtnPlayer.Text = "👤 Player"
+BtnPlayer.Font = Enum.Font.GothamBold
+BtnPlayer.TextSize = 14
+BtnPlayer.TextColor3 = TEXT_WHITE
 
-    -- บังคับปุ่มให้อยู่บนสุด
-    PlayerTab.Button.LayoutOrder = -999
+-- เพิ่มไอคอนรูป
+local Icon = Instance.new("ImageLabel", BtnPlayer)
+Icon.BackgroundTransparency = 1
+Icon.Size = UDim2.fromOffset(20,20)
+Icon.Position = UDim2.fromOffset(10,10)
+Icon.Image = "rbxassetid://114530675624359"
 
-    -- เพิ่มไอคอนรูป
-    local Icon = Instance.new("ImageLabel", PlayerTab.Button)
-    Icon.BackgroundTransparency = 1
-    Icon.Size = UDim2.fromOffset(20,20)
-    Icon.Position = UDim2.fromOffset(10,10)
-    Icon.Image = "rbxassetid://114530675624359"
+-- ขยับตัวหนังสือให้ไม่ทับไอคอน
+local pad = Instance.new("UIPadding", BtnPlayer)
+pad.PaddingLeft = UDim.new(0, 40)
 
-    -- ขยับตัวหนังสือให้ไม่ชนไอคอน
-    local pad = Instance.new("UIPadding", PlayerTab.Button)
-    pad.PaddingLeft = UDim.new(0,40)
+-- เนื้อหาในหน้า Player
+local PlayerPage = Instance.new("Frame", Right)
+PlayerPage.BackgroundTransparency = 1
+PlayerPage.Size = UDim2.new(1,0,1,0)
+PlayerPage.Visible = false
 
-    -- ตัวอย่างเนื้อหาในหน้า Player
-    local lbl = Instance.new("TextLabel", PlayerTab.Container)
-    lbl.Size = UDim2.new(1,0,0,36)
-    lbl.BackgroundColor3 = BG_INNER
-    lbl.BorderSizePixel = 0
-    corner(lbl,10); stroke(lbl,1,MINT,0.35)
-    lbl.Text = "📋 This is Player Tab"
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 14
-    lbl.TextColor3 = TEXT_WHITE
+-- ตัวอย่างเนื้อหาใน PlayerPage
+local lbl = Instance.new("TextLabel", PlayerPage)
+lbl.Size = UDim2.new(1,0,0,36)
+lbl.BackgroundColor3 = BG_INNER
+lbl.BorderSizePixel = 0
+corner(lbl,10); stroke(lbl,1,MINT,0.35)
+lbl.Text = "📋 This is Player Tab"
+lbl.Font = Enum.Font.Gotham
+lbl.TextSize = 14
+lbl.TextColor3 = TEXT_WHITE
+
+-- คลิกปุ่ม → เปิดหน้า Player
+BtnPlayer.MouseButton1Click:Connect(function()
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then child.Visible = false end
+    end
+    PlayerPage.Visible = true
+end)
