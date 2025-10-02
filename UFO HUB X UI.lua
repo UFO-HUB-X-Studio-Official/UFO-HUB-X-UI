@@ -411,3 +411,26 @@ do
         end
     end)
 end
+-- TEST: เพิ่มปุ่มเมนูเยอะๆที่ฝั่งซ้ายให้เกินความสูง (จะได้ลองเลื่อน)
+do
+    local sfLeft = Left:FindFirstChild("UFO_ScrollLeft")
+    if sfLeft then
+        local function NewNav(text)
+            local b = Instance.new("TextButton", sfLeft)
+            b.Size = UDim2.new(1, 0, 0, 40)
+            b.BackgroundColor3 = BG_PANEL
+            b.BorderSizePixel = 0
+            b.Text = text
+            b.TextColor3 = TEXT_WHITE
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 14
+            corner(b, 10); stroke(b, 1, GREEN, 0.25)
+            return b
+        end
+        for i = 1, 12 do  -- เปลี่ยนจำนวนได้เลย
+            NewNav(("🔘 เมนู %d"):format(i))
+        end
+    else
+        warn("UFO_ScrollLeft not found – ตรวจว่ารัน ensureScroll แล้วหรือยัง")
+    end
+end
