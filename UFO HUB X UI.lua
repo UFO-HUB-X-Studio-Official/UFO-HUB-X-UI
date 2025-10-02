@@ -290,7 +290,7 @@ do
     end)
 end
 --==========================================================
--- UFO RECOVERY PATCH (Final Fix v2: Toggle image + Sync + Drag fix)
+-- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
 do
     local CoreGui = game:GetService("CoreGui")
@@ -308,19 +308,20 @@ do
         local gui, win = findMain()
         if gui then gui.Enabled = true end
         if win then win.Visible = true end
+        getgenv().UFO_ISOPEN = true
     end
 
     local function hideUI()
         local gui, win = findMain()
         if win then win.Visible = false end
+        getgenv().UFO_ISOPEN = false
     end
 
-    -- ปุ่ม X ซ่อนหน้าต่าง และ sync flag
+    -- ปุ่ม X ซ่อน + sync flag
     for _,o in ipairs(CoreGui:GetDescendants()) do
         if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
             o.MouseButton1Click:Connect(function()
                 hideUI()
-                getgenv().UFO_ISOPEN = false -- sync flag
             end)
         end
     end
@@ -336,29 +337,19 @@ do
     ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
     ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
     ToggleBtn.BorderSizePixel = 0
-    ToggleBtn.Image = "rbxassetid://117052960049460" -- ✅ ใช้รูปแทน
+    ToggleBtn.Image = "rbxassetid://117052960049460"
     local c = Instance.new("UICorner", ToggleBtn); c.CornerRadius = UDim.new(0,8)
-
-    -- Stroke รอบปุ่ม (ขอบเขียวเป็นกรอบ ไม่ทับรูป)
-    local s = Instance.new("UIStroke", ToggleBtn)
-    s.Thickness = 2; s.Color = GREEN
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.LineJoinMode = Enum.LineJoinMode.Round
+    local s = Instance.new("UIStroke", ToggleBtn); s.Thickness=2; s.Color=GREEN
 
     -- flag sync
-    local isOpen = true
     getgenv().UFO_ISOPEN = true
 
     local function toggleUI()
-        local _, win = findMain()
-        if not win then return end
-        if isOpen then
+        if getgenv().UFO_ISOPEN then
             hideUI()
         else
             showUI()
         end
-        isOpen = not isOpen
-        getgenv().UFO_ISOPEN = isOpen
     end
 
     ToggleBtn.MouseButton1Click:Connect(toggleUI)
@@ -375,14 +366,18 @@ do
     do
         local dragging=false; local start; local startPos
         local function bindBlock(on)
-            local name="UFO_BlockLook"
+            local name="UFO_BlockLook_Toggle"
             if on then
                 local fn=function() return Enum.ContextActionResult.Sink end
-                CAS:BindAction(name, fn, false, Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch)
+                CAS:BindActionAtPriority(name, fn, false, 9000,
+                    Enum.UserInputType.MouseMovement,
+                    Enum.UserInputType.Touch,
+                    Enum.UserInputType.MouseButton1)
             else
-                pcall(function() CAS:UnbindAction("UFO_BlockLook") end)
+                pcall(function() CAS:UnbindAction(name) end)
             end
         end
+
         ToggleBtn.InputBegan:Connect(function(i)
             if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
                 dragging=true; start=i.Position
@@ -395,6 +390,7 @@ do
                 end)
             end
         end)
+
         UIS.InputChanged:Connect(function(i)
             if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
                 local d=i.Position-start
