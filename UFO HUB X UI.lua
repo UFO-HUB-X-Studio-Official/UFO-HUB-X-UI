@@ -373,38 +373,121 @@ do
         end)
     end
 end
--- [LEFT] Player button
-if Left:FindFirstChild("BtnPlayer") then Left.BtnPlayer:Destroy() end
+--====[ PLAYER BUTTON (ชิดสวย+เอฟเฟกต์กด) ]====
 
-local BtnPlayer = Instance.new("TextButton")
+-- ปุ่ม (อยู่บนสุด)
+local BtnPlayer = Instance.new("TextButton", Left)
 BtnPlayer.Name = "BtnPlayer"
-BtnPlayer.Parent = Left
-BtnPlayer.Size = UDim2.new(1, -12, 0, 44)
+BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
 BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
-BtnPlayer.AutoButtonColor = false
-BtnPlayer.Text = ""  -- ❌ ล้างค่า Text ออก จะใช้ Label แทน
-corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
+BtnPlayer.AutoButtonColor = false   -- คุมสีเอง (จะทำเอฟเฟกต์กดเอง)
+corner(BtnPlayer, 10)
+local st = stroke(BtnPlayer, 1, GREEN, 0.35)
 
--- ✅ ไอคอนหน้าชื่อ
-local Icon = Instance.new("ImageLabel")
-Icon.Name = "Icon"
-Icon.Parent = BtnPlayer
+-- ใช้กรอบแนวนอนจัด “รูป + ข้อความ” ให้ติดกันพอดี
+local Row = Instance.new("Frame", BtnPlayer)
+Row.BackgroundTransparency = 1
+Row.Position = UDim2.fromOffset(8, 6)
+Row.Size = UDim2.new(1, -16, 1, -12)
+
+local Pad = Instance.new("UIPadding", Row)
+Pad.PaddingLeft  = UDim.new(0, 0)
+Pad.PaddingRight = UDim.new(0, 0)
+Pad.PaddingTop   = UDim.new(0, 0)
+Pad.PaddingBottom= UDim.new(0, 0)
+
+local H = Instance.new("UIListLayout", Row)
+H.FillDirection          = Enum.FillDirection.Horizontal
+H.HorizontalAlignment    = Enum.HorizontalAlignment.Left
+H.VerticalAlignment      = Enum.VerticalAlignment.Center
+H.SortOrder              = Enum.SortOrder.LayoutOrder
+H.Padding                = UDim.new(0, 6)  -- << ระยะ “รูป-ข้อความ” ปรับได้ (แนะนำ 4–8)
+
+-- รูปไอคอน (จะอยู่ชิดซ้าย)
+local Icon = Instance.new("ImageLabel", Row)
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(28, 28) -- ใหญ่ขึ้น
-Icon.Position = UDim2.fromOffset(10, 8)
+Icon.Size = UDim2.fromOffset(18, 18)   -- ถ้าอยากใหญ่ขึ้นเปลี่ยนเป็น 20–22
 Icon.Image = "rbxassetid://114530675624359"
+Icon.LayoutOrder = 1
 
--- ✅ ชื่อ Player อยู่ถัดจากรูป (ระยะสั้นลง)
-local Txt = Instance.new("TextLabel")
-Txt.Name = "Label"
-Txt.Parent = BtnPlayer
+-- ข้อความ (จะตามรูปมาติดๆ)
+local Txt = Instance.new("TextLabel", Row)
 Txt.BackgroundTransparency = 1
-Txt.Position = UDim2.fromOffset(36, 0)  -- เดิม 46 → ลดเหลือ 36
-Txt.Size = UDim2.new(1, -40, 1, 0)      -- เผื่อพื้นที่ให้พอดี
+Txt.Size = UDim2.new(1, 0, 1, 0)
+Txt.TextXAlignment = Enum.TextXAlignment.Left
 Txt.Font = Enum.Font.GothamBold
 Txt.Text = "Player"
 Txt.TextSize = 16
 Txt.TextColor3 = TEXT_WHITE
-Txt.TextXAlignment = Enum.TextXAlignment.Left
+Txt.LayoutOrder = 2
+
+-- เอฟเฟกต์ Hover + กด (ลื่นทั้งเมาส์/ทัช)
+local UIS = game:GetService("UserInputService")
+local TS  = game:GetService("TweenService")
+local uiScale = Instance.new("UIScale", BtnPlayer)
+
+local function tw(obj, t, goal)
+    TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
+end
+
+local function setHover(on)
+    -- hover: เส้นชัดขึ้นนิด + พื้นสว่างขึ้นจางๆ (พีซีเท่านั้น)
+    local tgtT = on and 0.15 or 0.35
+    local tgtBg = on and Color3.fromRGB(24,24,24) or BG_INNER
+    tw(st, 0.08, {Transparency = tgtT})
+    tw(BtnPlayer, 0.10, {BackgroundColor3 = tgtBg})
+end
+
+local function setPress(on)
+    -- กด: ย่อปุ่มนิดๆ + เส้นเข้มขึ้น
+    local tgtScale = on and 0.97 or 1
+    local tgtT = on and 0.05 or 0.15
+    tw(uiScale, 0.07, {Scale = tgtScale})
+    tw(st, 0.06, {Transparency = tgtT})
+end
+
+-- Mouse (พีซี)
+BtnPlayer.MouseEnter:Connect(function() if not UIS.TouchEnabled then setHover(true) end end)
+BtnPlayer.MouseLeave:Connect(function() if not UIS.TouchEnabled then setHover(false); setPress(false) end end)
+BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
+BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
+
+-- Touch (มือถือ)
+BtnPlayer.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch then setPress(true) end
+end)
+BtnPlayer.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch then setPress(false) end
+end)
+
+--========== เนื้อหา Page ด้านขวา ==========
+-- ซ่อนไว้ก่อน แล้วค่อยเปิดเมื่อกดปุ่ม
+local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
+PlayerPage.Name = "PlayerPage"
+PlayerPage.BackgroundTransparency = 1
+PlayerPage.Size = UDim2.new(1,0,1,0)
+PlayerPage.Visible = false
+
+-- ตัวอย่างหัวข้อบนสุด (แทนที่จุดขาว) ถ้ายังไม่มี
+if not PlayerPage:FindFirstChild("Header") then
+    local Header = Instance.new("TextLabel", PlayerPage)
+    Header.Name = "Header"
+    Header.BackgroundTransparency = 1
+    Header.Position = UDim2.fromOffset(12,8)
+    Header.Size = UDim2.new(1,-24,0,28)
+    Header.Font = Enum.Font.GothamBold
+    Header.Text = "🧑‍🚀 Player"
+    Header.TextColor3 = TEXT_WHITE
+    Header.TextXAlignment = Enum.TextXAlignment.Left
+    Header.TextSize = 18
+end
+
+-- กดปุ่ม → โชว์หน้า Player และซ่อนหน้าอื่นๆ
+BtnPlayer.MouseButton1Click:Connect(function()
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then child.Visible = false end
+    end
+    PlayerPage.Visible = true
+end)
