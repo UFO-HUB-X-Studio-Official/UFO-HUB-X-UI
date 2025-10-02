@@ -1,11 +1,13 @@
 --==========================================================
 -- UFO HUB X • tuned layout (title higher, UFO lower)
--- (Full file with AFK Always-On integrated + RECOVERY PATCHED)
+-- (Full file with AFK Always-On + SCROLL + RECOVERY v3)
 --==========================================================
 
 pcall(function()
     local g = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
     if g then g:Destroy() end
+    local t = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_Toggle")
+    if t then t:Destroy() end
 end)
 
 -- THEME
@@ -97,9 +99,10 @@ BtnClose.BackgroundColor3 = DANGER_RED; BtnClose.Text = "X"; BtnClose.Font = Enu
 BtnClose.TextSize = 13; BtnClose.TextColor3 = Color3.new(1,1,1); BtnClose.BorderSizePixel = 0
 corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
 
--- ✅ PATCH: ปุ่ม X ซ่อนเฉพาะ Window
+-- ✅ ปุ่ม X ซ่อนเฉพาะ Window + sync flag
 BtnClose.MouseButton1Click:Connect(function()
     Window.Visible = false
+    getgenv().UFO_ISOPEN = false
 end)
 
 -- drag (fix: block camera input while dragging)
@@ -205,6 +208,45 @@ local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 
 --==========================================================
+-- SCROLL PATCH • Left/Right เลื่อนขึ้น–ลง (Auto wrap + move children)
+--==========================================================
+do
+    local function ensureScroll(panel, name)
+        if not panel or not panel.Parent then return nil end
+        local exist = panel:FindFirstChild("UFO_"..name)
+        if exist and exist:IsA("ScrollingFrame") then return exist end
+
+        local sf = Instance.new("ScrollingFrame")
+        sf.Name = "UFO_"..name
+        sf.Active = true
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.ScrollBarThickness = 6
+        sf.BorderSizePixel = 0
+        sf.BackgroundTransparency = 1
+        sf.Position = UDim2.fromOffset(5,5)
+        sf.Size = UDim2.new(1,-10,1,-10)
+        sf.Parent = panel
+
+        local list = Instance.new("UIListLayout", sf)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        list.Padding = UDim.new(0,8)
+
+        for _,ch in ipairs(panel:GetChildren()) do
+            if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
+                ch.Parent = sf
+            end
+        end
+        panel.ClipsDescendants = true
+        return sf
+    end
+
+    local ScrollLeft  = ensureScroll(Left,  "ScrollLeft")
+    local ScrollRight = ensureScroll(Right, "ScrollRight")
+end
+
+--==========================================================
 -- AFK SHIELD (Always-On)
 --==========================================================
 do
@@ -249,74 +291,6 @@ do
 end
 
 --==========================================================
--- UFO RECOVERY PATCH (Toggle + RightShift fixed)
---==========================================================
-do
-    local function findMain()
-        local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-        local win
-        if gui then win = gui:FindFirstChildWhichIsA("Frame") end
-        return gui, win
-    end
-
-    local function forceEnable(gui)
-        if gui then gui.Enabled = true end
-    end
-
-    local function forceShow()
-        local gui, win = findMain()
-        if not gui then return end
-        forceEnable(gui)
-        if win then win.Visible = true end
-    end
-
-    local function softHide()
-        local _, win = findMain()
-        if win then win.Visible = false end
-    end
-
-    -- แพตช์ปุ่ม X
-    for _,o in ipairs(GUI:GetDescendants()) do
-        if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
-            o.MouseButton1Click:Connect(softHide)
-        end
-    end
-
-    -- ปุ่ม Toggle
-    local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
-    if toggleGui then toggleGui:Destroy() end
-
-    local ToggleGui = Instance.new("ScreenGui", CoreGui)
-    ToggleGui.Name = "UFO_HUB_X_Toggle"; ToggleGui.IgnoreGuiInset = true
-
-    local ToggleBtn = Instance.new("TextButton", ToggleGui)
-    ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0); ToggleBtn.Text="■"
-    corner(ToggleBtn,8); stroke(ToggleBtn,2,GREEN,0)
-
-    ToggleBtn.MouseButton1Click:Connect(function()
-        local _, win = findMain()
-        if win and win.Visible then
-            softHide()
-        else
-            forceShow()
-        end
-    end)
-
-    -- RightShift
-    UIS.InputBegan:Connect(function(i,gp)
-        if gp then return end
-        if i.KeyCode==Enum.KeyCode.RightShift then
-            local _, win = findMain()
-            if win and win.Visible then
-                softHide()
-            else
-                forceShow()
-            end
-        end
-    end)
-end
---==========================================================
 -- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
 do
@@ -344,16 +318,20 @@ do
         getgenv().UFO_ISOPEN = false
     end
 
-    -- ปุ่ม X ซ่อน + sync flag
+    -- ตั้งค่า flag เริ่มตามสถานะจริงของหน้าต่าง (กันกดครั้งแรกไม่ขึ้น)
+    do
+        local _, win = findMain()
+        getgenv().UFO_ISOPEN = (win and win.Visible) and true or false
+    end
+
+    -- ปุ่ม X ทั้งระบบ -> ซ่อน + sync flag (กันกดเปิดต้องกดสองครั้ง)
     for _,o in ipairs(CoreGui:GetDescendants()) do
         if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
-            o.MouseButton1Click:Connect(function()
-                hideUI()
-            end)
+            o.MouseButton1Click:Connect(function() hideUI() end)
         end
     end
 
-    -- ปุ่ม Toggle (ImageButton)
+    -- ปุ่ม Toggle (ImageButton) + กรอบเขียว + ลากได้ + บล็อกกล้องขณะลาก
     local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
     if toggleGui then toggleGui:Destroy() end
 
@@ -368,28 +346,17 @@ do
     local c = Instance.new("UICorner", ToggleBtn); c.CornerRadius = UDim.new(0,8)
     local s = Instance.new("UIStroke", ToggleBtn); s.Thickness=2; s.Color=GREEN
 
-    -- flag sync
-    getgenv().UFO_ISOPEN = true
-
     local function toggleUI()
-        if getgenv().UFO_ISOPEN then
-            hideUI()
-        else
-            showUI()
-        end
+        if getgenv().UFO_ISOPEN then hideUI() else showUI() end
     end
-
     ToggleBtn.MouseButton1Click:Connect(toggleUI)
 
-    -- RightShift toggle
     UIS.InputBegan:Connect(function(i,gp)
         if gp then return end
-        if i.KeyCode==Enum.KeyCode.RightShift then
-            toggleUI()
-        end
+        if i.KeyCode==Enum.KeyCode.RightShift then toggleUI() end
     end)
 
-    -- ✅ Drag sandwich button + block camera while dragging
+    -- Drag ปุ่มสี่เหลี่ยม + block camera
     do
         local dragging=false; local start; local startPos
         local function bindBlock(on)
