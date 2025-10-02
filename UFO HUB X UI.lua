@@ -1,6 +1,6 @@
 --==========================================================
 -- UFO HUB X • tuned layout (title higher, UFO lower)
--- (Full file with AFK Always-On integrated)
+-- (Full file with AFK Always-On integrated + BUGFIXED TOGGLES)
 --==========================================================
 
 pcall(function()
@@ -96,7 +96,11 @@ BtnClose.Size = UDim2.new(0,24,0,24); BtnClose.Position = UDim2.new(1,-34,0.5,-1
 BtnClose.BackgroundColor3 = DANGER_RED; BtnClose.Text = "X"; BtnClose.Font = Enum.Font.GothamBold
 BtnClose.TextSize = 13; BtnClose.TextColor3 = Color3.new(1,1,1); BtnClose.BorderSizePixel = 0
 corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
-BtnClose.MouseButton1Click:Connect(function() GUI.Enabled = false end)
+
+-- ✅ PATCH: ปุ่ม X ซ่อนเฉพาะ Window (ไม่ปิดทั้ง GUI)
+BtnClose.MouseButton1Click:Connect(function()
+    Window.Visible = false
+end)
 
 -- drag
 do
@@ -117,10 +121,9 @@ end
 
 -- ===== UFO + TITLE (ปรับตามคำขอ) =====
 do
-    local UFO_Y_OFFSET   = 84  -- ⬇️ ยานลงมาใกล้กรอบ
-    local TITLE_Y_OFFSET = 8   -- ⬆️ ชื่อขึ้นไปอีกนิด
+    local UFO_Y_OFFSET   = 84
+    local TITLE_Y_OFFSET = 8
 
-    -- UFO
     local UFO = Instance.new("ImageLabel", Window)
     UFO.Name = "UFO_Top"; UFO.BackgroundTransparency = 1; UFO.Image = IMG_UFO
     UFO.Size = UDim2.new(0,168,0,168)
@@ -134,7 +137,6 @@ do
     Halo.Image = "rbxassetid://5028857084"; Halo.ImageColor3 = MINT_SOFT; Halo.ImageTransparency = 0.72
     Halo.ZIndex = 50
 
-    -- TITLE
     local TitleCenter = Instance.new("TextLabel", Header)
     TitleCenter.BackgroundTransparency = 1; TitleCenter.AnchorPoint = Vector2.new(0.5,0)
     TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET)
@@ -175,12 +177,7 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 
--- toggle show/hide (RightShift)
-do local vis=true
-    UIS.InputBegan:Connect(function(i,gp)
-        if not gp and i.KeyCode==Enum.KeyCode.RightShift then vis=not vis; GUI.Enabled=vis end
-    end)
-end
+-- 🧹 (ลบ toggle เดิมที่ใช้ GUI.Enabled ออกแล้ว เพื่อกันชน)
 
 --==========================================================
 -- AFK SHIELD (Always-On) • ทำงานแม้ปิด/ซ่อน UI • ตลอดที่อยู่ในเกม
@@ -191,7 +188,6 @@ do
     local LocalPlayer        = Players.LocalPlayer
     local VirtualUser        = game:GetService("VirtualUser")
 
-    -- ป้องกันโหลดซ้ำ / cleanup คอนเนกชันเดิมถ้ามี
     getgenv().UFO_AFK_SHIELD = getgenv().UFO_AFK_SHIELD or {}
     local Shield = getgenv().UFO_AFK_SHIELD
 
@@ -200,7 +196,6 @@ do
 
     Shield.enabled = true
 
-    -- เมื่อ Roblox มองว่า Idle → ส่งอินพุตจำลองปลุกทันที (เบา/ไม่รบกวน)
     Shield.conn = LocalPlayer.Idled:Connect(function()
         if Shield.enabled then
             VirtualUser:CaptureController()
@@ -210,17 +205,15 @@ do
         end
     end)
 
-    -- ติดตามอินพุตจริงจากผู้เล่น เพื่อไม่แทรกตอนเล่นอยู่
     local lastRealInput = os.clock()
     UserInputService.InputBegan:Connect(function() lastRealInput = os.clock() end)
     UserInputService.InputChanged:Connect(function() lastRealInput = os.clock() end)
 
-    -- ประกันเพิ่ม: ถ้าเงียบเกิน ~9 นาที ให้สะกิดเอง 1 ครั้ง
     Shield.keepaliveLoop = true
     task.spawn(function()
         while Shield.keepaliveLoop and Shield.enabled do
-            task.wait(30) -- เช็คทุก 30 วิ (ภาระต่ำ)
-            if os.clock() - lastRealInput > 540 then -- ~9 นาที
+            task.wait(30)
+            if os.clock() - lastRealInput > 540 then
                 VirtualUser:CaptureController()
                 local cam = workspace.CurrentCamera
                 local pos = cam and cam.CFrame.Position or Vector3.new()
@@ -230,11 +223,9 @@ do
         end
     end)
 end
+
 --==========================================================
--- END
---==========================================================
---==========================================================
--- UFO HUB X • Toggle + Persist + Smart Default Gap
+-- UFO HUB X • Toggle + Persist + Smart Default Gap (BUGFIXED)
 --==========================================================
 local CoreGui = game:GetService("CoreGui")
 local UIS     = game:GetService("UserInputService")
@@ -251,7 +242,7 @@ local WINDOW do
 end
 if not WINDOW then return end
 
--- แก้ปุ่ม X ให้ซ่อนเฉพาะหน้าต่าง
+-- แก้ปุ่ม X ให้ซ่อนเฉพาะหน้าต่าง (เผื่อมี TextButton X อื่น ๆ)
 local function patchCloseButton(root)
     for _,o in ipairs(root:GetDescendants()) do
         if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
@@ -270,16 +261,9 @@ for _,o in ipairs(MAIN_GUI:GetDescendants()) do
     end
 end
 
--- Toggle GUI ใหม่
+-- ทำลายปุ่ม Toggle เก่าถ้ามี
 local OLD = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
 if OLD then OLD:Destroy() end
-
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "UFO_HUB_X_Toggle"
-ToggleGui.IgnoreGuiInset = true
-ToggleGui.ResetOnSpawn   = false
-ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ToggleGui.Parent = CoreGui
 
 -- ---------- Persist helpers ----------
 local FILE = "UFO_HUB_X_Toggle.json"
@@ -290,7 +274,7 @@ local function loadPos()
     if canFS() and isfile(FILE) then
         local ok, data = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
         if ok and typeof(data)=="table" and data.x and data.y then
-            return data.x, data.y, true -- true = loaded
+            return data.x, data.y, true
         end
     elseif getgenv then
         local g = getgenv()
@@ -308,9 +292,9 @@ local function savePos(x,y)
     end
 end
 
--- ---------- Smart default placement (ไม่ชิด UI) ----------
+-- ---------- Smart default placement ----------
 local BTN_W, BTN_H = 64, 64
-local GAP = 48 -- ระยะห่างขั้นต่ำจากกรอบ UI (ปรับได้)
+local GAP = 48
 local function viewport()
     local cam = workspace.CurrentCamera
     local v = cam and cam.ViewportSize or Vector2.new(1920,1080)
@@ -326,19 +310,24 @@ end
 -- อ่านตำแหน่งที่เคยบันทึกไว้
 local px, py, loaded = loadPos()
 
--- คำนวณเริ่มต้นแบบฉลาด (ถ้าไม่มีตำแหน่งเดิม)
+-- คำนวณเริ่มต้นถ้าไม่มีตำแหน่งเดิม
 if not loaded then
-    -- ใช้ตำแหน่งจริงของหน้าต่าง
-    task.wait() -- ให้ AbsolutePosition/Size อัปเดต
+    task.wait()
     local winPos = WINDOW.AbsolutePosition
     local winSize = WINDOW.AbsoluteSize
-    -- วาง “ซ้ายมือของหน้าต่าง” และเลื่อนลงมานิดให้ดูสวย
     px = (winPos.X - BTN_W - GAP)
     py = (winPos.Y + math.floor(winSize.Y*0.15))
     px, py = clamp(px, py)
 end
 
--- ---------- สร้างปุ่ม ----------
+-- ---------- สร้างปุ่ม Toggle ----------
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "UFO_HUB_X_Toggle"
+ToggleGui.IgnoreGuiInset = true
+ToggleGui.ResetOnSpawn   = false
+ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ToggleGui.Parent = CoreGui
+
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleUI"
 ToggleBtn.Parent = ToggleGui
@@ -349,9 +338,7 @@ ToggleBtn.Position = UDim2.new(0, px, 0, py)
 ToggleBtn.Image    = "rbxassetid://117052960049460"
 ToggleBtn.ImageColor3 = Color3.new(1,1,1)
 ToggleBtn.AutoButtonColor = false
-
-local corner = Instance.new("UICorner", ToggleBtn)
-corner.CornerRadius = UDim.new(0, 8)
+corner(ToggleBtn, 8)
 
 local stroke = Instance.new("UIStroke", ToggleBtn)
 stroke.Thickness = 2
@@ -362,16 +349,18 @@ stroke.LineJoinMode    = Enum.LineJoinMode.Round
 ToggleBtn.MouseEnter:Connect(function() stroke.Thickness = 3 end)
 ToggleBtn.MouseLeave:Connect(function() stroke.Thickness = 2 end)
 
--- กด -> Toggle เฉพาะ WINDOW
+-- ✅ PATCH: ปุ่มสี่เหลี่ยมต้องบังคับเปิด GUI ก่อน แล้วค่อยสลับ Window
 ToggleBtn.MouseButton1Click:Connect(function()
-    WINDOW.Visible = not WINDOW.Visible
+    MAIN_GUI.Enabled = true
+    Window.Visible = not Window.Visible
 end)
 
--- คีย์ลัด RightShift -> Toggle
+-- ✅ PATCH: RightShift ก็เช่นกัน
 UIS.InputBegan:Connect(function(input,gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
-        WINDOW.Visible = not WINDOW.Visible
+        MAIN_GUI.Enabled = true
+        Window.Visible = not Window.Visible
     end
 end)
 
@@ -400,6 +389,7 @@ do
         end
     end)
 end
+
 --==========================================================
 -- END
 --==========================================================
