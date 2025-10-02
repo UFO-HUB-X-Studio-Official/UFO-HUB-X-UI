@@ -380,10 +380,11 @@ BtnPlayer.Position = UDim2.new(0, 6, 0, 6) -- อยู่บนสุด
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
 corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
-BtnPlayer.Text = "👤 Player"
+BtnPlayer.Text = "Player"  -- ❌ เอาอิโมจิออก เหลือชื่อเฉย ๆ
 BtnPlayer.Font = Enum.Font.GothamBold
 BtnPlayer.TextSize = 14
 BtnPlayer.TextColor3 = TEXT_WHITE
+BtnPlayer.TextXAlignment = Enum.TextXAlignment.Left  -- ชิดซ้าย
 
 -- เพิ่มไอคอนรูป
 local Icon = Instance.new("ImageLabel", BtnPlayer)
