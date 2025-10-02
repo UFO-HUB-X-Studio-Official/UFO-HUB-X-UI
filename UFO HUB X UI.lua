@@ -396,13 +396,13 @@ Icon.Size = UDim2.fromOffset(28, 28) -- ใหญ่ขึ้น
 Icon.Position = UDim2.fromOffset(10, 8)
 Icon.Image = "rbxassetid://114530675624359"
 
--- ✅ ชื่อ Player อยู่ถัดจากรูป
+-- ✅ ชื่อ Player อยู่ถัดจากรูป (ระยะสั้นลง)
 local Txt = Instance.new("TextLabel")
 Txt.Name = "Label"
 Txt.Parent = BtnPlayer
 Txt.BackgroundTransparency = 1
-Txt.Position = UDim2.fromOffset(46, 0)  -- ถัดจาก icon
-Txt.Size = UDim2.new(1, -50, 1, 0)
+Txt.Position = UDim2.fromOffset(36, 0)  -- เดิม 46 → ลดเหลือ 36
+Txt.Size = UDim2.new(1, -40, 1, 0)      -- เผื่อพื้นที่ให้พอดี
 Txt.Font = Enum.Font.GothamBold
 Txt.Text = "Player"
 Txt.TextSize = 16
