@@ -380,44 +380,51 @@ BtnPlayer.Position = UDim2.new(0, 6, 0, 6) -- อยู่บนสุด
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
 corner(BtnPlayer, 10); stroke(BtnPlayer, 1, GREEN, 0.35)
-BtnPlayer.Text = "Player"  -- ❌ เอาอิโมจิออก เหลือชื่อเฉย ๆ
+
+BtnPlayer.Text = "Player"  -- ชื่ออย่างเดียว (ไม่ใช้อิโมจิ)
 BtnPlayer.Font = Enum.Font.GothamBold
 BtnPlayer.TextSize = 14
 BtnPlayer.TextColor3 = TEXT_WHITE
 BtnPlayer.TextXAlignment = Enum.TextXAlignment.Left  -- ชิดซ้าย
 
--- เพิ่มไอคอนรูป
+-- ไอคอนหน้าชื่อ (ใหญ่ขึ้น)
 local Icon = Instance.new("ImageLabel", BtnPlayer)
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(20,20)
-Icon.Position = UDim2.fromOffset(10,10)
+Icon.Size = UDim2.fromOffset(24,24)     -- ⬅ ใหญ่ขึ้นจาก 20 → 24
+Icon.Position = UDim2.fromOffset(10,8)  -- จัดให้อยู่กลางแนวตั้งสวยขึ้น
 Icon.Image = "rbxassetid://114530675624359"
 
--- ขยับตัวหนังสือให้ไม่ทับไอคอน
+-- ขยับตัวหนังสือไม่ให้ทับไอคอน
 local pad = Instance.new("UIPadding", BtnPlayer)
-pad.PaddingLeft = UDim.new(0, 40)
+pad.PaddingLeft = UDim.new(0, 44)
+-- เคลียร์หัวเก่า (กันซ้อน)
+for _, ch in ipairs(PlayerPage:GetChildren()) do
+    if ch.Name == "Header" then ch:Destroy() end
+end
 
--- เนื้อหาในหน้า Player
-local PlayerPage = Instance.new("Frame", Right)
-PlayerPage.BackgroundTransparency = 1
-PlayerPage.Size = UDim2.new(1,0,1,0)
-PlayerPage.Visible = false
+-- แถบหัวด้านบนของฝั่งขวา (ตรงจุดขาวๆ)
+local Header = Instance.new("Frame", PlayerPage)
+Header.Name = "Header"
+Header.Size = UDim2.new(1, -24, 0, 36)     -- กว้างเต็ม ลบขอบซ้ายขวานิดหน่อย
+Header.Position = UDim2.new(0, 12, 0, 8)   -- วางตรงตำแหน่งแถบหัว (แทน “จุดขาวๆ”)
+Header.BackgroundColor3 = BG_INNER
+Header.BorderSizePixel = 0
+corner(Header, 10); stroke(Header, 1, MINT, 0.35)
 
--- ตัวอย่างเนื้อหาใน PlayerPage
-local lbl = Instance.new("TextLabel", PlayerPage)
-lbl.Size = UDim2.new(1,0,0,36)
-lbl.BackgroundColor3 = BG_INNER
-lbl.BorderSizePixel = 0
-corner(lbl,10); stroke(lbl,1,MINT,0.35)
-lbl.Text = "📋 This is Player Tab"
-lbl.Font = Enum.Font.Gotham
-lbl.TextSize = 14
-lbl.TextColor3 = TEXT_WHITE
+-- ไอคอนหัวข้อ (อยู่หน้าชื่อ)
+local HIcon = Instance.new("ImageLabel", Header)
+HIcon.BackgroundTransparency = 1
+HIcon.Size = UDim2.fromOffset(22,22)
+HIcon.Position = UDim2.fromOffset(10,7)
+HIcon.Image = "rbxassetid://114530675624359"
 
--- คลิกปุ่ม → เปิดหน้า Player
-BtnPlayer.MouseButton1Click:Connect(function()
-    for _,child in ipairs(Right:GetChildren()) do
-        if child:IsA("Frame") then child.Visible = false end
-    end
-    PlayerPage.Visible = true
-end)
+-- ชื่อหัวข้อ (เปลี่ยนเป็น Player)
+local HText = Instance.new("TextLabel", Header)
+HText.BackgroundTransparency = 1
+HText.Text = "Player"
+HText.Font = Enum.Font.GothamBold
+HText.TextSize = 14
+HText.TextColor3 = TEXT_WHITE
+HText.TextXAlignment = Enum.TextXAlignment.Left
+HText.Position = UDim2.fromOffset(40, 8)  -- ขยับหลังไอคอน
+HText.Size = UDim2.new(1, -50, 1, -16)
