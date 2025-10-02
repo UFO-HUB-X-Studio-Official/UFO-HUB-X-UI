@@ -373,51 +373,121 @@ do
         end)
     end
 end
--- === [ONE-DROP] ALIEN BIG + PLAYER HEADER (ICON+TEXT) ===
+------------------------------------------------------------
+-- PLAYER BUTTON (Left) + เปิดหน้า Player ทางขวา
+------------------------------------------------------------
 
--- 1) รูปเอเลี่ยนฝั่งขวา (ใหญ่ขึ้น)
-local IMG_LARGE = IMG_LARGE or "rbxassetid://108408843188558"
+-- ป้องกันซ้ำ
+local old = Left:FindFirstChild("BtnPlayer")
+if old then old:Destroy() end
+
+-- ปุ่ม
+local BtnPlayer = Instance.new("TextButton")
+BtnPlayer.Name = "BtnPlayer"
+BtnPlayer.Parent = Left
+BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
+BtnPlayer.Position = UDim2.fromOffset(6, 6) -- ให้อยู่บนสุด
+BtnPlayer.BackgroundColor3 = BG_INNER
+BtnPlayer.BorderSizePixel = 0
+BtnPlayer.AutoButtonColor = false
+corner(BtnPlayer, 10)
+local st = stroke(BtnPlayer, 1, GREEN, 0.35)
+
+-- จัดวาง "รูป+ข้อความ" ติดกันสวย ๆ
+local Row = Instance.new("Frame", BtnPlayer)
+Row.BackgroundTransparency = 1
+Row.Position = UDim2.fromOffset(10, 6)
+Row.Size = UDim2.new(1, -20, 1, -12)
+
+local H = Instance.new("UIListLayout", Row)
+H.FillDirection = Enum.FillDirection.Horizontal
+H.HorizontalAlignment = Enum.HorizontalAlignment.Left
+H.VerticalAlignment = Enum.VerticalAlignment.Center
+H.Padding = UDim.new(0, 4) -- ระยะห่างรูป-ข้อความ (แคบลงให้ชิด)
+
+-- ไอคอน (ใหญ่ขึ้น)
+local Icon = Instance.new("ImageLabel", Row)
+Icon.BackgroundTransparency = 1
+Icon.Size = UDim2.fromOffset(22, 22) -- ปรับขนาดรูปได้
+Icon.Image = "rbxassetid://114530675624359"
+Icon.LayoutOrder = 1
+
+-- ข้อความ
+local Txt = Instance.new("TextLabel", Row)
+Txt.BackgroundTransparency = 1
+Txt.Size = UDim2.new(1, 0, 1, 0)
+Txt.TextXAlignment = Enum.TextXAlignment.Left
+Txt.Font = Enum.Font.GothamBold
+Txt.Text = "Player"
+Txt.TextSize = 16
+Txt.TextColor3 = TEXT_WHITE
+Txt.LayoutOrder = 2
+
+-- เอฟเฟกต์ Hover/Press
+local UIS = game:GetService("UserInputService")
+local TS  = game:GetService("TweenService")
+local uiScale = Instance.new("UIScale", BtnPlayer)
+
+local function tw(obj, t, goal)
+    TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
+end
+local function setHover(on)
+    tw(st, 0.08, {Transparency = on and 0.15 or 0.35})
+    tw(BtnPlayer, 0.10, {BackgroundColor3 = on and Color3.fromRGB(24,24,24) or BG_INNER})
+end
+local function setPress(on)
+    tw(uiScale, 0.07, {Scale = on and 0.97 or 1})
+    tw(st, 0.06, {Transparency = on and 0.05 or 0.15})
+end
+
+BtnPlayer.MouseEnter:Connect(function() if not UIS.TouchEnabled then setHover(true) end end)
+BtnPlayer.MouseLeave:Connect(function() if not UIS.TouchEnabled then setHover(false); setPress(false) end end)
+BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
+BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
+BtnPlayer.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(true) end end)
+BtnPlayer.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(false) end end)
+
+------------------------------------------------------------
+-- หน้า Player ทางขวา + หัว (ไอคอน+ชื่อ)
+------------------------------------------------------------
+-- เอเลี่ยนใหญ่ขึ้น (ถ้ามีแล้วจะใช้ตัวเดิม)
 local Alien = Right:FindFirstChild("AlienImage") or Instance.new("ImageLabel", Right)
 Alien.Name = "AlienImage"
 Alien.BackgroundTransparency = 1
 Alien.AnchorPoint = Vector2.new(0.5, 0.5)
 Alien.Position = UDim2.new(0.5, 0, 0.5, 0)
-Alien.Size = UDim2.new(1.15, 0, 1.15, 0)   -- ⬅️ ปรับซูมที่นี่ (เช่น 1.20, 1.25)
+Alien.Size = UDim2.new(1.15, 0, 1.15, 0) -- ซูมรูปเอเลี่ยน
 Alien.Image = IMG_LARGE
 Alien.ScaleType = Enum.ScaleType.Crop
 Alien.ZIndex = 1
 
--- 2) หน้า Player (ถ้าไม่มีให้สร้าง)
+-- หน้า Player
 local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
 PlayerPage.Name = "PlayerPage"
 PlayerPage.BackgroundTransparency = 1
 PlayerPage.Size = UDim2.new(1,0,1,0)
 PlayerPage.Visible = false
 
--- ลบหัวเดิม (ถ้ามี) แล้วสร้างหัวใหม่แบบ "รูป + ชื่อ"
+-- สร้างหัวใหม่ (รูปติดชื่อ)
 if PlayerPage:FindFirstChild("Header") then PlayerPage.Header:Destroy() end
-
 local Header = Instance.new("Frame", PlayerPage)
 Header.Name = "Header"
 Header.BackgroundTransparency = 1
 Header.Position = UDim2.fromOffset(12, 8)
 Header.Size = UDim2.new(1, -24, 0, 28)
 
-local H = Instance.new("UIListLayout", Header)
-H.FillDirection = Enum.FillDirection.Horizontal
-H.HorizontalAlignment = Enum.HorizontalAlignment.Left
-H.VerticalAlignment = Enum.VerticalAlignment.Center
-H.Padding = UDim.new(0, 6)  -- ระยะห่างรูป-ข้อความ
+local HL = Instance.new("UIListLayout", Header)
+HL.FillDirection = Enum.FillDirection.Horizontal
+HL.HorizontalAlignment = Enum.HorizontalAlignment.Left
+HL.VerticalAlignment = Enum.VerticalAlignment.Center
+HL.Padding = UDim.new(0, 6)
 
 local IconH = Instance.new("ImageLabel", Header)
-IconH.Name = "Icon"
 IconH.BackgroundTransparency = 1
-IconH.Size = UDim2.fromOffset(22, 22)          -- ⬅️ อยากใหญ่ขึ้นปรับเลขนี้
-IconH.Image = "rbxassetid://114530675624359"   -- ไอคอน Player
-IconH.LayoutOrder = 1
+IconH.Size = UDim2.fromOffset(22, 22)
+IconH.Image = "rbxassetid://114530675624359"
 
 local TitleH = Instance.new("TextLabel", Header)
-TitleH.Name = "Title"
 TitleH.BackgroundTransparency = 1
 TitleH.Size = UDim2.new(1, 0, 1, 0)
 TitleH.TextXAlignment = Enum.TextXAlignment.Left
@@ -425,4 +495,11 @@ TitleH.Font = Enum.Font.GothamBold
 TitleH.Text = "Player"
 TitleH.TextColor3 = TEXT_WHITE
 TitleH.TextSize = 18
-TitleH.LayoutOrder = 2
+
+-- คลิกปุ่ม → เปิดหน้า Player (และซ่อนหน้าอื่นทางขวา)
+BtnPlayer.MouseButton1Click:Connect(function()
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then child.Visible = false end
+    end
+    PlayerPage.Visible = true
+end)
