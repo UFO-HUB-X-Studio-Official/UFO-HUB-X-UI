@@ -393,3 +393,124 @@ end
 --==========================================================
 -- END
 --==========================================================
+--==========================================================
+-- UFO_RECOVERY_PATCH • บังคับเปิด GUI + ซ่อน/โชว์ได้เสมอ
+-- วาง "ท้ายไฟล์" นี้เสมอ
+--==========================================================
+do
+    local CoreGui = game:GetService("CoreGui")
+    local UIS     = game:GetService("UserInputService")
+
+    -- locate gui + window every time (กันกรณีถูกสร้างใหม่/เปลี่ยนพ่อ)
+    local function findMain()
+        local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+        if not gui then
+            for _,g in ipairs(CoreGui:GetChildren()) do
+                if g:IsA("ScreenGui") and g.Name:lower():find("ufo_hub_x_ui") then gui = g break end
+            end
+        end
+        local win
+        if gui then
+            for _,o in ipairs(gui:GetChildren()) do
+                if o:IsA("Frame") then win = o break end
+            end
+            if not win then win = gui:FindFirstChildWhichIsA("Frame") end
+        end
+        return gui, win
+    end
+
+    local function forceEnable(gui)
+        if not gui then return end
+        -- ยิงเปิดซ้ำหลายเฟรมเพื่อ “ชนะ” handler อื่นที่เพิ่งปิด
+        for _=1,5 do
+            gui.Enabled = true
+            task.wait(0.02)
+        end
+        -- ดันขึ้นบนสุดเผื่อโดนซ่อนหลัง UI อื่น
+        pcall(function() gui.DisplayOrder = 1_000_000 end)
+    end
+
+    local function forceShow()
+        local gui, win = findMain()
+        if not gui then return end
+        forceEnable(gui)
+        if not win then
+            -- พยายามหาอีกครั้งหลังเปิด
+            task.wait()
+            _, win = findMain()
+        end
+        if win then
+            win.Visible = true
+            if win.GroupTransparency ~= nil then
+                win.GroupTransparency = 0
+            end
+        end
+    end
+
+    local function softHide()
+        local gui, win = findMain()
+        if win then win.Visible = false end
+        -- กันโดนปิดทั้ง GUI จาก handler อื่น: รี-enable ในเฟรมถัดไป
+        task.defer(function()
+            local g = select(1, findMain())
+            if g then g.Enabled = true end
+        end)
+    end
+
+    -- แพตช์ปุ่ม X ทั้งหมดให้ซ่อนเฉพาะ Window
+    local function patchX()
+        local gui, win = findMain()
+        if not gui then return end
+        for _,o in ipairs(gui:GetDescendants()) do
+            if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" and not o:GetAttribute("UFO_X_PATCHED") then
+                o:SetAttribute("UFO_X_PATCHED", true)
+                o.MouseButton1Click:Connect(softHide)
+            end
+        end
+    end
+    patchX()
+    -- เผื่อ UI มีการรีเฟรช สแกนซ้ำเป็นระยะสั้น ๆ
+    task.spawn(function()
+        while task.wait(0.5) do
+            patchX()
+        end
+    end)
+
+    -- ==== Hook ปุ่มสี่เหลี่ยม (ถ้ามี), ถ้าไม่มีไม่เป็นไร ====
+    local function hookToggleButton()
+        local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
+        if not toggleGui then return end
+        local btn = toggleGui:FindFirstChild("ToggleUI", true)
+        if not (btn and btn:IsA("ImageButton")) then return end
+        if btn:GetAttribute("UFO_TGL_PATCHED") then return end
+        btn:SetAttribute("UFO_TGL_PATCHED", true)
+        btn.MouseButton1Click:Connect(function()
+            local _, win = findMain()
+            local willShow = not (win and win.Visible)
+            if willShow then
+                forceShow()
+            else
+                softHide()
+            end
+        end)
+    end
+    hookToggleButton()
+    task.spawn(function()
+        while task.wait(0.5) do
+            hookToggleButton()
+        end
+    end)
+
+    -- ==== RightShift ====
+    UIS.InputBegan:Connect(function(i,gp)
+        if gp then return end
+        if i.KeyCode == Enum.KeyCode.RightShift then
+            local _, win = findMain()
+            if win and win.Visible then
+                softHide()
+            else
+                forceShow()
+            end
+        end
+    end)
+end
