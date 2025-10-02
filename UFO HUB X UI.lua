@@ -195,6 +195,7 @@ local Left = Instance.new("Frame", Columns)
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16); Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Left.ClipsDescendants = true; corner(Left, 10); stroke(Left, 1.2, GREEN, 0); stroke(Left, 0.45, MINT, 0.35)
 Left.Name  = "LeftPanel"
+-- local Left  = Instance.new("Frame", Columns)
 
 local Right = Instance.new("Frame", Columns)
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -202,6 +203,7 @@ Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
 Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Right.ClipsDescendants = true; corner(Right, 10); stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
 Right.Name = "RightPanel"
+-- local Right = Instance.new("Frame", Columns)
 
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
