@@ -393,3 +393,96 @@ do
         end)
     end
 end
+--==========================================================
+-- HOME SECTION • ปุ่มหน้าหลัก (เข้ากับธีม + ขอบเขียว + อิโมจิ)
+--==========================================================
+do
+    -- หาเป้าหมายวางในฝั่งขวา (ถ้ามี Scroll ใช้ Scroll, ถ้าไม่มีใช้ Right ตรง ๆ)
+    local Target = (Right and Right:FindFirstChild("UFO_ScrollRight")) or Right
+    if not Target then return end
+
+    -- กล่อง Section
+    local box = Instance.new("Frame", Target)
+    box.BackgroundColor3 = BG_INNER
+    box.BorderSizePixel = 0
+    box.AutomaticSize = Enum.AutomaticSize.Y
+    box.Size = UDim2.new(1, 0, 0, 10)
+    corner(box, 10); stroke(box, 1, GREEN, 0.25)
+
+    -- ขอบใน (สำหรับระยะห่าง)
+    local pad = Instance.new("UIPadding", box)
+    pad.PaddingTop = UDim.new(0, 10)
+    pad.PaddingBottom = UDim.new(0, 12)
+    pad.PaddingLeft = UDim.new(0, 12)
+    pad.PaddingRight = UDim.new(0, 12)
+
+    -- หัวข้อหน้าหลัก
+    local title = Instance.new("TextLabel", box)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextColor3 = TEXT_WHITE
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Size = UDim2.new(1, 0, 0, 22)
+    title.Text = "🏠  หน้าหลัก"
+
+    -- ตัวคอนเทนต์เรียงในแนวตั้ง
+    local body = Instance.new("Frame", box)
+    body.BackgroundTransparency = 1
+    body.AutomaticSize = Enum.AutomaticSize.Y
+    body.Size = UDim2.new(1, 0, 0, 10)
+    body.Position = UDim2.fromOffset(0, 28)
+    local list = Instance.new("UIListLayout", body)
+    list.Padding = UDim.new(0, 8)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- ปุ่มหลัก (ตัวอย่าง)
+    local btn = Instance.new("TextButton", body)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.Text = "🚀  เริ่มทำงาน"
+    btn.TextColor3 = TEXT_WHITE
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.BackgroundColor3 = BG_PANEL
+    btn.BorderSizePixel = 0
+    corner(btn, 10); stroke(btn, 1, GREEN, 0.25)
+
+    -- คำอธิบายใต้ปุ่ม (ถ้าอยากลบได้)
+    local desc = Instance.new("TextLabel", btn)
+    desc.BackgroundTransparency = 1
+    desc.Font = Enum.Font.Gotham
+    desc.TextSize = 12
+    desc.TextColor3 = Color3.fromRGB(200,200,200)
+    desc.TextXAlignment = Enum.TextXAlignment.Left
+    desc.Text = "กดเพื่อเริ่มระบบหลักของคุณ (แก้ callback ได้)"
+    desc.Size = UDim2.new(1,-20,0,14)
+    desc.Position = UDim2.fromOffset(10, 22)
+
+    -- ✅ ตรงนี้คือ callback เวลากดปุ่ม — แก้ใส่โค้ดของเพื่อนได้เลย
+    btn.MouseButton1Click:Connect(function()
+        -- ตัวอย่าง: เปิด UI ถ้าถูกซ่อน
+        local was = getgenv().UFO_ISOPEN
+        if not was then
+            getgenv().UFO_ISOPEN = true
+            Window.Visible = true
+        end
+        -- TODO: ใส่สิ่งที่อยากทำตอนกดปุ่มไว้ตรงนี้
+        print("[UFO HUB X] Home: Start clicked!")
+    end)
+
+    -- (ออปชัน) เพิ่มปุ่มรองอีกสักปุ่ม
+    local btn2 = Instance.new("TextButton", body)
+    btn2.Size = UDim2.new(1, 0, 0, 40)
+    btn2.Text = "🧰  ตั้งค่าเร็ว"
+    btn2.TextColor3 = TEXT_WHITE
+    btn2.Font = Enum.Font.Gotham
+    btn2.TextSize = 14
+    btn2.BackgroundColor3 = BG_PANEL
+    btn2.BorderSizePixel = 0
+    corner(btn2, 10); stroke(btn2, 1, GREEN, 0.25)
+    btn2.MouseButton1Click:Connect(function()
+        -- ตัวอย่าง: โชว์ข้อความ
+        print("[UFO HUB X] Quick Settings opened.")
+    end)
+end
+--============================== END HOME SECTION =============================
