@@ -412,66 +412,59 @@ do
     end)
 end
 --==========================================================
--- TEST ADD NAV BUTTONS (force create scroll + add many items)
--- วางท้ายไฟล์ เพื่อทดสอบว่าเลื่อนขึ้นลงได้แน่นอน
+-- TEST: เติมปุ่มหลายอันลงฝั่งซ้ายให้เลื่อนขึ้น–ลงได้แน่นอน
+-- วางท้ายไฟล์สุด แล้วรันเกมดู
 --==========================================================
 do
-    local function getOrMakeScroll(panel, tag)
-        if not panel then return nil end
-        local sf = panel:FindFirstChild("UFO_"..tag)
-        if not (sf and sf:IsA("ScrollingFrame")) then
-            sf = Instance.new("ScrollingFrame")
-            sf.Name = "UFO_"..tag
-            sf.Active = true
-            sf.ScrollingDirection = Enum.ScrollingDirection.Y
-            sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            sf.CanvasSize = UDim2.new(0,0,0,0)
-            sf.ScrollBarThickness = 0 -- 🫥 ซ่อนแท่งสกอลล์บาร์
-            sf.BorderSizePixel = 0
-            sf.BackgroundTransparency = 1
-            sf.Position = UDim2.fromOffset(5,5)
-            sf.Size = UDim2.new(1,-10,1,-10)
-            sf.Parent = panel
+    -- 1) หา ScrollingFrame ฝั่งซ้าย
+    local sf = Left:FindFirstChild("UFO_ScrollLeft")
+              or Left:FindFirstChildWhichIsA("ScrollingFrame")
 
-            local list = Instance.new("UIListLayout", sf)
-            list.Padding = UDim.new(0,8)
-            list.SortOrder = Enum.SortOrder.LayoutOrder
+    -- ถ้ายังไม่มี ให้สร้างให้เลย
+    if not sf then
+        sf = Instance.new("ScrollingFrame")
+        sf.Name = "UFO_ScrollLeft"
+        sf.Parent = Left
+        sf.Active = true
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.ScrollBarThickness = 0     -- ซ่อนแท่งสกอลล์
+        sf.BorderSizePixel = 0
+        sf.BackgroundTransparency = 1
+        sf.Position = UDim2.fromOffset(5,5)
+        sf.Size = UDim2.new(1,-10,1,-10)
 
-            -- ย้ายลูกเดิมเข้าไป (ถ้ามี)
-            for _,ch in ipairs(panel:GetChildren()) do
-                if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
-                    ch.Parent = sf
-                end
-            end
-            panel.ClipsDescendants = true
-        end
-        return sf
+        local list = Instance.new("UIListLayout", sf)
+        list.Padding = UDim.new(0,8)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+
+        Left.ClipsDescendants = true
     end
 
-    -- หาแผงซ้าย/ขวา
-    local leftSF  = getOrMakeScroll(Left,  "ScrollLeft")
-    -- local rightSF = getOrMakeScroll(Right, "ScrollRight") -- ต้องการใช้ฝั่งขวา ค่อยเปิด
-
-    if leftSF then
-        local function NewNav(text)
-            local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1, 0, 0, 40)
-            b.BackgroundColor3 = BG_PANEL
-            b.BorderSizePixel = 0
-            b.Text = text
-            b.TextColor3 = TEXT_WHITE
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 14
-            corner(b, 10); stroke(b, 1, GREEN, 0.25)
-            b.Parent = leftSF
-            return b
-        end
-
-        -- เติม 12 ปุ่ม เพื่อให้เนื้อหา “สูงกว่า” ช่องแน่นอน → จะเลื่อนได้
-        for i = 1, 12 do
-            NewNav(("🏷️ เมนู %02d"):format(i))
-        end
-    else
-        warn("[UFO] ไม่พบ Left panel — ตรวจว่าตัวแปร Left ถูกสร้างก่อนบล็อคนี้หรือยัง")
+    -- 2) เติมปุ่มทดสอบให้ “สูงกว่า” ช่องแน่นอน (จะได้เลื่อนได้)
+    local function addMenu(text)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(1, -18, 0, 40)  -- กว้างเต็ม, เว้นขอบซ้าย/ขวา 9px
+        b.Position = UDim2.fromOffset(9, 0)
+        b.BackgroundColor3 = BG_PANEL
+        b.BorderSizePixel = 0
+        b.Text = text
+        b.TextColor3 = TEXT_WHITE
+        b.Font = Enum.Font.Gotham
+        b.TextSize = 14
+        corner(b,10); stroke(b,1,GREEN,0.25)
+        b.Parent = sf
+        return b
     end
+
+    -- ลองใส่ 12 อัน (แก้จำนวนได้)
+    for i = 1, 12 do
+        addMenu(("🏷️ เมนู %02d"):format(i))
+    end
+
+    -- 3) เผื่อเคยตั้งค่าอื่นไว้ รีเซ็ตให้ใช้ AutoCanvas
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.CanvasSize = UDim2.new(0,0,0,0)
+    sf.Active = true
 end
