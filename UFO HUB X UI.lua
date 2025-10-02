@@ -394,29 +394,66 @@ do
     end
 end
 --==========================================================
--- HOME SECTION • ปุ่มหน้าหลัก (เข้ากับธีม + ขอบเขียว + อิโมจิ)
+-- HOME SECTION (safe) • ทำให้เห็นแน่นอนแม้มีรูปบัง
 --==========================================================
 do
-    -- หาเป้าหมายวางในฝั่งขวา (ถ้ามี Scroll ใช้ Scroll, ถ้าไม่มีใช้ Right ตรง ๆ)
-    local Target = (Right and Right:FindFirstChild("UFO_ScrollRight")) or Right
-    if not Target then return end
+    -- ตัวช่วยทำ Scroll ฝั่งใดฝั่งหนึ่ง แล้ว "ย้ายลูกเดิม" เข้าไป
+    local function ensureScroll(panel, name)
+        if not panel or not panel.Parent then return nil end
 
-    -- กล่อง Section
-    local box = Instance.new("Frame", Target)
+        local exist = panel:FindFirstChild(name)
+        if exist and exist:IsA("ScrollingFrame") then
+            return exist
+        end
+
+        local sf = Instance.new("ScrollingFrame")
+        sf.Name = name
+        sf.Active = true
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.ScrollBarThickness = 6
+        sf.BorderSizePixel = 0
+        sf.BackgroundTransparency = 1
+        sf.Position = UDim2.fromOffset(5,5)
+        sf.Size = UDim2.new(1,-10,1,-10)
+        sf.Parent = panel
+
+        local list = Instance.new("UIListLayout", sf)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        list.Padding = UDim.new(0,8)
+
+        -- ย้ายลูกเดิมทั้งหมดเข้าไป (ยกเว้นของตกแต่งมุม/เส้น)
+        for _,ch in ipairs(panel:GetChildren()) do
+            if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
+                ch.Parent = sf
+            end
+        end
+
+        panel.ClipsDescendants = true
+        return sf
+    end
+
+    -- ✅ สร้าง/หา Scroll ฝั่งขวา
+    local ScrollRight = ensureScroll(Right, "UFO_ScrollRight")
+    if not ScrollRight then
+        warn("[UFO HUB X] ScrollRight not found."); return
+    end
+
+    -- ============ กล่อง ‘หน้าหลัก’ ============
+    local box = Instance.new("Frame", ScrollRight)
     box.BackgroundColor3 = BG_INNER
     box.BorderSizePixel = 0
     box.AutomaticSize = Enum.AutomaticSize.Y
     box.Size = UDim2.new(1, 0, 0, 10)
     corner(box, 10); stroke(box, 1, GREEN, 0.25)
 
-    -- ขอบใน (สำหรับระยะห่าง)
     local pad = Instance.new("UIPadding", box)
     pad.PaddingTop = UDim.new(0, 10)
     pad.PaddingBottom = UDim.new(0, 12)
     pad.PaddingLeft = UDim.new(0, 12)
     pad.PaddingRight = UDim.new(0, 12)
 
-    -- หัวข้อหน้าหลัก
     local title = Instance.new("TextLabel", box)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
@@ -426,7 +463,6 @@ do
     title.Size = UDim2.new(1, 0, 0, 22)
     title.Text = "🏠  หน้าหลัก"
 
-    -- ตัวคอนเทนต์เรียงในแนวตั้ง
     local body = Instance.new("Frame", box)
     body.BackgroundTransparency = 1
     body.AutomaticSize = Enum.AutomaticSize.Y
@@ -436,7 +472,7 @@ do
     list.Padding = UDim.new(0, 8)
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ปุ่มหลัก (ตัวอย่าง)
+    -- ปุ่มหลัก 1
     local btn = Instance.new("TextButton", body)
     btn.Size = UDim2.new(1, 0, 0, 40)
     btn.Text = "🚀  เริ่มทำงาน"
@@ -447,30 +483,22 @@ do
     btn.BorderSizePixel = 0
     corner(btn, 10); stroke(btn, 1, GREEN, 0.25)
 
-    -- คำอธิบายใต้ปุ่ม (ถ้าอยากลบได้)
     local desc = Instance.new("TextLabel", btn)
     desc.BackgroundTransparency = 1
     desc.Font = Enum.Font.Gotham
     desc.TextSize = 12
     desc.TextColor3 = Color3.fromRGB(200,200,200)
     desc.TextXAlignment = Enum.TextXAlignment.Left
-    desc.Text = "กดเพื่อเริ่มระบบหลักของคุณ (แก้ callback ได้)"
+    desc.Text = "กดเพื่อเริ่มระบบหลัก (แก้ callback ได้)"
     desc.Size = UDim2.new(1,-20,0,14)
     desc.Position = UDim2.fromOffset(10, 22)
 
-    -- ✅ ตรงนี้คือ callback เวลากดปุ่ม — แก้ใส่โค้ดของเพื่อนได้เลย
     btn.MouseButton1Click:Connect(function()
-        -- ตัวอย่าง: เปิด UI ถ้าถูกซ่อน
-        local was = getgenv().UFO_ISOPEN
-        if not was then
-            getgenv().UFO_ISOPEN = true
-            Window.Visible = true
-        end
-        -- TODO: ใส่สิ่งที่อยากทำตอนกดปุ่มไว้ตรงนี้
         print("[UFO HUB X] Home: Start clicked!")
+        -- ใส่โค้ดของเพื่อนได้ที่นี่
     end)
 
-    -- (ออปชัน) เพิ่มปุ่มรองอีกสักปุ่ม
+    -- ปุ่มหลัก 2 (ตัวอย่าง)
     local btn2 = Instance.new("TextButton", body)
     btn2.Size = UDim2.new(1, 0, 0, 40)
     btn2.Text = "🧰  ตั้งค่าเร็ว"
@@ -481,7 +509,6 @@ do
     btn2.BorderSizePixel = 0
     corner(btn2, 10); stroke(btn2, 1, GREEN, 0.25)
     btn2.MouseButton1Click:Connect(function()
-        -- ตัวอย่าง: โชว์ข้อความ
         print("[UFO HUB X] Quick Settings opened.")
     end)
 end
