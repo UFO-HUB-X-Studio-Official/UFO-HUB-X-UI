@@ -373,3 +373,71 @@ do
         end)
     end
 end
+----------------------------------------------------------------
+    -- 6) ปุ่ม Player (ตรึงบนสุดเสมอ)
+    ----------------------------------------------------------------
+    local PlayerBtn = Instance.new("TextButton", TabList)
+    PlayerBtn.Name = "Tab_Player"
+    PlayerBtn.Size = UDim2.new(1,0,0,46)
+    PlayerBtn.BackgroundColor3 = BG_INNER
+    PlayerBtn.BorderSizePixel  = 0
+    PlayerBtn.AutoButtonColor  = false
+    PlayerBtn.Text = "  👤 Player"
+    PlayerBtn.TextXAlignment = Enum.TextXAlignment.Left
+    PlayerBtn.Font = Enum.Font.GothamBold
+    PlayerBtn.TextSize = 14
+    PlayerBtn.TextColor3 = TEXT_WHITE
+    corner(PlayerBtn,10); stroke(PlayerBtn,1,MINT,0.35)
+
+    -- ใส่ไอคอนรูป (อยู่ด้านซ้าย)
+    local Icon = Instance.new("ImageLabel", PlayerBtn)
+    Icon.BackgroundTransparency = 1
+    Icon.Size = UDim2.fromOffset(20,20)
+    Icon.Position = UDim2.fromOffset(10,13)
+    Icon.Image = "rbxassetid://114530675624359"
+
+    -- Padding ให้ตัวอักษรเลี่ยงไอคอน
+    local pad = Instance.new("UIPadding", PlayerBtn)
+    pad.PaddingLeft = UDim.new(0,40)
+
+    -- ย้ายปุ่ม Player ให้อยู่บนสุดเสมอ
+    PlayerBtn.LayoutOrder = -999
+
+    -- สร้างหน้า Page ของ Player
+    local PlayerPage = Instance.new("Frame", Pages)
+    PlayerPage.Name = "Page_Player"
+    PlayerPage.BackgroundTransparency = 1
+    PlayerPage.Visible = false
+    PlayerPage.Position = UDim2.fromOffset(6,6)
+    PlayerPage.Size     = UDim2.new(1,-12,1,-12)
+
+    local PlayerScroll = Instance.new("ScrollingFrame", PlayerPage)
+    PlayerScroll.Name = "Container"
+    PlayerScroll.Active = true
+    PlayerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    PlayerScroll.CanvasSize = UDim2.new(0,0,0,0)
+    PlayerScroll.ScrollBarThickness = 0
+    PlayerScroll.BackgroundTransparency = 1
+    PlayerScroll.Size = UDim2.new(1,0,1,0)
+
+    local layP = Instance.new("UIListLayout", PlayerScroll)
+    layP.Padding   = UDim.new(0,8)
+    layP.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- Event: กดปุ่ม Player → เปิดหน้า Player
+    PlayerBtn.MouseButton1Click:Connect(function()
+        for name,obj in pairs(PAGES) do
+            if obj.Page then obj.Page.Visible = false end
+            if obj.Button then
+                obj.Button.TextColor3 = TEXT_WHITE
+                obj.Button.BackgroundColor3 = BG_INNER
+            end
+        end
+        for _,pg in ipairs(Pages:GetChildren()) do
+            if pg:IsA("Frame") then pg.Visible = false end
+        end
+        PlayerPage.Visible = true
+        PlayerBtn.TextColor3 = GREEN
+        PlayerBtn.BackgroundColor3 = BG_PANEL
+    end)
