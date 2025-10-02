@@ -290,11 +290,12 @@ do
     end)
 end
 --==========================================================
--- UFO RECOVERY PATCH (Final Fix: Toggle ปิด/เปิดได้จริง)
+-- UFO RECOVERY PATCH (Final Fix v2: Toggle image + Sync + Drag fix)
 --==========================================================
 do
     local CoreGui = game:GetService("CoreGui")
     local UIS     = game:GetService("UserInputService")
+    local CAS     = game:GetService("ContextActionService")
 
     local function findMain()
         local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
@@ -314,45 +315,91 @@ do
         if win then win.Visible = false end
     end
 
-    -- ปุ่ม X
+    -- ปุ่ม X ซ่อนหน้าต่าง และ sync flag
     for _,o in ipairs(CoreGui:GetDescendants()) do
         if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
-            o.MouseButton1Click:Connect(function() hideUI() end)
+            o.MouseButton1Click:Connect(function()
+                hideUI()
+                getgenv().UFO_ISOPEN = false -- sync flag
+            end)
         end
     end
 
-    -- ปุ่ม Toggle
+    -- ปุ่ม Toggle (ImageButton)
     local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
     if toggleGui then toggleGui:Destroy() end
 
     local ToggleGui = Instance.new("ScreenGui", CoreGui)
     ToggleGui.Name = "UFO_HUB_X_Toggle"; ToggleGui.IgnoreGuiInset = true
 
-    local ToggleBtn = Instance.new("TextButton", ToggleGui)
+    local ToggleBtn = Instance.new("ImageButton", ToggleGui)
     ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0); ToggleBtn.Text="■"
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    ToggleBtn.BorderSizePixel = 0
+    ToggleBtn.Image = "rbxassetid://117052960049460" -- ✅ ใช้รูปแทน
     local c = Instance.new("UICorner", ToggleBtn); c.CornerRadius = UDim.new(0,8)
-    local s = Instance.new("UIStroke", ToggleBtn); s.Thickness=2; s.Color=GREEN
 
-    -- flag บอกสถานะ
+    -- Stroke รอบปุ่ม (ขอบเขียวเป็นกรอบ ไม่ทับรูป)
+    local s = Instance.new("UIStroke", ToggleBtn)
+    s.Thickness = 2; s.Color = GREEN
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.LineJoinMode = Enum.LineJoinMode.Round
+
+    -- flag sync
     local isOpen = true
+    getgenv().UFO_ISOPEN = true
 
     local function toggleUI()
+        local _, win = findMain()
+        if not win then return end
         if isOpen then
             hideUI()
         else
             showUI()
         end
         isOpen = not isOpen
+        getgenv().UFO_ISOPEN = isOpen
     end
 
     ToggleBtn.MouseButton1Click:Connect(toggleUI)
 
-    -- RightShift
+    -- RightShift toggle
     UIS.InputBegan:Connect(function(i,gp)
         if gp then return end
         if i.KeyCode==Enum.KeyCode.RightShift then
             toggleUI()
         end
     end)
+
+    -- ✅ Drag sandwich button + block camera while dragging
+    do
+        local dragging=false; local start; local startPos
+        local function bindBlock(on)
+            local name="UFO_BlockLook"
+            if on then
+                local fn=function() return Enum.ContextActionResult.Sink end
+                CAS:BindAction(name, fn, false, Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch)
+            else
+                pcall(function() CAS:UnbindAction("UFO_BlockLook") end)
+            end
+        end
+        ToggleBtn.InputBegan:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                dragging=true; start=i.Position
+                startPos=Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
+                bindBlock(true)
+                i.Changed:Connect(function()
+                    if i.UserInputState==Enum.UserInputState.End then
+                        dragging=false; bindBlock(false)
+                    end
+                end)
+            end
+        end)
+        UIS.InputChanged:Connect(function(i)
+            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+                local d=i.Position-start
+                ToggleBtn.Position=UDim2.fromOffset(startPos.X+d.X,startPos.Y+d.Y)
+            end
+        end)
+    end
 end
