@@ -102,19 +102,46 @@ BtnClose.MouseButton1Click:Connect(function()
     Window.Visible = false
 end)
 
--- drag
+-- drag (fix: block camera input while dragging)
 do
     local dragging, start, startPos
+    local CAS = game:GetService("ContextActionService")
+
+    local function bindBlock(on)
+        local name="UFO_BlockLook_Window"
+        if on then
+            local fn=function() return Enum.ContextActionResult.Sink end
+            CAS:BindActionAtPriority(name, fn, false, 9000,
+                Enum.UserInputType.MouseMovement,
+                Enum.UserInputType.Touch,
+                Enum.UserInputType.MouseButton1)
+        else
+            pcall(function() CAS:UnbindAction(name) end)
+        end
+    end
+
     Header.InputBegan:Connect(function(i)
         if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
             dragging=true; start=i.Position; startPos=Window.Position
-            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
+            bindBlock(true)
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then
+                    dragging=false
+                    bindBlock(false)
+                end
+            end)
         end
     end)
+
     UIS.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
             local d=i.Position-start
-            Window.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+            Window.Position=UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset+d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset+d.Y
+            )
         end
     end)
 end
