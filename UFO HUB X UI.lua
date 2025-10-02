@@ -523,4 +523,31 @@ do
         return tab
     end
 end
+--==========================================================
+-- EXPORT API (ให้สคริปต์ภายนอกเรียกใช้)
+--==========================================================
+local UFO_API = {}
 
+-- ให้เรียกแบบ: local ui = Library:NewTab("ชื่อ")
+function UFO_API:NewTab(name)
+    assert(Window and Window.NewTab, "UFO: Window.NewTab not found")
+    return Window:NewTab(name)
+end
+
+-- เผื่ออยากเข้าถึงหน้าต่างตรงๆ
+UFO_API.Window = Window
+
+-- โทนสีไว้ใช้ข้างนอก
+UFO_API.Theme = {
+    BG_INNER   = BG_INNER,
+    TEXT_WHITE = TEXT_WHITE,
+    MINT       = MINT,
+}
+
+-- เครื่องมือช่วยไว้ใช้ข้างนอก
+UFO_API.Helpers = {
+    corner = corner,
+    stroke = stroke,
+}
+
+return UFO_API
