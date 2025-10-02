@@ -521,4 +521,197 @@ Sec:NewSlider("WalkSpeed","ปรับความเร็ว",120,16,function
     local hum=ch:FindFirstChildOfClass("Humanoid")
     if hum then hum.WalkSpeed=v end
 end,16)
+--==========================================================
+-- UFO HUB X • STABILIZER PATCH v2.1 (drop-in, keep your UI)
+-- ➊ Fix drag (no camera turn) ➋ Toggle button (draggable+persist)
+-- ➌ Green stroke for all controls (except sandwich) ➍ Auto-Scroll L/R
+--==========================================================
+do
+    local CG = game:GetService("CoreGui")
+    local UIS = game:GetService("UserInputService")
+    local CAS = game:GetService("ContextActionService")
+    local CP  = game:GetService("ContentProvider")
+    local TS  = game:GetService("TweenService")
+    local Http= game:GetService("HttpService")
+
+    -- === locate main gui/window/header/close ===
+    local MAIN = CG:FindFirstChild("UFO_HUB_X_UI")
+    if not MAIN then return end
+    local Window = MAIN:FindFirstChildWhichIsA("Frame")
+    if not Window then return end
+
+    local Header, BtnClose
+    for _,o in ipairs(Window:GetChildren()) do
+        if o:IsA("Frame") and o.AbsoluteSize.Y <= 60 then Header = o break end
+    end
+    if Header then
+        for _,o in ipairs(Header:GetDescendants()) do
+            if o:IsA("TextButton") and (o.Text or ""):upper()=="X" then BtnClose = o break end
+        end
+    end
+
+    -- === helpers ===
+    local GREEN = Color3.fromRGB(0,255,140)
+    local function stroke(gui, t, col, trans)
+        if gui:FindFirstChildOfClass("UIStroke") then return end
+        local s=Instance.new("UIStroke",gui)
+        s.Thickness=t or 1.1; s.Color=col or GREEN; s.Transparency=trans or 0.18
+        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.LineJoinMode=Enum.LineJoinMode.Round
+    end
+    local function corner(gui, r)
+        if gui:FindFirstChildOfClass("UICorner") then return end
+        local c=Instance.new("UICorner",gui); c.CornerRadius=UDim.new(0,r or 10)
+    end
+    local function viewport() local c=workspace.CurrentCamera; local v=c and c.ViewportSize or Vector2.new(1280,720); return v.X,v.Y end
+    local function clampWin(px,py)
+        local vx,vy=viewport(); local w,h=Window.AbsoluteSize.X,Window.AbsoluteSize.Y
+        return math.clamp(px,4,vx-w-4), math.clamp(py,4,vy-h-4)
+    end
+    local function tween(o,t,goal) TS:Create(o, TweenInfo.new(t or .15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play() end
+    local function canFS() return typeof(writefile)=="function" and typeof(readfile)=="function" and typeof(isfile)=="function" end
+
+    -- === 1) Drag window without rotating camera ===
+    if Header and not MAIN:FindFirstChild("__UFO_DragBound") then
+        local flag = Instance.new("BoolValue", MAIN); flag.Name="__UFO_DragBound"
+        local dragging=false; local start; local startPos
+        local function bindBlock(on)
+            local name="UFO_BlockLook"
+            if on then
+                local fn=function() return Enum.ContextActionResult.Sink end
+                if CAS.BindActionAtPriority then
+                    CAS:BindActionAtPriority(name, fn, false, 9000,
+                        Enum.UserInputType.Touch, Enum.UserInputType.MouseMovement,
+                        Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2,
+                        Enum.KeyCode.Thumbstick2)
+                else
+                    CAS:BindAction(name, fn, false,
+                        Enum.UserInputType.Touch, Enum.UserInputType.MouseMovement, Enum.UserInputType.MouseButton2)
+                end
+            else pcall(function() CAS:UnbindAction(name) end) end
+        end
+        Header.InputBegan:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                dragging=true; start=i.Position
+                startPos=Vector2.new(Window.Position.X.Offset, Window.Position.Y.Offset)
+                bindBlock(true)
+                i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false; bindBlock(false) end end)
+            end
+        end)
+        UIS.InputChanged:Connect(function(i)
+            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+                local d=i.Position-start
+                local nx,ny=clampWin(startPos.X+d.X, startPos.Y+d.Y)
+                Window.Position=UDim2.fromOffset(nx,ny)
+            end
+        end)
+    end
+
+    -- === 2) Close button should only hide, and Toggle can bring it back ===
+    if BtnClose and not BtnClose:GetAttribute("__ufo_patched") then
+        BtnClose:SetAttribute("__ufo_patched", true)
+        BtnClose.MouseButton1Click:Connect(function()
+            tween(Window,.12,{GroupTransparency=1})
+            task.delay(.12,function() Window.Visible=false; Window.GroupTransparency=0 end)
+        end)
+    end
+
+    -- === 3) Sandwich toggle (draggable + persist, NO green stroke) ===
+    local TOGGLE_GUI = CG:FindFirstChild("UFO_HUB_X_Toggle")
+    if TOGGLE_GUI then TOGGLE_GUI:Destroy() end
+    TOGGLE_GUI = Instance.new("ScreenGui", CG)
+    TOGGLE_GUI.Name="UFO_HUB_X_Toggle"; TOGGLE_GUI.IgnoreGuiInset=true; TOGGLE_GUI.DisplayOrder=1_000_001
+
+    local FILE="UFO_HUB_X_Toggle.json"
+    local function loadPos()
+        if canFS() and isfile(FILE) then
+            local ok,d=pcall(function() return Http:JSONDecode(readfile(FILE)) end)
+            if ok and d and d.x and d.y then return d.x,d.y end
+        elseif getgenv then local g=getgenv().__UFO_TOGGLE_POS; if g then return g.x,g.y end end
+        return 80,200
+    end
+    local function savePos(x,y)
+        if canFS() then pcall(function() writefile(FILE, Http:JSONEncode({x=x,y=y})) end)
+        elseif getgenv then getgenv().__UFO_TOGGLE_POS={x=x,y=y} end
+    end
+    local px,py = loadPos()
+    local Sandwich = Instance.new("ImageButton", TOGGLE_GUI)
+    Sandwich.Name="ToggleUI"; Sandwich.Size=UDim2.fromOffset(60,60); Sandwich.Position=UDim2.fromOffset(px,py)
+    Sandwich.BackgroundColor3=Color3.fromRGB(0,0,0); Sandwich.BorderSizePixel=0; Sandwich.AutoButtonColor=false
+    Sandwich.Image="rbxassetid://117052960049460"; corner(Sandwich,12) -- no green stroke
+
+    local function showUI()
+        MAIN.Enabled=true; Window.Visible=true; Window.GroupTransparency=1; tween(Window,.18,{GroupTransparency=0})
+    end
+    local function hideUI()
+        tween(Window,.12,{GroupTransparency=1}); task.delay(.12,function() Window.Visible=false; Window.GroupTransparency=0 end)
+    end
+    Sandwich.MouseButton1Click:Connect(function()
+        if Window.Visible then hideUI() else showUI() end
+    end)
+    UIS.InputBegan:Connect(function(i,gp) if not gp and i.KeyCode==Enum.KeyCode.RightShift then
+        if Window.Visible then hideUI() else showUI() end end end)
+
+    -- draggable sandwich
+    do
+        local dragging=false; local start; local startPos
+        Sandwich.InputBegan:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                dragging=true; start=i.Position
+                startPos=Vector2.new(Sandwich.Position.X.Offset, Sandwich.Position.Y.Offset)
+                i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false; savePos(Sandwich.Position.X.Offset, Sandwich.Position.Y.Offset) end end)
+            end
+        end)
+        UIS.InputChanged:Connect(function(i)
+            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+                local d=i.Position-start
+                local vx,vy=viewport()
+                local nx=math.clamp(startPos.X+d.X,0,vx-Sandwich.AbsoluteSize.X)
+                local ny=math.clamp(startPos.Y+d.Y,0,vy-Sandwich.AbsoluteSize.Y)
+                Sandwich.Position=UDim2.fromOffset(nx,ny)
+            end
+        end)
+    end
+
+    -- === 4) Make Left/Right scroll automatically if needed ===
+    local function ensureScroll(frame)
+        if not frame or not frame:IsA("Frame") then return frame end
+        if frame:FindFirstChildWhichIsA("ScrollingFrame") then return frame:FindFirstChildWhichIsA("ScrollingFrame") end
+        local sf = Instance.new("ScrollingFrame", frame)
+        sf.Name="AutoScroll"; sf.Active=true; sf.ScrollingDirection=Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize=Enum.AutomaticSize.Y; sf.CanvasSize=UDim2.new(0,0,0,0)
+        sf.ScrollBarThickness=6; sf.BackgroundTransparency=1
+        sf.Size=UDim2.new(1,-10,1,-10); sf.Position=UDim2.fromOffset(5,5)
+        local lay = Instance.new("UIListLayout", sf); lay.Padding=UDim.new(0,8); lay.SortOrder=Enum.SortOrder.LayoutOrder
+        -- ย้ายลูกเดิมเข้าข้างใน ยกเว้น UIStroke/Corner
+        for _,ch in ipairs(frame:GetChildren()) do
+            if ch~=sf and not ch:IsA("UIStroke") and not ch:IsA("UICorner") then
+                ch.Parent = sf
+            end
+        end
+        return sf
+    end
+    local Left,Right
+    for _,o in ipairs(Window:GetDescendants()) do
+        if o:IsA("Frame") and not Left and o.AbsolutePosition.X >= Window.AbsolutePosition.X+10 and o.AbsoluteSize.X/Window.AbsoluteSize.X < 0.4 then Left=o end
+        if o:IsA("Frame") and not Right and o.AbsolutePosition.X > Window.AbsolutePosition.X+Window.AbsoluteSize.X*0.3 then Right=o end
+    end
+    if Left then ensureScroll(Left) end
+    if Right then ensureScroll(Right) end
+
+    -- === 5) Apply green stroke to all TextButton/TextBox/Frame controls (except Sandwich) ===
+    for _,o in ipairs(MAIN:GetDescendants()) do
+        if o:IsDescendantOf(Sandwich) then -- skip sandwich
+        elseif o:IsA("TextButton") or o:IsA("TextBox") then
+            corner(o,10); stroke(o,1.0, GREEN, 0.22)
+        end
+    end
+
+    -- === 6) Preload images to avoid flicker ===
+    local imgs={}
+    for _,o in ipairs(MAIN:GetDescendants()) do
+        if (o:IsA("ImageLabel") or o:IsA("ImageButton")) and (o.Image and o.Image~="") then table.insert(imgs,o) end
+    end
+    task.spawn(function() pcall(function() CP:PreloadAsync(imgs) end) end)
+end
+--======================== END STABILIZER PATCH ==============================
                 
