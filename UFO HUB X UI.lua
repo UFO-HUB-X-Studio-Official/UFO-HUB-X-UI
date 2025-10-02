@@ -394,17 +394,14 @@ do
     end
 end
 --==========================================================
--- HOME SECTION (safe) • ทำให้เห็นแน่นอนแม้มีรูปบัง
+-- NAV HOME BUTTON (ซ้ายบน) → เลื่อนไปหน้าใหญ่ฝั่งขวา
 --==========================================================
 do
-    -- ตัวช่วยทำ Scroll ฝั่งใดฝั่งหนึ่ง แล้ว "ย้ายลูกเดิม" เข้าไป
+    -- ตัวช่วย: ทำให้แต่ละฝั่งมี ScrollingFrame (และย้ายลูกเดิมเข้าไป)
     local function ensureScroll(panel, name)
         if not panel or not panel.Parent then return nil end
-
         local exist = panel:FindFirstChild(name)
-        if exist and exist:IsA("ScrollingFrame") then
-            return exist
-        end
+        if exist and exist:IsA("ScrollingFrame") then return exist end
 
         local sf = Instance.new("ScrollingFrame")
         sf.Name = name
@@ -423,93 +420,75 @@ do
         list.SortOrder = Enum.SortOrder.LayoutOrder
         list.Padding = UDim.new(0,8)
 
-        -- ย้ายลูกเดิมทั้งหมดเข้าไป (ยกเว้นของตกแต่งมุม/เส้น)
         for _,ch in ipairs(panel:GetChildren()) do
             if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
                 ch.Parent = sf
             end
         end
-
         panel.ClipsDescendants = true
         return sf
     end
 
-    -- ✅ สร้าง/หา Scroll ฝั่งขวา
+    -- ให้ทั้งสองฝั่งมี Scroll (ถ้ามีอยู่แล้วจะใช้ตัวเดิม)
+    local ScrollLeft  = ensureScroll(Left,  "UFO_ScrollLeft")
     local ScrollRight = ensureScroll(Right, "UFO_ScrollRight")
-    if not ScrollRight then
-        warn("[UFO HUB X] ScrollRight not found."); return
+    if not (ScrollLeft and ScrollRight) then return end
+
+    -- หา "หน้าใหญ่ Home" ที่ฝั่งขวา (ตั้งชื่อ HomePage ถ้ายังไม่ได้ตั้ง)
+    local function findHomePage()
+        local hp = ScrollRight:FindFirstChild("HomePage")
+        if hp then return hp end
+        -- หา frame ที่มี label ข้อความ "หน้าหลัก" หรือมีอิโมจิ 🏠
+        for _,f in ipairs(ScrollRight:GetChildren()) do
+            if f:IsA("Frame") then
+                local ok=false
+                for _,d in ipairs(f:GetDescendants()) do
+                    if d:IsA("TextLabel") and d.Text then
+                        local t=d.Text
+                        if string.find(t,"หน้าหลัก") or string.find(t,"🏠") then
+                            ok=true; break
+                        end
+                    end
+                end
+                if ok then f.Name = "HomePage"; return f end
+            end
+        end
+        return nil
     end
 
-    -- ============ กล่อง ‘หน้าหลัก’ ============
-    local box = Instance.new("Frame", ScrollRight)
-    box.BackgroundColor3 = BG_INNER
-    box.BorderSizePixel = 0
-    box.AutomaticSize = Enum.AutomaticSize.Y
-    box.Size = UDim2.new(1, 0, 0, 10)
-    corner(box, 10); stroke(box, 1, GREEN, 0.25)
+    -- กล่อง slot ด้านซ้ายบน “ขนาดพอดีช่อง” (สูง 40)
+    local Slot = Instance.new("Frame", ScrollLeft)
+    Slot.Name = "NavSlotHome"
+    Slot.BackgroundTransparency = 1
+    Slot.Size = UDim2.new(1, 0, 0, 40)
 
-    local pad = Instance.new("UIPadding", box)
-    pad.PaddingTop = UDim.new(0, 10)
-    pad.PaddingBottom = UDim.new(0, 12)
-    pad.PaddingLeft = UDim.new(0, 12)
-    pad.PaddingRight = UDim.new(0, 12)
+    -- ปุ่มหน้าหลัก (เติมเต็มช่อง)
+    local HomeBtn = Instance.new("TextButton", Slot)
+    HomeBtn.Name = "BtnHome"
+    HomeBtn.Size = UDim2.new(1, 0, 1, 0)
+    HomeBtn.BackgroundColor3 = BG_PANEL
+    HomeBtn.BorderSizePixel = 0
+    HomeBtn.Text = "🏠  หน้าหลัก"
+    HomeBtn.TextColor3 = TEXT_WHITE
+    HomeBtn.Font = Enum.Font.Gotham
+    HomeBtn.TextSize = 14
+    corner(HomeBtn, 10); stroke(HomeBtn, 1, GREEN, 0.25)
 
-    local title = Instance.new("TextLabel", box)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
-    title.TextColor3 = TEXT_WHITE
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Size = UDim2.new(1, 0, 0, 22)
-    title.Text = "🏠  หน้าหลัก"
+    -- คลิกแล้วเลื่อนไปยังหน้า Home ที่ฝั่งขวา (สี่เหลี่ยมใหญ่)
+    local function scrollTo(child)
+        if not (child and child.Parent == ScrollRight) then return end
+        -- คำนวณตำแหน่ง Y ภายใน ScrollRight
+        local offsetY = child.AbsolutePosition.Y - ScrollRight.AbsolutePosition.Y + ScrollRight.CanvasPosition.Y
+        ScrollRight.CanvasPosition = Vector2.new(0, math.max(0, offsetY - 8))
+    end
 
-    local body = Instance.new("Frame", box)
-    body.BackgroundTransparency = 1
-    body.AutomaticSize = Enum.AutomaticSize.Y
-    body.Size = UDim2.new(1, 0, 0, 10)
-    body.Position = UDim2.fromOffset(0, 28)
-    local list = Instance.new("UIListLayout", body)
-    list.Padding = UDim.new(0, 8)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-
-    -- ปุ่มหลัก 1
-    local btn = Instance.new("TextButton", body)
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.Text = "🚀  เริ่มทำงาน"
-    btn.TextColor3 = TEXT_WHITE
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.BackgroundColor3 = BG_PANEL
-    btn.BorderSizePixel = 0
-    corner(btn, 10); stroke(btn, 1, GREEN, 0.25)
-
-    local desc = Instance.new("TextLabel", btn)
-    desc.BackgroundTransparency = 1
-    desc.Font = Enum.Font.Gotham
-    desc.TextSize = 12
-    desc.TextColor3 = Color3.fromRGB(200,200,200)
-    desc.TextXAlignment = Enum.TextXAlignment.Left
-    desc.Text = "กดเพื่อเริ่มระบบหลัก (แก้ callback ได้)"
-    desc.Size = UDim2.new(1,-20,0,14)
-    desc.Position = UDim2.fromOffset(10, 22)
-
-    btn.MouseButton1Click:Connect(function()
-        print("[UFO HUB X] Home: Start clicked!")
-        -- ใส่โค้ดของเพื่อนได้ที่นี่
-    end)
-
-    -- ปุ่มหลัก 2 (ตัวอย่าง)
-    local btn2 = Instance.new("TextButton", body)
-    btn2.Size = UDim2.new(1, 0, 0, 40)
-    btn2.Text = "🧰  ตั้งค่าเร็ว"
-    btn2.TextColor3 = TEXT_WHITE
-    btn2.Font = Enum.Font.Gotham
-    btn2.TextSize = 14
-    btn2.BackgroundColor3 = BG_PANEL
-    btn2.BorderSizePixel = 0
-    corner(btn2, 10); stroke(btn2, 1, GREEN, 0.25)
-    btn2.MouseButton1Click:Connect(function()
-        print("[UFO HUB X] Quick Settings opened.")
+    HomeBtn.MouseButton1Click:Connect(function()
+        local hp = findHomePage()
+        if hp then
+            scrollTo(hp)
+        else
+            warn("[UFO HUB X] HomePage not found. (สร้างหน้า Home ก่อนหรือให้มีคำว่า 'หน้าหลัก' ในหัวข้อ)")
+        end
     end)
 end
---============================== END HOME SECTION =============================
+--=========================== END NAV HOME BUTTON =============================
