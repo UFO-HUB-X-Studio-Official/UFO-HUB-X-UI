@@ -486,7 +486,7 @@ HL.Padding = UDim.new(0, 6)
 
 local IconH = Instance.new("ImageLabel", Header)
 IconH.BackgroundTransparency = 1
-IconH.Size = UDim2.fromOffset(22, 22)
+IconH.Size = UDim2.fromOffset(28, 28)
 IconH.Image = "rbxassetid://114530675624359"
 
 local TitleH = Instance.new("TextLabel", Header)
