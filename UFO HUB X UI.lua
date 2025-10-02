@@ -206,45 +206,23 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
-
 --==========================================================
--- SCROLL PATCH • Left/Right เลื่อนขึ้น–ลง (Auto wrap + move children)
+-- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
 do
-    local function ensureScroll(panel, name)
-        if not panel or not panel.Parent then return nil end
-        local exist = panel:FindFirstChild("UFO_"..name)
-        if exist and exist:IsA("ScrollingFrame") then return exist end
-
-        local sf = Instance.new("ScrollingFrame")
-        sf.Name = "UFO_"..name
-        sf.Active = true
-        sf.ScrollingDirection = Enum.ScrollingDirection.Y
-        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        sf.CanvasSize = UDim2.new(0,0,0,0)
-        sf.ScrollBarThickness = 6
-        sf.BorderSizePixel = 0
-        sf.BackgroundTransparency = 1
-        sf.Position = UDim2.fromOffset(5,5)
-        sf.Size = UDim2.new(1,-10,1,-10)
-        sf.Parent = panel
-
-        local list = Instance.new("UIListLayout", sf)
-        list.SortOrder = Enum.SortOrder.LayoutOrder
-        list.Padding = UDim.new(0,8)
-
-        for _,ch in ipairs(panel:GetChildren()) do
-            if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
-                ch.Parent = sf
-            end
+    local function hideScroll(sf)
+        if sf and sf:IsA("ScrollingFrame") then
+            sf.ScrollBarThickness = 0   -- 🫥 ซ่อนแท่ง
         end
-        panel.ClipsDescendants = true
-        return sf
     end
 
-    local ScrollLeft  = ensureScroll(Left,  "ScrollLeft")
-    local ScrollRight = ensureScroll(Right, "ScrollRight")
+    local leftSF  = Left:FindFirstChildWhichIsA("ScrollingFrame")
+    local rightSF = Right:FindFirstChildWhichIsA("ScrollingFrame")
+
+    hideScroll(leftSF)   -- ซ่อนฝั่งซ้าย
+    hideScroll(rightSF)  -- ซ่อนฝั่งขวา (ถ้ามี)
 end
+
 
 --==========================================================
 -- AFK SHIELD (Always-On)
