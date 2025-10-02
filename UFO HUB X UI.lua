@@ -373,131 +373,126 @@ do
 end
 --==========================================================
 -- TABS SYSTEM (Left buttons + Right pages)
--- วางหลังจากสร้าง Left / Right เสร็จ
 --==========================================================
-local Tabs = {}                  -- เก็บข้อมูลแท็บทั้งหมด
-local ActiveTab = nil            -- แท็บที่กำลังแสดงอยู่
-
--- สร้าง Scroll ฝั่งซ้าย (ซ่อนสกอร์บาร์ให้คลีน แต่ยังเลื่อนได้)
-local LeftScroll do
-    LeftScroll = Left:FindFirstChild("UFO_LeftScroll")
-    if not LeftScroll then
-        LeftScroll = Instance.new("ScrollingFrame")
-        LeftScroll.Name = "UFO_LeftScroll"
-        LeftScroll.Parent = Left
-        LeftScroll.Active = true
-        LeftScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-        LeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        LeftScroll.CanvasSize = UDim2.new(0,0,0,0)
-        LeftScroll.BackgroundTransparency = 1
-        LeftScroll.BorderSizePixel = 0
-        LeftScroll.ScrollBarThickness = 0     -- ซ่อนแถบขาว
-        LeftScroll.Size = UDim2.new(1,-10,1,-10)
-        LeftScroll.Position = UDim2.fromOffset(5,5)
-
-        local ll = Instance.new("UIListLayout", LeftScroll)
-        ll.SortOrder = Enum.SortOrder.LayoutOrder
-        ll.Padding   = UDim.new(0,8)
-    end
-end
-
--- โฟลเดอร์หน้าเพจฝั่งขวา
-local PagesFolder = Right:FindFirstChild("UFO_Pages") or Instance.new("Folder", Right)
-PagesFolder.Name = "UFO_Pages"
-
--- สไตล์ปุ่มเมนูซ้าย
-local function styleLeftButton(btn)
-    btn.AutoButtonColor = false
-    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    btn.BorderSizePixel = 0
-    btn.TextColor3 = TEXT_WHITE
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Size = UDim2.new(1,0,0,40)
-    corner(btn,10); stroke(btn,1,MINT,0.35)
-
-    -- ไอคอนจุดนำหน้าเล็ก ๆ
-    local dot = Instance.new("Frame", btn)
-    dot.Size = UDim2.fromOffset(8,8)
-    dot.Position = UDim2.fromOffset(10,16)
-    dot.BackgroundColor3 = MINT
-    dot.BorderSizePixel = 0
-    corner(dot,4)
-
-    local pad = Instance.new("UIPadding", btn)
-    pad.PaddingLeft  = UDim.new(0,24)
-    pad.PaddingRight = UDim.new(0,10)
-end
-
--- เปลี่ยนหน้า
-local function activateTab(tab)
-    if ActiveTab == tab then return end
-    -- ซ่อนทุกหน้า/คืนสีปุ่ม
-    for _,t in ipairs(Tabs) do
-        if t.Page then t.Page.Visible = false end
-        if t.Button then t.Button.TextColor3 = TEXT_WHITE end
-    end
-    -- โชว์หน้าใหม่/ไฮไลต์ปุ่ม
-    if tab and tab.Page then
-        tab.Page.Visible = true
-    end
-    if tab and tab.Button then
-        tab.Button.TextColor3 = GREEN
-    end
-    ActiveTab = tab
-end
-
--- API ภายใน: สร้างแท็บ
-function Window:NewTab(name)
-    name = tostring(name or ("Tab "..(#Tabs+1)))
-
-    -- ปุ่มซ้าย
-    local btn = Instance.new("TextButton")
-    btn.Name = "TabButton_"..name
-    btn.Parent = LeftScroll
-    btn.Text = "  "..name
-    styleLeftButton(btn)
-
-    -- เพจขวา (เป็น ScrollingFrame ให้เลื่อนเนื้อหาได้)
-    local page = Instance.new("ScrollingFrame")
-    page.Name = "Page_"..name
-    page.Parent = PagesFolder
-    page.Active = true
-    page.ScrollingDirection = Enum.ScrollingDirection.Y
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.CanvasSize = UDim2.new(0,0,0,0)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ScrollBarThickness = 0        -- ซ่อนแถบ
-    page.Size = UDim2.new(1,-10,1,-10)
-    page.Position = UDim2.fromOffset(5,5)
-    page.Visible = false
-
-    local layout = Instance.new("UIListLayout", page)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding   = UDim.new(0,8)
-
-    -- เก็บโครงสร้างแท็บ
-    local tab = {
-        Name     = name,
-        Button   = btn,
-        Page     = page,
-        Container= page,  -- (ชื่อเดิมตามที่เพื่อนใช้)
-    }
-    table.insert(Tabs, tab)
-
-    -- คลิกแล้วสลับหน้า
-    btn.MouseButton1Click:Connect(function()
-        activateTab(tab)
-    end)
-
-    -- ถ้าเป็นแท็บแรก ให้เปิดทันที
-    if #Tabs == 1 then
-        activateTab(tab)
+do
+    -- 1) สร้าง ScrollingFrame ฝั่งซ้าย + PageContainer ฝั่งขวา
+    local ScrollLeft = Instance.new("ScrollingFrame", Left)
+    ScrollLeft.Name = "TabsScroll"
+    ScrollLeft.Active = true
+    ScrollLeft.ScrollingDirection = Enum.ScrollingDirection.Y
+    ScrollLeft.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollLeft.CanvasSize = UDim2.new(0,0,0,0)
+    ScrollLeft.ScrollBarThickness = 0        -- ซ่อนแท่งสกรอลล์
+    ScrollLeft.BackgroundTransparency = 1
+    ScrollLeft.Position = UDim2.fromOffset(6,6)
+    ScrollLeft.Size = UDim2.new(1,-12,1,-12)
+    do
+        local lay = Instance.new("UIListLayout", ScrollLeft)
+        lay.Padding = UDim.new(0,8)
+        lay.SortOrder = Enum.SortOrder.LayoutOrder
     end
 
-    return tab
+    local Pages = Instance.new("Frame", Right)
+    Pages.Name = "Pages"
+    Pages.BackgroundTransparency = 1
+    Pages.Size = UDim2.new(1,-12,1,-12)
+    Pages.Position = UDim2.fromOffset(6,6)
+
+    -- เก็บสถานะไว้ใน Window
+    Window.__tabs = {}
+    Window.__tabs.Active = nil
+    Window.__tabs.ScrollLeft = ScrollLeft
+    Window.__tabs.Pages = Pages
+
+    -- 2) helper สไตล์ปุ่มแท็บ
+    local function styleTabButton(btn)
+        btn.Size = UDim2.new(1, 0, 0, 42)
+        btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        btn.AutoButtonColor = false
+        btn.Text = ""
+        btn.BorderSizePixel = 0
+        corner(btn, 8); stroke(btn, 1, MINT, 0.35)
+
+        local icon = Instance.new("TextLabel", btn)
+        icon.Name = "Text"
+        icon.BackgroundTransparency = 1
+        icon.Size = UDim2.new(1,-20,1,0)
+        icon.Position = UDim2.fromOffset(10,0)
+        icon.Font = Enum.Font.Gotham
+        icon.TextSize = 14
+        icon.TextXAlignment = Enum.TextXAlignment.Left
+        icon.TextColor3 = TEXT_WHITE
+        icon.Text = "🏠 Home"
+    end
+
+    -- 3) ฟังก์ชันสร้างเพจ + ผูกปุ่ม
+    function Window:NewTab(title)
+        title = tostring(title or "Tab")
+
+        -- ปุ่มซ้าย
+        local btn = Instance.new("TextButton", ScrollLeft)
+        styleTabButton(btn)
+        btn.Text = ""
+        btn.TextTransparency = 1
+        btn.Name = "Tab_"..title
+
+        local label = btn:FindFirstChild("Text")
+        if label then label.Text = "📄  "..title end
+
+        -- หน้าใหญ่ขวา
+        local page = Instance.new("Frame", Pages)
+        page.Name = "Page_"..title
+        page.BackgroundColor3 = Color3.fromRGB(16,16,16)
+        page.BorderSizePixel = 0
+        page.Size = UDim2.new(1,0,1,0)
+        page.Visible = false
+        corner(page, 10); stroke(page, 1, GREEN, 0.18)
+
+        -- ข้างในเพจทำเป็น ScrollingFrame ให้อัตโนมัติ
+        local body = Instance.new("ScrollingFrame", page)
+        body.Name = "Container"
+        body.Active = true
+        body.ScrollingDirection = Enum.ScrollingDirection.Y
+        body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        body.CanvasSize = UDim2.new(0,0,0,0)
+        body.ScrollBarThickness = 0           -- ซ่อนแท่งสกรอลล์
+        body.BackgroundTransparency = 1
+        body.Size = UDim2.new(1,-12,1,-12)
+        body.Position = UDim2.fromOffset(6,6)
+        do
+            local lay = Instance.new("UIListLayout", body)
+            lay.Padding = UDim.new(0,8)
+            lay.SortOrder = Enum.SortOrder.LayoutOrder
+        end
+
+        -- เก็บรายการแท็บ
+        local record = {Button = btn, Page = page, Container = body}
+        table.insert(Window.__tabs, record)
+
+        -- ฟังก์ชันโชว์เพจ
+        local function activate()
+            for _,t in ipairs(Window.__tabs) do
+                t.Page.Visible = false
+                local tl = t.Button:FindFirstChild("Text")
+                if tl then tl.TextColor3 = TEXT_WHITE end
+                t.Button.BackgroundColor3 = Color3.fromRGB(30,30,30)
+            end
+            page.Visible = true
+            btn.BackgroundColor3 = Color3.fromRGB(40,50,40)
+            if label then label.TextColor3 = GREEN end
+            Window.__tabs.Active = record
+        end
+
+        -- คลิกปุ่ม = เปิดเพจ
+        btn.MouseButton1Click:Connect(activate)
+
+        -- ถ้าเป็นแท็บแรก → เปิดเป็นค่าเริ่มต้น
+        if #Window.__tabs == 1 then
+            activate()
+        end
+
+        return record
+    end
 end
 --==========================================================
 -- EXPORT API
