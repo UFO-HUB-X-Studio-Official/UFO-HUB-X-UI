@@ -1,6 +1,6 @@
 --==========================================================
 -- UFO HUB X • tuned layout (title higher, UFO lower)
--- (Full file with AFK Always-On integrated + BUGFIXED TOGGLES)
+-- (Full file with AFK Always-On integrated + RECOVERY PATCHED)
 --==========================================================
 
 pcall(function()
@@ -97,7 +97,7 @@ BtnClose.BackgroundColor3 = DANGER_RED; BtnClose.Text = "X"; BtnClose.Font = Enu
 BtnClose.TextSize = 13; BtnClose.TextColor3 = Color3.new(1,1,1); BtnClose.BorderSizePixel = 0
 corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
 
--- ✅ PATCH: ปุ่ม X ซ่อนเฉพาะ Window (ไม่ปิดทั้ง GUI)
+-- ✅ PATCH: ปุ่ม X ซ่อนเฉพาะ Window
 BtnClose.MouseButton1Click:Connect(function()
     Window.Visible = false
 end)
@@ -119,7 +119,7 @@ do
     end)
 end
 
--- ===== UFO + TITLE (ปรับตามคำขอ) =====
+-- ===== UFO + TITLE =====
 do
     local UFO_Y_OFFSET   = 84
     local TITLE_Y_OFFSET = 8
@@ -177,16 +177,14 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 
--- 🧹 (ลบ toggle เดิมที่ใช้ GUI.Enabled ออกแล้ว เพื่อกันชน)
-
 --==========================================================
--- AFK SHIELD (Always-On) • ทำงานแม้ปิด/ซ่อน UI • ตลอดที่อยู่ในเกม
+-- AFK SHIELD (Always-On)
 --==========================================================
 do
-    local Players            = game:GetService("Players")
-    local UserInputService   = game:GetService("UserInputService")
-    local LocalPlayer        = Players.LocalPlayer
-    local VirtualUser        = game:GetService("VirtualUser")
+    local Players = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+    local VirtualUser = game:GetService("VirtualUser")
 
     getgenv().UFO_AFK_SHIELD = getgenv().UFO_AFK_SHIELD or {}
     local Shield = getgenv().UFO_AFK_SHIELD
@@ -195,7 +193,6 @@ do
     if Shield.keepaliveLoop then Shield.keepaliveLoop = false end
 
     Shield.enabled = true
-
     Shield.conn = LocalPlayer.Idled:Connect(function()
         if Shield.enabled then
             VirtualUser:CaptureController()
@@ -223,275 +220,66 @@ do
         end
     end)
 end
---==========================================================
--- UFO HUB X • Toggle + Persist + Smart Default Gap (BUGFIXED)
---==========================================================
-local CoreGui = game:GetService("CoreGui")
-local UIS     = game:GetService("UserInputService")
-local Http    = game:GetService("HttpService")
-
--- หา GUI/Window หลัก
-local MAIN_GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-if not MAIN_GUI then return end
-
-local WINDOW do
-    for _,o in ipairs(MAIN_GUI:GetChildren()) do
-        if o:IsA("Frame") then WINDOW = o break end
-    end
-end
-if not WINDOW then return end
-
--- แก้ปุ่ม X ให้ซ่อนเฉพาะหน้าต่าง (เผื่อมี TextButton X อื่น ๆ)
-local function patchCloseButton(root)
-    for _,o in ipairs(root:GetDescendants()) do
-        if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
-            o.MouseButton1Click:Connect(function()
-                WINDOW.Visible = false
-            end)
-        end
-    end
-end
-patchCloseButton(MAIN_GUI)
-
--- กันภาพอมเขียว
-for _,o in ipairs(MAIN_GUI:GetDescendants()) do
-    if o:IsA("ImageLabel") or o:IsA("ImageButton") then
-        o.ImageColor3 = Color3.new(1,1,1)
-    end
-end
-
--- ทำลายปุ่ม Toggle เก่าถ้ามี
-local OLD = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
-if OLD then OLD:Destroy() end
-
--- ---------- Persist helpers ----------
-local FILE = "UFO_HUB_X_Toggle.json"
-local function canFS()
-    return (typeof(writefile)=="function" and typeof(readfile)=="function" and typeof(isfile)=="function")
-end
-local function loadPos()
-    if canFS() and isfile(FILE) then
-        local ok, data = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
-        if ok and typeof(data)=="table" and data.x and data.y then
-            return data.x, data.y, true
-        end
-    elseif getgenv then
-        local g = getgenv()
-        if g.__UFO_TOGGLE_POS then
-            return g.__UFO_TOGGLE_POS.x, g.__UFO_TOGGLE_POS.y, true
-        end
-    end
-    return nil, nil, false
-end
-local function savePos(x,y)
-    if canFS() then
-        pcall(function() writefile(FILE, Http:JSONEncode({x=x,y=y})) end)
-    elseif getgenv then
-        getgenv().__UFO_TOGGLE_POS = {x=x,y=y}
-    end
-end
-
--- ---------- Smart default placement ----------
-local BTN_W, BTN_H = 64, 64
-local GAP = 48
-local function viewport()
-    local cam = workspace.CurrentCamera
-    local v = cam and cam.ViewportSize or Vector2.new(1920,1080)
-    return v.X, v.Y
-end
-local function clamp(x,y)
-    local vx, vy = viewport()
-    x = math.clamp(x, 0, vx - BTN_W)
-    y = math.clamp(y, 0, vy - BTN_H)
-    return x, y
-end
-
--- อ่านตำแหน่งที่เคยบันทึกไว้
-local px, py, loaded = loadPos()
-
--- คำนวณเริ่มต้นถ้าไม่มีตำแหน่งเดิม
-if not loaded then
-    task.wait()
-    local winPos = WINDOW.AbsolutePosition
-    local winSize = WINDOW.AbsoluteSize
-    px = (winPos.X - BTN_W - GAP)
-    py = (winPos.Y + math.floor(winSize.Y*0.15))
-    px, py = clamp(px, py)
-end
-
--- ---------- สร้างปุ่ม Toggle ----------
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "UFO_HUB_X_Toggle"
-ToggleGui.IgnoreGuiInset = true
-ToggleGui.ResetOnSpawn   = false
-ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ToggleGui.Parent = CoreGui
-
-local ToggleBtn = Instance.new("ImageButton")
-ToggleBtn.Name = "ToggleUI"
-ToggleBtn.Parent = ToggleGui
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-ToggleBtn.BorderSizePixel  = 0
-ToggleBtn.Size     = UDim2.new(0, BTN_W, 0, BTN_H)
-ToggleBtn.Position = UDim2.new(0, px, 0, py)
-ToggleBtn.Image    = "rbxassetid://117052960049460"
-ToggleBtn.ImageColor3 = Color3.new(1,1,1)
-ToggleBtn.AutoButtonColor = false
-corner(ToggleBtn, 8)
-
-local stroke = Instance.new("UIStroke", ToggleBtn)
-stroke.Thickness = 2
-stroke.Color = Color3.fromRGB(0,255,140)
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.LineJoinMode    = Enum.LineJoinMode.Round
-
-ToggleBtn.MouseEnter:Connect(function() stroke.Thickness = 3 end)
-ToggleBtn.MouseLeave:Connect(function() stroke.Thickness = 2 end)
-
--- ✅ PATCH: ปุ่มสี่เหลี่ยมต้องบังคับเปิด GUI ก่อน แล้วค่อยสลับ Window
-ToggleBtn.MouseButton1Click:Connect(function()
-    MAIN_GUI.Enabled = true
-    Window.Visible = not Window.Visible
-end)
-
--- ✅ PATCH: RightShift ก็เช่นกัน
-UIS.InputBegan:Connect(function(input,gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        MAIN_GUI.Enabled = true
-        Window.Visible = not Window.Visible
-    end
-end)
-
--- ลากได้ + บันทึก
-do
-    local dragging = false
-    local startPos, startMouse
-    ToggleBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            startPos   = Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
-            startMouse = i.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    savePos(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
-                end
-            end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local delta = i.Position - startMouse
-            local nx, ny = clamp(startPos.X + delta.X, startPos.Y + delta.Y)
-            ToggleBtn.Position = UDim2.new(0, nx, 0, ny)
-        end
-    end)
-end
 
 --==========================================================
--- END
---==========================================================
---==========================================================
--- UFO_RECOVERY_PATCH • บังคับเปิด GUI + Toggle แก้ไขแล้ว
+-- UFO RECOVERY PATCH (Toggle + RightShift fixed)
 --==========================================================
 do
-    local CoreGui = game:GetService("CoreGui")
-    local UIS     = game:GetService("UserInputService")
-
-    -- locate gui + window every time
     local function findMain()
         local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-        if not gui then
-            for _,g in ipairs(CoreGui:GetChildren()) do
-                if g:IsA("ScreenGui") and g.Name:lower():find("ufo_hub_x_ui") then gui = g break end
-            end
-        end
         local win
-        if gui then
-            for _,o in ipairs(gui:GetChildren()) do
-                if o:IsA("Frame") then win = o break end
-            end
-            if not win then win = gui:FindFirstChildWhichIsA("Frame") end
-        end
+        if gui then win = gui:FindFirstChildWhichIsA("Frame") end
         return gui, win
     end
 
     local function forceEnable(gui)
-        if not gui then return end
-        for _=1,5 do
-            gui.Enabled = true
-            task.wait(0.02)
-        end
-        pcall(function() gui.DisplayOrder = 1_000_000 end)
+        if gui then gui.Enabled = true end
     end
 
     local function forceShow()
         local gui, win = findMain()
         if not gui then return end
         forceEnable(gui)
-        task.wait()
-        _, win = findMain()
-        if win then
-            win.Visible = true
-            if win.GroupTransparency ~= nil then
-                win.GroupTransparency = 0
-            end
-        end
+        if win then win.Visible = true end
     end
 
     local function softHide()
-        local gui, win = findMain()
+        local _, win = findMain()
         if win then win.Visible = false end
-        task.defer(function()
-            local g = select(1, findMain())
-            if g then g.Enabled = true end
-        end)
     end
 
-    -- แพตช์ปุ่ม X ให้ซ่อนเฉพาะ Window
-    local function patchX()
-        local gui, win = findMain()
-        if not gui then return end
-        for _,o in ipairs(gui:GetDescendants()) do
-            if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" and not o:GetAttribute("UFO_X_PATCHED") then
-                o:SetAttribute("UFO_X_PATCHED", true)
-                o.MouseButton1Click:Connect(softHide)
-            end
+    -- แพตช์ปุ่ม X
+    for _,o in ipairs(GUI:GetDescendants()) do
+        if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
+            o.MouseButton1Click:Connect(softHide)
         end
     end
-    patchX()
-    task.spawn(function()
-        while task.wait(0.5) do patchX() end
+
+    -- ปุ่ม Toggle
+    local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
+    if toggleGui then toggleGui:Destroy() end
+
+    local ToggleGui = Instance.new("ScreenGui", CoreGui)
+    ToggleGui.Name = "UFO_HUB_X_Toggle"; ToggleGui.IgnoreGuiInset = true
+
+    local ToggleBtn = Instance.new("TextButton", ToggleGui)
+    ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0); ToggleBtn.Text="■"
+    corner(ToggleBtn,8); stroke(ToggleBtn,2,GREEN,0)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        local _, win = findMain()
+        if win and win.Visible then
+            softHide()
+        else
+            forceShow()
+        end
     end)
 
-    -- Hook ปุ่ม Toggle
-    local function hookToggleButton()
-        local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
-        if not toggleGui then return end
-        local btn = toggleGui:FindFirstChild("ToggleUI", true)
-        if not (btn and btn:IsA("ImageButton")) then return end
-        if btn:GetAttribute("UFO_TGL_PATCHED") then return end
-        btn:SetAttribute("UFO_TGL_PATCHED", true)
-
-        btn.MouseButton1Click:Connect(function()
-            local _, win = findMain()
-            if win and win.Visible then
-                softHide()
-            else
-                forceShow()
-            end
-        end)
-    end
-    hookToggleButton()
-    task.spawn(function()
-        while task.wait(0.5) do hookToggleButton() end
-    end)
-
-    -- RightShift toggle
+    -- RightShift
     UIS.InputBegan:Connect(function(i,gp)
         if gp then return end
-        if i.KeyCode == Enum.KeyCode.RightShift then
+        if i.KeyCode==Enum.KeyCode.RightShift then
             local _, win = findMain()
             if win and win.Visible then
                 softHide()
