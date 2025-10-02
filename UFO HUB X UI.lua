@@ -411,12 +411,50 @@ do
         end
     end)
 end
--- TEST: เพิ่มปุ่มเมนูเยอะๆที่ฝั่งซ้ายให้เกินความสูง (จะได้ลองเลื่อน)
+--==========================================================
+-- TEST ADD NAV BUTTONS (force create scroll + add many items)
+-- วางท้ายไฟล์ เพื่อทดสอบว่าเลื่อนขึ้นลงได้แน่นอน
+--==========================================================
 do
-    local sfLeft = Left:FindFirstChild("UFO_ScrollLeft")
-    if sfLeft then
+    local function getOrMakeScroll(panel, tag)
+        if not panel then return nil end
+        local sf = panel:FindFirstChild("UFO_"..tag)
+        if not (sf and sf:IsA("ScrollingFrame")) then
+            sf = Instance.new("ScrollingFrame")
+            sf.Name = "UFO_"..tag
+            sf.Active = true
+            sf.ScrollingDirection = Enum.ScrollingDirection.Y
+            sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            sf.CanvasSize = UDim2.new(0,0,0,0)
+            sf.ScrollBarThickness = 0 -- 🫥 ซ่อนแท่งสกอลล์บาร์
+            sf.BorderSizePixel = 0
+            sf.BackgroundTransparency = 1
+            sf.Position = UDim2.fromOffset(5,5)
+            sf.Size = UDim2.new(1,-10,1,-10)
+            sf.Parent = panel
+
+            local list = Instance.new("UIListLayout", sf)
+            list.Padding = UDim.new(0,8)
+            list.SortOrder = Enum.SortOrder.LayoutOrder
+
+            -- ย้ายลูกเดิมเข้าไป (ถ้ามี)
+            for _,ch in ipairs(panel:GetChildren()) do
+                if ch ~= sf and not ch:IsA("UICorner") and not ch:IsA("UIStroke") then
+                    ch.Parent = sf
+                end
+            end
+            panel.ClipsDescendants = true
+        end
+        return sf
+    end
+
+    -- หาแผงซ้าย/ขวา
+    local leftSF  = getOrMakeScroll(Left,  "ScrollLeft")
+    -- local rightSF = getOrMakeScroll(Right, "ScrollRight") -- ต้องการใช้ฝั่งขวา ค่อยเปิด
+
+    if leftSF then
         local function NewNav(text)
-            local b = Instance.new("TextButton", sfLeft)
+            local b = Instance.new("TextButton")
             b.Size = UDim2.new(1, 0, 0, 40)
             b.BackgroundColor3 = BG_PANEL
             b.BorderSizePixel = 0
@@ -425,12 +463,15 @@ do
             b.Font = Enum.Font.Gotham
             b.TextSize = 14
             corner(b, 10); stroke(b, 1, GREEN, 0.25)
+            b.Parent = leftSF
             return b
         end
-        for i = 1, 12 do  -- เปลี่ยนจำนวนได้เลย
-            NewNav(("🔘 เมนู %d"):format(i))
+
+        -- เติม 12 ปุ่ม เพื่อให้เนื้อหา “สูงกว่า” ช่องแน่นอน → จะเลื่อนได้
+        for i = 1, 12 do
+            NewNav(("🏷️ เมนู %02d"):format(i))
         end
     else
-        warn("UFO_ScrollLeft not found – ตรวจว่ารัน ensureScroll แล้วหรือยัง")
+        warn("[UFO] ไม่พบ Left panel — ตรวจว่าตัวแปร Left ถูกสร้างก่อนบล็อคนี้หรือยัง")
     end
 end
