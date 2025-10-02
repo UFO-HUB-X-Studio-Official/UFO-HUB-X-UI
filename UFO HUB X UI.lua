@@ -372,42 +372,170 @@ do
     end
 end
 --==========================================================
--- NAV HOME BUTTON (อยู่ฝั่งซ้าย ขนาดพอดี ไม่มีเส้นขาวยาว)
+-- TABS API • Window:NewTab("Name")
+--  - ปุ่มทางซ้ายขนาดคงที่ 44 px เสมอ
+--  - คลิกแล้วแสดง Page ทางขวา (ซ่อนหน้าอื่นอัตโนมัติ)
+--  - คืนค่า Tab object: {Button=..., Page=..., Show=function() end}
 --==========================================================
 do
-    local ScrollLeft  = Left:FindFirstChildWhichIsA("ScrollingFrame") or Left
-    local ScrollRight = Right:FindFirstChildWhichIsA("ScrollingFrame") or Right
-
-    -- หา HomePage ฝั่งขวา
-    local function findHomePage()
-        for _,f in ipairs(ScrollRight:GetChildren()) do
-            if f:IsA("Frame") and f.Name=="HomePage" then
-                return f
-            end
+    -- ✅ หา/สร้าง ScrollingFrame ของซ้าย-ขวา (กันไว้ เผื่อยังไม่มี)
+    local function ensureScroll(panel, name)
+        local exist = panel:FindFirstChild(name)
+        if exist and exist:IsA("ScrollingFrame") then
+            return exist
         end
-        return nil
+        local sf = Instance.new("ScrollingFrame")
+        sf.Name = name
+        sf.Active = true
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.BackgroundTransparency = 1
+        sf.ScrollBarThickness = 0   -- ซ่อนสกอร์ลบาร์ (ยังเลื่อนได้)
+        sf.Position = UDim2.fromOffset(5,5)
+        sf.Size = UDim2.new(1, -10, 1, -10)
+        sf.Parent = panel
+        local list = Instance.new("UIListLayout", sf)
+        list.Padding = UDim.new(0, 8)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        panel.ClipsDescendants = true
+        return sf
     end
 
-    -- ปุ่มหน้าหลัก (ไม่ต้องมี Frame ยาวแล้ว)
-    local HomeBtn = Instance.new("TextButton", ScrollLeft)
-    HomeBtn.Name = "BtnHome"
-    HomeBtn.Size = UDim2.new(1, -10, 0, 40)  -- ปุ่มสูง 40 พอดี
-    HomeBtn.BackgroundColor3 = BG_PANEL
-    HomeBtn.BorderSizePixel = 0
-    HomeBtn.Text = "🏠  หน้าหลัก"
-    HomeBtn.TextColor3 = TEXT_WHITE
-    HomeBtn.Font = Enum.Font.GothamBold
-    HomeBtn.TextSize = 14
-    HomeBtn.Position = UDim2.fromOffset(5,5)
-    corner(HomeBtn, 10)
-    stroke(HomeBtn, 1.4, GREEN, 0.25)
-
-    -- กดแล้วเลื่อนไปที่ HomePage
-    HomeBtn.MouseButton1Click:Connect(function()
-        local hp = findHomePage()
-        if hp and ScrollRight:IsA("ScrollingFrame") then
-            local offsetY = hp.AbsolutePosition.Y - ScrollRight.AbsolutePosition.Y + ScrollRight.CanvasPosition.Y
-            ScrollRight.CanvasPosition = Vector2.new(0, math.max(0, offsetY - 8))
+    -- หา panel ซ้าย/ขวา จากโครงเดิมของเรา
+    local Content   = Window:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")
+    -- โครงเดิม: Window -> Body -> Content -> Columns -> Left/Right
+    local Columns   = Content
+    local Left      = Columns:FindFirstChildWhichIsA("Frame")
+    local Right     = Columns:FindFirstChildWhichIsA("Frame")
+    -- ถ้าสลับลำดับ ให้ลองหาใหม่แบบชื่อ
+    if Left.Name ~= "Left" and Right.Name ~= "Right" then
+        for _,f in ipairs(Columns:GetChildren()) do
+            if f:IsA("Frame") and (not Left) then Left = f elseif f:IsA("Frame") and (not Right) then Right = f end
         end
-    end)
+    end
+
+    local ScrollLeft  = ensureScroll(Left,  "UFO_ScrollLeft")
+    local ScrollRight = ensureScroll(Right, "UFO_ScrollRightPages")
+
+    -- เก็บสถานะแท็บไว้บน Window
+    Window.__UFO_TABS = Window.__UFO_TABS or {}
+    local Tabs = Window.__UFO_TABS
+    Tabs._list  = Tabs._list  or {}
+    Tabs._pages = Tabs._pages or {}
+    Tabs._current = Tabs._current or nil
+    Tabs._left  = ScrollLeft
+    Tabs._right = ScrollRight
+
+    -- สไตล์ปุ่มเมนูทางซ้าย (ขนาดคงที่)
+    local function makeMenuButton(text)
+        local holder = Instance.new("Frame")
+        holder.BackgroundTransparency = 1
+        holder.Size = UDim2.new(1, 0, 0, 44)    -- ⬅ ขนาดคงที่ 44px
+
+        local btn = Instance.new("TextButton", holder)
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.Text = "  🗂  "..(text or "Tab")
+        btn.AutoButtonColor = false
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 14
+        btn.TextColor3 = TEXT_WHITE
+        btn.BackgroundColor3 = BG_INNER
+        btn.BorderSizePixel = 0
+        corner(btn, 10)
+        stroke(btn, 1, MINT, 0.35)
+
+        -- hover เล็กน้อย
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(24,24,24) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = BG_INNER end)
+
+        return holder, btn
+    end
+
+    -- สร้างหน้าเปล่าทางขวา (ใส่เนื้อหาเองภายหลัง)
+    local function makePage(name)
+        local page = Instance.new("Frame")
+        page.Name = "Page_"..(name or "Tab")
+        page.BackgroundTransparency = 1
+        page.Size = UDim2.new(1,0,0,10)
+        page.AutomaticSize = Enum.AutomaticSize.Y
+        page.Visible = false
+        page.Parent = Tabs._right
+
+        -- ภายใน page มี ScrollingFrame ให้ใส่ของได้ยาว ๆ
+        local sf = Instance.new("ScrollingFrame", page)
+        sf.Active = true
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.ScrollBarThickness = 0
+        sf.BackgroundTransparency = 1
+        sf.Position = UDim2.fromOffset(8,8)
+        sf.Size = UDim2.new(1, -16, 1, -16)
+        local layout = Instance.new("UIListLayout", sf)
+        layout.Padding = UDim.new(0, 8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        return page, sf
+    end
+
+    -- ฟังก์ชันเลือกแท็บ
+    local function selectTab(tab)
+        if Tabs._current == tab then return end
+        for _,t in ipairs(Tabs._list) do
+            t.Page.Visible = false
+            t.Button.TextColor3 = TEXT_WHITE
+            t.Button.BackgroundColor3 = BG_INNER
+        end
+        tab.Page.Visible = true
+        tab.Button.TextColor3 = GREEN
+        tab.Button.BackgroundColor3 = Color3.fromRGB(24,24,24)
+        Tabs._current = tab
+    end
+
+    -- ✅ API: Window:NewTab("TabName")
+    function Window:NewTab(name)
+        local holder, btn = makeMenuButton(name)
+        holder.Parent = Tabs._left
+
+        local page, container = makePage(name)
+
+        -- object แท็บ
+        local tab = {
+            Name     = name or "Tab",
+            Button   = btn,
+            Holder   = holder,
+            Page     = page,
+            Container= container,
+            Show     = function(self) selectTab(self) end
+        }
+        table.insert(Tabs._list, tab)
+        Tabs._pages[tab.Name] = tab
+
+        -- คลิกแล้วเลือก
+        btn.MouseButton1Click:Connect(function() selectTab(tab) end)
+
+        -- ถ้าเป็นแท็บแรก ให้เลือกอัตโนมัติ
+        if #Tabs._list == 1 then
+            selectTab(tab)
+        end
+
+        return tab
+    end
+end
+-- ตัวอย่างสร้าง 4 แท็บ
+local t1 = Window:NewTab("หน้าหลัก")
+local t2 = Window:NewTab("ฟาร์ม")
+local t3 = Window:NewTab("เทเลพอร์ท")
+local t4 = Window:NewTab("ตั้งค่า")
+
+-- ใส่เนื้อหาในหน้าแท็บ (เติมอะไรก็ได้ลงใน t1.Container)
+do
+    local box = Instance.new("TextLabel", t1.Container)
+    box.Size = UDim2.new(1,0,0,36)
+    box.BackgroundColor3 = BG_INNER
+    box.BorderSizePixel = 0
+    corner(box,10); stroke(box,1,MINT,0.35)
+    box.Text = "👋 ยินดีต้อนรับสู่ UFO HUB X"
+    box.Font = Enum.Font.Gotham; box.TextSize = 14; box.TextColor3 = TEXT_WHITE
 end
