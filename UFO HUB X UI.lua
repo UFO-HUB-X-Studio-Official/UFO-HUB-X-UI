@@ -289,3 +289,70 @@ do
         end
     end)
 end
+--==========================================================
+-- UFO RECOVERY PATCH (Final Fix: Toggle ปิด/เปิดได้จริง)
+--==========================================================
+do
+    local CoreGui = game:GetService("CoreGui")
+    local UIS     = game:GetService("UserInputService")
+
+    local function findMain()
+        local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+        local win
+        if gui then win = gui:FindFirstChildWhichIsA("Frame") end
+        return gui, win
+    end
+
+    local function showUI()
+        local gui, win = findMain()
+        if gui then gui.Enabled = true end
+        if win then win.Visible = true end
+    end
+
+    local function hideUI()
+        local gui, win = findMain()
+        if win then win.Visible = false end
+    end
+
+    -- ปุ่ม X
+    for _,o in ipairs(CoreGui:GetDescendants()) do
+        if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
+            o.MouseButton1Click:Connect(function() hideUI() end)
+        end
+    end
+
+    -- ปุ่ม Toggle
+    local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
+    if toggleGui then toggleGui:Destroy() end
+
+    local ToggleGui = Instance.new("ScreenGui", CoreGui)
+    ToggleGui.Name = "UFO_HUB_X_Toggle"; ToggleGui.IgnoreGuiInset = true
+
+    local ToggleBtn = Instance.new("TextButton", ToggleGui)
+    ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0); ToggleBtn.Text="■"
+    local c = Instance.new("UICorner", ToggleBtn); c.CornerRadius = UDim.new(0,8)
+    local s = Instance.new("UIStroke", ToggleBtn); s.Thickness=2; s.Color=GREEN
+
+    -- flag บอกสถานะ
+    local isOpen = true
+
+    local function toggleUI()
+        if isOpen then
+            hideUI()
+        else
+            showUI()
+        end
+        isOpen = not isOpen
+    end
+
+    ToggleBtn.MouseButton1Click:Connect(toggleUI)
+
+    -- RightShift
+    UIS.InputBegan:Connect(function(i,gp)
+        if gp then return end
+        if i.KeyCode==Enum.KeyCode.RightShift then
+            toggleUI()
+        end
+    end)
+end
