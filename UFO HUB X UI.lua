@@ -373,121 +373,56 @@ do
         end)
     end
 end
---====[ PLAYER BUTTON (ชิดสวย+เอฟเฟกต์กด) ]====
+-- === [ONE-DROP] ALIEN BIG + PLAYER HEADER (ICON+TEXT) ===
 
--- ปุ่ม (อยู่บนสุด)
-local BtnPlayer = Instance.new("TextButton", Left)
-BtnPlayer.Name = "BtnPlayer"
-BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
-BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-BtnPlayer.BackgroundColor3 = BG_INNER
-BtnPlayer.BorderSizePixel = 0
-BtnPlayer.AutoButtonColor = false   -- คุมสีเอง (จะทำเอฟเฟกต์กดเอง)
-corner(BtnPlayer, 10)
-local st = stroke(BtnPlayer, 1, GREEN, 0.35)
+-- 1) รูปเอเลี่ยนฝั่งขวา (ใหญ่ขึ้น)
+local IMG_LARGE = IMG_LARGE or "rbxassetid://108408843188558"
+local Alien = Right:FindFirstChild("AlienImage") or Instance.new("ImageLabel", Right)
+Alien.Name = "AlienImage"
+Alien.BackgroundTransparency = 1
+Alien.AnchorPoint = Vector2.new(0.5, 0.5)
+Alien.Position = UDim2.new(0.5, 0, 0.5, 0)
+Alien.Size = UDim2.new(1.15, 0, 1.15, 0)   -- ⬅️ ปรับซูมที่นี่ (เช่น 1.20, 1.25)
+Alien.Image = IMG_LARGE
+Alien.ScaleType = Enum.ScaleType.Crop
+Alien.ZIndex = 1
 
--- ใช้กรอบแนวนอนจัด “รูป + ข้อความ” ให้ติดกันพอดี
-local Row = Instance.new("Frame", BtnPlayer)
-Row.BackgroundTransparency = 1
-Row.Position = UDim2.fromOffset(8, 6)
-Row.Size = UDim2.new(1, -16, 1, -12)
-
-local Pad = Instance.new("UIPadding", Row)
-Pad.PaddingLeft  = UDim.new(0, 0)
-Pad.PaddingRight = UDim.new(0, 0)
-Pad.PaddingTop   = UDim.new(0, 0)
-Pad.PaddingBottom= UDim.new(0, 0)
-
-local H = Instance.new("UIListLayout", Row)
-H.FillDirection          = Enum.FillDirection.Horizontal
-H.HorizontalAlignment    = Enum.HorizontalAlignment.Left
-H.VerticalAlignment      = Enum.VerticalAlignment.Center
-H.SortOrder              = Enum.SortOrder.LayoutOrder
-H.Padding                = UDim.new(0, 6)  -- << ระยะ “รูป-ข้อความ” ปรับได้ (แนะนำ 4–8)
-
--- รูปไอคอน (จะอยู่ชิดซ้าย)
-local Icon = Instance.new("ImageLabel", Row)
-Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(18, 18)   -- ถ้าอยากใหญ่ขึ้นเปลี่ยนเป็น 20–22
-Icon.Image = "rbxassetid://114530675624359"
-Icon.LayoutOrder = 1
-
--- ข้อความ (จะตามรูปมาติดๆ)
-local Txt = Instance.new("TextLabel", Row)
-Txt.BackgroundTransparency = 1
-Txt.Size = UDim2.new(1, 0, 1, 0)
-Txt.TextXAlignment = Enum.TextXAlignment.Left
-Txt.Font = Enum.Font.GothamBold
-Txt.Text = "Player"
-Txt.TextSize = 16
-Txt.TextColor3 = TEXT_WHITE
-Txt.LayoutOrder = 2
-
--- เอฟเฟกต์ Hover + กด (ลื่นทั้งเมาส์/ทัช)
-local UIS = game:GetService("UserInputService")
-local TS  = game:GetService("TweenService")
-local uiScale = Instance.new("UIScale", BtnPlayer)
-
-local function tw(obj, t, goal)
-    TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
-end
-
-local function setHover(on)
-    -- hover: เส้นชัดขึ้นนิด + พื้นสว่างขึ้นจางๆ (พีซีเท่านั้น)
-    local tgtT = on and 0.15 or 0.35
-    local tgtBg = on and Color3.fromRGB(24,24,24) or BG_INNER
-    tw(st, 0.08, {Transparency = tgtT})
-    tw(BtnPlayer, 0.10, {BackgroundColor3 = tgtBg})
-end
-
-local function setPress(on)
-    -- กด: ย่อปุ่มนิดๆ + เส้นเข้มขึ้น
-    local tgtScale = on and 0.97 or 1
-    local tgtT = on and 0.05 or 0.15
-    tw(uiScale, 0.07, {Scale = tgtScale})
-    tw(st, 0.06, {Transparency = tgtT})
-end
-
--- Mouse (พีซี)
-BtnPlayer.MouseEnter:Connect(function() if not UIS.TouchEnabled then setHover(true) end end)
-BtnPlayer.MouseLeave:Connect(function() if not UIS.TouchEnabled then setHover(false); setPress(false) end end)
-BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
-BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
-
--- Touch (มือถือ)
-BtnPlayer.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch then setPress(true) end
-end)
-BtnPlayer.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch then setPress(false) end
-end)
-
---========== เนื้อหา Page ด้านขวา ==========
--- ซ่อนไว้ก่อน แล้วค่อยเปิดเมื่อกดปุ่ม
+-- 2) หน้า Player (ถ้าไม่มีให้สร้าง)
 local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
 PlayerPage.Name = "PlayerPage"
 PlayerPage.BackgroundTransparency = 1
 PlayerPage.Size = UDim2.new(1,0,1,0)
 PlayerPage.Visible = false
 
--- ตัวอย่างหัวข้อบนสุด (แทนที่จุดขาว) ถ้ายังไม่มี
-if not PlayerPage:FindFirstChild("Header") then
-    local Header = Instance.new("TextLabel", PlayerPage)
-    Header.Name = "Header"
-    Header.BackgroundTransparency = 1
-    Header.Position = UDim2.fromOffset(12,8)
-    Header.Size = UDim2.new(1,-24,0,28)
-    Header.Font = Enum.Font.GothamBold
-    Header.Text = "🧑‍🚀 Player"
-    Header.TextColor3 = TEXT_WHITE
-    Header.TextXAlignment = Enum.TextXAlignment.Left
-    Header.TextSize = 18
-end
+-- ลบหัวเดิม (ถ้ามี) แล้วสร้างหัวใหม่แบบ "รูป + ชื่อ"
+if PlayerPage:FindFirstChild("Header") then PlayerPage.Header:Destroy() end
 
--- กดปุ่ม → โชว์หน้า Player และซ่อนหน้าอื่นๆ
-BtnPlayer.MouseButton1Click:Connect(function()
-    for _,child in ipairs(Right:GetChildren()) do
-        if child:IsA("Frame") then child.Visible = false end
-    end
-    PlayerPage.Visible = true
-end)
+local Header = Instance.new("Frame", PlayerPage)
+Header.Name = "Header"
+Header.BackgroundTransparency = 1
+Header.Position = UDim2.fromOffset(12, 8)
+Header.Size = UDim2.new(1, -24, 0, 28)
+
+local H = Instance.new("UIListLayout", Header)
+H.FillDirection = Enum.FillDirection.Horizontal
+H.HorizontalAlignment = Enum.HorizontalAlignment.Left
+H.VerticalAlignment = Enum.VerticalAlignment.Center
+H.Padding = UDim.new(0, 6)  -- ระยะห่างรูป-ข้อความ
+
+local IconH = Instance.new("ImageLabel", Header)
+IconH.Name = "Icon"
+IconH.BackgroundTransparency = 1
+IconH.Size = UDim2.fromOffset(22, 22)          -- ⬅️ อยากใหญ่ขึ้นปรับเลขนี้
+IconH.Image = "rbxassetid://114530675624359"   -- ไอคอน Player
+IconH.LayoutOrder = 1
+
+local TitleH = Instance.new("TextLabel", Header)
+TitleH.Name = "Title"
+TitleH.BackgroundTransparency = 1
+TitleH.Size = UDim2.new(1, 0, 1, 0)
+TitleH.TextXAlignment = Enum.TextXAlignment.Left
+TitleH.Font = Enum.Font.GothamBold
+TitleH.Text = "Player"
+TitleH.TextColor3 = TEXT_WHITE
+TitleH.TextSize = 18
+TitleH.LayoutOrder = 2
