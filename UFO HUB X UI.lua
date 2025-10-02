@@ -374,130 +374,155 @@ do
     end
 end
 --==========================================================
--- TABS SYSTEM (Left list + Right pages)
+-- TABS API (สร้างแท็บฝั่งซ้าย + แสดงหน้าเพจฝั่งขวา)
 --==========================================================
-local function findDescByName(root, name)
-    for _,d in ipairs(root:GetDescendants()) do
-        if d.Name == name then return d end
-    end
-end
+do
+    -- ช่วยหา/สร้าง Scroll และ Page container
+    local function ensureTabList(leftPanel)
+        local list = leftPanel:FindFirstChild("UFO_TabList")
+        if list and list:IsA("ScrollingFrame") then return list end
 
-local Left  = findDescByName(Window, "LeftPanel")
-local Right = findDescByName(Window, "RightPanel")
+        list = Instance.new("ScrollingFrame")
+        list.Name = "UFO_TabList"
+        list.Active = true
+        list.ScrollingDirection = Enum.ScrollingDirection.Y
+        list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        list.CanvasSize = UDim2.new(0,0,0,0)
+        list.ScrollBarThickness = 0 -- ซ่อนแถบขาวให้เกลี้ยง
+        list.BorderSizePixel = 0
+        list.BackgroundTransparency = 1
+        list.Position = UDim2.fromOffset(6,6)
+        list.Size = UDim2.new(1,-12,1,-12)
+        list.Parent = leftPanel
 
--- ถ้ายังหาไม่ได้ ให้หยุดเฉย ๆ เพื่อไม่ให้ error
-if Left and Right then
-    -- สร้างรายการแท็บฝั่งซ้าย
-    local TabList = Left:FindFirstChild("TabList") or Instance.new("ScrollingFrame", Left)
-    TabList.Name = "TabList"
-    TabList.Active = true
-    TabList.ScrollingDirection = Enum.ScrollingDirection.Y
-    TabList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    TabList.CanvasSize = UDim2.new(0,0,0,0)
-    TabList.BackgroundTransparency = 1
-    TabList.BorderSizePixel = 0
-    TabList.ScrollBarThickness = 0 -- ซ่อนเส้นขาว
-    TabList.Position = UDim2.fromOffset(8,8)
-    TabList.Size     = UDim2.new(1,-16,1,-16)
+        local layout = Instance.new("UIListLayout", list)
+        layout.Padding = UDim.new(0,8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    if not TabList:FindFirstChildOfClass("UIListLayout") then
-        local ll = Instance.new("UIListLayout", TabList)
-        ll.SortOrder = Enum.SortOrder.LayoutOrder
-        ll.Padding   = UDim.new(0,8)
+        return list
     end
 
-    -- โฟลเดอร์เพจฝั่งขวา
-    local Pages = Right:FindFirstChild("Pages") or Instance.new("Folder", Right)
-    Pages.Name = "Pages"
-
-    Window._tabs = Window._tabs or {}
-
-    local function styleTabButton(b)
-        b.Size = UDim2.new(1, 0, 0, 38)
-        b.BackgroundColor3 = BG_INNER
-        b.BorderSizePixel  = 0
-        b.AutoButtonColor  = false
-        b.TextXAlignment   = Enum.TextXAlignment.Left
-        b.Font             = Enum.Font.Gotham
-        b.TextSize         = 14
-        b.TextColor3       = TEXT_WHITE
-        local pad = Instance.new("UIPadding", b); pad.PaddingLeft = UDim.new(0,12)
-        corner(b,10); stroke(b,1,MINT,0.35)
+    local function ensurePages(rightPanel)
+        local pages = rightPanel:FindFirstChild("UFO_Pages")
+        if pages and pages:IsA("Folder") then return pages end
+        pages = Instance.new("Folder")
+        pages.Name = "UFO_Pages"
+        pages.Parent = rightPanel
+        return pages
     end
 
-    local function selectTab(target)
-        for _,t in ipairs(Window._tabs) do
-            local active = (t == target)
-            t.Page.Visible = active
-            t.Button.TextColor3 = active and GREEN or TEXT_WHITE
-            t.Button.BackgroundColor3 = active and BG_PANEL or BG_INNER
+    -- หา panel ซ้าย/ขวา (ตั้งชื่อไว้แล้วก่อนหน้านี้)
+    local Content      = Window:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")
+    -- โครงเดิม: Window -> Body -> Content -> Columns -> (Left / Right)
+    local Columns      = Content
+    for _,ch in ipairs((Content and Content:GetChildren()) or {}) do
+        if ch:IsA("Frame") and ch:FindFirstChildWhichIsA("UIStroke") then -- เลือกกรอบในกลาง
+            Columns = Content
+            break
         end
     end
 
-    function Window:NewTab(name)
-        name = tostring(name or ("Tab "..(#self._tabs+1)))
+    -- ถ้าตอนสร้าง Left/Right ยังไม่ได้ตั้งชื่อ ให้ตั้งชื่อไว้ตรงนี้
+    local Left  = Columns and Columns:FindFirstChildWhichIsA("Frame")
+    local Right = nil
+    if Left then
+        for _,f in ipairs(Columns:GetChildren()) do
+            if f:IsA("Frame") and f ~= Left then Right = f break end
+        end
+    end
+    if Left then Left.Name = "LeftPanel" end
+    if Right then Right.Name = "RightPanel" end
 
-        -- ปุ่มที่ซ้าย
-        local btn = Instance.new("TextButton", TabList)
-        btn.Name = "TabButton_"..name
-        btn.Text = "  🧭  "..name
+    -- ป้องกันกรณีหา panel ไม่เจอ
+    if not (Left and Right) then
+        warn("[UFO HUB X] Tabs API: ไม่พบ Left/Right panel — ตรวจสอบโครงสร้าง UI")
+        return
+    end
+
+    local TabList = ensureTabList(Left)     -- ที่วางปุ่ม
+    local Pages   = ensurePages(Right)      -- โฟลเดอร์เพจ
+
+    -- ฟังก์ชันแต่งสไตล์ปุ่ม
+    local function styleTabButton(btn)
+        btn.AutoButtonColor = false
+        btn.BackgroundColor3 = Color3.fromRGB(28,28,28)
+        btn.BorderSizePixel  = 0
+        btn.Size = UDim2.new(1, 0, 0, 40)
+        btn.TextColor3 = TEXT_WHITE
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Text = "  🗂️  " .. (btn.Name or "Tab")
+        corner(btn, 10)
+        stroke(btn, 1, MINT, 0.35)
+
+        -- hover เบาๆ
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(36,36,36) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(28,28,28) end)
+    end
+
+    -- ไลบรารีที่คืนค่าออกไป
+    local Lib = { _tabs = {}, Window = Window }
+
+    -- เปลี่ยนหน้าเพจ
+    local function showPage(tab)
+        for _,t in ipairs(Lib._tabs) do
+            if t.Page then t.Page.Visible = false end
+            if t.Button then t.Button.TextColor3 = TEXT_WHITE end
+        end
+        if tab and tab.Page then tab.Page.Visible = true end
+        if tab and tab.Button then tab.Button.TextColor3 = GREEN end
+    end
+
+    -- API: NewTab
+    function Lib:NewTab(title)
+        title = tostring(title or ("Tab "..(#self._tabs+1)))
+
+        -- ปุ่มแท็บฝั่งซ้าย
+        local btn = Instance.new("TextButton")
+        btn.Name = title
+        btn.Parent = TabList
         styleTabButton(btn)
+        btn.Text = "  📄  "..title
 
-        -- หน้าเพจที่ขวา
-        local page = Instance.new("Frame", Pages)
-        page.Name = "Page_"..name
+        -- หน้าเพจฝั่งขวา
+        local page = Instance.new("Frame")
+        page.Name = "Page_"..title
+        page.Parent = Pages
         page.BackgroundTransparency = 1
-        page.AutomaticSize = Enum.AutomaticSize.Y
-        page.Size = UDim2.new(1,-16,0,10)
-        page.Position = UDim2.fromOffset(8,8)
         page.Visible = false
+        page.Size = UDim2.new(1, -16, 1, -16)
+        page.Position = UDim2.fromOffset(8,8)
 
-        -- ภายในเพจเป็น ScrollingFrame (วางของได้ยาว)
+        -- ภายในเพจ: ScrollingFrame + Layout สำหรับวางเนื้อหา
         local sf = Instance.new("ScrollingFrame", page)
-        sf.Name = "Container"
+        sf.Name = "ContainerScroll"
         sf.Active = true
         sf.ScrollingDirection = Enum.ScrollingDirection.Y
         sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
         sf.CanvasSize = UDim2.new(0,0,0,0)
-        sf.BackgroundTransparency = 1
+        sf.ScrollBarThickness = 0 -- ซ่อนแถบขาว
         sf.BorderSizePixel = 0
-        sf.ScrollBarThickness = 0
+        sf.BackgroundTransparency = 1
         sf.Size = UDim2.new(1,0,1,0)
-        sf.Position = UDim2.fromOffset(0,0)
-        local lay = Instance.new("UIListLayout", sf); lay.Padding = UDim.new(0,8)
+        local lay = Instance.new("UIListLayout", sf)
+        lay.Padding = UDim.new(0,8)
+        lay.SortOrder = Enum.SortOrder.LayoutOrder
 
         local tab = { Button = btn, Page = page, Container = sf }
         table.insert(self._tabs, tab)
 
-        btn.MouseButton1Click:Connect(function() selectTab(tab) end)
-        if #self._tabs == 1 then selectTab(tab) end
+        btn.MouseButton1Click:Connect(function() showPage(tab) end)
+
+        -- แท็บแรกให้แสดงเลย
+        if #self._tabs == 1 then
+            showPage(tab)
+        end
 
         return tab
     end
 
-    -- เผื่อสคริปต์ข้างนอกอยากอ้างสีธีม
-    Window.Theme = {GREEN=GREEN, MINT=MINT, BG_INNER=BG_INNER, BG_PANEL=BG_PANEL, TEXT_WHITE=TEXT_WHITE}
+    -- เผื่ออยากใช้สไตล์ Kavo แบบ return ไลบรารีไปใช้ต่อ
+    getgenv().UFO_LIB = Lib
+    return Lib
 end
-
--- สำคัญมาก: ส่ง Window ออกไปให้สคริปต์ภายนอก
-return Window
---==========================================================
--- EXPORT API
---==========================================================
-local UFO_API = {}
-
-function UFO_API:NewTab(name)
-    assert(Window and Window.NewTab, "UFO: Window.NewTab not found")
-    return Window:NewTab(name)
-end
-
-UFO_API.Window = Window
-UFO_API.Theme  = {
-    BG_INNER   = BG_INNER,
-    TEXT_WHITE = TEXT_WHITE,
-    MINT       = MINT,
-}
-UFO_API.Helpers = { corner = corner, stroke = stroke }
-
-return UFO_API
-return Window
