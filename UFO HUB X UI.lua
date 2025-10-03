@@ -401,7 +401,7 @@ H.Padding = UDim.new(0, 6)
 
 local Icon = Instance.new("ImageLabel", Row)
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(18, 18)
+Icon.Size = UDim2.fromOffset(24, 24)
 Icon.Image = "rbxassetid://114530675624359"
 
 local Txt = Instance.new("TextLabel", Row)
