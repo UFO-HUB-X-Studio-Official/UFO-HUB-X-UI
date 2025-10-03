@@ -380,7 +380,7 @@ local TS = game:GetService("TweenService")
 local function tw(o,t,goal) TS:Create(o, TweenInfo.new(t or .12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play() end
 
 -- ตั้งขนาดไอคอนที่อยากได้ (ปรับได้ 20-32 แล้วแต่ชอบ)
-local ICON_SIZE = 24  -- ลอง 24/26/28 ได้
+local ICON_SIZE = 28  -- ลอง 24/26/28 ได้
 
 -- รีเซ็ต style ปุ่มในคอลัมน์ซ้าย (ชื่อขึ้นต้น "Btn")
 local function resetAllLeftButtons()
