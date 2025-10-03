@@ -312,6 +312,83 @@ RunS.Heartbeat:Connect(function(dt)
     TimeLabel.Text = string.format("ใช้ UFO HUB X ไปแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
     setNameColor(d)
 end)
+----------------------------------------------------------------
+-- UFO HUB X — QUICK FIX (ไม่แตะเลย์เอาต์/ขนาดเดิม)
+-- วางไว้ท้ายไฟล์ หลังจากสร้าง: Left, Right, imgL, imgR, BtnPlayer, PlayerPage
+----------------------------------------------------------------
+
+-- เผื่อบางตัวแปรหลุด scope: ลองค้นจากชื่อเดิมก่อน
+local Window   = Window
+local Content  = Content
+local Left     = Left or (Content and Content:FindFirstChild("LeftPanel"))
+local Right    = Right or (Content and Content:FindFirstChild("RightPanel"))
+local BtnPlayer= BtnPlayer or (Left and Left:FindFirstChild("BtnPlayer"))
+local PlayerPage = PlayerPage or (Right and Right:FindFirstChild("PlayerPage"))
+local imgL     = imgL or (Left and Left:FindFirstChildOfClass("ImageLabel"))
+local imgR     = imgR or (Right and Right:FindFirstChildOfClass("ImageLabel"))
+
+-- 1) บังคับภาพพื้นหลังให้อยู่ใต้สุด (กันบังการ์ด/ข้อความ)
+if imgL then imgL.ZIndex = 0 end
+if imgR then imgR.ZIndex = 0 end
+
+-- 2) ให้ ZIndex ทำงานตามพี่น้อง (กันชั้น UI เพี้ยน)
+local sg = Window and Window:FindFirstAncestorOfClass("ScreenGui")
+if sg then sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling end
+
+-- 3) ฟังก์ชันช่วยซ่อนทุกหน้าใน Right แล้วโชว์หน้า Player
+local function ShowPlayerPage()
+    if not Right then return end
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then
+            child.Visible = false
+        end
+    end
+    if PlayerPage then
+        PlayerPage.Visible = true
+    end
+end
+
+-- 4) เอฟเฟกต์ปุ่มอย่างง่าย (ถ้าไม่มี applyVisual เดิม)
+local function applyVisualSafe(btn, state)
+    local ok = pcall(function() applyVisual(btn, state) end)
+    if not ok and btn and btn:IsA("TextButton") then
+        if state == "active" then
+            btn.BackgroundColor3 = Color3.fromRGB(28,28,28)
+            btn.TextColor3       = Color3.fromRGB(200,255,200)
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(22,22,22)
+            btn.TextColor3       = Color3.fromRGB(230,230,230)
+        end
+    end
+end
+
+-- 5) ผูกคลิกปุ่ม Player (ถ้ามีปุ่มอยู่แล้วจะใช้ปุ่มเดิม)
+if BtnPlayer then
+    BtnPlayer.MouseButton1Click:Connect(function()
+        if Left then
+            for _,b in ipairs(Left:GetChildren()) do
+                if b:IsA("TextButton") then
+                    b:SetAttribute("Selected", false)
+                    applyVisualSafe(b, "idle")
+                end
+            end
+        end
+        BtnPlayer:SetAttribute("Selected", true)
+        applyVisualSafe(BtnPlayer, "active")
+        ShowPlayerPage()
+    end)
+end
+
+-- 6) เปิดหน้า Player อัตโนมัติครั้งแรก
+task.defer(function()
+    if BtnPlayer and not BtnPlayer:GetAttribute("Selected") then
+        BtnPlayer:SetAttribute("Selected", true)
+        applyVisualSafe(BtnPlayer, "active")
+        ShowPlayerPage()
+    else
+        ShowPlayerPage()
+    end
+end)
 
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
