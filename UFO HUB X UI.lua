@@ -212,6 +212,19 @@ if not (Left and Right) then
     Left  = Left  or a
     Right = Right or b
 end
+-- === LEFT / RIGHT PANELS (ต้องมีเสมอ) ===
+local LEFT_RATIO   = 0.32
+local RIGHT_RATIO  = 1 - LEFT_RATIO
+local GAP_BETWEEN  = UDim.new(0, 8)
+
+-- Left
+local Left = Instance.new("Frame", Columns)
+Left.Name = "LeftPanel"
+Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Left.Size = UDim2.new(LEFT_RATIO, 0, 1, 0)
+Left.Position = UDim2.new(0, 0, 0, 0)
+Left.ClipsDescendants = true
+corner(Left, 10); stroke(Left, 1.2, GREEN, 0.4)
 
 -- 1) คอนเทนเนอร์ด้านซ้าย ป้องกันโดนโค้ดอื่นย้าย children
 local LWrap = Left:FindFirstChild("LWrap")
