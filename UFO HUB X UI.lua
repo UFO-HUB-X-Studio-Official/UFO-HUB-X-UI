@@ -200,6 +200,116 @@ Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
 Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Right.ClipsDescendants = true; corner(Right, 10); stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
 
+local imgL = Instance.new("ImageLabel", Left)   -- ...
+
+local imgR = Instance.new("ImageLabel", Right)  -- ...
+
+--========================
+-- PLAYER BUTTON + PAGE (DROP-IN)
+-- วางไว้ "ใต้" imgR เท่านั้น
+--========================
+
+-- เผื่อธีมยังไม่ถูกประกาศในไฟล์เดิม
+local _BG_INNER   = BG_INNER   or Color3.fromRGB(18,18,18)
+local _TEXT_WHITE = TEXT_WHITE or Color3.fromRGB(235,235,235)
+local _GREEN      = GREEN      or Color3.fromRGB(0,255,140)
+
+-- ถ้ามีภาพพื้นหลังอยู่ ให้ดันไว้ล่างสุดจะได้ไม่บังหน้า Player
+if imgL then imgL.ZIndex = 0 end
+if imgR then imgR.ZIndex = 0 end
+
+-- สร้างหน้า Player (Right) ถ้ายังไม่มี
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then
+    PlayerPage = Instance.new("Frame")
+    PlayerPage.Name = "PlayerPage"
+    PlayerPage.Parent = Right
+    PlayerPage.BackgroundTransparency = 1
+    PlayerPage.Size = UDim2.new(1,0,1,0)
+    PlayerPage.Visible = false
+    PlayerPage.ZIndex = 1
+
+    -- หัวข้อบนสุดในหน้า Player (ไว้เป็นที่ยึดก่อน)
+    local Header = Instance.new("TextLabel", PlayerPage)
+    Header.BackgroundTransparency = 1
+    Header.Position = UDim2.fromOffset(12,10)
+    Header.Size = UDim2.new(1,-24,0,28)
+    Header.Font = Enum.Font.GothamBold
+    Header.Text = "🛸 Player"
+    Header.TextColor3 = _TEXT_WHITE
+    Header.TextXAlignment = Enum.TextXAlignment.Left
+    Header.TextSize = 18
+end
+
+-- สร้างปุ่ม Player ฝั่งซ้าย (Left) ถ้ายังไม่มี
+local BtnPlayer = Left:FindFirstChild("BtnPlayer")
+if not BtnPlayer then
+    BtnPlayer = Instance.new("TextButton")
+    BtnPlayer.Name = "BtnPlayer"
+    BtnPlayer.Parent = Left
+    BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
+    BtnPlayer.Position = UDim2.new(0, 6, 0, 6) -- อยู่บนสุด
+    BtnPlayer.BackgroundColor3 = _BG_INNER
+    BtnPlayer.BorderSizePixel  = 0
+    BtnPlayer.AutoButtonColor  = false
+    BtnPlayer.Text = "Player"
+    BtnPlayer.Font = Enum.Font.GothamBold
+    BtnPlayer.TextSize = 14
+    BtnPlayer.TextColor3 = _TEXT_WHITE
+    corner(BtnPlayer, 10); stroke(BtnPlayer, 1, _GREEN, 0.35)
+
+    -- ไอคอนรูปคน (อยู่หน้าชื่อ)
+    local Icon = Instance.new("ImageLabel", BtnPlayer)
+    Icon.BackgroundTransparency = 1
+    Icon.Image = "rbxassetid://114530675624359"
+    Icon.Size  = UDim2.fromOffset(22,22)
+    Icon.Position = UDim2.fromOffset(10,9)
+
+    -- ดันข้อความหลบไอคอน
+    local Pad = Instance.new("UIPadding", BtnPlayer)
+    Pad.PaddingLeft = UDim.new(0, 38)
+end
+
+-- ฟังก์ชันทำให้ปุ่มมองเห็นว่า "ปุ่มนี้ถูกเลือกอยู่"
+local function setActive(btn)
+    -- รีเซ็ตปุ่มอื่นบน Left ให้เป็นปกติ
+    for _,b in ipairs(Left:GetChildren()) do
+        if b:IsA("TextButton") then
+            b.BackgroundColor3 = _BG_INNER
+            b.TextColor3 = _TEXT_WHITE
+        end
+    end
+    btn.BackgroundColor3 = Color3.fromRGB(26,26,26)
+    btn.TextColor3 = _GREEN
+end
+
+-- เวลาให้แสดงหน้า Player: ซ่อน Frame อื่นบน Right (ยกเว้น imgR)
+local function showPlayerPage()
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") and child ~= PlayerPage then
+            child.Visible = false
+        end
+    end
+    if PlayerPage then PlayerPage.Visible = true end
+end
+
+-- คลิกปุ่ม → เปิดหน้า Player
+if BtnPlayer and not BtnPlayer:GetAttribute("Bound") then
+    BtnPlayer:SetAttribute("Bound", true)
+    BtnPlayer.MouseButton1Click:Connect(function()
+        showPlayerPage()
+        setActive(BtnPlayer)
+    end)
+end
+
+-- เปิดหน้า Player อัตโนมัติครั้งแรก (ให้ดูขึ้นทันที)
+task.defer(function()
+    if PlayerPage and not PlayerPage.Visible then
+        showPlayerPage()
+        if BtnPlayer then setActive(BtnPlayer) end
+    end
+end)
+
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
 
