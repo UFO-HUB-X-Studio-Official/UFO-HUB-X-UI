@@ -213,6 +213,85 @@ imgR.Image = IMG_LARGE
 imgR.ScaleType = Enum.ScaleType.Crop
 imgR.ZIndex = 1
 
+local Players = game:GetService("Players")
+local RunS    = game:GetService("RunService")
+local LP      = Players.LocalPlayer
+
+local Card = Right:FindFirstChild("PlayerCard") or Instance.new("Frame", Right)
+Card.Name = "PlayerCard"
+Card.BackgroundTransparency = 1
+Card.AnchorPoint = Vector2.new(0.5,0)
+Card.Position = UDim2.new(0.5,0,0,50)
+Card.Size = UDim2.new(1,-60,1,-80)
+Card.ZIndex = 20  -- ซ้อนบน imgR
+
+local lay = Card:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", Card)
+lay.FillDirection = Enum.FillDirection.Vertical
+lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+lay.VerticalAlignment   = Enum.VerticalAlignment.Start
+lay.Padding = UDim.new(0,10)
+
+-- avatar
+local Avatar = Card:FindFirstChild("Avatar") or Instance.new("ImageLabel", Card)
+Avatar.Name = "Avatar"
+Avatar.BackgroundColor3 = BG_INNER
+Avatar.BorderSizePixel = 0
+Avatar.Size = UDim2.fromOffset(180,180)
+Avatar.ZIndex = 21
+corner(Avatar,12); stroke(Avatar,1,MINT,0.35)
+
+local ok, url = pcall(function()
+    return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+end)
+Avatar.Image = ok and url or "rbxassetid://0"
+
+-- name
+local NameLabel = Card:FindFirstChild("NameLabel") or Instance.new("TextLabel", Card)
+NameLabel.Name = "NameLabel"
+NameLabel.BackgroundTransparency = 1
+NameLabel.Font = Enum.Font.GothamBold
+NameLabel.TextSize = 20
+NameLabel.TextColor3 = TEXT_WHITE
+NameLabel.Text = LP.DisplayName or LP.Name
+NameLabel.ZIndex = 21
+
+-- playtime
+local TimeLabel = Card:FindFirstChild("TimeLabel") or Instance.new("TextLabel", Card)
+TimeLabel.Name = "TimeLabel"
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Font = Enum.Font.Gotham
+TimeLabel.TextSize = 15
+TimeLabel.TextColor3 = TEXT_WHITE
+TimeLabel.Text = "ใช้เวลาแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
+TimeLabel.ZIndex = 21
+
+-- update time + rank color
+getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
+local PT = getgenv().UFO_PLAYTIME
+
+local function setNameColor(days)
+    if days >= 365 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี: แดง
+    elseif days >= 30 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน: ทอง
+    elseif days >= 7 then
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน: เขียว
+    else
+        NameLabel.TextColor3 = TEXT_WHITE                  -- <7 วัน: ขาว
+    end
+end
+
+local acc = 0
+RunS.Heartbeat:Connect(function(dt)
+    acc += dt; if acc < 1 then return end; acc = 0
+    local now   = os.time()
+    local total = (PT.base or 0) + (now - (PT.start or now))
+    local d = math.floor(total/86400)
+    local h = math.floor((total%86400)/3600)
+    local m = math.floor((total%3600)/60)
+    TimeLabel.Text = string.format("ใช้เวลาแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
+    setNameColor(d)
+end)
 
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
