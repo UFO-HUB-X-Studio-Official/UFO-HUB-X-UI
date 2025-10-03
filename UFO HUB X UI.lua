@@ -175,9 +175,7 @@ do
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
     TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
 end
--- ========================
--- BODY (กลับสภาพเดิม)
--- ========================
+-- BODY
 local Body = Instance.new("Frame", Window)
 Body.BackgroundTransparency = 1
 Body.Position = UDim2.new(0,0,0,46)
@@ -190,9 +188,9 @@ Inner.Position = UDim2.new(0,8,0,8)
 Inner.Size = UDim2.new(1,-16,1,-16)
 corner(Inner, 12)
 
-local GAP_OUTER   = 10
-local GAP_BETWEEN = 8
-local LEFT_RATIO  = 0.28
+local GAP_OUTER   = 10     -- ✅ ช่องไฟกรอบนอก (ค่าเดิม)
+local GAP_BETWEEN = 8      -- ✅ ช่องไฟระหว่างซ้าย-ขวา (ค่าเดิม)
+local LEFT_RATIO  = 0.28   -- ✅ สัดส่วนกรอบซ้าย (ค่าเดิม)
 local RIGHT_RATIO = 1 - LEFT_RATIO
 
 local Content = Instance.new("Frame", Body)
@@ -204,25 +202,25 @@ stroke(Content, 0.5, MINT, 0.35)
 
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1
-Columns.Position = UDim2.new(0,8,0,8)
-Columns.Size = UDim2.new(1,-16,1,-16)
+Columns.Position = UDim2.new(0,8,0,8)      -- ✅ ขอบใน 8px (ค่าเดิม)
+Columns.Size     = UDim2.new(1,-16,1,-16)  -- ✅ ลดซ้ายขวาอย่างละ 8 (ค่าเดิม)
 
--- ซ้าย (ปุ่ม)
+-- ซ้าย
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftPanel"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
-Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0) -- ✅ ขนาดเดิมถูกต้อง
+Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Left.ClipsDescendants = true
 corner(Left, 10)
 stroke(Left, 1.2, GREEN, 0)
 stroke(Left, 0.45, MINT, 0.35)
 
--- ขวา (เนื้อหา)
+-- ขวา
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightPanel"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
-Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0) -- ✅ ตำแหน่งเดิมถูกต้อง
-Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0) -- ✅ ขนาดเดิมถูกต้อง
+Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
+Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Right.ClipsDescendants = true
 corner(Right, 10)
 stroke(Right, 1.2, GREEN, 0)
