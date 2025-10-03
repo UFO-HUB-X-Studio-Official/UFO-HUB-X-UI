@@ -235,23 +235,6 @@ stroke(Right, 1.2, GREEN, 0)
 stroke(Right, 0.45, MINT, 0.35)
 
 --======================================================
--- PLAYER BUTTON (อยู่ซ้าย)
---======================================================
-local BtnPlayer = Instance.new("TextButton", Left)
-BtnPlayer.Name = "BtnPlayer"
-BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
-BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-BtnPlayer.BackgroundColor3 = BG_INNER
-BtnPlayer.BorderSizePixel = 0
-BtnPlayer.AutoButtonColor = false
-corner(BtnPlayer, 10)
-stroke(BtnPlayer, 1, GREEN, 0.35)
-BtnPlayer.Text = "👤 Player"
-BtnPlayer.Font = Enum.Font.GothamBold
-BtnPlayer.TextSize = 14
-BtnPlayer.TextColor3 = TEXT_WHITE
-
---======================================================
 -- PLAYER PAGE (อยู่ขวา)
 --======================================================
 local PlayerPage = Instance.new("Frame", Right)
@@ -308,7 +291,7 @@ TimeLabel.TextColor3 = TEXT_WHITE
 TimeLabel.Text = "ใช้ UFO HUB X ไปแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
 
 --======================================================
--- TIME TRACKER (นับเมื่อมี UI รันอยู่)
+-- TIME TRACKER (นับเมื่อ UI ของเรารันอยู่)
 --======================================================
 getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
 local PT = getgenv().UFO_PLAYTIME
@@ -337,13 +320,19 @@ RunS.Heartbeat:Connect(function(dt)
     setNameColor(d)
 end)
 
--- กดปุ่ม → เปิดหน้า Player
-BtnPlayer.MouseButton1Click:Connect(function()
-    for _,child in ipairs(Right:GetChildren()) do
-        if child:IsA("Frame") then child.Visible = false end
-    end
-    PlayerPage.Visible = true
-end)
+--======================================================
+-- ใช้ปุ่ม Player เดิม (ที่ Left) เปิด PlayerPage
+--======================================================
+local BtnPlayer = Left:FindFirstChild("Player") or Left:FindFirstChild("BtnPlayer")
+if BtnPlayer then
+    BtnPlayer.MouseButton1Click:Connect(function()
+        for _,child in ipairs(Right:GetChildren()) do
+            if child:IsA("Frame") then child.Visible = false end
+        end
+        PlayerPage.Visible = true
+    end)
+end
+
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
