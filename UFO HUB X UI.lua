@@ -548,34 +548,30 @@ BtnPlayer.MouseButton1Click:Connect(function()
     PlayerPage.Visible = true
 end)
 -- =========[ PLAYER PAGE CONTENT ]=========
+
 local Players   = game:GetService("Players")
 local RunS      = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- ล้างของเก่าใน PlayerPage (กันซ้ำ)
-for _,c in ipairs(PlayerPage:GetChildren()) do
-    if not c:IsA("UICorner") and not c:IsA("UIStroke") then
-        c:Destroy()
-    end
-end
-
--- กล่องรวม (วางกลางจอขวา)
+-- กล่องรวม (อยู่ใน PlayerPage — จะไม่ลบอะไรเก่า อันนี้แค่ซ้อนทับ)
 local Card = Instance.new("Frame", PlayerPage)
+Card.Name = "PlayerCard"
 Card.BackgroundTransparency = 1
 Card.AnchorPoint = Vector2.new(0.5, 0)
-Card.Position = UDim2.new(0.5, 0, 0, 24)
-Card.Size = UDim2.new(1, -40, 1, -40)
+Card.Position = UDim2.new(0.5, 0, 0, 40) -- ขยับลงนิด เพื่อไม่บังหัวข้อเดิม
+Card.Size = UDim2.new(1, -40, 1, -60)
 
 local V = Instance.new("UIListLayout", Card)
 V.FillDirection = Enum.FillDirection.Vertical
 V.HorizontalAlignment = Enum.HorizontalAlignment.Center
 V.VerticalAlignment = Enum.VerticalAlignment.Start
-V.Padding = UDim.new(0, 8)
+V.Padding = UDim.new(0, 10)
 
 -- รูปผู้เล่น (หัว)
 local Avatar = Instance.new("ImageLabel", Card)
+Avatar.Name = "Avatar"
 Avatar.BackgroundColor3 = BG_INNER
-Avatar.Size = UDim2.fromOffset(180, 180)          -- ปรับขนาดรูปได้ที่นี่
+Avatar.Size = UDim2.fromOffset(180, 180)     -- ขนาดรูป
 Avatar.BorderSizePixel = 0
 corner(Avatar, 12); stroke(Avatar, 1, MINT, 0.35)
 
@@ -586,10 +582,10 @@ local thumb, ready = Players:GetUserThumbnailAsync(
     Enum.ThumbnailSize.Size420x420
 )
 Avatar.Image = thumb
-Avatar.ImageTransparency = 0
 
 -- ชื่อผู้เล่น
 local NameLabel = Instance.new("TextLabel", Card)
+NameLabel.Name = "PlayerName"
 NameLabel.BackgroundTransparency = 1
 NameLabel.Size = UDim2.new(0, 0, 0, 26)
 NameLabel.AutomaticSize = Enum.AutomaticSize.XY
@@ -598,62 +594,48 @@ NameLabel.Text = LocalPlayer.DisplayName or LocalPlayer.Name
 NameLabel.TextColor3 = TEXT_WHITE
 NameLabel.TextSize = 20
 
--- เส้นบอกคำอธิบายใต้ชื่อ
-local Sub = Instance.new("TextLabel", Card)
-Sub.BackgroundTransparency = 1
-Sub.Size = UDim2.new(1, 0, 0, 20)
-Sub.Font = Enum.Font.Gotham
-Sub.Text = "เวลาการใช้ทั้งหมดของผู้เล่น (Real-time)"
-Sub.TextColor3 = Color3.fromRGB(180,180,180)
-Sub.TextSize = 14
-
--- เวลาเล่นรวม (อัปเดตทุกวินาที)
+-- เวลาเล่นรวม
 local TimeLabel = Instance.new("TextLabel", Card)
+TimeLabel.Name = "Playtime"
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Size = UDim2.new(1, 0, 0, 22)
 TimeLabel.Font = Enum.Font.Gotham
 TimeLabel.TextColor3 = TEXT_WHITE
 TimeLabel.TextSize = 15
+TimeLabel.Text = "ใช้เวลาแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
 
--- ตัวนับเวลา (เฉพาะเซสชันนี้) — ถ้าจะนับข้ามเซสชัน ต้องต่อ DataStore ฝั่งเซิร์ฟเวอร์
+-- ฟังก์ชันนับเวลา
 getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
 local PT = getgenv().UFO_PLAYTIME
 
--- ฟังก์ชันแปลงวินาทีเป็น วัน/ชั่วโมง/นาที
 local function fmt(sec)
     local d = math.floor(sec/86400)
     local h = math.floor((sec%86400)/3600)
     local m = math.floor((sec%3600)/60)
-    return d, h, m
+    return d,h,m
 end
 
--- เปลี่ยนสีชื่อ ตามจำนวน “วันทั้งหมด”
 local function setNameColor(days)
     if days >= 365 then
-        NameLabel.TextColor3 = Color3.fromRGB(255, 60, 60)   -- แดง (1 ปี)
+        NameLabel.TextColor3 = Color3.fromRGB(255, 60, 60)   -- แดง
     elseif days >= 30 then
-        NameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)   -- ทอง (30 วัน)
+        NameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)   -- ทอง
     elseif days >= 7 then
-        NameLabel.TextColor3 = Color3.fromRGB(0, 255, 140)   -- เขียว (7 วัน)
+        NameLabel.TextColor3 = Color3.fromRGB(0, 255, 140)   -- เขียว
     else
-        NameLabel.TextColor3 = TEXT_WHITE                    -- เริ่มต้น
+        NameLabel.TextColor3 = TEXT_WHITE
     end
 end
 
--- อัปเดตทุก 1 วินาที
+-- อัปเดตเวลาเรื่อยๆ
 local acc = 0
 RunS.Heartbeat:Connect(function(dt)
     acc += dt
     if acc < 1 then return end
     acc = 0
-
     local now    = os.time()
     local total  = (PT.base or 0) + (now - (PT.start or now))
     local d,h,m  = fmt(total)
     TimeLabel.Text = string.format("ใช้เวลาแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
     setNameColor(d)
 end)
-
--- อยาก “รีเซ็ตนับใหม่” ช่วงที่เปลี่ยนเซสชันภายในเซิร์ฟเดียวกัน (ไม่บังคับ)
--- PT.start = os.time()
--- PT.base  = 0
