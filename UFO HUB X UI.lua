@@ -566,31 +566,20 @@ BtnPlayer.MouseButton1Click:Connect(function()
     end
     PlayerPage.Visible = true
 end)
---========== OVERLAY บน Right เพื่อวางของทับภาพพื้นหลัง ==========
-local Overlay = Right:FindFirstChild("Overlay")
-if not Overlay then
-    Overlay = Instance.new("Frame", Right)
-    Overlay.Name = "Overlay"
-    Overlay.BackgroundTransparency = 1
-    Overlay.Size = UDim2.new(1,0,1,0)
-    Overlay.ZIndex = 50 -- ให้อยู่เหนือ imgR แน่นอน
-end
+-- 4) การ์ดผู้เล่น (ซ้อนทับรูปพื้นหลัง)
+local Players = game:GetService("Players")
+local RunS    = game:GetService("RunService")
+local LP      = Players.LocalPlayer
 
---========== การ์ดผู้เล่น (รูป/ชื่อ/เวลา) ==========
-local Players   = game:GetService("Players")
-local RunS      = game:GetService("RunService")
-local LP        = Players.LocalPlayer
-
--- สร้างครั้งเดียว
-local Card = Overlay:FindFirstChild("PlayerCard")
+local Card = Right:FindFirstChild("PlayerCard")
 if not Card then
-    Card = Instance.new("Frame", Overlay)
+    Card = Instance.new("Frame", Right)
     Card.Name = "PlayerCard"
     Card.BackgroundTransparency = 1
     Card.AnchorPoint = Vector2.new(0.5,0)
-    Card.Position = UDim2.new(0.5,0,0,56)           -- ขยับลงจากหัวข้อกรอบใหญ่
+    Card.Position = UDim2.new(0.5,0,0,50)
     Card.Size = UDim2.new(1,-60,1,-80)
-    Card.ZIndex = 51
+    Card.ZIndex = 20   -- ซ้อนอยู่บน imgR แน่นอน
 
     local V = Instance.new("UIListLayout", Card)
     V.FillDirection = Enum.FillDirection.Vertical
@@ -598,54 +587,45 @@ if not Card then
     V.VerticalAlignment   = Enum.VerticalAlignment.Start
     V.Padding = UDim.new(0,10)
 
-    -- รูปผู้เล่น (หัว)
+    -- รูปผู้เล่น
     local Avatar = Instance.new("ImageLabel", Card)
     Avatar.Name = "Avatar"
     Avatar.BackgroundColor3 = BG_INNER
     Avatar.BorderSizePixel = 0
     Avatar.Size = UDim2.fromOffset(180,180)
-    Avatar.ZIndex = 52
+    Avatar.ZIndex = 21
     corner(Avatar,12); stroke(Avatar,1,MINT,0.35)
 
-    local ok,thumb = pcall(function()
-        local url, _ = Players:GetUserThumbnailAsync(
+    local ok, url = pcall(function()
+        local u = Players:GetUserThumbnailAsync(
             LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420
         )
-        return url
+        return u
     end)
-    Avatar.Image = ok and thumb or "rbxassetid://0"
+    Avatar.Image = ok and url or "rbxassetid://0"
 
-    -- ชื่อผู้เล่น
+    -- ชื่อ
     local NameLabel = Instance.new("TextLabel", Card)
-    NameLabel.Name = "PlayerName"
     NameLabel.BackgroundTransparency = 1
-    NameLabel.AutomaticSize = Enum.AutomaticSize.XY
     NameLabel.Font = Enum.Font.GothamBold
-    NameLabel.Text = LP.DisplayName or LP.Name
     NameLabel.TextSize = 20
     NameLabel.TextColor3 = TEXT_WHITE
-    NameLabel.ZIndex = 52
+    NameLabel.Text = LP.DisplayName or LP.Name
+    NameLabel.ZIndex = 21
 
-    -- เวลาเล่นรวม
+    -- เวลาเล่น
     local TimeLabel = Instance.new("TextLabel", Card)
-    TimeLabel.Name = "Playtime"
     TimeLabel.BackgroundTransparency = 1
     TimeLabel.Font = Enum.Font.Gotham
     TimeLabel.TextSize = 15
     TimeLabel.TextColor3 = TEXT_WHITE
     TimeLabel.Text = "ใช้เวลาแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
-    TimeLabel.ZIndex = 52
+    TimeLabel.ZIndex = 21
 
-    -- เก็บ state เวลาเล่น (สะสม)
+    -- เก็บเวลา + อัปเดตสีชื่อ
     getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
     local PT = getgenv().UFO_PLAYTIME
 
-    local function fmt(sec)
-        local d = math.floor(sec/86400)
-        local h = math.floor((sec%86400)/3600)
-        local m = math.floor((sec%3600)/60)
-        return d,h,m
-    end
     local function setNameColor(days)
         if days >= 365 then
             NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- แดง (1 ปี)
@@ -658,24 +638,15 @@ if not Card then
         end
     end
 
-    -- อัปเดตทุกวินาที
     local acc = 0
     RunS.Heartbeat:Connect(function(dt)
         acc += dt; if acc < 1 then return end; acc = 0
         local now   = os.time()
         local total = (PT.base or 0) + (now - (PT.start or now))
-        local d,h,m = fmt(total)
+        local d = math.floor(total/86400)
+        local h = math.floor((total%86400)/3600)
+        local m = math.floor((total%3600)/60)
         TimeLabel.Text = string.format("ใช้เวลาแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
         setNameColor(d)
     end)
 end
-
--- แสดง Overlay/การ์ด ตอนเปิดหน้า Player
-BtnPlayer.MouseButton1Click:Connect(function()
-    for _,ch in ipairs(Right:GetChildren()) do
-        if ch:IsA("Frame") and ch.Name == "Overlay" then
-            ch.Visible = false
-        end
-    end
-    Overlay.Visible = true
-end)
