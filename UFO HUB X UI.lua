@@ -375,63 +375,35 @@ do
         end)
     end
 end
--- =====[ PLAYER BUTTON : active+hover+press ]=====
--- ต้องวางหลังจากประกาศ Left และ Right แล้ว และมี helpers: corner(), stroke()
--- ใช้ค่าธีมเดิม: BG_INNER, TEXT_WHITE, GREEN, MINT
+--====[ PLAYER TAB BUTTON (มีสถานะเลือก/ปกติ + เอฟเฟกต์กด) ]====
 
--- สร้างหน้าขวาของ Player ล่วงหน้า (ไว้สลับโชว์)
-local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
-PlayerPage.Name = "PlayerPage"
-PlayerPage.BackgroundTransparency = 1
-PlayerPage.Size = UDim2.new(1,0,1,0)
-PlayerPage.Visible = false
-
--- ตัวอย่างหัวข้อด้านบนของหน้า Player (ถ้าไม่มี)
-if not PlayerPage:FindFirstChild("Header") then
-    local Header = Instance.new("TextLabel", PlayerPage)
-    Header.Name = "Header"
-    Header.BackgroundTransparency = 1
-    Header.Position = UDim2.fromOffset(12,8)
-    Header.Size = UDim2.new(1,-24,0,28)
-    Header.Font = Enum.Font.GothamBold
-    Header.Text = "Player"
-    Header.TextColor3 = TEXT_WHITE
-    Header.TextXAlignment = Enum.TextXAlignment.Left
-    Header.TextSize = 18
-end
-
--- ปุ่ม Player (อยู่บนสุด)
+-- ปุ่มด้านซ้าย
 local BtnPlayer = Instance.new("TextButton", Left)
-BtnPlayer.Name = "BtnPlayer"
+BtnPlayer.Name = "TabBtn_Player"
 BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
 BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
-BtnPlayer.AutoButtonColor = false  -- เราจะคุมเอฟเฟกต์เอง
+BtnPlayer.AutoButtonColor = false  -- คุมสีเอง
 corner(BtnPlayer, 10)
-local strokePlayer = stroke(BtnPlayer, 1, GREEN, 0.35)
+local st = stroke(BtnPlayer, 1, GREEN, 0.35)
 
--- กล่องแนวนอน: รูป + ชื่อ (ให้ชิดกันสวยๆ)
+-- แถวจัดไอคอน+ข้อความ (แนวนอนติดกันสวยๆ)
 local Row = Instance.new("Frame", BtnPlayer)
 Row.BackgroundTransparency = 1
-Row.Position = UDim2.fromOffset(10, 6)
-Row.Size = UDim2.new(1, -20, 1, -12)
-
+Row.Position = UDim2.fromOffset(8, 6)
+Row.Size = UDim2.new(1, -16, 1, -12)
 local H = Instance.new("UIListLayout", Row)
-H.FillDirection       = Enum.FillDirection.Horizontal
+H.FillDirection = Enum.FillDirection.Horizontal
 H.HorizontalAlignment = Enum.HorizontalAlignment.Left
-H.VerticalAlignment   = Enum.VerticalAlignment.Center
-H.SortOrder           = Enum.SortOrder.LayoutOrder
-H.Padding             = UDim.new(0, 6) -- ช่องไฟระหว่างรูปกับชื่อ (ปรับได้)
+H.VerticalAlignment = Enum.VerticalAlignment.Center
+H.Padding = UDim.new(0, 6)
 
--- ไอคอน 👽 (เอเลี่ยนใหญ่ขึ้น)
 local Icon = Instance.new("ImageLabel", Row)
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(28, 28)  -- ถ้าอยากใหญ่ขึ้นอีก: 24 หรือ 26
+Icon.Size = UDim2.fromOffset(18, 18)
 Icon.Image = "rbxassetid://114530675624359"
-Icon.LayoutOrder = 1
 
--- ชื่อ "Player"
 local Txt = Instance.new("TextLabel", Row)
 Txt.BackgroundTransparency = 1
 Txt.Size = UDim2.new(1, 0, 1, 0)
@@ -441,77 +413,137 @@ Txt.Font = Enum.Font.GothamBold
 Txt.Text = "Player"
 Txt.TextSize = 16
 Txt.TextColor3 = TEXT_WHITE
-Txt.LayoutOrder = 2
 
--- เอฟเฟกต์ hover / กด (PC/มือถือ)
+-- หน้า Player ด้านขวา
+local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
+PlayerPage.Name = "PlayerPage"
+PlayerPage.BackgroundTransparency = 1
+PlayerPage.Size = UDim2.new(1,0,1,0)
+PlayerPage.Visible = false
+
+-- หัวข้อบนขวา: ไอคอน + ข้อความ (ไม่มีเส้นขาวแนวตั้งแน่นอน)
+if not PlayerPage:FindFirstChild("Header") then
+    local Header = Instance.new("Frame", PlayerPage)
+    Header.Name = "Header"
+    Header.BackgroundTransparency = 1
+    Header.Position = UDim2.fromOffset(12,8)
+    Header.Size = UDim2.new(1,-24,0,28)
+
+    local HH = Instance.new("UIListLayout", Header)
+    HH.FillDirection = Enum.FillDirection.Horizontal
+    HH.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    HH.VerticalAlignment = Enum.VerticalAlignment.Center
+    HH.Padding = UDim.new(0, 6)
+
+    local HIcon = Instance.new("ImageLabel", Header)
+    HIcon.BackgroundTransparency = 1
+    HIcon.Size = UDim2.fromOffset(24,24)
+    HIcon.Image = "rbxassetid://114530675624359"
+
+    local HTxt = Instance.new("TextLabel", Header)
+    HTxt.BackgroundTransparency = 1
+    HTxt.Size = UDim2.new(1,0,1,0)
+    HTxt.TextXAlignment = Enum.TextXAlignment.Left
+    HTxt.TextYAlignment = Enum.TextYAlignment.Center
+    HTxt.Font = Enum.Font.GothamBold
+    HTxt.Text = "Player"
+    HTxt.TextSize = 18
+    HTxt.TextColor3 = TEXT_WHITE
+end
+
+--================= ระบบสถานะปุ่ม (ไม่ให้รู้สึกว่ากดจนกว่าจะกดจริง) =================
+
 local UIS = game:GetService("UserInputService")
 local TS  = game:GetService("TweenService")
 local uiScale = Instance.new("UIScale", BtnPlayer)
+uiScale.Scale = 1  -- ค่าเริ่มต้นปกติ (จะไม่มีอาการยุบ/เด้งจนกว่าจะกดจริง)
 
-local function tw(obj, t, goal)
-    TS:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
-end
+-- ธีมสี/เส้น สำหรับสถานะ
+local NORMAL_BG   = BG_INNER                 -- ปกติ
+local NORMAL_ST   = 0.35
 
-local function setHover(on)
-    -- hover: เส้นชัดขึ้น + พื้นสว่างขึ้นนิดนึง (เฉพาะเมาส์)
-    if UIS.TouchEnabled then return end
-    tw(strokePlayer, 0.08, {Transparency = on and 0.15 or 0.35})
-    tw(BtnPlayer, 0.12, {BackgroundColor3 = on and Color3.fromRGB(24,24,24) or BtnPlayer:GetAttribute("active") and Color3.fromRGB(28,28,28) or BG_INNER})
-end
+local HOVER_BG    = Color3.fromRGB(24,24,24) -- โฮเวอร์ (PC เท่านั้น)
+local HOVER_ST    = 0.15
 
-local function setPress(on)
-    -- กด: ย่อปุ่ม + เส้นเข้มขึ้น
-    tw(uiScale, 0.07, {Scale = on and 0.97 or 1})
-    tw(strokePlayer, 0.06, {Transparency = on and 0.05 or (BtnPlayer:GetAttribute("active") and 0.08 or 0.15)})
-end
+local ACTIVE_BG   = Color3.fromRGB(30,30,30) -- ถูกเลือกอยู่ (กดแล้ว)
+local ACTIVE_ST   = 0.05
 
-BtnPlayer.MouseEnter:Connect(function() setHover(true) end)
-BtnPlayer.MouseLeave:Connect(function() setHover(false); setPress(false) end)
-BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
-BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
+-- เก็บสถานะ
+BtnPlayer:SetAttribute("Selected", false)
 
-BtnPlayer.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch then setPress(true) end
-end)
-BtnPlayer.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch then setPress(false) end
-end)
-
--- ฟังก์ชันทำ “สถานะ active” ให้ปุ่ม และโชว์หน้าเฉพาะ
-local function setButtonStyle(btn, active)
-    local st = btn:FindFirstChildOfClass("UIStroke")
-    btn:SetAttribute("active", active and true or false)
-    if active then
-        btn.BackgroundColor3 = Color3.fromRGB(28,28,28) -- ไฮไลต์แบบไม่ต้องมีแถบขาว
-        if st then st.Transparency = 0.08 end
+local function applyVisual(btn, state) -- state: "normal" | "hover" | "active"
+    if state == "active" then
+        btn.BackgroundColor3 = ACTIVE_BG
+        st.Transparency = ACTIVE_ST
+        uiScale.Scale = 1
+    elseif state == "hover" then
+        btn.BackgroundColor3 = HOVER_BG
+        st.Transparency = HOVER_ST
+        uiScale.Scale = 1
     else
-        btn.BackgroundColor3 = BG_INNER
-        if st then st.Transparency = 0.35 end
+        btn.BackgroundColor3 = NORMAL_BG
+        st.Transparency = NORMAL_ST
+        uiScale.Scale = 1
     end
 end
 
-local function activateLeftButton(btnName)
-    -- เคลียร์ active ปุ่มฝั่งซ้ายทั้งหมด
+-- ตั้งต้นเป็นปกติ (ไม่ดูเหมือนถูกกด)
+applyVisual(BtnPlayer, "normal")
+
+-- โฮเวอร์เฉพาะ PC และเฉพาะตอนยังไม่ได้ถูกเลือก
+BtnPlayer.MouseEnter:Connect(function()
+    if not UIS.TouchEnabled and not BtnPlayer:GetAttribute("Selected") then
+        applyVisual(BtnPlayer, "hover")
+    end
+end)
+BtnPlayer.MouseLeave:Connect(function()
+    if not BtnPlayer:GetAttribute("Selected") then
+        applyVisual(BtnPlayer, "normal")
+    end
+end)
+
+-- เอฟเฟกต์ “กดจริง” ตอนกดลง/ปล่อย (ทั้ง PC/มือถือ) แต่ไม่เปลี่ยนสถานะถาวรจนกว่าจะคลิกเสร็จ
+BtnPlayer.MouseButton1Down:Connect(function()
+    TS:Create(uiScale, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.97}):Play()
+end)
+BtnPlayer.MouseButton1Up:Connect(function()
+    TS:Create(uiScale, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+end)
+BtnPlayer.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch then
+        TS:Create(uiScale, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.97}):Play()
+    end
+end)
+BtnPlayer.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch then
+        TS:Create(uiScale, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    end
+end)
+
+-- ฟังก์ชันยกเลิกปุ่มอื่น ๆ ในแถบซ้าย (เผื่อมีหลายปุ่มในอนาคต)
+local function clearOtherSelections(exceptBtn)
     for _,b in ipairs(Left:GetChildren()) do
-        if b:IsA("TextButton") then
-            setButtonStyle(b, b.Name == btnName)
+        if b:IsA("TextButton") and b ~= exceptBtn then
+            b:SetAttribute("Selected", false)
+            -- รีหน้าตาเป็น normal
+            local s = b:FindFirstChildOfClass("UIStroke")
+            if s then s.Transparency = NORMAL_ST end
+            b.BackgroundColor3 = NORMAL_BG
+            local sc = b:FindFirstChildOfClass("UIScale")
+            if sc then sc.Scale = 1 end
         end
     end
 end
 
-local function showRightPage(page)
-    for _,ch in ipairs(Right:GetChildren()) do
-        if ch:IsA("Frame") then ch.Visible = false end
-    end
-    page.Visible = true
-end
-
--- คลิกแล้วให้ active ตลอด + โชว์หน้า Player
+-- คลิกเพื่อ “เลือก” ปุ่มนี้ และโชว์หน้า Player
 BtnPlayer.MouseButton1Click:Connect(function()
-    activateLeftButton("BtnPlayer")
-    showRightPage(PlayerPage)
-end)
+    clearOtherSelections(BtnPlayer)
+    BtnPlayer:SetAttribute("Selected", true)
+    applyVisual(BtnPlayer, "active")
 
--- ตั้งค่าเริ่มต้นให้ปุ่ม Player เป็น active
-activateLeftButton("BtnPlayer")
-showRightPage(PlayerPage)
+    -- ซ่อนหน้าขวาอื่น ๆ แล้วโชว์หน้า Player
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then child.Visible = false end
+    end
+    PlayerPage.Visible = true
+end)
