@@ -207,22 +207,22 @@ Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0,8,0,8)
 Columns.Size = UDim2.new(1,-16,1,-16)
 
--- ซ้าย (เมนูเดิมของคุณ)
+-- ซ้าย (ปุ่ม)
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftPanel"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
-Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0) -- ✅ ขนาดเดิมถูกต้อง
 Left.ClipsDescendants = true
 corner(Left, 10)
 stroke(Left, 1.2, GREEN, 0)
 stroke(Left, 0.45, MINT, 0.35)
 
--- ขวา (กรอบเนื้อหา) - ขนาดแบบเดิม
+-- ขวา (เนื้อหา)
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightPanel"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
-Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
-Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN, 1, 0) -- << ตรงนี้
+Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0) -- ✅ ตำแหน่งเดิมถูกต้อง
+Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0) -- ✅ ขนาดเดิมถูกต้อง
 Right.ClipsDescendants = true
 corner(Right, 10)
 stroke(Right, 1.2, GREEN, 0)
@@ -242,11 +242,6 @@ imgR.Size = UDim2.new(1,0,1,0)
 imgR.Image = IMG_LARGE
 imgR.ScaleType = Enum.ScaleType.Crop
 
-local imgL = Instance.new("ImageLabel", Left)
-imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
-
-local imgR = Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
