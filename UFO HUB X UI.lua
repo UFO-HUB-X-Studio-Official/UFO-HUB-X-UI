@@ -190,12 +190,11 @@ Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2); corner(Content, 12); st
 
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1; Columns.Position = UDim2.new(0,8,0,8); Columns.Size = UDim2.new(1,-16,1,-16)
--- === LEFT / RIGHT PANELS (ต้องมีเสมอ) ===
-local LEFT_RATIO   = 0.32
-local RIGHT_RATIO  = 1 - LEFT_RATIO
-local GAP_BETWEEN  = UDim.new(0, 8)
+-- === LEFT / RIGHT PANELS (สัดส่วนเดิม) ===
+local LEFT_RATIO  = 0.285         -- ✅ 28.5% (เท่ารอบที่เคยสวย)
+local GAP_BETWEEN = 8             -- ระยะห่างซ้าย-ขวา (พิกเซล)
 
--- Left
+-- Left (คอลัมน์ปุ่ม)
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftPanel"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -204,13 +203,14 @@ Left.Position = UDim2.new(0, 0, 0, 0)
 Left.ClipsDescendants = true
 corner(Left, 10); stroke(Left, 1.2, GREEN, 0.4)
 
--- Right
+-- Right (คอลัมน์เนื้อหา)
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightPanel"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
-Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN.Offset, 0, 0)
-Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN.Offset/2, 1, 0)
+Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
+Right.Size = UDim2.new(1-LEFT_RATIO, -GAP_BETWEEN, 1, 0)
 Right.ClipsDescendants = true
+corner(Right, 10); stroke(Right, 1.2, GREEN, 0.4)
 Right.Name = "RightPanel"
 -- local Right = Instance.new("Frame", Columns)
 
