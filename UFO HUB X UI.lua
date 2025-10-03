@@ -333,6 +333,11 @@ if BtnPlayer then
     end)
 end
 
+local imgL = Instance.new("ImageLabel", Left)
+imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
+
+local imgR = Instance.new("ImageLabel", Right)
+imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
