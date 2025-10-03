@@ -206,6 +206,106 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 
+--========================
+-- PLAYER CARD OVERLAY (แปะหลัง imgR)
+--========================
+local Players = game:GetService("Players")
+local RunS    = game:GetService("RunService")
+local LP      = Players.LocalPlayer
+
+-- ปรับง่ายๆได้ตรงนี้
+local AVATAR_SIZE = 180         -- ขนาดรูปโปรไฟล์
+local NAME_SIZE   = 20          -- ขนาดตัวอักษรชื่อ
+local TIME_SIZE   = 15          -- ขนาดตัวอักษรเวลา
+local Y_START     = 50          -- ระยะห่างจากขอบบนของ Right
+local GAP_Y       = 10          -- ช่องไฟแนวตั้งระหว่างรูป/ชื่อ/เวลา
+
+-- ลบของเก่า (ถ้ามี) เพื่อกันซ้ำ
+local old = Right:FindFirstChild("PlayerCard")
+if old then old:Destroy() end
+
+-- การ์ดหลัก
+local Card = Instance.new("Frame")
+Card.Name = "PlayerCard"
+Card.BackgroundTransparency = 1
+Card.AnchorPoint = Vector2.new(0.5,0)
+Card.Position = UDim2.new(0.5,0,0,Y_START)
+Card.Size = UDim2.new(1,-60,1,-(Y_START+30))
+Card.ZIndex = 50
+Card.Parent = Right
+
+local lay = Instance.new("UIListLayout", Card)
+lay.FillDirection = Enum.FillDirection.Vertical
+lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+lay.VerticalAlignment   = Enum.VerticalAlignment.Start
+lay.Padding = UDim.new(0, GAP_Y)
+
+-- รูปผู้เล่น
+local Avatar = Instance.new("ImageLabel")
+Avatar.Name = "Avatar"
+Avatar.BackgroundColor3 = BG_INNER
+Avatar.BorderSizePixel = 0
+Avatar.Size = UDim2.fromOffset(AVATAR_SIZE, AVATAR_SIZE)
+Avatar.ZIndex = Card.ZIndex + 1
+corner(Avatar, 12); stroke(Avatar, 1, MINT, 0.35)
+Avatar.Parent = Card
+
+local ok, url = pcall(function()
+    return Players:GetUserThumbnailAsync(
+        LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420
+    )
+end)
+Avatar.Image = ok and url or "rbxassetid://0"
+
+-- ชื่อผู้เล่น
+local NameLabel = Instance.new("TextLabel")
+NameLabel.BackgroundTransparency = 1
+NameLabel.Font = Enum.Font.GothamBold
+NameLabel.TextSize = NAME_SIZE
+NameLabel.TextColor3 = TEXT_WHITE
+NameLabel.Text = LP.DisplayName or LP.Name
+NameLabel.ZIndex = Card.ZIndex + 1
+NameLabel.Parent = Card
+
+-- เวลาใช้งาน UI
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Font = Enum.Font.Gotham
+TimeLabel.TextSize = TIME_SIZE
+TimeLabel.TextColor3 = TEXT_WHITE
+TimeLabel.Text = "ใช้ UFO HUB X ไปแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
+TimeLabel.ZIndex = Card.ZIndex + 1
+TimeLabel.Parent = Card
+
+-- เก็บเวลาสะสม (นับเมื่อสคริปต์ UI นี้กำลังทำงานอยู่)
+getgenv().UFO_UI_TIME = getgenv().UFO_UI_TIME or { start = os.time(), base = 0 }
+
+local function setNameColor(days)
+    if days >= 365 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี
+    elseif days >= 30 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน
+    elseif days >= 7 then
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน
+    else
+        NameLabel.TextColor3 = TEXT_WHITE                  -- ก่อน 7 วัน
+    end
+end
+
+-- อัปเดตทุก 1 วินาที
+local acc = 0
+RunS.Heartbeat:Connect(function(dt)
+    acc += dt; if acc < 1 then return end; acc = 0
+    local t = getgenv().UFO_UI_TIME
+    local now   = os.time()
+    local total = (t.base or 0) + (now - (t.start or now))
+    local d = math.floor(total/86400)
+    local h = math.floor((total%86400)/3600)
+    local m = math.floor((total%3600)/60)
+    TimeLabel.Text = string.format("ใช้ UFO HUB X ไปแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
+    setNameColor(d)
+end)
+
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
