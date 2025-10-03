@@ -191,11 +191,30 @@ Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2); corner(Content, 12); st
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1; Columns.Position = UDim2.new(0,8,0,8); Columns.Size = UDim2.new(1,-16,1,-16)
 
+-- 1) สร้าง Left ก่อน
 local Left = Instance.new("Frame", Columns)
-Left.BackgroundColor3 = Color3.fromRGB(16,16,16); Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
-Left.ClipsDescendants = true; corner(Left, 10); stroke(Left, 1.2, GREEN, 0); stroke(Left, 0.45, MINT, 0.35)
-Left.Name  = "LeftPanel"
--- local Left  = Instance.new("Frame", Columns)
+Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Left.Size = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Left.ClipsDescendants = true
+corner(Left, 10); stroke(Left, 1.2, GREEN, 0); stroke(Left, 0.45, MINT, 0.35)
+Left.Name = "LeftPanel"
+
+-- 2) สร้าง Right ต่อจาก Left (ต้องมาก่อน imgR)
+local Right = Instance.new("Frame", Columns)
+Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
+Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Right.ClipsDescendants = true
+corner(Right, 10); stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
+Right.Name = "RightPanel"
+
+-- 3) ตอนนี้ค่อยวางรูปพื้นหลัง (อยู่ “ล่างสุด”)
+local imgR = Instance.new("ImageLabel", Right)
+imgR.BackgroundTransparency = 1
+imgR.Size = UDim2.new(1,0,1,0)
+imgR.Image = IMG_LARGE
+imgR.ScaleType = Enum.ScaleType.Crop
+imgR.ZIndex = 1   -- สำคัญ: ให้ต่ำสุด
 
 local Right = Instance.new("Frame", Columns)
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
