@@ -205,22 +205,27 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
+--=== FIX Z-ORDER & SHOW PLAYER CARD ===
+-- ให้ ZIndex แบบ Sibling (จำเป็นมากเพื่อให้ ZIndex ทำงาน)
+local sg = Window:FindFirstAncestorOfClass("ScreenGui")
+if sg then sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling end
 
---========================
--- PLAYER CARD OVERLAY (แปะหลัง imgR)
---========================
+-- กันพื้นหลังบัง: ให้ภาพพื้นหลังอยู่ชั้นล่าง
+imgR.ZIndex = 1
+
+-- ---- การ์ดผู้เล่นซ้อนทับ ----
 local Players = game:GetService("Players")
 local RunS    = game:GetService("RunService")
 local LP      = Players.LocalPlayer
 
--- ปรับง่ายๆได้ตรงนี้
-local AVATAR_SIZE = 180         -- ขนาดรูปโปรไฟล์
-local NAME_SIZE   = 20          -- ขนาดตัวอักษรชื่อ
-local TIME_SIZE   = 15          -- ขนาดตัวอักษรเวลา
-local Y_START     = 50          -- ระยะห่างจากขอบบนของ Right
-local GAP_Y       = 10          -- ช่องไฟแนวตั้งระหว่างรูป/ชื่อ/เวลา
+-- ปรับง่าย ๆ ได้ตรงนี้
+local AVATAR_SIZE = 180
+local NAME_SIZE   = 20
+local TIME_SIZE   = 15
+local Y_START     = 50
+local GAP_Y       = 10
 
--- ลบของเก่า (ถ้ามี) เพื่อกันซ้ำ
+-- ลบของเก่า (กันซ้ำ)
 local old = Right:FindFirstChild("PlayerCard")
 if old then old:Destroy() end
 
@@ -231,7 +236,7 @@ Card.BackgroundTransparency = 1
 Card.AnchorPoint = Vector2.new(0.5,0)
 Card.Position = UDim2.new(0.5,0,0,Y_START)
 Card.Size = UDim2.new(1,-60,1,-(Y_START+30))
-Card.ZIndex = 50
+Card.ZIndex = 20
 Card.Parent = Right
 
 local lay = Instance.new("UIListLayout", Card)
@@ -246,9 +251,10 @@ Avatar.Name = "Avatar"
 Avatar.BackgroundColor3 = BG_INNER
 Avatar.BorderSizePixel = 0
 Avatar.Size = UDim2.fromOffset(AVATAR_SIZE, AVATAR_SIZE)
-Avatar.ZIndex = Card.ZIndex + 1
-corner(Avatar, 12); stroke(Avatar, 1, MINT, 0.35)
+Avatar.ZIndex = 21
 Avatar.Parent = Card
+if typeof(corner)=="function" then corner(Avatar,12) end
+if typeof(stroke)=="function" then stroke(Avatar,1,MINT,0.35) end
 
 local ok, url = pcall(function()
     return Players:GetUserThumbnailAsync(
@@ -257,42 +263,43 @@ local ok, url = pcall(function()
 end)
 Avatar.Image = ok and url or "rbxassetid://0"
 
--- ชื่อผู้เล่น
+-- ชื่อ
 local NameLabel = Instance.new("TextLabel")
 NameLabel.BackgroundTransparency = 1
 NameLabel.Font = Enum.Font.GothamBold
 NameLabel.TextSize = NAME_SIZE
 NameLabel.TextColor3 = TEXT_WHITE
 NameLabel.Text = LP.DisplayName or LP.Name
-NameLabel.ZIndex = Card.ZIndex + 1
+NameLabel.ZIndex = 21
 NameLabel.Parent = Card
 
--- เวลาใช้งาน UI
+-- เวลาใช้งาน UI (นับเมื่อสคริปต์นี้รัน)
 local TimeLabel = Instance.new("TextLabel")
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Font = Enum.Font.Gotham
 TimeLabel.TextSize = TIME_SIZE
 TimeLabel.TextColor3 = TEXT_WHITE
 TimeLabel.Text = "ใช้ UFO HUB X ไปแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
-TimeLabel.ZIndex = Card.ZIndex + 1
+TimeLabel.ZIndex = 21
 TimeLabel.Parent = Card
 
--- เก็บเวลาสะสม (นับเมื่อสคริปต์ UI นี้กำลังทำงานอยู่)
-getgenv().UFO_UI_TIME = getgenv().UFO_UI_TIME or { start = os.time(), base = 0 }
-
+-- สีชื่อตามจำนวนวัน
 local function setNameColor(days)
     if days >= 365 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)
     elseif days >= 30 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)
     elseif days >= 7 then
-        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)
     else
-        NameLabel.TextColor3 = TEXT_WHITE                  -- ก่อน 7 วัน
+        NameLabel.TextColor3 = TEXT_WHITE
     end
 end
 
--- อัปเดตทุก 1 วินาที
+-- เก็บเวลาสะสมไว้ที่ global (นับเมื่อ UI นี้กำลังรัน)
+getgenv().UFO_UI_TIME = getgenv().UFO_UI_TIME or { start = os.time(), base = 0 }
+
+-- อัปเดตทุก 1 วิ
 local acc = 0
 RunS.Heartbeat:Connect(function(dt)
     acc += dt; if acc < 1 then return end; acc = 0
