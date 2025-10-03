@@ -284,7 +284,7 @@ corner(Avatar,12)
 stroke(Avatar,1,MINT,0.35)
 
 local ok, url = pcall(function()
-    local u = Players:GetUserThumbnailAsync(
+    local u, ready = Players:GetUserThumbnailAsync(
         LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420
     )
     return u
@@ -344,7 +344,6 @@ BtnPlayer.MouseButton1Click:Connect(function()
     end
     PlayerPage.Visible = true
 end)
-
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
