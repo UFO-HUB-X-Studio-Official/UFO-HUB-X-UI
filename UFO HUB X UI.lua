@@ -203,8 +203,79 @@ Right.ClipsDescendants = true; corner(Right, 10); stroke(Right, 1.2, GREEN, 0); 
 local imgL = Instance.new("ImageLabel", Left)   -- ...
 
 local imgR = Instance.new("ImageLabel", Right)  -- ...
+-- ============ OVERLAY PLAYER CARD (ไม่ลบของเดิม, ทับบนรูปได้) ============
+do
+    local Players = game:GetService("Players")
+    local LP      = Players.LocalPlayer
 
---========================
+    -- ให้รูปพื้นหลังอยู่ชั้นล่างสุด จะได้ไม่บังอะไร
+    local bg = Right:FindFirstChildWhichIsA("ImageLabel")
+    if bg then
+        bg.ZIndex = 0
+        bg.Active = false
+    end
+    -- เผื่อมีเส้น/กรอบอื่นใน Right ก็ยกให้ลอยเหนือพื้นหลัง
+    Right.ZIndex = 2
+    for _,o in ipairs(Right:GetDescendants()) do
+        if o:IsA("GuiObject") and o ~= bg then
+            o.ZIndex = math.max(o.ZIndex, 3)
+        end
+    end
+
+    -- การ์ดผู้เล่น (วางซ้อนทับบนรูปด้านขวา)
+    local Card = Right:FindFirstChild("PlayerCard")
+    if not Card then
+        Card = Instance.new("Frame")
+        Card.Name = "PlayerCard"
+        Card.Parent = Right
+        Card.BackgroundTransparency = 1
+        Card.AnchorPoint = Vector2.new(0.5,0)
+        Card.Position = UDim2.new(0.5,0,0,50)        -- อยากเลื่อน X/Y ก็แก้ค่านี้
+        Card.Size     = UDim2.new(1,-60,1,-80)       -- อยากย่อ/ขยายก็แก้ค่านี้
+        Card.ZIndex   = 100                           -- สูงๆ ให้ทับทุกอย่างใน Right
+
+        local layout = Instance.new("UIListLayout", Card)
+        layout.FillDirection       = Enum.FillDirection.Vertical
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.VerticalAlignment   = Enum.VerticalAlignment.Start
+        layout.Padding             = UDim.new(0,10)
+
+        -- รูปผู้เล่น
+        local Avatar = Instance.new("ImageLabel", Card)
+        Avatar.Name = "Avatar"
+        Avatar.BackgroundTransparency = 1
+        Avatar.Size = UDim2.fromOffset(200,200)      -- ปรับขนาดรูปได้
+        Avatar.ZIndex = 101
+
+        local ok, url = pcall(function()
+            return Players:GetUserThumbnailAsync(
+                LP.UserId,
+                Enum.ThumbnailType.HeadShot,
+                Enum.ThumbnailSize.Size420x420
+            )
+        end)
+        Avatar.Image = ok and url or "rbxassetid://0"
+
+        -- ชื่อ
+        local NameLabel = Instance.new("TextLabel", Card)
+        NameLabel.BackgroundTransparency = 1
+        NameLabel.Font = Enum.Font.GothamBold
+        NameLabel.TextSize = 20
+        NameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+        NameLabel.Text = LP.DisplayName or LP.Name
+        NameLabel.ZIndex = 101
+
+        -- เวลา (แค่ที่วางไว้ก่อน ยังไม่ผูกระบบนับ)
+        local TimeLabel = Instance.new("TextLabel", Card)
+        TimeLabel.BackgroundTransparency = 1
+        TimeLabel.Font = Enum.Font.Gotham
+        TimeLabel.TextSize = 15
+        TimeLabel.TextColor3 = Color3.fromRGB(200,200,200)
+        TimeLabel.Text = "ใช้ UFO HUB X: 0 วัน 0 ชม. 0 นาที"
+        TimeLabel.ZIndex = 101
+    end
+end
+-- =======================================================================-
 -- PLAYER BUTTON + PAGE (DROP-IN)
 -- วางไว้ "ใต้" imgR เท่านั้น
 --========================
