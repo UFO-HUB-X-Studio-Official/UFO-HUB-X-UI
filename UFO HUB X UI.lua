@@ -375,7 +375,26 @@ do
         end)
     end
 end
---====[ PLAYER BUTTON (รูปชิดชื่อ + กลางปุ่ม) ]====
+--====[ PLAYER BUTTON (ชิดสวย + เอฟเฟกต์ + Active state) ]====
+
+local TS = game:GetService("TweenService")
+local function tw(o, t, goal) TS:Create(o, TweenInfo.new(t or .12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play() end
+
+-- ตัวช่วยรีเซ็ต style ของปุ่มในฝั่งซ้ายทั้งหมด
+local function resetAllLeftButtons()
+    for _,b in ipairs(Left:GetChildren()) do
+        if b:IsA("TextButton") and b.Name:sub(1,3)=="Btn" then
+            -- ปิด ActiveMark ถ้ามี
+            local m = b:FindFirstChild("ActiveMark"); if m then m.Visible = false end
+            -- คืนสีปุ่ม
+            tw(b, .10, {BackgroundColor3 = BG_INNER})
+            -- คืนสีเส้น
+            local st = b:FindFirstChildOfClass("UIStroke"); if st then tw(st, .10, {Color = GREEN, Transparency = 0.35, Thickness = 1}) end
+        end
+    end
+end
+
+-- ปุ่ม (อยู่บนสุดเสมอ)
 local BtnPlayer = Left:FindFirstChild("BtnPlayer") or Instance.new("TextButton", Left)
 BtnPlayer.Name = "BtnPlayer"
 BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
@@ -383,38 +402,53 @@ BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
 BtnPlayer.BackgroundColor3 = BG_INNER
 BtnPlayer.BorderSizePixel = 0
 BtnPlayer.AutoButtonColor = false
-corner(BtnPlayer, 10)
-local st = stroke(BtnPlayer, 1, GREEN, 0.35)
+BtnPlayer.Text = ""  -- เราจะจัดวางเอง
 
--- กล่องจัดวาง “รูป + ข้อความ” ให้ชิดกัน และอยู่กึ่งกลางแนวตั้งของปุ่ม
+-- มุม/เส้น
+do
+    local c = BtnPlayer:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", BtnPlayer); c.CornerRadius = UDim.new(0,10)
+    local s = BtnPlayer:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", BtnPlayer)
+    s.Thickness = 1; s.Color = GREEN; s.Transparency = 0.35; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
+
+-- แถบ “Active” สีขาวเล็ก ๆ ชิดซ้าย บอกว่าปุ่มนี้ถูกเลือกอยู่
+local Mark = BtnPlayer:FindFirstChild("ActiveMark") or Instance.new("Frame", BtnPlayer)
+Mark.Name = "ActiveMark"
+Mark.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Mark.BackgroundTransparency = 0.15
+Mark.BorderSizePixel = 0
+Mark.Size = UDim2.new(0, 3, 1, -8)     -- กว้าง 3px สูงพอดีปุ่มแต่เว้นขอบบนล่าง 4px
+Mark.Position = UDim2.fromOffset(4,4)
+Mark.Visible = false
+do local mc = Mark:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", Mark); mc.CornerRadius = UDim.new(0,3) end
+
+-- แถวแนวนอน: ไอคอน + ข้อความ (ให้ “ชิด” และ “กึ่งกลางแนวตั้ง”)
 local Row = BtnPlayer:FindFirstChild("Row") or Instance.new("Frame", BtnPlayer)
 Row.Name = "Row"
 Row.BackgroundTransparency = 1
-Row.AnchorPoint = Vector2.new(0, 0.5)
-Row.Position = UDim2.new(0, 10, 0.5, 0)          -- << อยู่กึ่งกลางแกน Y
-Row.Size = UDim2.new(1, -20, 0, 22)              -- สูงพอดีกับไอคอน/ตัวหนังสือ
+Row.Position = UDim2.fromOffset(10, 6)
+Row.Size = UDim2.new(1, -20, 1, -12)
 
 local H = Row:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", Row)
 H.FillDirection       = Enum.FillDirection.Horizontal
 H.HorizontalAlignment = Enum.HorizontalAlignment.Left
 H.VerticalAlignment   = Enum.VerticalAlignment.Center
 H.SortOrder           = Enum.SortOrder.LayoutOrder
-H.Padding             = UDim.new(0, 4)           -- << ระยะระหว่าง “รูป-ชื่อ” (ลดให้ชิด)
+H.Padding             = UDim.new(0, 6)   -- ระยะห่าง “รูป-ข้อความ” (ถ้าอยากชิดขึ้น ลดเป็น 4)
 
--- รูปขนาดใหญ่ขึ้น
+-- ไอคอน 👽 (เอาให้ชัดขึ้นและใหญ่กว่าก่อนหน้า)
 local Icon = Row:FindFirstChild("Icon") or Instance.new("ImageLabel", Row)
 Icon.Name = "Icon"
 Icon.BackgroundTransparency = 1
-Icon.Size = UDim2.fromOffset(35, 35)             -- << ใหญ่ขึ้นจากเดิม
+Icon.Size = UDim2.fromOffset(22,22)      -- >> ปรับขนาดได้: 20–24 กำลังสวย
 Icon.Image = "rbxassetid://114530675624359"
 Icon.LayoutOrder = 1
 
--- ชื่อ “Player” อยู่ติดรูป (ไม่เต็มทั้งแถว เพื่อไม่ดันให้ห่าง)
+-- ชื่อ "Player" ชิดไอคอนและกึ่งกลางแนวตั้ง
 local Txt = Row:FindFirstChild("Txt") or Instance.new("TextLabel", Row)
 Txt.Name = "Txt"
 Txt.BackgroundTransparency = 1
-Txt.AutomaticSize = Enum.AutomaticSize.X          -- << กว้างตามข้อความ
-Txt.Size = UDim2.new(0, 0, 1, 0)
+Txt.Size = UDim2.new(1, 0, 1, 0)
 Txt.TextXAlignment = Enum.TextXAlignment.Left
 Txt.Font = Enum.Font.GothamBold
 Txt.Text = "Player"
@@ -422,52 +456,72 @@ Txt.TextSize = 16
 Txt.TextColor3 = TEXT_WHITE
 Txt.LayoutOrder = 2
 
--- เอฟเฟกต์กด/โฮเวอร์เหมือนเดิม (ถ้าทำไว้แล้ว ข้ามส่วนนี้ได้)
-local TS  = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
+-- เอฟเฟกต์ Hover/Press (เดสก์ท็อป/มือถือ)
 local uiScale = BtnPlayer:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", BtnPlayer)
+local function setHover(on)
+    local st = BtnPlayer:FindFirstChildOfClass("UIStroke")
+    tw(st, .08, {Transparency = on and 0.15 or 0.35})
+    tw(BtnPlayer, .08, {BackgroundColor3 = on and Color3.fromRGB(24,24,24) or BG_INNER})
+end
+local function setPress(on)
+    local st = BtnPlayer:FindFirstChildOfClass("UIStroke")
+    tw(uiScale, .07, {Scale = on and 0.97 or 1})
+    tw(st, .06, {Transparency = on and 0.05 or 0.15})
+end
 
-local function tw(o,t,goal) TS:Create(o,TweenInfo.new(t,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),goal):Play() end
-local function setHover(on)  tw(st,0.08,{Transparency = on and 0.15 or 0.35}); tw(BtnPlayer,0.10,{BackgroundColor3 = on and Color3.fromRGB(24,24,24) or BG_INNER}) end
-local function setPress(on)  tw(uiScale,0.07,{Scale = on and 0.97 or 1});      tw(st,0.06,{Transparency = on and 0.05 or 0.15}) end
-BtnPlayer.MouseEnter:Connect(function() if not UIS.TouchEnabled then setHover(true) end end)
-BtnPlayer.MouseLeave:Connect(function() if not UIS.TouchEnabled then setHover(false); setPress(false) end end)
+BtnPlayer.MouseEnter:Connect(function() setHover(true) end)
+BtnPlayer.MouseLeave:Connect(function() setHover(false); setPress(false) end)
 BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
 BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
-BtnPlayer.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(true) end end)
-BtnPlayer.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(false) end end)
---========== HEADER ด้านขวา (รูป + ชื่อชิดกัน) ==========
+
+-- หน้าด้านขวาที่จะแสดงเมื่อกด
 local PlayerPage = Right:FindFirstChild("PlayerPage") or Instance.new("Frame", Right)
 PlayerPage.Name = "PlayerPage"
 PlayerPage.BackgroundTransparency = 1
 PlayerPage.Size = UDim2.new(1,0,1,0)
 PlayerPage.Visible = false
 
-local Header = PlayerPage:FindFirstChild("Header") or Instance.new("Frame", PlayerPage)
-Header.Name = "Header"
-Header.BackgroundTransparency = 1
-Header.Position = UDim2.fromOffset(12, 10)
-Header.Size = UDim2.new(1, -24, 0, 26)
+-- Header ด้านขวา (ไอคอน + ชื่อ ติดกัน)
+if not PlayerPage:FindFirstChild("HeaderRow") then
+    local Header = Instance.new("Frame", PlayerPage)
+    Header.Name = "HeaderRow"
+    Header.BackgroundTransparency = 1
+    Header.Position = UDim2.fromOffset(12,8)
+    Header.Size = UDim2.new(1,-24,0,28)
 
-local HL = Header:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", Header)
-HL.FillDirection       = Enum.FillDirection.Horizontal
-HL.HorizontalAlignment = Enum.HorizontalAlignment.Left
-HL.VerticalAlignment   = Enum.VerticalAlignment.Center
-HL.Padding             = UDim.new(0, 6)
+    local HL = Instance.new("UIListLayout", Header)
+    HL.FillDirection       = Enum.FillDirection.Horizontal
+    HL.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    HL.VerticalAlignment   = Enum.VerticalAlignment.Center
+    HL.Padding             = UDim.new(0, 6)
 
-local HIcon = Header:FindFirstChild("Icon") or Instance.new("ImageLabel", Header)
-HIcon.Name = "Icon"
-HIcon.BackgroundTransparency = 1
-HIcon.Size = UDim2.fromOffset(35, 35)                 -- << รูปใหญ่ขึ้น
-HIcon.Image = "rbxassetid://114530675624359"
+    local HIcon = Instance.new("ImageLabel", Header)
+    HIcon.BackgroundTransparency = 1
+    HIcon.Size = UDim2.fromOffset(20,20)      -- ปรับให้ใหญ่/เล็กได้
+    HIcon.Image = "rbxassetid://114530675624359"
 
-local HText = Header:FindFirstChild("Text") or Instance.new("TextLabel", Header)
-HText.Name = "Text"
-HText.BackgroundTransparency = 1
-HText.AutomaticSize = Enum.AutomaticSize.X
-HText.Size = UDim2.new(0, 0, 1, 0)
-HText.Font = Enum.Font.GothamBold
-HText.Text = "Player"
-HText.TextSize = 18
-HText.TextColor3 = TEXT_WHITE
-HText.TextXAlignment = Enum.TextXAlignment.Left
+    local HText = Instance.new("TextLabel", Header)
+    HText.BackgroundTransparency = 1
+    HText.Size = UDim2.new(1,0,1,0)
+    HText.TextXAlignment = Enum.TextXAlignment.Left
+    HText.Font = Enum.Font.GothamBold
+    HText.Text = "Player"
+    HText.TextSize = 18
+    HText.TextColor3 = TEXT_WHITE
+end
+
+-- เมื่อกด: แสดงหน้า Player และทำ Active style สีขาวขึ้น
+BtnPlayer.MouseButton1Click:Connect(function()
+    -- ซ่อนหน้าอื่นในฝั่งขวา
+    for _,child in ipairs(Right:GetChildren()) do
+        if child:IsA("Frame") then child.Visible = false end
+    end
+    PlayerPage.Visible = true
+
+    -- Active state: แถบขาว + เส้นหนาขึ้นนิด + พื้นสว่าง
+    resetAllLeftButtons()
+    Mark.Visible = true
+    local st = BtnPlayer:FindFirstChildOfClass("UIStroke")
+    tw(BtnPlayer, .10, {BackgroundColor3 = Color3.fromRGB(26,26,26)})
+    tw(st, .10, {Color = Color3.fromRGB(255,255,255), Thickness = 1.4, Transparency = 0.12})
+end)
