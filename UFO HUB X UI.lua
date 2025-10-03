@@ -175,112 +175,238 @@ do
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
     TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
 end
+--========================
+-- BODY (ONE DROP-IN)
+--========================
+local Players   = game:GetService("Players")
+local RunS      = game:GetService("RunService")
+local TS        = game:GetService("TweenService")
+local UIS       = game:GetService("UserInputService")
+local LP        = Players.LocalPlayer
 
--- BODY
+-- ขนาด/ระยะ
+local GAP_OUTER   = 10
+local GAP_BETWEEN = 8
+local LEFT_RATIO  = 0.28
+local RIGHT_RATIO = 1 - LEFT_RATIO
+
+--========================
+-- โครงหลัก
+--========================
 local Body = Instance.new("Frame", Window)
-Body.BackgroundTransparency = 1; Body.Position = UDim2.new(0,0,0,46); Body.Size = UDim2.new(1,0,1,-46)
+Body.BackgroundTransparency = 1
+Body.Position = UDim2.new(0,0,0,46)
+Body.Size     = UDim2.new(1,0,1,-46)
 
 local Inner = Instance.new("Frame", Body)
-Inner.BackgroundColor3 = BG_INNER; Inner.BorderSizePixel = 0
-Inner.Position = UDim2.new(0,8,0,8); Inner.Size = UDim2.new(1,-16,1,-16); corner(Inner, 12)
+Inner.BackgroundColor3 = BG_INNER
+Inner.BorderSizePixel  = 0
+Inner.Position = UDim2.new(0,8,0,8)
+Inner.Size     = UDim2.new(1,-16,1,-16)
+corner(Inner, 12)
 
 local Content = Instance.new("Frame", Body)
-Content.BackgroundColor3 = BG_PANEL; Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
-Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2); corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
+Content.BackgroundColor3 = BG_PANEL
+Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
+Content.Size     = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
+corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
 
 local Columns = Instance.new("Frame", Content)
-Columns.BackgroundTransparency = 1; Columns.Position = UDim2.new(0,8,0,8); Columns.Size = UDim2.new(1,-16,1,-16)
--- Left: กว้างตามสัดส่วน ไม่มีหักครึ่ง gap
-Left.Size     = UDim2.new(LEFT_RATIO, 0, 1, 0)
+Columns.BackgroundTransparency = 1
+Columns.Position = UDim2.new(0,8,0,8)
+Columns.Size     = UDim2.new(1,-16,1,-16)
 
--- Right: เลื่อนไปตาม GAP_BETWEEN และหัก GAP ทั้งก้อนจากความกว้าง
+--========================
+-- ซ้าย/ขวา (ขอให้มีไว้เสมอ)
+--========================
+local Left = Instance.new("Frame", Columns)
+Left.Name = "LeftPanel"
+Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Left.Size  = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Left.ClipsDescendants = true
+corner(Left, 10); stroke(Left, 1.2, GREEN, 0); stroke(Left, 0.45, MINT, 0.35)
+
+local Right = Instance.new("Frame", Columns)
+Right.Name = "RightPanel"
+Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
-Right.Size     = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN, 1, 0)
+Right.Size     = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Right.ClipsDescendants = true
+corner(Right, 10); stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
 
--- background image ฝั่งซ้าย
+-- พื้นหลัง (ซ้าย/ขวา) — ถ้าไม่อยากได้ ลบบรรทัดสองอันนี้ได้
 local imgL = Instance.new("ImageLabel", Left)
-imgL.BackgroundTransparency = 1
-imgL.Size = UDim2.new(1,0,1,0)
-imgL.Image = IMG_SMALL
-imgL.ScaleType = Enum.ScaleType.Crop
-imgL.ZIndex = 1
+imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0)
+imgL.Image = IMG_SMALL or ""; imgL.ScaleType = Enum.ScaleType.Crop; imgL.ZIndex = 0
 
--- background image ฝั่งขวา
 local imgR = Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1
-imgR.Size = UDim2.new(1,0,1,0)
-imgR.Image = IMG_LARGE
-imgR.ScaleType = Enum.ScaleType.Crop
-imgR.ZIndex = 1
+imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0)
+imgR.Image = IMG_LARGE or ""; imgR.ScaleType = Enum.ScaleType.Crop; imgR.ZIndex = 0
 
-local Players = game:GetService("Players")
-local RunS    = game:GetService("RunService")
-local LP      = Players.LocalPlayer
+--========================
+-- Header หน้า Right (“Player” + ไอคอน)
+--========================
+local Header = Instance.new("Frame", Right)
+Header.BackgroundTransparency = 1
+Header.Position = UDim2.fromOffset(10,8)
+Header.Size     = UDim2.new(1,-20,0,26)
+Header.ZIndex   = 5
 
-local Card = Right:FindFirstChild("PlayerCard") or Instance.new("Frame", Right)
+local HList = Instance.new("UIListLayout", Header)
+HList.FillDirection = Enum.FillDirection.Horizontal
+HList.VerticalAlignment = Enum.VerticalAlignment.Center
+HList.Padding = UDim.new(0,6)
+
+local HIcon = Instance.new("ImageLabel", Header)
+HIcon.BackgroundTransparency = 1
+HIcon.Size = UDim2.fromOffset(16,16)
+HIcon.Image = "rbxassetid://114530675624359"
+HIcon.ZIndex = 5
+
+local HText = Instance.new("TextLabel", Header)
+HText.BackgroundTransparency = 1
+HText.Size = UDim2.new(1,0,1,0)
+HText.Font = Enum.Font.GothamBold
+HText.TextSize = 16
+HText.TextXAlignment = Enum.TextXAlignment.Left
+HText.TextColor3 = TEXT_WHITE
+HText.Text = "Player"
+HText.ZIndex = 5
+
+--========================
+-- ปุ่ม Player (ซ้าย) + ระบบ Active/Hover/Press
+--========================
+local function tween(o,t,prop) TS:Create(o,TweenInfo.new(t,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),prop):Play() end
+
+local BtnPlayer = Instance.new("TextButton", Left)
+BtnPlayer.Name  = "BtnPlayer"
+BtnPlayer.Size  = UDim2.new(1,-12,0,40)
+BtnPlayer.Position = UDim2.new(0,6,0,6)
+BtnPlayer.BackgroundColor3 = BG_INNER
+BtnPlayer.BorderSizePixel = 0
+BtnPlayer.AutoButtonColor = false
+corner(BtnPlayer,10)
+local br = stroke(BtnPlayer,1,MINT,0.35)
+
+-- เนื้อในปุ่มจัด “รูป+ข้อความ” ให้แนบกันสวย ๆ
+local Row = Instance.new("Frame", BtnPlayer)
+Row.BackgroundTransparency = 1
+Row.Position = UDim2.fromOffset(10,6)
+Row.Size     = UDim2.new(1,-20,1,-12)
+
+local H = Instance.new("UIListLayout", Row)
+H.FillDirection = Enum.FillDirection.Horizontal
+H.VerticalAlignment = Enum.VerticalAlignment.Center
+H.Padding = UDim.new(0,6)
+
+local Ico = Instance.new("ImageLabel", Row)
+Ico.BackgroundTransparency = 1
+Ico.Size = UDim2.fromOffset(18,18)
+Ico.Image = "rbxassetid://114530675624359"
+
+local Txt = Instance.new("TextLabel", Row)
+Txt.BackgroundTransparency = 1
+Txt.Size = UDim2.new(1,0,1,0)
+Txt.Font = Enum.Font.GothamBold
+Txt.TextSize = 16
+Txt.TextXAlignment = Enum.TextXAlignment.Left
+Txt.TextColor3 = TEXT_WHITE
+Txt.Text = "Player"
+
+-- เอฟเฟกต์
+local uiScale = Instance.new("UIScale", BtnPlayer)
+local function setHover(on) if UIS.TouchEnabled then return end
+    tween(BtnPlayer,0.1,{BackgroundColor3 = on and Color3.fromRGB(24,24,24) or BG_INNER})
+end
+local function setPress(on)
+    tween(uiScale,0.07,{Scale = on and 0.97 or 1})
+    tween(br,0.07,{Transparency = on and 0.05 or 0.35})
+end
+local function setActive(on)
+    BtnPlayer:SetAttribute("active", on and true or false)
+    tween(BtnPlayer,0.10,{BackgroundColor3 = on and Color3.fromRGB(30,30,30) or BG_INNER})
+    tween(br,0.10,{Transparency = on and 0.15 or 0.35})
+end
+BtnPlayer.MouseEnter:Connect(function() setHover(true) end)
+BtnPlayer.MouseLeave:Connect(function() setHover(false); setPress(false) end)
+BtnPlayer.MouseButton1Down:Connect(function() setPress(true) end)
+BtnPlayer.MouseButton1Up:Connect(function() setPress(false) end)
+BtnPlayer.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(true) end end)
+BtnPlayer.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch then setPress(false) end end)
+
+--========================
+-- Player Page + Card (รูป/ชื่อ/เวลา)
+--========================
+local PlayerPage = Instance.new("Frame", Right)
+PlayerPage.Name = "PlayerPage"
+PlayerPage.BackgroundTransparency = 1
+PlayerPage.Size = UDim2.new(1,0,1,0)
+PlayerPage.Position = UDim2.new(0,0,0,0)
+PlayerPage.ZIndex = 2
+PlayerPage.Visible = true   -- เปิดหน้าแรกเป็น Player
+
+-- การ์ดกลาง
+local Card = Instance.new("Frame", PlayerPage)
 Card.Name = "PlayerCard"
 Card.BackgroundTransparency = 1
-Card.AnchorPoint = Vector2.new(0.5,0)
-Card.Position = UDim2.new(0.5,0,0,50)
-Card.Size = UDim2.new(1,-60,1,-80)
-Card.ZIndex = 20  -- ซ้อนบน imgR
+Card.AnchorPoint = Vector2.new(0.5,0.5)
+Card.Position = UDim2.new(0.5,0,0.56,0)
+Card.Size     = UDim2.new(0,420,0,300)  -- กลาง ๆ สวย ๆ
+Card.ZIndex   = 5
 
-local lay = Card:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", Card)
-lay.FillDirection = Enum.FillDirection.Vertical
-lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
-lay.VerticalAlignment   = Enum.VerticalAlignment.Start
-lay.Padding = UDim.new(0,10)
+local V = Instance.new("UIListLayout", Card)
+V.FillDirection = Enum.FillDirection.Vertical
+V.HorizontalAlignment = Enum.HorizontalAlignment.Center
+V.VerticalAlignment   = Enum.VerticalAlignment.Center
+V.Padding = UDim.new(0,10)
 
--- avatar
-local Avatar = Card:FindFirstChild("Avatar") or Instance.new("ImageLabel", Card)
+-- รูปผู้เล่น
+local Avatar = Instance.new("ImageLabel", Card)
 Avatar.Name = "Avatar"
 Avatar.BackgroundColor3 = BG_INNER
-Avatar.BorderSizePixel = 0
+Avatar.BorderSizePixel  = 0
 Avatar.Size = UDim2.fromOffset(180,180)
-Avatar.ZIndex = 21
+Avatar.ZIndex = 6
 corner(Avatar,12); stroke(Avatar,1,MINT,0.35)
 
 local ok, url = pcall(function()
-    return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    local u,_ = Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    return u
 end)
 Avatar.Image = ok and url or "rbxassetid://0"
 
--- name
-local NameLabel = Card:FindFirstChild("NameLabel") or Instance.new("TextLabel", Card)
-NameLabel.Name = "NameLabel"
+-- ชื่อผู้เล่น (สีเปลี่ยนตามจำนวนวัน)
+local NameLabel = Instance.new("TextLabel", Card)
 NameLabel.BackgroundTransparency = 1
 NameLabel.Font = Enum.Font.GothamBold
 NameLabel.TextSize = 20
 NameLabel.TextColor3 = TEXT_WHITE
 NameLabel.Text = LP.DisplayName or LP.Name
-NameLabel.ZIndex = 21
+NameLabel.ZIndex = 6
 
--- playtime
-local TimeLabel = Card:FindFirstChild("TimeLabel") or Instance.new("TextLabel", Card)
-TimeLabel.Name = "TimeLabel"
+-- เวลาที่เล่น
+local TimeLabel = Instance.new("TextLabel", Card)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.Font = Enum.Font.Gotham
 TimeLabel.TextSize = 15
 TimeLabel.TextColor3 = TEXT_WHITE
-TimeLabel.Text = "ใช้เวลาแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
-TimeLabel.ZIndex = 21
+TimeLabel.Text = "Played: 0 day 0 hr 0 min"
+TimeLabel.ZIndex = 6
 
--- update time + rank color
+-- อัปเดตเวลา + สีชื่อ
 getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
 local PT = getgenv().UFO_PLAYTIME
-
 local function setNameColor(days)
     if days >= 365 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี: แดง
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)     -- 1 ปี = แดง
     elseif days >= 30 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน: ทอง
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)     -- 30 วัน = ทอง
     elseif days >= 7 then
-        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน: เขียว
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)     -- 7 วัน = เขียว
     else
-        NameLabel.TextColor3 = TEXT_WHITE                  -- <7 วัน: ขาว
+        NameLabel.TextColor3 = TEXT_WHITE                    -- ก่อน 7 วัน = ขาว
     end
 end
-
 local acc = 0
 RunS.Heartbeat:Connect(function(dt)
     acc += dt; if acc < 1 then return end; acc = 0
@@ -289,15 +415,17 @@ RunS.Heartbeat:Connect(function(dt)
     local d = math.floor(total/86400)
     local h = math.floor((total%86400)/3600)
     local m = math.floor((total%3600)/60)
-    TimeLabel.Text = string.format("ใช้เวลาแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
+    TimeLabel.Text = string.format("Played: %d day  %d hr  %d min", d, h, m)
     setNameColor(d)
 end)
 
-local imgL = Instance.new("ImageLabel", Left)
-imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
+-- ทำปุ่มให้ Active ตั้งแต่หน้าแรก
+setActive(true)
+BtnPlayer.MouseButton1Click:Connect(function()
+    -- ถ้ามีหลายหน้า ใส่ลูปซ่อน/โชว์ที่นี่ ตอนนี้มีหน้าเดียว
+    setActive(true)
+end)
 
-local imgR = Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
