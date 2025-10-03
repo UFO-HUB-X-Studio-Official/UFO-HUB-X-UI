@@ -217,12 +217,12 @@ corner(Left, 10)
 stroke(Left, 1.2, GREEN, 0)
 stroke(Left, 0.45, MINT, 0.35)
 
--- ขวา (กรอบเนื้อหา)
+-- ขวา (กรอบเนื้อหา) - ขนาดแบบเดิม
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightPanel"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
-Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
+Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN, 1, 0) -- << ตรงนี้
 Right.ClipsDescendants = true
 corner(Right, 10)
 stroke(Right, 1.2, GREEN, 0)
