@@ -175,20 +175,9 @@ do
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
     TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
 end
---========================
--- BODY (รวม + Player Panel)
---========================
-local Players   = game:GetService("Players")
-local RunS      = game:GetService("RunService")
-local LP        = Players.LocalPlayer
-
--- ขนาด/ระยะ
-local GAP_OUTER    = 14
-local GAP_BETWEEN  = 12
-local LEFT_RATIO   = 0.22
-local RIGHT_RATIO  = 0.78
-
--- BODY หลัก
+-- ========================
+-- BODY (กลับสภาพเดิม)
+-- ========================
 local Body = Instance.new("Frame", Window)
 Body.BackgroundTransparency = 1
 Body.Position = UDim2.new(0,0,0,46)
@@ -201,10 +190,15 @@ Inner.Position = UDim2.new(0,8,0,8)
 Inner.Size = UDim2.new(1,-16,1,-16)
 corner(Inner, 12)
 
+local GAP_OUTER   = 10
+local GAP_BETWEEN = 8
+local LEFT_RATIO  = 0.28
+local RIGHT_RATIO = 1 - LEFT_RATIO
+
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
-Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
-Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
+Content.Position = UDim2.new(0, GAP_OUTER, 0, GAP_OUTER)
+Content.Size = UDim2.new(1, -GAP_OUTER*2, 1, -GAP_OUTER*2)
 corner(Content, 12)
 stroke(Content, 0.5, MINT, 0.35)
 
@@ -213,7 +207,7 @@ Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0,8,0,8)
 Columns.Size = UDim2.new(1,-16,1,-16)
 
--- ซ้าย (ปุ่ม)
+-- ซ้าย (เมนูเดิมของคุณ)
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftPanel"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -223,7 +217,7 @@ corner(Left, 10)
 stroke(Left, 1.2, GREEN, 0)
 stroke(Left, 0.45, MINT, 0.35)
 
--- ขวา (เนื้อหา)
+-- ขวา (กรอบเนื้อหา)
 local Right = Instance.new("Frame", Columns)
 Right.Name = "RightPanel"
 Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
@@ -234,104 +228,19 @@ corner(Right, 10)
 stroke(Right, 1.2, GREEN, 0)
 stroke(Right, 0.45, MINT, 0.35)
 
---======================================================
--- PLAYER PAGE (อยู่ขวา)
---======================================================
-local PlayerPage = Instance.new("Frame", Right)
-PlayerPage.Name = "PlayerPage"
-PlayerPage.BackgroundTransparency = 1
-PlayerPage.Size = UDim2.new(1,0,1,0)
-PlayerPage.Visible = false
+-- พื้นหลังรูป (เหมือนเดิม)
+-- ต้องมีตัวแปร IMG_SMALL และ IMG_LARGE อยู่ก่อนหน้าเหมือนในไฟล์เดิม
+local imgL = Instance.new("ImageLabel", Left)
+imgL.BackgroundTransparency = 1
+imgL.Size = UDim2.new(1,0,1,0)
+imgL.Image = IMG_SMALL
+imgL.ScaleType = Enum.ScaleType.Crop
 
--- การ์ดผู้เล่น
-local Card = Instance.new("Frame", PlayerPage)
-Card.Name = "PlayerCard"
-Card.BackgroundTransparency = 1
-Card.AnchorPoint = Vector2.new(0.5,0)
-Card.Position = UDim2.new(0.5,0,0,50)
-Card.Size = UDim2.new(1,-60,1,-80)
-
-local V = Instance.new("UIListLayout", Card)
-V.FillDirection = Enum.FillDirection.Vertical
-V.HorizontalAlignment = Enum.HorizontalAlignment.Center
-V.VerticalAlignment   = Enum.VerticalAlignment.Start
-V.Padding = UDim.new(0,10)
-
--- รูปผู้เล่น
-local Avatar = Instance.new("ImageLabel", Card)
-Avatar.Name = "Avatar"
-Avatar.BackgroundColor3 = BG_INNER
-Avatar.BorderSizePixel = 0
-Avatar.Size = UDim2.fromOffset(180,180)
-corner(Avatar,12)
-stroke(Avatar,1,MINT,0.35)
-
-local ok, url = pcall(function()
-    local u, ready = Players:GetUserThumbnailAsync(
-        LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420
-    )
-    return u
-end)
-Avatar.Image = ok and url or "rbxassetid://0"
-
--- ชื่อผู้เล่น
-local NameLabel = Instance.new("TextLabel", Card)
-NameLabel.BackgroundTransparency = 1
-NameLabel.Font = Enum.Font.GothamBold
-NameLabel.TextSize = 20
-NameLabel.TextColor3 = TEXT_WHITE
-NameLabel.Text = LP.DisplayName or LP.Name
-
--- เวลาใช้งาน UI
-local TimeLabel = Instance.new("TextLabel", Card)
-TimeLabel.BackgroundTransparency = 1
-TimeLabel.Font = Enum.Font.Gotham
-TimeLabel.TextSize = 15
-TimeLabel.TextColor3 = TEXT_WHITE
-TimeLabel.Text = "ใช้ UFO HUB X ไปแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
-
---======================================================
--- TIME TRACKER (นับเมื่อ UI ของเรารันอยู่)
---======================================================
-getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
-local PT = getgenv().UFO_PLAYTIME
-
-local function setNameColor(days)
-    if days >= 365 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี = แดง
-    elseif days >= 30 then
-        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน = ทอง
-    elseif days >= 7 then
-        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน = เขียว
-    else
-        NameLabel.TextColor3 = TEXT_WHITE                  -- ปกติ = ขาว
-    end
-end
-
-local acc = 0
-RunS.Heartbeat:Connect(function(dt)
-    acc += dt; if acc < 1 then return end; acc = 0
-    local now   = os.time()
-    local total = (PT.base or 0) + (now - (PT.start or now))
-    local d = math.floor(total/86400)
-    local h = math.floor((total%86400)/3600)
-    local m = math.floor((total%3600)/60)
-    TimeLabel.Text = string.format("ใช้ UFO HUB X ไปแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
-    setNameColor(d)
-end)
-
---======================================================
--- ใช้ปุ่ม Player เดิม (ที่ Left) เปิด PlayerPage
---======================================================
-local BtnPlayer = Left:FindFirstChild("Player") or Left:FindFirstChild("BtnPlayer")
-if BtnPlayer then
-    BtnPlayer.MouseButton1Click:Connect(function()
-        for _,child in ipairs(Right:GetChildren()) do
-            if child:IsA("Frame") then child.Visible = false end
-        end
-        PlayerPage.Visible = true
-    end)
-end
+local imgR = Instance.new("ImageLabel", Right)
+imgR.BackgroundTransparency = 1
+imgR.Size = UDim2.new(1,0,1,0)
+imgR.Image = IMG_LARGE
+imgR.ScaleType = Enum.ScaleType.Crop
 
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
