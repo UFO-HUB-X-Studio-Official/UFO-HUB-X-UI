@@ -190,36 +190,133 @@ Content.Size = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2); corner(Content, 12); st
 
 local Columns = Instance.new("Frame", Content)
 Columns.BackgroundTransparency = 1; Columns.Position = UDim2.new(0,8,0,8); Columns.Size = UDim2.new(1,-16,1,-16)
--- === LEFT / RIGHT (พิกเซลคงที่) ===
-local LEFT_PX     = 260       -- ← กำหนดกว้างซ้ายเป็นพิกเซล
-local GAP_BETWEEN = 8
+-- ===== RESET TWO-COLUMN LAYOUT (กลับเป็นสัดส่วนเดิมพอดี) =====
+local GAP_BETWEEN = 12        -- ระยะห่างระหว่างซ้าย-ขวา
+local LEFT_RATIO  = 0.33      -- สัดส่วนฝั่งซ้าย
+local RIGHT_RATIO = 1-LEFT_RATIO
 
+-- ล้างของเก่า (กันซ้ำ/กันชื่อไม่ตรง)
+for _,f in ipairs(Columns:GetChildren()) do
+    if f:IsA("Frame") and (f.Name=="LeftPanel" or f.Name=="RightPanel" or f.Name=="Left" or f.Name=="Right") then
+        f:Destroy()
+    end
+end
+
+-- ซ้าย
 local Left = Instance.new("Frame", Columns)
 Left.Name = "LeftPanel"
 Left.BackgroundColor3 = Color3.fromRGB(16,16,16)
 Left.Position = UDim2.new(0, 0, 0, 0)
-Left.Size     = UDim2.new(0, LEFT_PX, 1, 0)
+Left.Size     = UDim2.new(LEFT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Left.ClipsDescendants = true
 corner(Left, 10); stroke(Left, 1.2, GREEN, 0.40)
-Left.AnchorPoint = Vector2.new(0,0); Left.AutomaticSize = Enum.AutomaticSize.None
+
+-- ขวา
+local Right = Instance.new("Frame", Columns)
+Right.Name = "RightPanel"
+Right.BackgroundColor3 = Color3.fromRGB(16,16,16)
+Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
+Right.Size     = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN, 1, 0)
+Right.ClipsDescendants = true
+corner(Right, 10); stroke(Right, 1.2, GREEN, 0.40)
+
+-- ===== รูปพื้นหลัง (เต็ม 100% ของแต่ละฝั่ง) =====
+local imgL = Instance.new("ImageLabel", Left)
+imgL.BackgroundTransparency = 1
+imgL.Size = UDim2.new(1, 0, 1, 0)
+imgL.Position = UDim2.new(0,0,0,0)
+imgL.Image = IMG_SMALL
+imgL.ScaleType = Enum.ScaleType.Crop
+imgL.ZIndex = 1
 
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1
-imgR.Size = UDim2.new(1, 0, 1, 0)   -- ✅ เต็มกรอบ RightPanel (100%)
-imgR.Position = UDim2.new(0, 0, 0, 0)
+imgR.Size = UDim2.new(1, 0, 1, 0)   -- << 100% เต็มกรอบเดิม
+imgR.Position = UDim2.new(0,0,0,0)
 imgR.Image = IMG_LARGE
 imgR.ScaleType = Enum.ScaleType.Crop
 imgR.ZIndex = 1
-Right.Name = "RightPanel"
--- local Right = Instance.new("Frame", Columns)
 
-local imgR = Right:FindFirstChild("ImageLabel") or Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1
-imgR.Position = UDim2.fromOffset(6,6)
-imgR.Size     = UDim2.new(1,-12,1,-12)
-imgR.ScaleType= Enum.ScaleType.Crop
-imgR.ZIndex   = 1)
+-- ===== การ์ด Player ซ้อนบนรูปฝั่งขวา =====
+local Players = game:GetService("Players")
+local RunS    = game:GetService("RunService")
+local LP      = Players.LocalPlayer
 
+local Card = Right:FindFirstChild("PlayerCard") or Instance.new("Frame", Right)
+Card.Name = "PlayerCard"
+Card.BackgroundTransparency = 1
+Card.AnchorPoint = Vector2.new(0.5,0)
+Card.Position = UDim2.new(0.5, 0, 0, 50)
+Card.Size = UDim2.new(1, -60, 1, -80)
+Card.ZIndex = 20   -- ซ้อนบนรูป
+
+local lay = Card:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", Card)
+lay.FillDirection = Enum.FillDirection.Vertical
+lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+lay.VerticalAlignment   = Enum.VerticalAlignment.Start
+lay.Padding = UDim.new(0, 10)
+
+-- Avatar
+local Avatar = Card:FindFirstChild("Avatar") or Instance.new("ImageLabel", Card)
+Avatar.Name = "Avatar"
+Avatar.BackgroundColor3 = BG_INNER
+Avatar.BorderSizePixel = 0
+Avatar.Size = UDim2.fromOffset(180, 180)
+Avatar.ZIndex = 21
+corner(Avatar, 12); stroke(Avatar, 1, MINT, 0.35)
+
+local ok, url = pcall(function()
+    return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+end)
+Avatar.Image = ok and url or "rbxassetid://0"
+
+-- ชื่อ
+local NameLabel = Card:FindFirstChild("NameLabel") or Instance.new("TextLabel", Card)
+NameLabel.Name = "NameLabel"
+NameLabel.BackgroundTransparency = 1
+NameLabel.Font = Enum.Font.GothamBold
+NameLabel.TextSize = 20
+NameLabel.TextColor3 = TEXT_WHITE
+NameLabel.Text = LP.DisplayName or LP.Name
+NameLabel.ZIndex = 21
+
+-- เวลาเล่น
+local TimeLabel = Card:FindFirstChild("TimeLabel") or Instance.new("TextLabel", Card)
+TimeLabel.Name = "TimeLabel"
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Font = Enum.Font.Gotham
+TimeLabel.TextSize = 15
+TimeLabel.TextColor3 = TEXT_WHITE
+TimeLabel.Text = "ใช้เวลาแล้ว: 0 วัน 0 ชั่วโมง 0 นาที"
+TimeLabel.ZIndex = 21
+
+-- อัปเดตเวลาจริง + สีชื่อ
+getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
+local PT = getgenv().UFO_PLAYTIME
+
+local function setNameColor(days)
+    if days >= 365 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี: แดง
+    elseif days >= 30 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน: ทอง
+    elseif days >= 7 then
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน: เขียว
+    else
+        NameLabel.TextColor3 = TEXT_WHITE                  -- ก่อน 7 วัน: ขาว
+    end
+end
+
+local acc = 0
+RunS.Heartbeat:Connect(function(dt)
+    acc += dt; if acc < 1 then return end; acc = 0
+    local now   = os.time()
+    local total = (PT.base or 0) + (now - (PT.start or now))
+    local d = math.floor(total/86400)
+    local h = math.floor((total%86400)/3600)
+    local m = math.floor((total%3600)/60)
+    TimeLabel.Text = string.format("ใช้เวลาแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
+    setNameColor(d)
+end)
 
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
