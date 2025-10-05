@@ -522,22 +522,21 @@ end
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
 ----------------------------------------------------------------
--- UFO HUB X : PLAYER PAGE (One-Paste Final)
--- • จัดเลย์เอาต์ Avatar / NameBar / TimeLabel
--- • นับเวลาแบบ realtime + เซฟข้ามเซสชัน (centiseconds)
--- • เปลี่ยนสีชื่ออัตโนมัติตามจำนวนวันที่ใช้
+-- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
+-- • เวลาอยู่ใต้ชื่อในแท่งดำขอบเขียว (ตำแหน่งเดียวกับกรอบแดง)
+-- • เวลาเล็กลง ขาวในกรอบดำ
+-- • ครบ 1 ปี = แสดงคำว่า MAX และหยุดนับ
 ----------------------------------------------------------------
 local Players     = game:GetService("Players")
 local RunService  = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local LP          = Players.LocalPlayer
 
--- helper (กัน error ถ้าไม่มีฟังก์ชัน corner/stroke เดิมของเพื่อน)
 local function safeCorner(ui, r) if typeof(corner)=="function" then corner(ui, r) end end
 local function safeStroke(ui, t, c, tr) if typeof(stroke)=="function" then stroke(ui, t, c, tr) end end
 
 ----------------------------------------------------------------
--- หา / สร้างหน้า PlayerPage (อยู่ฝั่ง Right)  **ยังไม่โชว์จนกดปุ่ม**
+-- Player Page setup
 ----------------------------------------------------------------
 local PlayerPage = Right:FindFirstChild("PlayerPage")
 if not PlayerPage then
@@ -549,40 +548,32 @@ if not PlayerPage then
 	PlayerPage.Visible = false
 end
 
-----------------------------------------------------------------
--- ล้างของเก่า (แถบสีขาว 3 เส้น / Label เดิม ๆ ถ้ามี)
-----------------------------------------------------------------
-do
-	for _, n in ipairs({"BarDays","BarHours","BarMins"}) do
-		local f = PlayerPage:FindFirstChild(n)
-		if f then f:Destroy() end
-	end
-	for _, ch in ipairs(PlayerPage:GetChildren()) do
-		if ch:IsA("Frame") and ch.Name=="Label" then ch:Destroy() end
-		if ch:IsA("TextLabel") and ch.Text=="Label" then ch:Destroy() end
-	end
+-- ล้างของเก่า
+for _, n in ipairs({"BarDays","BarHours","BarMins"}) do
+	local f = PlayerPage:FindFirstChild(n)
+	if f then f:Destroy() end
+end
+for _, ch in ipairs(PlayerPage:GetChildren()) do
+	if ch:IsA("TextLabel") and ch.Text == "Label" then ch:Destroy() end
 end
 
 ----------------------------------------------------------------
--- Avatar (รูปผู้เล่น)
+-- Avatar
 ----------------------------------------------------------------
-local AVATAR_W, AVATAR_H = 130, 130  -- ขนาดสุดท้าย
-local AVATAR_Y           = 16        -- ระยะจากขอบบนลงมา
+local AVATAR_W, AVATAR_H = 130, 130
+local AVATAR_Y = 16
 
-local Avatar = PlayerPage:FindFirstChild("Avatar")
-if not Avatar then
-	Avatar = Instance.new("ImageLabel")
-	Avatar.Name = "Avatar"
-	Avatar.Parent = PlayerPage
-	Avatar.BackgroundColor3 = Color3.fromRGB(22,22,22)
-	Avatar.BorderSizePixel  = 0
-	Avatar.ScaleType        = Enum.ScaleType.Crop
-	safeCorner(Avatar, 12)
-	safeStroke(Avatar, 1, Color3.fromRGB(0,255,140), 0.35)
-end
-Avatar.AnchorPoint = Vector2.new(0.5, 0)
-Avatar.Position    = UDim2.new(0.5, 0, 0, AVATAR_Y)
-Avatar.Size        = UDim2.fromOffset(AVATAR_W, AVATAR_H)
+local Avatar = PlayerPage:FindFirstChild("Avatar") or Instance.new("ImageLabel")
+Avatar.Name = "Avatar"
+Avatar.Parent = PlayerPage
+Avatar.BackgroundColor3 = Color3.fromRGB(22,22,22)
+Avatar.BorderSizePixel = 0
+Avatar.ScaleType = Enum.ScaleType.Crop
+safeCorner(Avatar, 12)
+safeStroke(Avatar, 1, Color3.fromRGB(0,255,140), 0.35)
+Avatar.AnchorPoint = Vector2.new(0.5,0)
+Avatar.Position = UDim2.new(0.5,0,0,AVATAR_Y)
+Avatar.Size = UDim2.fromOffset(AVATAR_W,AVATAR_H)
 
 task.spawn(function()
 	local ok, url = pcall(function()
@@ -592,61 +583,63 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- NameBar (ดำ + ขอบเขียว) และตัวหนังสือขาว
+-- NameBar (ดำ + ขอบเขียว + ชื่อ)
 ----------------------------------------------------------------
 local NAME_W, NAME_H = 260, 26
-local NAME_GAP       = 8
+local NAME_GAP = 8
 
-local NameBar = PlayerPage:FindFirstChild("NameBar")
-if not NameBar then
-	NameBar = Instance.new("Frame")
-	NameBar.Name   = "NameBar"
-	NameBar.Parent = PlayerPage
-	NameBar.BorderSizePixel   = 0
-	NameBar.BackgroundColor3  = Color3.fromRGB(0,0,0)
-	safeCorner(NameBar, 6)
-	safeStroke(NameBar, 1.5, Color3.fromRGB(0,255,140), 0.6)
-end
+local NameBar = PlayerPage:FindFirstChild("NameBar") or Instance.new("Frame")
+NameBar.Name = "NameBar"
+NameBar.Parent = PlayerPage
+NameBar.BorderSizePixel = 0
+NameBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+safeCorner(NameBar, 6)
+safeStroke(NameBar, 1.5, Color3.fromRGB(0,255,140), 0.6)
 NameBar.AnchorPoint = Vector2.new(0.5, 0)
-NameBar.Position    = UDim2.new(0.5, 0, 0, AVATAR_Y + AVATAR_H + NAME_GAP)
-NameBar.Size        = UDim2.fromOffset(NAME_W, NAME_H)
+NameBar.Position = UDim2.new(0.5, 0, 0, AVATAR_Y + AVATAR_H + NAME_GAP)
+NameBar.Size = UDim2.fromOffset(NAME_W, NAME_H)
 
-local NameText = NameBar:FindFirstChild("NameText")
-if not NameText then
-	NameText = Instance.new("TextLabel")
-	NameText.Name   = "NameText"
-	NameText.Parent = NameBar
-	NameText.BackgroundTransparency = 1
-	NameText.Font   = Enum.Font.GothamBold
-	NameText.TextXAlignment = Enum.TextXAlignment.Center
-	NameText.Size   = UDim2.new(1, -16, 1, 0)
-	NameText.Position = UDim2.new(0, 8, 0, 0)
-end
-NameText.Text        = LP.DisplayName or LP.Name
-NameText.TextSize    = 17
-NameText.TextColor3  = Color3.fromRGB(255,255,255) -- เริ่มขาว
+local NameText = NameBar:FindFirstChild("NameText") or Instance.new("TextLabel")
+NameText.Name = "NameText"
+NameText.Parent = NameBar
+NameText.BackgroundTransparency = 1
+NameText.Font = Enum.Font.GothamBold
+NameText.TextXAlignment = Enum.TextXAlignment.Center
+NameText.Size = UDim2.new(1,-16,1,0)
+NameText.Position = UDim2.new(0,8,0,0)
+NameText.Text = LP.DisplayName or LP.Name
+NameText.TextSize = 17
+NameText.TextColor3 = Color3.fromRGB(255,255,255)
 
 ----------------------------------------------------------------
--- TimeLabel (แสดง HH:MM.SS ใต้ NameBar)
+-- TimeBar (ใหม่) — เป็นแท่งดำขอบเขียวใต้ NameBar
 ----------------------------------------------------------------
-local TIME_GAP_BELOW_NAME = 14
-local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
-if not TimeLabel then
-	TimeLabel = Instance.new("TextLabel")
-	TimeLabel.Name   = "TimeLabel"
-	TimeLabel.Parent = PlayerPage
-	TimeLabel.BackgroundTransparency = 1
-	TimeLabel.Font   = Enum.Font.GothamBlack
-	TimeLabel.TextColor3 = Color3.fromRGB(255,255,255)
-	TimeLabel.TextScaled = true
-	TimeLabel.Size   = UDim2.new(0, 180, 0, 32) -- เล็กลง + ดูอ่านง่าย
-	TimeLabel.AnchorPoint = Vector2.new(0.5, 0)
-end
-TimeLabel.Position = UDim2.new(0.5, 0, 0, NameBar.Position.Y.Offset + NAME_H + TIME_GAP_BELOW_NAME)
-TimeLabel.Text     = "00:00.00"
+local TIME_W, TIME_H = 160, 20  -- ขนาดแบบในรูป (เล็กลง)
+local TIME_GAP = 6
+local TimeBar = PlayerPage:FindFirstChild("TimeBar") or Instance.new("Frame")
+TimeBar.Name = "TimeBar"
+TimeBar.Parent = PlayerPage
+TimeBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+TimeBar.BorderSizePixel = 0
+safeCorner(TimeBar, 6)
+safeStroke(TimeBar, 1.5, Color3.fromRGB(0,255,140), 0.6)
+TimeBar.AnchorPoint = Vector2.new(0.5,0)
+TimeBar.Position = UDim2.new(0.5,0,0, NameBar.Position.Y.Offset + NAME_H + TIME_GAP)
+TimeBar.Size = UDim2.fromOffset(TIME_W,TIME_H)
+
+local TimeLabel = TimeBar:FindFirstChild("TimeLabel") or Instance.new("TextLabel")
+TimeLabel.Name = "TimeLabel"
+TimeLabel.Parent = TimeBar
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Font = Enum.Font.GothamBold
+TimeLabel.TextColor3 = Color3.fromRGB(255,255,255)
+TimeLabel.TextScaled = true
+TimeLabel.Text = "00:00.00"
+TimeLabel.Size = UDim2.new(1,0,1,0)
+TimeLabel.Position = UDim2.new(0,0,0,0)
 
 ----------------------------------------------------------------
--- ระบบเวลาจริง + เซฟข้ามเซสชัน (เก็บเป็น centiseconds)
+-- ระบบเวลา + เซฟไฟล์ + MAX system
 ----------------------------------------------------------------
 local SAVE_FILE = "ufo_hubx_time.json"
 getgenv().UFO_TIME = getgenv().UFO_TIME or nil
@@ -659,7 +652,7 @@ local function loadTime()
 		end
 	end)
 	if ok and type(data)=="table" and type(data.total_cs)=="number" then
-		getgenv().UFO_TIME = { total_cs = math.max(0, math.floor(data.total_cs)), last = os.clock() }
+		getgenv().UFO_TIME = { total_cs = math.max(0, data.total_cs), last = os.clock() }
 	else
 		getgenv().UFO_TIME = { total_cs = 0, last = os.clock() }
 	end
@@ -675,53 +668,60 @@ end
 
 loadTime()
 local T = getgenv().UFO_TIME
+local isMaxed = false
 
--- นับเวลาต่อเนื่องด้วย Heartbeat (รวมเศษวินาทีจริง ๆ)
 RunService.Heartbeat:Connect(function(dt)
-	T.total_cs += math.floor(dt * 100 + 0.5) -- dt วินาที -> centiseconds (ปัดให้เนียน)
+	if isMaxed then return end
+	T.total_cs += math.floor(dt * 100 + 0.5)
 	T.last = os.clock()
 end)
 
--- เซฟอัตโนมัติทุก ๆ 15 วิ และตอนปิดเกม
 task.spawn(function()
 	while task.wait(15) do saveTime() end
 end)
 pcall(function() game:BindToClose(saveTime) end)
 
 ----------------------------------------------------------------
--- อัปเดตตัวเลขบนจอ + สีชื่อ ตามจำนวน "วัน" ที่ใช้
+-- แสดงเวลา + สีชื่อ + MAX Logic
 ----------------------------------------------------------------
-local function updateNameColor(total_cs)
-	local days = math.floor((total_cs/100) / 86400)
+local function updateNameColor(days)
 	if days >= 365 then
-		NameText.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี = แดง
+		NameText.TextColor3 = Color3.fromRGB(255,60,60)
 	elseif days >= 30 then
-		NameText.TextColor3 = Color3.fromRGB(255,215,0)   -- 1 เดือน = ทอง
+		NameText.TextColor3 = Color3.fromRGB(255,215,0)
 	elseif days >= 7 then
-		NameText.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน = เขียว
+		NameText.TextColor3 = Color3.fromRGB(0,255,140)
 	else
-		NameText.TextColor3 = Color3.fromRGB(255,255,255) -- เริ่มต้น = ขาว
+		NameText.TextColor3 = Color3.fromRGB(255,255,255)
 	end
 end
 
 task.spawn(function()
-	while task.wait(0.05) do -- อัปเดตจอไวหน่อย ให้ .SS ลื่นตา
+	while task.wait(0.05) do
 		local cs = T.total_cs
 		local total_s = math.floor(cs / 100)
+		local days = math.floor(total_s / 86400)
 		local hours = math.floor(total_s / 3600)
 		local mins  = math.floor((total_s % 3600) / 60)
 		local secs  = math.floor(total_s % 60)
-		TimeLabel.Text = string.format("%02d:%02d.%02d", hours, mins, secs)
-		updateNameColor(cs)
+
+		if days >= 365 then
+			isMaxed = true
+			TimeLabel.Text = "MAX"
+			TimeLabel.TextColor3 = Color3.fromRGB(255,60,60)
+			saveTime()
+		else
+			TimeLabel.Text = string.format("%02d:%02d.%02d", hours, mins, secs)
+			updateNameColor(days)
+		end
 	end
 end)
 
 ----------------------------------------------------------------
--- ผูกกับปุ่ม Player เดิม (โชว์/ซ่อน)
--- *ไม่แตะของเดิม แค่ซ่อนหน้าอื่นให้เหลือหน้า PlayerPage*
+-- ปุ่ม Player (โชว์/ซ่อน)
 ----------------------------------------------------------------
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
-local ClickBtn  = BtnPlayer and BtnPlayer:FindFirstChild("Click")
+local ClickBtn = BtnPlayer and BtnPlayer:FindFirstChild("Click")
 if ClickBtn then
 	ClickBtn.MouseButton1Click:Connect(function()
 		for _, v in ipairs(Right:GetChildren()) do
