@@ -371,16 +371,15 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : PLAYER BUTTON (มีกรอบเขียว + รูป + เอฟเฟกต์กด)
+-- UFO HUB X : Player Button + BigHeader (ADD-ON, DROP-IN ONLY)
+-- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม
 ----------------------------------------------------------------
 local TS = game:GetService("TweenService")
 
--- รูปปุ่ม (เปลี่ยนได้)
-local PLAYER_ICON = "rbxassetid://112676905543996"  -- 👽 UFO HUB X icon หรือเปลี่ยนเป็นไอคอนผู้เล่น
+-- ไอคอนที่ใช้ทั้งปุ่มซ้าย และหัวข้อใหญ่ฝั่งขวา (เปลี่ยนได้)
+local PLAYER_ICON = "rbxassetid://112676905543996"
 
--- =====================
--- ปุ่ม PLAYER (ฝั่งซ้าย)
--- =====================
+-- ===== ปุ่ม PLAYER (ฝั่งซ้าย) =====
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
 if not BtnPlayer then
     BtnPlayer = Instance.new("Frame")
@@ -392,7 +391,7 @@ if not BtnPlayer then
     BtnPlayer.BorderSizePixel = 0
     BtnPlayer.ClipsDescendants = true
     corner(BtnPlayer, 10)
-    stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6) -- ✅ เส้นสีเขียว
+    stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6) -- กรอบเขียว
 
     -- ปุ่มคลิกโปร่งใส
     local Click = Instance.new("TextButton")
@@ -409,11 +408,11 @@ if not BtnPlayer then
     Icon.Parent = BtnPlayer
     Icon.BackgroundTransparency = 1
     Icon.AnchorPoint = Vector2.new(0,0.5)
-    Icon.Position = UDim2.new(0, 10, 0.5, 0)
-    Icon.Size = UDim2.new(0, 22, 0, 22)
-    Icon.Image = PLAYER_ICON
+    Icon.Position  = UDim2.new(0, 10, 0.5, 0)
+    Icon.Size      = UDim2.new(0, 22, 0, 22)
+    Icon.Image     = PLAYER_ICON
     Icon.ScaleType = Enum.ScaleType.Fit
-    Icon.ZIndex = 2
+    Icon.ZIndex    = 2
 
     -- ชื่อ "Player"
     local Text = Instance.new("TextLabel")
@@ -430,13 +429,12 @@ if not BtnPlayer then
     Text.TextColor3 = Color3.fromRGB(255,255,255)
     Text.ZIndex = 2
 
-    -- เอฟเฟกต์กด / hover
+    -- เอฟเฟกต์ปุ่ม
     local COLOR_IDLE   = Color3.fromRGB(20,20,20)
     local COLOR_HOVER  = Color3.fromRGB(28,28,28)
     local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
-    local pressed = false
 
-    local function tweenColor(c)
+    local function tweenBG(c)
         TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = c
         }):Play()
@@ -446,18 +444,18 @@ if not BtnPlayer then
 
     Click.MouseEnter:Connect(function()
         if not BtnPlayer:GetAttribute("active") then
-            tweenColor(COLOR_HOVER)
+            tweenBG(COLOR_HOVER)
         end
     end)
 
     Click.MouseLeave:Connect(function()
         if not BtnPlayer:GetAttribute("active") then
-            tweenColor(COLOR_IDLE)
+            tweenBG(COLOR_IDLE)
         end
     end)
 
     Click.MouseButton1Down:Connect(function()
-        tweenColor(COLOR_ACTIVE)
+        tweenBG(COLOR_ACTIVE)
         Icon:TweenSize(UDim2.new(0,20,0,20), "Out", "Quad", 0.08, true)
     end)
 
@@ -465,82 +463,61 @@ if not BtnPlayer then
         Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
     end)
 
+    -- เมื่อคลิกปุ่ม: ทำให้ Active + แสดงหัวข้อใหญ่ฝั่งขวา
     Click.MouseButton1Click:Connect(function()
         BtnPlayer:SetAttribute("active", true)
-        tweenColor(COLOR_ACTIVE)
-        -- เอฟเฟกต์แสดงว่ากำลังกดปุ่มนี้
+        tweenBG(COLOR_ACTIVE)
+        -- เอฟเฟกต์ขอบ
         stroke(BtnPlayer, 1.8, Color3.fromRGB(0,255,140), 1)
         task.delay(0.25, function()
             stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6)
         end)
+
+        -- โชว์หัวข้อใหญ่เฉพาะตอนกดปุ่ม
+        local header = Right:FindFirstChild("BigHeader")
+        if header then
+            header.Visible = true
+        end
     end)
 end
-----------------------------------------------------------------
--- HEADER ฝั่งขวา (เพิ่มชื่อ + รูป บนกรอบใหญ่)  *วางต่อท้ายได้เลย*
-----------------------------------------------------------------
--- ใช้ไอคอนเดียวกับปุ่มซ้าย (เปลี่ยนได้)
-local PLAYER_ICON = "rbxassetid://112676905543996"
 
-do
-    -- สร้างครั้งเดียว ถ้ามีแล้วจะไม่สร้างซ้ำ
-    local BigHeader = Right:FindFirstChild("BigHeader")
-    if not BigHeader then
-        BigHeader = Instance.new("Frame")
-        BigHeader.Name = "BigHeader"
-        BigHeader.Parent = Right
-        BigHeader.BackgroundTransparency = 1          -- ไม่ใส่เส้น/กรอบเพิ่ม
-        BigHeader.Size = UDim2.new(0, 200, 0, 36)
-        BigHeader.Position = UDim2.new(0, 14, 0, 12)  -- มุมซ้ายบนของ Right
-
-        -- รูปไอคอน
-        local HIcon = Instance.new("ImageLabel")
-        HIcon.Name = "Icon"
-        HIcon.Parent = BigHeader
-        HIcon.BackgroundTransparency = 1
-        HIcon.AnchorPoint = Vector2.new(0, 0.5)
-        HIcon.Position = UDim2.new(0, 0, 0.5, 0)
-        HIcon.Size = UDim2.fromOffset(24, 24)
-        HIcon.Image = PLAYER_ICON
-        HIcon.ScaleType = Enum.ScaleType.Fit
-
-        -- ข้อความ "Player"
-        local HText = Instance.new("TextLabel")
-        HText.Name = "Title"
-        HText.Parent = BigHeader
-        HText.BackgroundTransparency = 1
-        HText.AnchorPoint = Vector2.new(0, 0.5)
-        HText.Position = UDim2.new(0, 30, 0.5, 0)
-        HText.Size = UDim2.new(1, -34, 1, 0)
-        HText.Font = Enum.Font.GothamBold
-        HText.Text = "Player"
-        HText.TextSize = 18
-        HText.TextXAlignment = Enum.TextXAlignment.Left
-        HText.TextColor3 = Color3.fromRGB(255,255,255)
-    end
-end
-----------------------------------------------------------------
--- 🔸 แสดง/ซ่อน Header เมื่อกดปุ่ม Player
-----------------------------------------------------------------
+-- ===== หัวข้อใหญ่ฝั่งขวา (ชื่อ + รูป) เริ่มต้นซ่อน =====
 local BigHeader = Right:FindFirstChild("BigHeader")
-if BigHeader then
-    -- ซ่อนก่อนเริ่มต้น
+if not BigHeader then
+    BigHeader = Instance.new("Frame")
+    BigHeader.Name = "BigHeader"
+    BigHeader.Parent = Right
+    BigHeader.BackgroundTransparency = 1      -- ไม่มีกรอบเพิ่ม
+    BigHeader.Size = UDim2.new(0, 200, 0, 36)
+    BigHeader.Position = UDim2.new(0, 14, 0, 12) -- มุมซ้ายบนของ Right
+    BigHeader.Visible = false                  -- << สำคัญ: ซ่อนก่อน จนกว่าจะกดปุ่ม
+
+    local HIcon = Instance.new("ImageLabel")
+    HIcon.Name = "Icon"
+    HIcon.Parent = BigHeader
+    HIcon.BackgroundTransparency = 1
+    HIcon.AnchorPoint = Vector2.new(0, 0.5)
+    HIcon.Position = UDim2.new(0, 0, 0.5, 0)
+    HIcon.Size = UDim2.fromOffset(24, 24)
+    HIcon.Image = PLAYER_ICON
+    HIcon.ScaleType = Enum.ScaleType.Fit
+
+    local HText = Instance.new("TextLabel")
+    HText.Name = "Title"
+    HText.Parent = BigHeader
+    HText.BackgroundTransparency = 1
+    HText.AnchorPoint = Vector2.new(0, 0.5)
+    HText.Position = UDim2.new(0, 30, 0.5, 0)
+    HText.Size = UDim2.new(1, -34, 1, 0)
+    HText.Font = Enum.Font.GothamBold
+    HText.Text = "Player"
+    HText.TextSize = 18
+    HText.TextXAlignment = Enum.TextXAlignment.Left
+    HText.TextColor3 = Color3.fromRGB(255,255,255)
+else
+    -- ถ้ามีอยู่แล้ว ให้แน่ใจว่าเริ่มต้นซ่อนก่อน
     BigHeader.Visible = false
-
-    -- หา BtnPlayer ที่มีอยู่
-    local BtnFrame = Left:FindFirstChild("BtnPlayer")
-    if BtnFrame and BtnFrame:FindFirstChild("Click") then
-        local Click = BtnFrame.Click
-
-        Click.MouseButton1Click:Connect(function()
-            -- ซ่อนทุก Header ก่อน
-            for _, v in ipairs(Right:GetChildren()) do
-                if v:IsA("Frame") and v.Name:match("Header") or v.Name == "BigHeader" then
-                    v.Visible = false
-                end
-            end
-
-            -- แสดงเฉพาะอันนี้
-            BigHeader.Visible = true
-        end)
-    end
 end
+----------------------------------------------------------------
+-- END (จบส่วนเพิ่ม)
+----------------------------------------------------------------
