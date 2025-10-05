@@ -521,3 +521,168 @@ end
 ----------------------------------------------------------------
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
+----------------------------------------------------------------
+-- UFO HUB X : PLAYER PAGE SYSTEM (avatar + name + playtime)
+-- ✅ วางไว้ข้างล่างระบบปุ่ม Player เดิมได้เลย
+----------------------------------------------------------------
+local Players   = game:GetService("Players")
+local RunS      = game:GetService("RunService")
+local TS        = game:GetService("TweenService")
+local LP        = Players.LocalPlayer
+
+local PLAYER_ICON = "rbxassetid://112676905543996"
+
+-- ฟังก์ชันเสริม
+local function safeCorner(ui, r) if typeof(corner)=="function" then corner(ui, r) end end
+local function safeStroke(ui, thickness, col, t)
+	if typeof(stroke)=="function" then stroke(ui, thickness, col, t) end
+end
+
+----------------------------------------------------------------
+-- PLAYER PAGE (สร้างครั้งเดียว)
+----------------------------------------------------------------
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then
+	PlayerPage = Instance.new("Frame")
+	PlayerPage.Name = "PlayerPage"
+	PlayerPage.Parent = Right
+	PlayerPage.BackgroundTransparency = 1
+	PlayerPage.Size = UDim2.new(1,0,1,0)
+	PlayerPage.Visible = false -- ยังไม่โชว์จนกว่าจะกดปุ่ม
+end
+
+-- Header ชื่อ + ไอคอน
+local BigHeader = Instance.new("Frame", PlayerPage)
+BigHeader.Name = "BigHeader"
+BigHeader.BackgroundTransparency = 1
+BigHeader.Position = UDim2.new(0, 14, 0, 12)
+BigHeader.Size = UDim2.new(0, 200, 0, 30)
+
+local HIcon = Instance.new("ImageLabel", BigHeader)
+HIcon.BackgroundTransparency = 1
+HIcon.AnchorPoint = Vector2.new(0,0.5)
+HIcon.Position = UDim2.new(0,0,0.5,0)
+HIcon.Size = UDim2.fromOffset(20,20)
+HIcon.Image = PLAYER_ICON
+
+local HText = Instance.new("TextLabel", BigHeader)
+HText.BackgroundTransparency = 1
+HText.AnchorPoint = Vector2.new(0,0.5)
+HText.Position = UDim2.new(0,26,0.5,0)
+HText.Size = UDim2.new(1,-26,1,0)
+HText.Font = Enum.Font.GothamBold
+HText.Text = "Player"
+HText.TextSize = 18
+HText.TextColor3 = Color3.fromRGB(255,255,255)
+HText.TextXAlignment = Enum.TextXAlignment.Left
+
+----------------------------------------------------------------
+-- รูปผู้เล่น + ชื่อ + เวลาการใช้งาน
+----------------------------------------------------------------
+-- รูปผู้เล่น
+local Avatar = Instance.new("ImageLabel", PlayerPage)
+Avatar.BackgroundColor3 = Color3.fromRGB(22,22,22)
+Avatar.BorderSizePixel = 0
+Avatar.AnchorPoint = Vector2.new(0.5,0)
+Avatar.Position = UDim2.new(0.5, 0, 0, 95)
+Avatar.Size = UDim2.fromOffset(240,240)
+Avatar.ScaleType = Enum.ScaleType.Crop
+safeCorner(Avatar,12)
+safeStroke(Avatar,1,Color3.fromRGB(0,255,140),0.35)
+
+task.spawn(function()
+	local ok,url = pcall(function()
+		return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+	end)
+	Avatar.Image = ok and url or "rbxassetid://0"
+end)
+
+-- ชื่อผู้เล่น
+local NameBar = Instance.new("Frame", PlayerPage)
+NameBar.BackgroundColor3 = Color3.fromRGB(245,200,40)
+NameBar.BorderSizePixel = 0
+NameBar.AnchorPoint = Vector2.new(0.5,0)
+NameBar.Position = UDim2.new(0.5, 0, 0, 345)
+NameBar.Size = UDim2.fromOffset(280, 32)
+safeCorner(NameBar, 8)
+
+local NameText = Instance.new("TextLabel", NameBar)
+NameText.BackgroundTransparency = 1
+NameText.Size = UDim2.new(1,-16,1,0)
+NameText.Position = UDim2.new(0,8,0,0)
+NameText.Font = Enum.Font.GothamBold
+NameText.Text = LP.DisplayName or LP.Name
+NameText.TextSize = 18
+NameText.TextColor3 = Color3.fromRGB(25,25,25)
+NameText.TextXAlignment = Enum.TextXAlignment.Center
+
+-- เวลาการใช้งาน (3 บรรทัด)
+local function makeWhiteBar(yOffset)
+	local bar = Instance.new("Frame", PlayerPage)
+	bar.BackgroundColor3 = Color3.fromRGB(245,245,245)
+	bar.BorderSizePixel = 0
+	bar.AnchorPoint = Vector2.new(0.5,0)
+	bar.Position = UDim2.new(0.5, 0, 0, yOffset)
+	bar.Size = UDim2.fromOffset(300, 26)
+	safeCorner(bar, 6)
+	local lbl = Instance.new("TextLabel", bar)
+	lbl.BackgroundTransparency = 1
+	lbl.Size = UDim2.new(1,-16,1,0)
+	lbl.Position = UDim2.new(0,8,0,0)
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 15
+	lbl.TextColor3 = Color3.fromRGB(30,30,30)
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	return lbl
+end
+
+local LabelDays = makeWhiteBar(385)
+local LabelHrs  = makeWhiteBar(415)
+local LabelMin  = makeWhiteBar(445)
+
+----------------------------------------------------------------
+-- ระบบนับเวลาแบบ realtime
+----------------------------------------------------------------
+getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
+local PT = getgenv().UFO_PLAYTIME
+
+local function setNameColor(days)
+	if days >= 365 then
+		NameText.TextColor3 = Color3.fromRGB(255,60,60)
+	elseif days >= 30 then
+		NameText.TextColor3 = Color3.fromRGB(255,215,0)
+	elseif days >= 7 then
+		NameText.TextColor3 = Color3.fromRGB(0,255,140)
+	else
+		NameText.TextColor3 = Color3.fromRGB(25,25,25)
+	end
+end
+
+local acc = 0
+RunS.Heartbeat:Connect(function(dt)
+	acc += dt; if acc < 1 then return end; acc = 0
+	local now   = os.time()
+	local total = (PT.base or 0) + (now - (PT.start or now))
+	local d = math.floor(total/86400)
+	local h = math.floor((total%86400)/3600)
+	local m = math.floor((total%3600)/60)
+	LabelDays.Text = string.format("Days using UFO HUB X : %d", d)
+	LabelHrs.Text  = string.format("Hours using           : %d", h)
+	LabelMin.Text  = string.format("Minutes using         : %d", m)
+	setNameColor(d)
+end)
+
+----------------------------------------------------------------
+-- ผูกกับปุ่ม Player ที่มีอยู่แล้ว
+----------------------------------------------------------------
+local BtnPlayer = Left:FindFirstChild("BtnPlayer")
+if BtnPlayer and BtnPlayer:FindFirstChild("Click") then
+	BtnPlayer.Click.MouseButton1Click:Connect(function()
+		for _,v in ipairs(Right:GetChildren()) do
+			if v:IsA("Frame") then
+				v.Visible = false
+			end
+		end
+		PlayerPage.Visible = true
+	end)
+end
