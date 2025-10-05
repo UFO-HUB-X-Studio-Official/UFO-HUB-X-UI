@@ -678,58 +678,62 @@ if ClickBtn then
 	end)
 end
 ----------------------------------------------------------------
--- PLAYER PAGE : alignment patch (ยกให้สูงขึ้นอีกระดับ)
--- วางต่อท้ายได้เลย ไม่ต้องลบอะไร
+-- PLAYER PAGE : precise layout patch (วางต่อท้ายได้เลย)
+-- ไม่ลบของเก่า/ไม่สร้างหัวข้อ Player ใหม่
 ----------------------------------------------------------------
 local PlayerPage = Right:FindFirstChild("PlayerPage")
 if not PlayerPage then return end
 
--- ===== ปรับได้เองง่ายๆ ตรงนี้ =====
-local AVATAR_W, AVATAR_H = 170, 170   -- ขนาดรูปผู้เล่น
-local AVATAR_Y          = 30          -- ✅ ยกสูงจาก 70 → 30 (ขึ้นเกือบสุดเหมือนในรูป)
-local NAME_BAR_W        = 220
-local NAME_BAR_H        = 26
-local NAME_BAR_GAP      = 10
-local TIME_BAR_W        = 240
-local TIME_BAR_H        = 22
-local TIME_GAP          = 24
--- ===================================
+-- ================= CONFIG (ปรับละเอียดได้) =================
+local AVATAR_W, AVATAR_H = 150, 150   -- ✅ ทำให้เล็กลงตามรูปที่ 2
+local AVATAR_Y           = 24         -- ✅ ยกสูงขึ้น (จากขอบบน Right ลงมา 24px)
 
+local NAME_W,  NAME_H    = 280, 24    -- แถบชื่อ (เหลือง)
+local NAME_GAP           = 10         -- ช่องว่างระหว่างรูปกับชื่อ
+
+local TIME_W,  TIME_H    = 280, 18    -- แถบเวลา (ขาว)
+local TIME_GAP           = 6          -- ระยะห่างระหว่างแถบเวลาแต่ละเส้น
+-- ============================================================
+
+-- reference to parts
 local Avatar  = PlayerPage:FindFirstChild("Avatar")
 local NameBar = PlayerPage:FindFirstChild("NameBar")
 local BarDays = PlayerPage:FindFirstChild("BarDays")
 local BarHours= PlayerPage:FindFirstChild("BarHours")
 local BarMins = PlayerPage:FindFirstChild("BarMins")
 
--- ยก Avatar ขึ้นสูง
+-- 1) รูปผู้เล่น (กึ่งกลางแนวนอน + ยกสูง)
 if Avatar then
-	Avatar.AnchorPoint = Vector2.new(0.5, 0)
-	Avatar.Position    = UDim2.new(0.5, 0, 0, AVATAR_Y)
-	Avatar.Size        = UDim2.fromOffset(AVATAR_W, AVATAR_H)
+    Avatar.AnchorPoint = Vector2.new(0.5, 0)
+    Avatar.Position    = UDim2.new(0.5, 0, 0, AVATAR_Y)
+    Avatar.Size        = UDim2.fromOffset(AVATAR_W, AVATAR_H)
 end
 
--- วางชื่อใต้รูป
-local nameY = AVATAR_Y + AVATAR_H + NAME_BAR_GAP
+-- 2) ชื่อใต้รูป (กึ่งกลางแนวนอน)
+local nameY = AVATAR_Y + AVATAR_H + NAME_GAP
 if NameBar then
-	NameBar.AnchorPoint = Vector2.new(0.5, 0)
-	NameBar.Position    = UDim2.new(0.5, 0, 0, nameY)
-	NameBar.Size        = UDim2.fromOffset(NAME_BAR_W, NAME_BAR_H)
+    NameBar.AnchorPoint = Vector2.new(0.5, 0)
+    NameBar.Position    = UDim2.new(0.5, 0, 0, nameY)
+    NameBar.Size        = UDim2.fromOffset(NAME_W, NAME_H)
 end
 
--- แถบเวลาเรียงใต้ชื่อ
-local firstTimeY = nameY + NAME_BAR_H + 8
+-- 3) แถบเวลา 3 เส้น (เรียงจากบนลงล่าง ใต้ชื่อ)
+local firstTimeY = nameY + NAME_H + 8
 if BarDays then
-	BarDays.AnchorPoint = Vector2.new(0.5, 0)
-	BarDays.Position    = UDim2.new(0.5, 0, 0, firstTimeY)
-	BarDays.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+    BarDays.AnchorPoint = Vector2.new(0.5, 0)
+    BarDays.Position    = UDim2.new(0.5, 0, 0, firstTimeY)
+    BarDays.Size        = UDim2.fromOffset(TIME_W, TIME_H)
 end
+
 if BarHours then
-	BarHours.AnchorPoint = Vector2.new(0.5, 0)
-	BarHours.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP)
-	BarHours.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+    BarHours.AnchorPoint = Vector2.new(0.5, 0)
+    BarHours.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP + TIME_H*0)
+    BarHours.Size        = UDim2.fromOffset(TIME_W, TIME_H)
 end
+
 if BarMins then
-	BarMins.AnchorPoint = Vector2.new(0.5, 0)
-	BarMins.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP*2)
-	BarMins.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+    BarMins.AnchorPoint = Vector2.new(0.5, 0)
+    BarMins.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP*2 + TIME_H*1)
+    -- หมายเหตุ: ถ้าต้องการห่างเท่ากันเป๊ะ ให้คงสูตรนี้ไว้
+    BarMins.Size        = UDim2.fromOffset(TIME_W, TIME_H)
 end
