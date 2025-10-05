@@ -730,3 +730,216 @@ if ClickBtn then
 		PlayerPage.Visible = true
 	end)
 end
+----------------------------------------------------------------
+-- UFO HUB X : SPEED & JUMP SLIDERS + SWITCH (0-100)  [append only]
+----------------------------------------------------------------
+local Players           = game:GetService("Players")
+local UserInputService  = game:GetService("UserInputService")
+local LP                = Players.LocalPlayer
+
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+
+-- helpers (ใช้ corner/stroke ถ้ามีในโปรเจกต์)
+local function SafeCorner(ui, r) if typeof(corner)=="function" then corner(ui, r) end end
+local function SafeStroke(ui, t, c, tr) if typeof(stroke)=="function" then stroke(ui, t, c, tr) end end
+
+-- อ้างอิงชิ้นส่วนด้านบนเพื่อยึดตำแหน่ง
+local NameBar   = PlayerPage:FindFirstChild("NameBar")
+local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
+
+----------------------------------------------------------------
+-- CONFIG การจัดวาง (กะตามรูป: ใต้ตัวเลขเวลา)
+----------------------------------------------------------------
+local BASE_Y     = (TimeLabel and TimeLabel.Position.Y.Offset or 300) + 24
+local GAP_Y      = 20
+local SLIDER_W   = 420   -- กว้างตามแท่งยาวในรูป
+local SLIDER_H   = 20
+local KNOB_W     = 14
+local SWITCH_W   = 44
+local SWITCH_H   = 22
+local GREEN      = Color3.fromRGB(0,255,140)
+local BLACK      = Color3.fromRGB(0,0,0)
+local WHITE      = Color3.fromRGB(255,255,255)
+
+----------------------------------------------------------------
+-- สร้างสไลเดอร์ + toggle สวิตช์
+-- return: {Frame=..., Track=..., Fill=..., Knob=..., Switch=..., SetPercent(fn), GetPercent(fn), SetOn(fn), IsOn(fn)}
+----------------------------------------------------------------
+local function CreateSlider(name, centerX, yOffset)
+    local Holder = Instance.new("Frame")
+    Holder.Name = name
+    Holder.Parent = PlayerPage
+    Holder.AnchorPoint = Vector2.new(0.5,0)
+    Holder.Position = UDim2.new(0.5, centerX, 0, yOffset)
+    Holder.Size = UDim2.fromOffset(SLIDER_W + SWITCH_W + 10, math.max(SLIDER_H, SWITCH_H))
+    Holder.BackgroundTransparency = 1
+
+    -- แทร็ค (ดำ + ขอบเขียว)
+    local Track = Instance.new("Frame")
+    Track.Name = "Track"
+    Track.Parent = Holder
+    Track.BackgroundColor3 = BLACK
+    Track.BorderSizePixel = 0
+    Track.AnchorPoint = Vector2.new(0,0.5)
+    Track.Position = UDim2.new(0, 0, 0.5, 0)
+    Track.Size = UDim2.fromOffset(SLIDER_W, SLIDER_H)
+    SafeCorner(Track, 8)
+    SafeStroke(Track, 1.5, GREEN, 0.6)
+
+    -- แถบเติม (ตามเปอร์เซ็นต์)
+    local Fill = Instance.new("Frame")
+    Fill.Name = "Fill"
+    Fill.Parent = Track
+    Fill.BackgroundColor3 = GREEN
+    Fill.BorderSizePixel = 0
+    Fill.Size = UDim2.new(0, 0, 1, 0)
+    SafeCorner(Fill, 8)
+
+    -- ปุ่มลูกบิด
+    local Knob = Instance.new("Frame")
+    Knob.Name = "Knob"
+    Knob.Parent = Track
+    Knob.AnchorPoint = Vector2.new(0.5,0.5)
+    Knob.Position = UDim2.new(0, 0, 0.5, 0)
+    Knob.Size = UDim2.fromOffset(KNOB_W, SLIDER_H+6)
+    Knob.BackgroundColor3 = BLACK
+    Knob.BorderSizePixel = 0
+    SafeCorner(Knob, 8)
+    SafeStroke(Knob, 1.5, GREEN, 0.6)
+
+    -- สวิตช์ ON/OFF (ขวาสุด)
+    local Switch = Instance.new("Frame")
+    Switch.Name = "Switch"
+    Switch.Parent = Holder
+    Switch.AnchorPoint = Vector2.new(1,0.5)
+    Switch.Position = UDim2.new(1, 0, 0.5, 0)
+    Switch.Size = UDim2.fromOffset(SWITCH_W, SWITCH_H)
+    Switch.BackgroundColor3 = BLACK
+    Switch.BorderSizePixel = 0
+    SafeCorner(Switch, SWITCH_H/2)
+    SafeStroke(Switch, 1.5, GREEN, 0.6)
+
+    local Dot = Instance.new("Frame")
+    Dot.Name = "Dot"
+    Dot.Parent = Switch
+    Dot.BackgroundColor3 = GREEN
+    Dot.BorderSizePixel = 0
+    Dot.AnchorPoint = Vector2.new(0,0.5)
+    Dot.Position = UDim2.new(0, 2, 0.5, 0)
+    Dot.Size = UDim2.fromOffset(SWITCH_H-6, SWITCH_H-6)
+    SafeCorner(Dot, (SWITCH_H-6)/2)
+
+    local ClickSwitch = Instance.new("TextButton")
+    ClickSwitch.Parent = Switch
+    ClickSwitch.BackgroundTransparency = 1
+    ClickSwitch.Text = ""
+    ClickSwitch.Size = UDim2.new(1,0,1,0)
+
+    local ClickDrag = Instance.new("TextButton")
+    ClickDrag.Parent = Track
+    ClickDrag.BackgroundTransparency = 1
+    ClickDrag.Text = ""
+    ClickDrag.Size = UDim2.new(1,0,1,0)
+
+    local _percent = 0
+    local _on = false
+
+    local function SetPercent(p)
+        _percent = math.clamp(p, 0, 100)
+        local px = math.floor(SLIDER_W * (_percent/100))
+        Fill.Size = UDim2.new(0, px, 1, 0)
+        Knob.Position = UDim2.new(0, px, 0.5, 0)
+    end
+
+    local function GetPercent() return _percent end
+
+    local function SetOn(v)
+        _on = not not v
+        if _on then
+            Dot:TweenPosition(UDim2.new(1, - (SWITCH_H-4), 0.5, 0), "Out", "Quad", 0.1, true)
+            Dot.BackgroundColor3 = GREEN
+        else
+            Dot:TweenPosition(UDim2.new(0, 2, 0.5, 0), "Out", "Quad", 0.1, true)
+            Dot.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        end
+    end
+
+    local function IsOn() return _on end
+
+    -- ลากสไลเดอร์
+    local dragging = false
+    ClickDrag.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local abs = Track.AbsolutePosition.X
+        local mx  = (input.Position and input.Position.X) or 0
+        local p   = (mx - abs) / SLIDER_W * 100
+        SetPercent(p)
+    end)
+
+    -- คลิกสวิตช์
+    ClickSwitch.MouseButton1Click:Connect(function()
+        SetOn(not _on)
+    end)
+
+    -- ค่าเริ่มต้น
+    SetPercent(0)
+    SetOn(false)
+
+    return {
+        Frame = Holder, Track = Track, Fill = Fill, Knob = Knob, Switch = Switch,
+        SetPercent = SetPercent, GetPercent = GetPercent, SetOn = SetOn, IsOn = IsOn
+    }
+end
+
+----------------------------------------------------------------
+-- วาง 2 สไลเดอร์: ซ้าย = SPEED, ขวา = JUMP
+-- (ยึดกลางจอ แล้วเลื่อนแกน X ±(SLIDER_W/2 + margin) ให้ตำแหน่งตรงแท่งแดง/น้ำเงินในรูป)
+----------------------------------------------------------------
+local HALF = (SLIDER_W/2) + 24
+local SpeedUI = CreateSlider("SpeedSlider", -HALF, BASE_Y)  -- แท่งซ้าย (เดิมสีแดง)
+local JumpUI  = CreateSlider("JumpSlider",   HALF, BASE_Y)  -- แท่งขวา (เดิมสีน้ำเงิน)
+
+----------------------------------------------------------------
+-- ผูกค่ากับ Humanoid (เปิดสวิตช์ถึงจะมีผล)
+----------------------------------------------------------------
+local DEFAULT_SPEED     = 16
+local DEFAULT_JUMPPOWER = 50   -- โหมด JumpPower
+
+local function getHumanoid()
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    return char:FindFirstChildOfClass("Humanoid")
+end
+
+-- อัปเดตค่าจริงทุก ๆ frame เล็กน้อย ให้ลื่นและตอบสนองทันที
+game:GetService("RunService").Heartbeat:Connect(function()
+    local hum = getHumanoid()
+    if not hum then return end
+
+    -- SPEED
+    if SpeedUI.IsOn() then
+        hum.WalkSpeed = SpeedUI.GetPercent() -- 0–100 ตามสไลเดอร์
+    else
+        hum.WalkSpeed = DEFAULT_SPEED
+    end
+
+    -- JUMP
+    if JumpUI.IsOn() then
+        hum.UseJumpPower = true
+        hum.JumpPower = JumpUI.GetPercent() -- 0–100 ตามสไลเดอร์
+    else
+        hum.UseJumpPower = true
+        hum.JumpPower = DEFAULT_JUMPPOWER
+    end
+end)
