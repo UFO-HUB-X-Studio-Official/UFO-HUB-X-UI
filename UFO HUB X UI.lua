@@ -371,16 +371,12 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : PLAYER (หนึ่งชุดจบ ไม่แตะของเดิม)
--- ต้องมีตัวช่วย corner(), stroke() และตัวแปรสี/ฟอนต์ของเดิมอยู่แล้ว
--- วางหลังจากที่สร้าง Left, Right, imgL, imgR เสร็จเรียบร้อย
+-- UFO HUB X : PLAYER BUTTON (มีกรอบเขียว + รูป + เอฟเฟกต์กด)
 ----------------------------------------------------------------
 local TS = game:GetService("TweenService")
 
--- =====================
--- ไฟล์รูปไอคอนปุ่ม (แก้ได้)
--- =====================
-local PLAYER_ICON = "rbxassetid://10723410880"  -- รูปคน/ผู้เล่น (เปลี่ยนได้)
+-- รูปปุ่ม (เปลี่ยนได้)
+local PLAYER_ICON = "rbxassetid://112676905543996"  -- 👽 UFO HUB X icon หรือเปลี่ยนเป็นไอคอนผู้เล่น
 
 -- =====================
 -- ปุ่ม PLAYER (ฝั่งซ้าย)
@@ -392,13 +388,13 @@ if not BtnPlayer then
     BtnPlayer.Parent = Left
     BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
     BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-    BtnPlayer.BackgroundColor3 = Color3.fromRGB(24,24,24)
+    BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
     BtnPlayer.BorderSizePixel = 0
     BtnPlayer.ClipsDescendants = true
     corner(BtnPlayer, 10)
-    -- ไม่ทำกรอบเขียวตามที่ขอ (clean look)
+    stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6) -- ✅ เส้นสีเขียว
 
-    -- ปุ่มรับคลิก (โปร่งใส ทับเฟรมไว้)
+    -- ปุ่มคลิกโปร่งใส
     local Click = Instance.new("TextButton")
     Click.Name = "Click"
     Click.Parent = BtnPlayer
@@ -419,7 +415,7 @@ if not BtnPlayer then
     Icon.ScaleType = Enum.ScaleType.Fit
     Icon.ZIndex = 2
 
-    -- ข้อความ
+    -- ชื่อ "Player"
     local Text = Instance.new("TextLabel")
     Text.Name = "Label"
     Text.Parent = BtnPlayer
@@ -429,80 +425,53 @@ if not BtnPlayer then
     Text.Size = UDim2.new(1, -52, 1, 0)
     Text.Font = Enum.Font.GothamBold
     Text.Text = "Player"
-    Text.TextSize = 16
+    Text.TextSize = 15
     Text.TextXAlignment = Enum.TextXAlignment.Left
-    Text.TextColor3 = Color3.fromRGB(235,235,235)
+    Text.TextColor3 = Color3.fromRGB(255,255,255)
     Text.ZIndex = 2
 
-    -- เอฟเฟกต์กด/โฮเวอร์ (ไม่มีกรอบ, ใช้สีล้วน)
-    local COLOR_IDLE   = Color3.fromRGB(24,24,24)
-    local COLOR_HOVER  = Color3.fromRGB(30,30,30)
-    local COLOR_ACTIVE = Color3.fromRGB(36,36,36)
+    -- เอฟเฟกต์กด / hover
+    local COLOR_IDLE   = Color3.fromRGB(20,20,20)
+    local COLOR_HOVER  = Color3.fromRGB(28,28,28)
+    local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
     local pressed = false
 
     local function tweenColor(c)
-        TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = c}):Play()
+        TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = c
+        }):Play()
     end
 
-    -- สถานะ Active ตอนเริ่ม (ให้หน้า Player โชว์อยู่แล้ว)
-    BtnPlayer:SetAttribute("active", true)
-    BtnPlayer.BackgroundColor3 = COLOR_ACTIVE
+    BtnPlayer:SetAttribute("active", false)
 
     Click.MouseEnter:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then tweenColor(COLOR_HOVER) end
+        if not BtnPlayer:GetAttribute("active") then
+            tweenColor(COLOR_HOVER)
+        end
     end)
+
     Click.MouseLeave:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then tweenColor(COLOR_IDLE) end
+        if not BtnPlayer:GetAttribute("active") then
+            tweenColor(COLOR_IDLE)
+        end
     end)
+
     Click.MouseButton1Down:Connect(function()
-        pressed = true
         tweenColor(COLOR_ACTIVE)
         Icon:TweenSize(UDim2.new(0,20,0,20), "Out", "Quad", 0.08, true)
     end)
+
     Click.MouseButton1Up:Connect(function()
-        if pressed then
-            pressed = false
-            Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
-        end
+        Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
     end)
+
     Click.MouseButton1Click:Connect(function()
-        -- ทำเป็น Active
         BtnPlayer:SetAttribute("active", true)
         tweenColor(COLOR_ACTIVE)
-        -- ถ้ามีปุ่มอื่นในอนาคต ก็กวาด set inactive ให้กลับสีเดิมได้ที่นี่
-
-        -- เปิดหน้า PlayerPage (ฝั่งขวา)
-        local pp = Right:FindFirstChild("PlayerPage")
-        if pp then pp.Visible = true end
+        -- เอฟเฟกต์แสดงว่ากำลังกดปุ่มนี้
+        stroke(BtnPlayer, 1.8, Color3.fromRGB(0,255,140), 1)
+        task.delay(0.25, function()
+            stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6)
+        end)
     end)
-end
-
--- =====================
--- หน้า PLAYER (ฝั่งขวา)
--- =====================
-local PlayerPage = Right:FindFirstChild("PlayerPage")
-if not PlayerPage then
-    PlayerPage = Instance.new("Frame")
-    PlayerPage.Name = "PlayerPage"
-    PlayerPage.Parent = Right
-    PlayerPage.BackgroundTransparency = 1
-    PlayerPage.Size = UDim2.new(1,0,1,0)
-    PlayerPage.Visible = true   -- ให้แสดงเป็นหน้าแรก
-end
-
--- หัวข้อใหญ่ "Player" (ไม่มีกรอบ/เส้นเขียว)
-local Header = PlayerPage:FindFirstChild("Header")
-if not Header then
-    Header = Instance.new("TextLabel")
-    Header.Name = "Header"
-    Header.Parent = PlayerPage
-    Header.BackgroundTransparency = 1
-    Header.Position = UDim2.new(0, 16, 0, 14)
-    Header.Size = UDim2.new(1, -32, 0, 26)
-    Header.Font = Enum.Font.GothamBold
-    Header.Text = "Player"
-    Header.TextSize = 20
-    Header.TextXAlignment = Enum.TextXAlignment.Left
-    Header.TextColor3 = Color3.fromRGB(255,255,255)
-    Header.ZIndex = 5  -- ให้อยู่เหนือภาพพื้นหลัง Right
 end
