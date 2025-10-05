@@ -951,105 +951,121 @@ RunService.Heartbeat:Connect(function()
 		Hum.JumpPower=DEF_JUMPPOWER
 	end
 end)
-
--- UFO HUB X : FLY PAD (Placement-only + live nudge)
-local Players    = game:GetService("Players")
-local UserInput  = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- UFO HUB X : FLY BOX (force show) — black box + neon-green stroke + toggle
+local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
 
--- ลบของเก่า
+-- wipe old
 local old = PG:FindFirstChild("UFO_FlyPadGui")
 if old then old:Destroy() end
 
--- ===== ตั้งค่าเริ่มต้น (เดาย้ายใกล้กรอบแดง ถ้าไม่เป๊ะ ใช้คีย์ลัดขยับ) =====
-local POS  = UDim2.new(0, 200, 0, 520)  -- ตำแหน่งมุมซ้ายบน
-local SIZE = UDim2.fromOffset(320, 180) -- กว้าง/สูงของกรอบ
-
 -- helpers
-local function corner(ui,r) local c=ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=ui end
-local function stroke(ui,t,col,tr) local s=ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke"); s.Thickness=t; s.Color=col; s.Transparency=tr or 0.25; s.Parent=ui end
+local function corner(ui, r)
+    local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r); c.Parent = ui
+end
+local function stroke(ui, t, col, tr)
+    local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+    s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
+end
 local ACC = Color3.fromRGB(0,255,140)
 
--- ScreenGui
+-- ScreenGui (บังคับขึ้นบนสุด)
 local gui = Instance.new("ScreenGui")
 gui.Name = "UFO_FlyPadGui"
 gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 99999
 gui.Parent = PG
 
--- กล่องหลัก (เฉพาะวางตำแหน่ง ยังไม่ใส่ระบบควบคุม)
+-- ⬇️ ปรับตรงนี้อย่างเดียวถ้าต้องเลื่อนตำแหน่ง/ขนาด
+local BOX_POS  = UDim2.new(0, 120, 1, -240)   -- X จากซ้าย, Y จากล่าง (ค่า offset)
+local BOX_SIZE = UDim2.fromOffset(340, 180)   -- กว้าง x สูง (ให้พอดีกับกรอบแดง)
+
+-- กล่องหลัก
 local box = Instance.new("Frame")
 box.Name = "FlyBox"
-box.Size = SIZE
-box.Position = POS
 box.BackgroundColor3 = Color3.fromRGB(0,0,0)
 box.BorderSizePixel = 0
-corner(box,12); stroke(box,1.2,ACC,0.35)
+box.Position = BOX_POS
+box.Size = BOX_SIZE
+box.ZIndex = 50
+corner(box, 12); stroke(box, 1.2, ACC, 0.35)
 box.Parent = gui
 
+-- ชื่อ (สีขาว)
 local title = Instance.new("TextLabel")
 title.BackgroundTransparency = 1
-title.Text = "Fly ✈️  |  Pos("..box.Position.X.Offset..","..box.Position.Y.Offset..") Size("..box.Size.X.Offset..","..box.Size.Y.Offset..")"
-title.TextColor3 = Color3.fromRGB(255,255,255)
 title.Font = Enum.Font.GothamBold
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "Fly ✈️"
+title.TextColor3 = Color3.fromRGB(255,255,255)
 title.TextSize = 16
-title.Position = UDim2.new(0,10,0,6)
-title.Size = UDim2.new(1,-20,0,22)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Position = UDim2.new(0, 12, 0, 6)
+title.Size = UDim2.new(1,-24,0,20)
+title.ZIndex = 51
 title.Parent = box
 
--- ปุ่มตัวอย่าง (ให้เห็นพื้นที่จริง) — เดี๋ยวค่อยใส่ระบบทีหลัง
-local demo = Instance.new("TextLabel")
-demo.Parent = box
-demo.BackgroundTransparency = 1
-demo.Text = "ตำแหน่งถูกแล้วค่อยทำระบบ"
-demo.TextColor3 = Color3.fromRGB(200,200,200)
-demo.Font = Enum.Font.GothamMedium
-demo.TextSize = 14
-demo.Position = UDim2.new(0,10,0,36)
-demo.Size = UDim2.new(1,-20,1,-46)
+-- เส้นเลเซอร์บน
+local laser = Instance.new("Frame")
+laser.BackgroundColor3 = ACC
+laser.BorderSizePixel = 0
+laser.AnchorPoint = Vector2.new(0.5,0)
+laser.Position = UDim2.new(0.5,0,0,28)
+laser.Size = UDim2.new(1,-24,0,2)
+laser.ZIndex = 51
+laser.Parent = box
 
--- ===== โหมดขยับแบบสด (ไม่ต้องแก้โค้ด) =====
--- คีย์ลัด (กด Alt ค้าง):
--- Alt + ลูกศร  = ขยับทีละ 5px
--- Alt + Shift + ลูกศร = ขยับทีละ 20px
--- Alt + [ / ]  = ลด/เพิ่มความกว้าง 5px  (Alt+Shift = 20px)
--- Alt + ; / '  = ลด/เพิ่มความสูง 5px   (Alt+Shift = 20px)
-local altDown, shiftDown = false, false
-UserInput.InputBegan:Connect(function(io,gp)
-    if gp then return end
-    if io.KeyCode == Enum.KeyCode.LeftAlt or io.KeyCode == Enum.KeyCode.RightAlt then altDown = true end
-    if io.KeyCode == Enum.KeyCode.LeftShift or io.KeyCode == Enum.KeyCode.RightShift then shiftDown = true end
-    if not altDown then return end
+-- สวิตช์เปิด/ปิด (เฉพาะ UI)
+local sw = Instance.new("Frame")
+sw.Name = "Switch"
+sw.BackgroundColor3 = Color3.fromRGB(0,0,0)
+sw.BorderSizePixel = 0
+sw.AnchorPoint = Vector2.new(1,0)
+sw.Position = UDim2.new(1, -12, 0, 6)
+sw.Size = UDim2.fromOffset(38, 18)
+sw.ZIndex = 51
+corner(sw, 999); stroke(sw, 1, ACC, 0.35)
+sw.Parent = box
 
-    local step = shiftDown and 20 or 5
-    local p = box.Position
-    local s = box.Size
+local dot = Instance.new("Frame")
+dot.Name = "Dot"
+dot.BackgroundColor3 = Color3.fromRGB(120,120,120) -- เริ่มปิด
+dot.BorderSizePixel = 0
+dot.AnchorPoint = Vector2.new(0,0.5)
+dot.Position = UDim2.new(0, 2, 0.5, 0)
+dot.Size = UDim2.fromOffset(14, 14)
+dot.ZIndex = 52
+corner(dot, 999)
+dot.Parent = sw
 
-    if io.KeyCode == Enum.KeyCode.Left then
-        box.Position = UDim2.new(p.X.Scale, p.X.Offset - step, p.Y.Scale, p.Y.Offset)
-    elseif io.KeyCode == Enum.KeyCode.Right then
-        box.Position = UDim2.new(p.X.Scale, p.X.Offset + step, p.Y.Scale, p.Y.Offset)
-    elseif io.KeyCode == Enum.KeyCode.Up then
-        box.Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset - step)
-    elseif io.KeyCode == Enum.KeyCode.Down then
-        box.Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset + step)
-    elseif io.KeyCode == Enum.KeyCode.LeftBracket then
-        box.Size = UDim2.fromOffset(s.X.Offset - step, s.Y.Offset)
-    elseif io.KeyCode == Enum.KeyCode.RightBracket then
-        box.Size = UDim2.fromOffset(s.X.Offset + step, s.Y.Offset)
-    elseif io.KeyCode == Enum.KeyCode.Semicolon then
-        box.Size = UDim2.fromOffset(s.X.Offset, s.Y.Offset - step)
-    elseif io.KeyCode == Enum.KeyCode.Quote then
-        box.Size = UDim2.fromOffset(s.X.Offset, s.Y.Offset + step)
+-- ข้อความ placeholder
+local hint = Instance.new("TextLabel")
+hint.BackgroundTransparency = 1
+hint.Font = Enum.Font.GothamMedium
+hint.Text = "ตำแหน่งถูกแล้วใช่ไหม? ถ้าไม่ ให้บอกเลข offset/size แล้วจะใส่ปุ่มบินให้ต่อ"
+hint.TextColor3 = Color3.fromRGB(200,200,200)
+hint.TextSize = 14
+hint.TextWrapped = true
+hint.TextXAlignment = Enum.TextXAlignment.Left
+hint.TextYAlignment = Enum.TextYAlignment.Top
+hint.Position = UDim2.new(0, 12, 0, 40)
+hint.Size = UDim2.new(1,-24,1,-52)
+hint.ZIndex = 51
+hint.Parent = box
+
+-- กดสวิตช์ (แค่เปลี่ยนด้านจุดและสี ให้เห็นว่า “ติด/ดับ”)
+sw.InputBegan:Connect(function(io)
+    if io.UserInputType == Enum.UserInputType.MouseButton1 then
+        local on = dot.Position.X.Offset < sw.Size.X.Offset/2
+        if on then
+            dot.Position = UDim2.new(1, -16, 0.5, 0)
+            dot.BackgroundColor3 = ACC
+        else
+            dot.Position = UDim2.new(0, 2, 0.5, 0)
+            dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+        end
     end
-
-    title.Text = ("Fly ✈️  |  Pos(%d,%d) Size(%d,%d)")
-        :format(box.Position.X.Offset, box.Position.Y.Offset, box.Size.X.Offset, box.Size.Y.Offset)
-end)
-
-UserInput.InputEnded:Connect(function(io)
-    if io.KeyCode == Enum.KeyCode.LeftAlt or io.KeyCode == Enum.KeyCode.RightAlt then altDown = false end
-    if io.KeyCode == Enum.KeyCode.LeftShift or io.KeyCode == Enum.KeyCode.RightShift then shiftDown = false end
 end)
