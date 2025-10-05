@@ -377,7 +377,7 @@ end
 local TS = game:GetService("TweenService")
 
 -- ไอคอนที่ใช้ทั้งปุ่มซ้าย และหัวข้อใหญ่ฝั่งขวา (เปลี่ยนได้)
-local PLAYER_ICON = "rbxassetid://112676905543996"
+local PLAYER_ICON = "rbxassetid://116976545042904"
 
 -- ===== ปุ่ม PLAYER (ฝั่งซ้าย) =====
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
