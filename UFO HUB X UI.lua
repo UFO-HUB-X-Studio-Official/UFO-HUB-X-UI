@@ -731,291 +731,282 @@ if ClickBtn then
 	end)
 end
 ----------------------------------------------------------------
--- FIX: Visible + Precise placement for SPEED/JUMP sliders
--- (append-only; will rebuild if missing)
+-- UFO HUB X : SPEED/JUMP SLIDERS (single drop-in)
+-- สร้าง/อัปเดตสไลเดอร์ 0–100 + สวิตช์ เปิด/ปิด
+-- หน้าตา: แถบดำ เส้นเขียว ปุ่มกลม สีเขียว
 ----------------------------------------------------------------
-local Players           = game:GetService("Players")
-local RunService        = game:GetService("RunService")
-local UserInputService  = game:GetService("UserInputService")
-local LP                = Players.LocalPlayer
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local UserInput    = game:GetService("UserInputService")
 
+local LP           = Players.LocalPlayer
+local Char         = LP.Character or LP.CharacterAdded:Wait()
+local Hum          = Char:WaitForChild("Humanoid")
+
+-- helper ปลอดภัย (ใช้ของเดิมถ้ามี ไม่งั้นสร้างให้)
+local function applyCorner(inst, r)
+	if typeof(corner)=="function" then
+		corner(inst, r); return
+	end
+	local c = inst:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = inst
+end
+
+local function applyStroke(inst, thickness, color, transparency)
+	if typeof(stroke)=="function" then
+		stroke(inst, thickness, color, transparency); return
+	end
+	local s = inst:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	s.Thickness = thickness
+	s.Color = color
+	s.Transparency = transparency or 0
+	s.Parent = inst
+end
+
+local function clamp(n, a, b)
+	return math.max(a, math.min(b, n))
+end
+
+-- ===== อ้างอิงหน้า PlayerPage + จุดยึดวางใต้เวลา =====
 local PlayerPage = Right:FindFirstChild("PlayerPage")
 if not PlayerPage then return end
 
-local function SafeCorner(ui, r) if typeof(corner)=="function" then corner(ui, r) end end
-local function SafeStroke(ui, t, c, tr) if typeof(stroke)=="function" then stroke(ui, t, c, tr) end end
-local GREEN, BLACK = Color3.fromRGB(0,255,140), Color3.fromRGB(0,0,0)
-
--- ---- helpers
-local function zAll(inst, z)
-	for _,d in ipairs(inst:GetDescendants()) do
-		if d:IsA("GuiObject") then d.ZIndex = z end
+local TimeLabel  = PlayerPage:FindFirstChild("TimeLabel")
+local function baseY()
+	if TimeLabel then
+		return TimeLabel.Position.Y.Offset + TimeLabel.AbsoluteSize.Y + 14
 	end
-	if inst:IsA("GuiObject") then inst.ZIndex = z end
+	return math.floor(PlayerPage.AbsoluteSize.Y * 0.62)
 end
 
-local SLIDER_W, SLIDER_H, KNOB_W = 420, 20, 14
-local SWITCH_W, SWITCH_H = 44, 22
-
-local function CreateSlider(name, centerOffsetX, baseY)
-	-- Holder
-	local Holder = Instance.new("Frame")
-	Holder.Name = name
-	Holder.Parent = PlayerPage
-	Holder.AnchorPoint = Vector2.new(0.5,0)
-	Holder.Position = UDim2.new(0.5, centerOffsetX, 0, baseY)
-	Holder.Size = UDim2.fromOffset(SLIDER_W + SWITCH_W + 10, math.max(SLIDER_H, SWITCH_H))
-	Holder.BackgroundTransparency = 1
-	Holder.ClipsDescendants = false
-	Holder.ZIndex = 50
-
-	-- Track (ดำ + ขอบเขียว)
-	local Track = Instance.new("Frame")
-	Track.Name = "Track"
-	Track.Parent = Holder
-	Track.BackgroundColor3 = BLACK
-	Track.BorderSizePixel = 0
-	Track.AnchorPoint = Vector2.new(0,0.5)
-	Track.Position = UDim2.new(0, 0, 0.5, 0)
-	Track.Size = UDim2.fromOffset(SLIDER_W, SLIDER_H)
-	SafeCorner(Track, 8)  SafeStroke(Track, 1.5, GREEN, 0.6)
-
-	local Fill = Instance.new("Frame")
-	Fill.Name = "Fill"
-	Fill.Parent = Track
-	Fill.BackgroundColor3 = GREEN
-	Fill.BorderSizePixel = 0
-	Fill.Size = UDim2.new(0, 0, 1, 0)
-	SafeCorner(Fill, 8)
-
-	local Knob = Instance.new("Frame")
-	Knob.Name = "Knob"
-	Knob.Parent = Track
-	Knob.AnchorPoint = Vector2.new(0.5,0.5)
-	Knob.Position = UDim2.new(0, 0, 0.5, 0)
-	Knob.Size = UDim2.fromOffset(KNOB_W, SLIDER_H+6)
-	Knob.BackgroundColor3 = BLACK
-	Knob.BorderSizePixel = 0
-	SafeCorner(Knob, 8)  SafeStroke(Knob, 1.5, GREEN, 0.6)
-
-	-- Switch
-	local Switch = Instance.new("Frame")
-	Switch.Name = "Switch"
-	Switch.Parent = Holder
-	Switch.AnchorPoint = Vector2.new(1,0.5)
-	Switch.Position = UDim2.new(1, 0, 0.5, 0)
-	Switch.Size = UDim2.fromOffset(SWITCH_W, SWITCH_H)
-	Switch.BackgroundColor3 = BLACK
-	Switch.BorderSizePixel = 0
-	SafeCorner(Switch, SWITCH_H/2)  SafeStroke(Switch, 1.5, GREEN, 0.6)
-
-	local Dot = Instance.new("Frame")
-	Dot.Parent = Switch
-	Dot.BackgroundColor3 = Color3.fromRGB(90,90,90)
-	Dot.BorderSizePixel = 0
-	Dot.AnchorPoint = Vector2.new(0,0.5)
-	Dot.Position = UDim2.new(0, 2, 0.5, 0)
-	Dot.Size = UDim2.fromOffset(SWITCH_H-6, SWITCH_H-6)
-	SafeCorner(Dot, (SWITCH_H-6)/2)
-
-	local ClickSwitch = Instance.new("TextButton")
-	ClickSwitch.Parent = Switch
-	ClickSwitch.BackgroundTransparency = 1
-	ClickSwitch.Text = ""
-	ClickSwitch.Size = UDim2.new(1,0,1,0)
-
-	local ClickDrag = Instance.new("TextButton")
-	ClickDrag.Parent = Track
-	ClickDrag.BackgroundTransparency = 1
-	ClickDrag.Text = ""
-	ClickDrag.Size = UDim2.new(1,0,1,0)
-
-	local _percent, _on = 0, false
-	local function SetPercent(p)
-		_percent = math.clamp(p,0,100)
-		local px = math.floor(SLIDER_W * (_percent/100))
-		Fill.Size = UDim2.new(0, px, 1, 0)
-		Knob.Position = UDim2.new(0, px, 0.5, 0)
-	end
-	local function GetPercent() return _percent end
-	local function SetOn(v)
-		_on = not not v
-		if _on then
-			Dot.BackgroundColor3 = GREEN
-			Dot:TweenPosition(UDim2.new(1, -(SWITCH_H-4), 0.5, 0), "Out", "Quad", 0.1, true)
-		else
-			Dot.BackgroundColor3 = Color3.fromRGB(90,90,90)
-			Dot:TweenPosition(UDim2.new(0, 2, 0.5, 0), "Out", "Quad", 0.1, true)
-		end
-	end
-	local function IsOn() return _on end
-
-	-- dragging
-	local dragging=false
-	ClickDrag.MouseButton1Down:Connect(function() dragging=true end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-			dragging=false
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if not dragging then return end
-		if input.UserInputType~=Enum.UserInputType.MouseMovement and input.UserInputType~=Enum.UserInputType.Touch then return end
-		local absX = Track.AbsolutePosition.X
-		local mx   = input.Position.X
-		SetPercent((mx-absX)/SLIDER_W*100)
-	end)
-	ClickSwitch.MouseButton1Click:Connect(function() SetOn(not _on) end)
-
-	-- ZIndex สูงๆ
-	zAll(Holder, 50)
-	SetPercent(0)  SetOn(false)
-
-	return {Holder=Holder, GetPercent=GetPercent, SetPercent=SetPercent, IsOn=IsOn, SetOn=SetOn}
-end
-
--- วัดตำแหน่งจริงหลัง UI วาดแล้ว
-task.defer(function()
-	RunService.RenderStepped:Wait()
-
-	local tl  = PlayerPage:FindFirstChild("TimeLabel")
-	local nb  = PlayerPage:FindFirstChild("NameBar")
-	local baseY
-	if tl then
-		baseY = (tl.AbsolutePosition.Y - PlayerPage.AbsolutePosition.Y) + tl.AbsoluteSize.Y + 10
-	elseif nb then
-		baseY = (nb.AbsolutePosition.Y - PlayerPage.AbsolutePosition.Y) + nb.AbsoluteSize.Y + 40
-	else
-		baseY = 300
-	end
-
-	-- วางซ้าย-ขวาให้ตรงจุดแท่งแดง/น้ำเงินในรูป
-	local HALF = (SLIDER_W/2) + 24
-	local SpeedUI = CreateSlider("SpeedSlider", -HALF, baseY) -- ซ้าย
-	local JumpUI  = CreateSlider("JumpSlider",   HALF, baseY) -- ขวา
-
-	-- ผูกกับ Humanoid
-	local DEFAULT_SPEED, DEFAULT_JUMP = 16, 50
-	local function hum()
-		local ch = LP.Character or LP.CharacterAdded:Wait()
-		return ch:FindFirstChildOfClass("Humanoid")
-	end
-
-	RunService.Heartbeat:Connect(function()
-		local h = hum(); if not h then return end
-		if SpeedUI.IsOn() then h.WalkSpeed = SpeedUI.GetPercent() else h.WalkSpeed = DEFAULT_SPEED end
-		if JumpUI.IsOn()  then h.UseJumpPower=true; h.JumpPower = JumpUI.GetPercent()
-		                   else h.UseJumpPower=true; h.JumpPower = DEFAULT_JUMP end
-	end)
-end)
-----------------------------------------------------------------
--- PLAYER SLIDERS : Precision Fit v2 (match layout of image #2)
--- วาง/ปรับขนาดสไลเดอร์ให้พอดีรูปตัวอย่างแบบสมมาตรอัตโนมัติ
--- ✅ ไม่สร้างซ้ำ ถ้ามีอยู่แล้วจะอัปเดตขนาด/ตำแหน่งให้
-----------------------------------------------------------------
-local RunService = game:GetService("RunService")
-
-local PlayerPage = Right:FindFirstChild("PlayerPage")
-if not PlayerPage then return end
-
-local function lerp(a,b,t) return a+(b-a)*t end
-local function round(n) return math.floor(n+0.5) end
-
--- ค่ามาตรฐาน (เทียบจากภาพตัวอย่าง)
+-- ===== สไตล์/สัดส่วน (ปรับละเอียดได้) =====
 local CFG = {
-	relTrackWidth  = 0.365,  -- ความกว้างแถบแต่ละอัน ~36.5% ของความกว้าง PlayerPage
-	relPairOffsetX = 0.275,  -- ระยะเยื้องแกนกลางไปซ้าย/ขวา ~27.5% (ให้วางซ้าย-ขวาพอดี)
-	trackH         = 18,     -- ความสูงแถบ
-	knobW          = 12,     -- ความกว้างปุ่มเลื่อน
-	switchW        = 44,     -- สวิตช์ on/off
+	relTrackWidth  = 0.365,    -- ความกว้างแถบ ~36.5% ของ PlayerPage
+	relPairOffsetX = 0.275,    -- เยื้องซ้าย/ขวา ~27.5% ของความกว้าง
+	trackH         = 18,       -- สูงของแทร็ค
+	knobW          = 12,       -- กว้างปุ่ม
+	switchW        = 44,       -- สวิตช์
 	switchH        = 22,
-	baseGapY       = 14,     -- ระยะจาก TimeLabel ลงมา
-	holderPadX     = 10,     -- ระยะเผื่อพื้นที่สวิตช์ด้านขวา
+	holderPadX     = 10,       -- เผื่อที่ให้สวิตช์
+	colorTrack     = Color3.fromRGB(10,10,10),
+	colorStroke    = Color3.fromRGB(0,255,140),
+	colorFill      = Color3.fromRGB(0,255,140),
+	colorKnob      = Color3.fromRGB(220,220,220),
 }
 
--- หา TimeLabel/NameBar เพื่อคุมตำแหน่งแนวแกน Y
-local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
-local NameBar   = PlayerPage:FindFirstChild("NameBar")
+-- ===== ฟังก์ชันสร้างสไลเดอร์ 1 ชุด =====
+local function ensureSlider(name)
+	local Holder = PlayerPage:FindFirstChild(name)
+	if not Holder then
+		Holder = Instance.new("Frame")
+		Holder.Name = name
+		Holder.BackgroundTransparency = 1
+		Holder.Parent = PlayerPage
 
--- คืนตัวสไลเดอร์ (ที่สร้างไว้ก่อน) ถ้าไม่มีให้หยุด
-local SpeedUI = PlayerPage:FindFirstChild("SpeedSlider")
-local JumpUI  = PlayerPage:FindFirstChild("JumpSlider")
-if not (SpeedUI and JumpUI) then return end
+		-- แทร็ค (ดำ + เส้นเขียว)
+		local Track = Instance.new("Frame")
+		Track.Name = "Track"
+		Track.Parent = Holder
+		Track.AnchorPoint = Vector2.new(0,0.5)
+		Track.BackgroundColor3 = CFG.colorTrack
+		Track.BorderSizePixel = 0
+		applyCorner(Track, 10)
+		applyStroke(Track, 1.4, CFG.colorStroke, 0.2)
 
--- ฟังก์ชันอัปเดตตำแหน่ง/ขนาดแบบไดนามิก (เรียกเมื่อเริ่มและเวลา resize)
-local function updatePrecise()
-	-- รอให้ UI คำนวณขนาดจริง
+		-- แถบเติม (สีเขียว)
+		local Fill = Instance.new("Frame")
+		Fill.Name = "Fill"
+		Fill.Parent = Track
+		Fill.AnchorPoint = Vector2.new(0,0.5)
+		Fill.Position = UDim2.new(0,0,0.5,0)
+		Fill.Size = UDim2.new(0,0,1,0)
+		Fill.BackgroundColor3 = CFG.colorFill
+		Fill.BorderSizePixel = 0
+		applyCorner(Fill, 10)
+
+		-- ปุ่มเลื่อน
+		local Knob = Instance.new("Frame")
+		Knob.Name = "Knob"
+		Knob.Parent = Track
+		Knob.AnchorPoint = Vector2.new(0.5,0.5)
+		Knob.Position = UDim2.new(0,0,0.5,0)
+		Knob.Size = UDim2.fromOffset(CFG.knobW, CFG.trackH+6)
+		Knob.BackgroundColor3 = CFG.colorKnob
+		Knob.BorderSizePixel = 0
+		applyCorner(Knob, 10)
+		applyStroke(Knob, 1.2, CFG.colorStroke, 0)
+
+		-- สวิตช์ on/off
+		local Switch = Instance.new("Frame")
+		Switch.Name = "Switch"
+		Switch.Parent = Holder
+		Switch.BackgroundColor3 = CFG.colorTrack
+		Switch.BorderSizePixel = 0
+		applyCorner(Switch, 999)
+		applyStroke(Switch, 1.2, CFG.colorStroke, 0.2)
+
+		local Dot = Instance.new("Frame")
+		Dot.Name = "Dot"
+		Dot.Parent = Switch
+		Dot.BackgroundColor3 = CFG.colorFill
+		Dot.BorderSizePixel = 0
+		applyCorner(Dot, 999)
+		Dot.AnchorPoint = Vector2.new(0,0.5)
+		Dot.Position = UDim2.new(0,2,0.5,0)
+		Dot.Size = UDim2.fromOffset(CFG.switchH-4, CFG.switchH-4)
+
+		-- ค่า ณ ปัจจุบัน
+		local Val = Instance.new("NumberValue")
+		Val.Name = "Value"
+		Val.Parent = Holder
+		Val.Value = 0
+
+		local Enabled = Instance.new("BoolValue")
+		Enabled.Name = "Enabled"
+		Enabled.Parent = Holder
+		Enabled.Value = true
+	end
+	return Holder
+end
+
+local SpeedUI = ensureSlider("SpeedSlider")
+local JumpUI  = ensureSlider("JumpSlider")
+
+-- ===== จัดตำแหน่ง/ขนาดแบบไดนามิกให้พอดีรูป =====
+local function layout()
 	RunService.RenderStepped:Wait()
 
-	local pgAbs = PlayerPage.AbsoluteSize
-	local pgTop = PlayerPage.AbsolutePosition
-
-	-- คำนวณความกว้าง track ตามสัดส่วน
-	local trackW = round(pgAbs.X * CFG.relTrackWidth)
+	local pgW = PlayerPage.AbsoluteSize.X
+	local trackW = math.floor(pgW * CFG.relTrackWidth + 0.5)
 	local holderW = trackW + CFG.switchW + CFG.holderPadX
 	local holderH = math.max(CFG.trackH, CFG.switchH)
 
-	-- คำนวณตำแหน่งแกน Y อ้างอิงจาก TimeLabel (ตกลงรูปที่ 2: อยู่ใต้เวลา)
-	local baseY
-	if TimeLabel then
-		baseY = (TimeLabel.AbsolutePosition.Y - pgTop.Y) + TimeLabel.AbsoluteSize.Y + CFG.baseGapY
-	elseif NameBar then
-		baseY = (NameBar.AbsolutePosition.Y - pgTop.Y) + NameBar.AbsoluteSize.Y + 28
-	else
-		baseY = round(pgAbs.Y * 0.62)
+	local y = baseY()
+	local offX = math.floor(pgW * CFG.relPairOffsetX + 0.5)
+
+	local function place(Holder, side) -- side = -1 (ซ้าย) หรือ 1 (ขวา)
+		Holder.AnchorPoint = Vector2.new(0.5,0)
+		Holder.Position    = UDim2.new(0.5, side*offX, 0, y)
+		Holder.Size        = UDim2.fromOffset(holderW, holderH)
+
+		local Track  = Holder.Track
+		local Fill   = Track.Fill
+		local Knob   = Track.Knob
+		local Switch = Holder.Switch
+		local Dot    = Switch.Dot
+
+		Track.Size     = UDim2.fromOffset(trackW, CFG.trackH)
+		Track.Position = UDim2.new(0,0,0.5,0)
+		Knob.Size      = UDim2.fromOffset(CFG.knobW, CFG.trackH+6)
+
+		Switch.AnchorPoint = Vector2.new(1,0.5)
+		Switch.Position    = UDim2.new(1, 0, 0.5, 0)
+		Switch.Size        = UDim2.fromOffset(CFG.switchW, CFG.switchH)
+		Dot.Size           = UDim2.fromOffset(CFG.switchH-4, CFG.switchH-4)
+
+		-- อัปเดตตำแหน่ง Fill/Knob ตามค่า 0–100
+		local v = clamp(Holder.Value.Value, 0, 100)
+		local px = math.floor((v/100) * (trackW - CFG.knobW) + 0.5)
+		Knob.Position = UDim2.new(0, px, 0.5, 0)
+		Fill.Size     = UDim2.new(0, px + CFG.knobW*0.5, 1, 0)
+
+		-- อัปเดต Dot ตามสถานะสวิตช์
+		if Holder.Enabled.Value then
+			Dot.Position = UDim2.new(1, -(CFG.switchH-2), 0.5, 0)
+			Dot.BackgroundColor3 = CFG.colorFill
+		else
+			Dot.Position = UDim2.new(0, 2, 0.5, 0)
+			Dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+		end
 	end
 
-	-- ระยะเยื้องแกน X ให้แยกซ้าย/ขวาสมมาตร
-	local offsetX = round(pgAbs.X * CFG.relPairOffsetX)
-
-	-- === จัด Speed (ซ้าย)
-	SpeedUI.AnchorPoint = Vector2.new(0.5,0)
-	SpeedUI.Position    = UDim2.new(0.5, -offsetX, 0, baseY)
-	SpeedUI.Size        = UDim2.fromOffset(holderW, holderH)
-
-	local STrack = SpeedUI:FindFirstChild("Track")
-	local SKnob  = STrack and STrack:FindFirstChild("Knob")
-	local SFill  = STrack and STrack:FindFirstChild("Fill")
-	local SSwitch= SpeedUI:FindFirstChild("Switch")
-	if STrack then
-		STrack.Size     = UDim2.fromOffset(trackW, CFG.trackH)
-		STrack.Position = UDim2.new(0,0,0.5,0)
-	end
-	if SKnob then SKnob.Size = UDim2.fromOffset(CFG.knobW, CFG.trackH+6) end
-	if SFill then SFill.Size = UDim2.new(0, SFill.AbsoluteSize.X, 1, 0) end
-	if SSwitch then
-		SSwitch.AnchorPoint = Vector2.new(1,0.5)
-		SSwitch.Position    = UDim2.new(1, 0, 0.5, 0)
-		SSwitch.Size        = UDim2.fromOffset(CFG.switchW, CFG.switchH)
-	end
-
-	-- === จัด Jump (ขวา)
-	JumpUI.AnchorPoint = Vector2.new(0.5,0)
-	JumpUI.Position    = UDim2.new(0.5,  offsetX, 0, baseY)
-	JumpUI.Size        = UDim2.fromOffset(holderW, holderH)
-
-	local JTrack = JumpUI:FindFirstChild("Track")
-	local JKnob  = JTrack and JTrack:FindFirstChild("Knob")
-	local JFill  = JTrack and JTrack:FindFirstChild("Fill")
-	local JSwitch= JumpUI:FindFirstChild("Switch")
-	if JTrack then
-		JTrack.Size     = UDim2.fromOffset(trackW, CFG.trackH)
-		JTrack.Position = UDim2.new(0,0,0.5,0)
-	end
-	if JKnob then JKnob.Size = UDim2.fromOffset(CFG.knobW, CFG.trackH+6) end
-	if JFill then JFill.Size = UDim2.new(0, JFill.AbsoluteSize.X, 1, 0) end
-	if JSwitch then
-		JSwitch.AnchorPoint = Vector2.new(1,0.5)
-		JSwitch.Position    = UDim2.new(1, 0, 0.5, 0)
-		JSwitch.Size        = UDim2.fromOffset(CFG.switchW, CFG.switchH)
-	end
+	place(SpeedUI, -1)
+	place(JumpUI,   1)
 end
-
--- เรียกหนึ่งครั้ง และตามด้วย hook เวลาหน้าเปลี่ยนขนาด (ถ้ามี)
-task.defer(updatePrecise)
--- ถ้าเกม/เฟรมเปลี่ยนขนาด UI บ่อย ๆ จะอัปเดตตามทุก 0.25s แบบเบาๆ
+layout()
 task.spawn(function()
-	while task.wait(0.25) do
-		if PlayerPage.Visible then updatePrecise() end
+	while task.wait(0.3) do
+		if PlayerPage.Visible then layout() end
+	end
+end)
+
+-- ===== ลากปรับค่า 0–100 =====
+local dragging = nil
+local function bindDrag(Holder)
+	local Track = Holder.Track
+	local Knob  = Track.Knob
+	local function setFromX(x)
+		local abs = Track.AbsolutePosition
+		local size= Track.AbsoluteSize
+		local rel = clamp(x - abs.X, 0, size.X - CFG.knobW)
+		local v   = math.floor((rel / (size.X - CFG.knobW)) * 100 + 0.5)
+		Holder.Value.Value = v
+		layout() -- รีเฟรชตำแหน่ง Fill/Knob
+	end
+	Knob.InputBegan:Connect(function(io)
+		if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+			dragging = Holder
+		end
+	end)
+	UserInput.InputEnded:Connect(function(io)
+		if (io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch) and dragging == Holder then
+			dragging = nil
+		end
+	end)
+	UserInput.InputChanged:Connect(function(io)
+		if dragging == Holder and (io.UserInputType == Enum.UserInputType.MouseMovement or io.UserInputType == Enum.UserInputType.Touch) then
+			setFromX(io.Position.X)
+		end
+	end)
+	Track.InputBegan:Connect(function(io)
+		if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+			setFromX(io.Position.X)
+			dragging = Holder
+		end
+	end)
+end
+bindDrag(SpeedUI)
+bindDrag(JumpUI)
+
+-- ===== สวิตช์ เปิด/ปิด =====
+local function bindSwitch(Holder)
+	local Switch = Holder.Switch
+	Switch.InputBegan:Connect(function(io)
+		if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+			Holder.Enabled.Value = not Holder.Enabled.Value
+			layout()
+		end
+	end)
+end
+bindSwitch(SpeedUI)
+bindSwitch(JumpUI)
+
+-- ===== ใช้งานจริงกับ Humanoid =====
+local DEFAULT_SPEED = 16
+local DEFAULT_JUMP  = 50  -- (ถ้าเกมใช้ JumpHeight ปรับเองได้)
+
+-- อัปเดตทุกเฟรมแบบเบา ๆ
+RunService.Heartbeat:Connect(function()
+	-- อาจมีรีสปอน
+	Char = LP.Character or Char
+	if Char and Char:FindFirstChildOfClass("Humanoid") then
+		Hum = Char:FindFirstChildOfClass("Humanoid")
+	end
+	if not Hum then return end
+
+	if SpeedUI.Enabled.Value then
+		Hum.WalkSpeed = clamp(SpeedUI.Value.Value, 0, 100)
+	else
+		Hum.WalkSpeed = DEFAULT_SPEED
+	end
+
+	if JumpUI.Enabled.Value then
+		-- ใช้ JumpPower (เกมส่วนใหญ่เปิดใช้ค่าเดิม)
+		Hum.UseJumpPower = true
+		Hum.JumpPower = clamp(JumpUI.Value.Value, 0, 100)
+	else
+		Hum.UseJumpPower = true
+		Hum.JumpPower = DEFAULT_JUMP
 	end
 end)
