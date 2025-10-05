@@ -737,3 +737,110 @@ if BarMins then
     -- หมายเหตุ: ถ้าต้องการห่างเท่ากันเป๊ะ ให้คงสูตรนี้ไว้
     BarMins.Size        = UDim2.fromOffset(TIME_W, TIME_H)
 end
+----------------------------------------------------------------
+-- PLAYER DISPLAY (Version 2 - precise layout + name color system)
+----------------------------------------------------------------
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+
+local Players = game:GetService("Players")
+local plr = Players.LocalPlayer
+local TS = game:GetService("TweenService")
+
+-- CONFIG ตำแหน่งและขนาด (ปรับละเอียด)
+local AVATAR_W, AVATAR_H = 130, 130   -- ✅ ทำให้เล็กลง
+local AVATAR_Y           = 16         -- ✅ ยกสูงขึ้น
+
+local NAME_W,  NAME_H    = 260, 26    -- ✅ ขนาดชื่อใหม่ (สีดำ + เส้นเขียว)
+local NAME_GAP           = 8
+
+local TIME_W,  TIME_H    = 260, 18
+local TIME_GAP           = 6
+
+----------------------------------------------------------------
+-- Avatar
+----------------------------------------------------------------
+local Avatar = PlayerPage:FindFirstChild("Avatar")
+if Avatar then
+	Avatar.AnchorPoint = Vector2.new(0.5, 0)
+	Avatar.Position = UDim2.new(0.5, 0, 0, AVATAR_Y)
+	Avatar.Size = UDim2.fromOffset(AVATAR_W, AVATAR_H)
+end
+
+----------------------------------------------------------------
+-- Name bar (ดำ + ขอบเขียว + ตัวอักษรขาว)
+----------------------------------------------------------------
+local NameBar = PlayerPage:FindFirstChild("NameBar")
+if NameBar then
+	NameBar.AnchorPoint = Vector2.new(0.5, 0)
+	NameBar.Position = UDim2.new(0.5, 0, 0, AVATAR_Y + AVATAR_H + NAME_GAP)
+	NameBar.Size = UDim2.fromOffset(NAME_W, NAME_H)
+	NameBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	NameBar.BorderSizePixel = 0
+	corner(NameBar, 6)
+	stroke(NameBar, 1.5, Color3.fromRGB(0,255,140), 0.6)
+
+	local label = NameBar:FindFirstChildOfClass("TextLabel")
+	if label then
+		label.TextColor3 = Color3.fromRGB(255,255,255)
+		label.Text = plr.Name
+	end
+end
+
+----------------------------------------------------------------
+-- Timer bars
+----------------------------------------------------------------
+local BarDays = PlayerPage:FindFirstChild("BarDays")
+local BarHours = PlayerPage:FindFirstChild("BarHours")
+local BarMins = PlayerPage:FindFirstChild("BarMins")
+
+local firstY = AVATAR_Y + AVATAR_H + NAME_H + 12
+if BarDays then
+	BarDays.AnchorPoint = Vector2.new(0.5, 0)
+	BarDays.Position = UDim2.new(0.5, 0, 0, firstY)
+	BarDays.Size = UDim2.fromOffset(TIME_W, TIME_H)
+end
+if BarHours then
+	BarHours.AnchorPoint = Vector2.new(0.5, 0)
+	BarHours.Position = UDim2.new(0.5, 0, 0, firstY + TIME_H + TIME_GAP)
+	BarHours.Size = UDim2.fromOffset(TIME_W, TIME_H)
+end
+if BarMins then
+	BarMins.AnchorPoint = Vector2.new(0.5, 0)
+	BarMins.Position = UDim2.new(0.5, 0, 0, firstY + (TIME_H + TIME_GAP) * 2)
+	BarMins.Size = UDim2.fromOffset(TIME_W, TIME_H)
+end
+
+----------------------------------------------------------------
+-- ระบบนับเวลา real-time + เปลี่ยนสีชื่ออัตโนมัติ
+----------------------------------------------------------------
+local startTime = os.time()
+
+task.spawn(function()
+	while task.wait(60) do
+		local elapsed = os.time() - startTime
+		local days = math.floor(elapsed / 86400)
+		local hours = math.floor((elapsed % 86400) / 3600)
+		local minutes = math.floor((elapsed % 3600) / 60)
+
+		if BarDays and BarHours and BarMins then
+			BarDays.Text = string.format("Days using : %d", days)
+			BarHours.Text = string.format("Hours using : %d", hours)
+			BarMins.Text = string.format("Minutes using : %d", minutes)
+		end
+
+		-- เปลี่ยนสีชื่อผู้เล่นตามเวลา
+		if NameBar and NameBar:FindFirstChildOfClass("TextLabel") then
+			local label = NameBar:FindFirstChildOfClass("TextLabel")
+			if days >= 365 then
+				label.TextColor3 = Color3.fromRGB(255,50,50)     -- 🔴 แดง (1 ปี)
+			elseif days >= 30 then
+				label.TextColor3 = Color3.fromRGB(255,215,0)     -- 🟡 ทอง (1 เดือน)
+			elseif days >= 7 then
+				label.TextColor3 = Color3.fromRGB(0,255,140)     -- 🟢 เขียว (7 วัน)
+			else
+				label.TextColor3 = Color3.fromRGB(255,255,255)   -- ⚪ ขาว (เริ่มต้น)
+			end
+		end
+	end
+end)
