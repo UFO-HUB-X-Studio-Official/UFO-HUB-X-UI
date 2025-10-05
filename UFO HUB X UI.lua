@@ -952,8 +952,7 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- UFO HUB X – Align FlyBox to Speed box exactly
-
+-- UFO HUB X – FlyBox (compact + higher position + shorter)
 local CoreGui = game:GetService("CoreGui")
 local ACCENT = Color3.fromRGB(0,255,140)
 
@@ -970,7 +969,6 @@ local function ensureFlyBox(parent)
 	local fb = parent:FindFirstChild("FlyBox")
 	if fb then return fb end
 
-	-- create minimal FlyBox (สีดำ ขอบเขียว)
 	fb = Instance.new("Frame")
 	fb.Name = "FlyBox"
 	fb.BackgroundColor3 = Color3.fromRGB(0,0,0)
@@ -980,18 +978,18 @@ local function ensureFlyBox(parent)
 	local s = Instance.new("UIStroke")
 	s.Color = ACCENT; s.Thickness = 1.3; s.Transparency = 0.35; s.Parent = fb
 
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,12); c.Parent = fb
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,10); c.Parent = fb
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBold
-	title.Text = "Fly  ✈️"
-	title.TextSize = 18
+	title.Text = "Fly ✈️"
+	title.TextSize = 14
 	title.TextColor3 = Color3.new(1,1,1)
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.AnchorPoint = Vector2.new(0,0.5)
-	title.Position = UDim2.new(0,12,0.5,0)
+	title.Position = UDim2.new(0,10,0.5,0)
 	title.Size = UDim2.new(0.6,0,1,0)
 	title.Parent = fb
 
@@ -1000,8 +998,8 @@ local function ensureFlyBox(parent)
 	switch.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	switch.BorderSizePixel = 0
 	switch.AnchorPoint = Vector2.new(1,0.5)
-	switch.Size = UDim2.fromOffset(46,22)
-	switch.Position = UDim2.new(1,-12,0.5,0)
+	switch.Size = UDim2.fromOffset(40,18)
+	switch.Position = UDim2.new(1,-10,0.5,0)
 	switch.Parent = fb
 	local sc = Instance.new("UICorner", switch); sc.CornerRadius = UDim.new(0,999)
 	local ss = Instance.new("UIStroke", switch); ss.Thickness=1; ss.Color=ACCENT; ss.Transparency=0.3
@@ -1012,7 +1010,7 @@ local function ensureFlyBox(parent)
 	dot.BorderSizePixel = 0
 	dot.AnchorPoint = Vector2.new(0,0.5)
 	dot.Position = UDim2.new(0,2,0.5,0)
-	dot.Size = UDim2.fromOffset(18,18)
+	dot.Size = UDim2.fromOffset(14,14)
 	dot.Parent = switch
 	local dc = Instance.new("UICorner", dot); dc.CornerRadius = UDim.new(0,999)
 
@@ -1022,7 +1020,7 @@ local function ensureFlyBox(parent)
 		if io.UserInputType == Enum.UserInputType.MouseButton1 then
 			enabled.Value = not enabled.Value
 			if enabled.Value then
-				dot:TweenPosition(UDim2.new(1,-20,0.5,0),"Out","Quad",0.18,true)
+				dot:TweenPosition(UDim2.new(1,-16,0.5,0),"Out","Quad",0.18,true)
 				dot.BackgroundColor3 = ACCENT
 			else
 				dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.18,true)
@@ -1034,16 +1032,13 @@ local function ensureFlyBox(parent)
 	return fb
 end
 
--- หา “Speed box” ภายในหน้า แล้วจับ FlyBox ไปทับตำแหน่ง/ขนาดเดียวกัน
 local function alignToSpeedBox()
 	local page = findPlayerPage()
 	if not page then warn("ไม่พบ PlayerPage"); return end
 
-	-- หาเฟรมของ Speed โดยดูจาก TextLabel ที่มีคำว่า "Speed"
 	local speedBox
 	for _,d in ipairs(page:GetDescendants()) do
 		if d:IsA("TextLabel") and d.Text and string.find(string.lower(d.Text),"speed") then
-			-- กล่องด้านนอก (frame ที่มีขอบเขียว) น่าจะเป็น Parent หรือ Grandparent
 			local f = d.Parent
 			while f and f.Parent ~= page and f:IsA("GuiObject") do
 				f = f.Parent
@@ -1055,23 +1050,21 @@ local function alignToSpeedBox()
 		end
 	end
 	if not speedBox then
-		warn("ไม่พบกล่อง Speed เพื่ออ้างอิงตำแหน่ง/ขนาด")
+		warn("ไม่พบ Speed Box")
 		return
 	end
 
-	-- สร้าง/นำ FlyBox มาไว้ในหน้าเดียวกัน
 	local fly = ensureFlyBox(page)
 
-	-- แปลงตำแหน่ง absolute -> local ของ PlayerPage
-	local localX = speedBox.AbsolutePosition.X - page.AbsolutePosition.X
-	local localY = speedBox.AbsolutePosition.Y - page.AbsolutePosition.Y
+	-- ปรับขนาดและตำแหน่งให้เล็กลงและอยู่สูงขึ้น
+	local localX = speedBox.AbsolutePosition.X - page.AbsolutePosition.X + 20
+	local localY = speedBox.AbsolutePosition.Y - page.AbsolutePosition.Y - 32 -- ขยับขึ้น
+	local newWidth = speedBox.AbsoluteSize.X * 0.75 -- สั้นลง
+	local newHeight = math.max(20, speedBox.AbsoluteSize.Y * 0.6) -- เตี้ยลง
 
-	-- ตั้งค่าให้ “พอดีเป๊ะ”
 	fly.AnchorPoint = Vector2.new(0,0)
 	fly.Position    = UDim2.new(0, localX, 0, localY)
-	fly.Size        = UDim2.fromOffset(speedBox.AbsoluteSize.X, speedBox.AbsoluteSize.Y)
+	fly.Size        = UDim2.fromOffset(newWidth, newHeight)
 end
 
 alignToSpeedBox()
-
--- (ไม่ยุ่งกับระบบบินนะครับ ส่วน logic บินจะใส่ทีหลังได้)
