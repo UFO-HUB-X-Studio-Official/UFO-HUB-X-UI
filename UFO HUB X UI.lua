@@ -952,10 +952,10 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- UFO HUB X – FlyBox: match Speed row size/length exactly + position just above it
+-- UFO HUB X – FlyBox (v2: higher + smaller switch + toggle fix)
 local CoreGui = game:GetService("CoreGui")
 local ACCENT  = Color3.fromRGB(0,255,140)
-local GAP_Y   = 6  -- ระยะห่างระหว่าง Fly กับ Speed
+local GAP_Y   = 12 -- ยกสูงขึ้นนิดหน่อย
 
 -- หา PlayerPage
 local function findPlayerPage()
@@ -966,52 +966,48 @@ local function findPlayerPage()
 	end
 end
 
--- หาแถว Speed (เอากรอบที่เป็นแถวจริง ๆ)
-local function findSpeedRow(page: Instance)
-	-- เคส 1: เคยตั้งชื่อ SpeedRow/SpeedBox
+-- หา SpeedRow ที่อยู่ใน PlayerPage
+local function findSpeedRow(page)
 	for _,d in ipairs(page:GetDescendants()) do
 		if d:IsA("Frame") and (d.Name == "SpeedRow" or d.Name == "SpeedBox") then
 			return d
 		end
 	end
-	-- เคส 2: เดินย้อนจาก Text "Speed"
-	local label
 	for _,d in ipairs(page:GetDescendants()) do
-		if d:IsA("TextLabel") and d.Text and string.find(string.lower(d.Text),"speed") then
-			label = d; break
+		if d:IsA("TextLabel") and string.find(string.lower(d.Text),"speed") then
+			local f = d.Parent
+			while f and f.Parent ~= page do
+				if f:FindFirstChild("Switch") or f:FindFirstChild("Track") then
+					return f
+				end
+				f = f.Parent
+			end
 		end
 	end
-	if not label then return nil end
-	-- ไต่ขึ้นไปหาแถวที่ครอบ label
-	local f = label.Parent
-	while f and f.Parent ~= page and f:IsA("GuiObject") do
-		-- แถวที่ถูกมักจะมี switch/track อยู่ด้วย
-		if f:FindFirstChild("Switch") or f:FindFirstChild("Track") then
-			return f
-		end
-		f = f.Parent
-	end
-	return f
 end
 
--- สร้าง/เรียก FlyBox
-local function ensureFlyBox(parent: Instance)
-	local fb = parent:FindFirstChild("FlyBox")
-	if fb then return fb end
-
-	fb = Instance.new("Frame")
+-- ฟังก์ชันสร้างกล่อง Fly
+local function createFlyBox(parent)
+	local fb = Instance.new("Frame")
 	fb.Name = "FlyBox"
 	fb.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	fb.BorderSizePixel = 0
 	fb.Parent = parent
 
-	local s = Instance.new("UIStroke")
-	s.Color = ACCENT; s.Thickness = 1.3; s.Transparency = 0.35; s.Parent = fb
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = ACCENT
+	stroke.Thickness = 1.3
+	stroke.Transparency = 0.35
+	stroke.Parent = fb
 
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,10); c.Parent = fb
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0,10)
+	corner.Parent = fb
 
+	-- Title
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
+	title.Parent = fb
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBold
 	title.Text = "Fly ✈️"
@@ -1021,20 +1017,26 @@ local function ensureFlyBox(parent: Instance)
 	title.AnchorPoint = Vector2.new(0,0.5)
 	title.Position = UDim2.new(0,10,0.5,0)
 	title.Size = UDim2.new(0.6,0,1,0)
-	title.Parent = fb
 
-	-- สวิตช์ เปิด/ปิด (เหมือนเดิม)
+	-- Switch
 	local switch = Instance.new("Frame")
 	switch.Name = "Switch"
 	switch.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	switch.BorderSizePixel = 0
 	switch.AnchorPoint = Vector2.new(1,0.5)
-	switch.Size = UDim2.fromOffset(40,18)
+	switch.Size = UDim2.fromOffset(35,16) -- เล็กลง
 	switch.Position = UDim2.new(1,-10,0.5,0)
 	switch.Parent = fb
-	Instance.new("UICorner", switch).CornerRadius = UDim.new(0,999)
-	local ss = Instance.new("UIStroke", switch)
-	ss.Thickness=1; ss.Color=ACCENT; ss.Transparency=0.3
+
+	local swCorner = Instance.new("UICorner")
+	swCorner.CornerRadius = UDim.new(0,999)
+	swCorner.Parent = switch
+
+	local swStroke = Instance.new("UIStroke")
+	swStroke.Thickness = 1
+	swStroke.Color = ACCENT
+	swStroke.Transparency = 0.3
+	swStroke.Parent = switch
 
 	local dot = Instance.new("Frame")
 	dot.Name = "Dot"
@@ -1042,20 +1044,25 @@ local function ensureFlyBox(parent: Instance)
 	dot.BorderSizePixel = 0
 	dot.AnchorPoint = Vector2.new(0,0.5)
 	dot.Position = UDim2.new(0,2,0.5,0)
-	dot.Size = UDim2.fromOffset(14,14)
+	dot.Size = UDim2.fromOffset(12,12)
 	dot.Parent = switch
-	Instance.new("UICorner", dot).CornerRadius = UDim.new(0,999)
 
-	local enabled = Instance.new("BoolValue", fb) enabled.Name = "Enabled" enabled.Value = false
+	local dotCorner = Instance.new("UICorner")
+	dotCorner.CornerRadius = UDim.new(0,999)
+	dotCorner.Parent = dot
+
+	local enabled = Instance.new("BoolValue", fb)
+	enabled.Name = "Enabled"
+	enabled.Value = false
 
 	switch.InputBegan:Connect(function(io)
 		if io.UserInputType == Enum.UserInputType.MouseButton1 then
 			enabled.Value = not enabled.Value
 			if enabled.Value then
-				dot:TweenPosition(UDim2.new(1,-16,0.5,0),"Out","Quad",0.18,true)
+				dot:TweenPosition(UDim2.new(1,-14,0.5,0),"Out","Quad",0.15,true)
 				dot.BackgroundColor3 = ACCENT
 			else
-				dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.18,true)
+				dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.15,true)
 				dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
 			end
 		end
@@ -1064,35 +1071,29 @@ local function ensureFlyBox(parent: Instance)
 	return fb
 end
 
--- จัดตำแหน่ง/ขนาดให้ “เท่ากับ Speed Row แบบพอดีเป๊ะ” และวางเหนือขึ้นไป
-local function alignFlyToSpeed()
+-- วางตำแหน่ง FlyBox เหนือ SpeedRow
+local function alignFlyBox()
 	local page = findPlayerPage()
-	if not page then warn("ไม่พบ PlayerPage"); return end
-
+	if not page then return end
 	local speedRow = findSpeedRow(page)
-	if not speedRow then warn("ไม่พบแถว Speed"); return end
+	if not speedRow then return end
 
-	local fly = ensureFlyBox(page)
+	local fb = page:FindFirstChild("FlyBox") or createFlyBox(page)
 
-	-- คำนวณพิกัดภายใน page (จาก absolute -> local)
-	local localX = speedRow.AbsolutePosition.X - page.AbsolutePosition.X
-	local localY = speedRow.AbsolutePosition.Y - page.AbsolutePosition.Y
-
-	-- ใช้ขนาดเท่ากันทุกมิติ และย้ายขึ้นไปเหนือด้วย GAP_Y
+	local x = speedRow.AbsolutePosition.X - page.AbsolutePosition.X
+	local y = speedRow.AbsolutePosition.Y - page.AbsolutePosition.Y
 	local w = speedRow.AbsoluteSize.X
 	local h = speedRow.AbsoluteSize.Y
 
-	fly.AnchorPoint = Vector2.new(0,0)
-	fly.Position    = UDim2.new(0, localX, 0, localY - h - GAP_Y)
-	fly.Size        = UDim2.fromOffset(w, h)
+	fb.AnchorPoint = Vector2.new(0,0)
+	fb.Position = UDim2.new(0,x,0,y - h - GAP_Y)
+	fb.Size = UDim2.fromOffset(w,h)
 end
 
-alignFlyToSpeed()
+alignFlyBox()
 
--- จัดใหม่อีกรอบหาก UI มีการยืด-หด
-do
-	local page = findPlayerPage()
-	if page then
-		page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyToSpeed)
-	end
+-- ปรับตำแหน่งใหม่ถ้ามีการยืด UI
+local page = findPlayerPage()
+if page then
+	page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox)
 end
