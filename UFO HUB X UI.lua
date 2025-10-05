@@ -952,151 +952,104 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- UFO HUB X : FLY PAD (lock to your red box size/spot)
+-- UFO HUB X : FLY PAD (Placement-only + live nudge)
 local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInput  = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
 
-local LP   = Players.LocalPlayer
-local PG   = LP:WaitForChild("PlayerGui")
+-- ลบของเก่า
+local old = PG:FindFirstChild("UFO_FlyPadGui")
+if old then old:Destroy() end
 
--- ========= EXACT POSITION TO MATCH YOUR RED BOX =========
-local CFG = {
-    POS  = UDim2.new(0, 120, 0, 440),   -- <<< จุดมุมซ้ายบนของกรอบ (X=120, Y=440) = ตำแหน่งกรอบสีแดง
-    SIZE = UDim2.fromOffset(250, 150),  -- <<< กว้าง=250 สูง=150 = ขนาดกรอบสีแดง
-    TITLE    = "Fly ✈️",
-    COLOR_BG = Color3.fromRGB(0,0,0),
-    COLOR_ACC= Color3.fromRGB(0,255,140),
-    BTN_H    = 38,
-    GAP      = 8,
-    SPEED    = 60,
-}
+-- ===== ตั้งค่าเริ่มต้น (เดาย้ายใกล้กรอบแดง ถ้าไม่เป๊ะ ใช้คีย์ลัดขยับ) =====
+local POS  = UDim2.new(0, 200, 0, 520)  -- ตำแหน่งมุมซ้ายบน
+local SIZE = UDim2.fromOffset(320, 180) -- กว้าง/สูงของกรอบ
 
 -- helpers
-local function corner(ui,r) local c=ui:FindFirstChildOfClass("UICorner")or Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=ui end
-local function stroke(ui,t,col,tr) local s=ui:FindFirstChildOfClass("UIStroke")or Instance.new("UIStroke"); s.Thickness=t; s.Color=col; s.Transparency=tr or 0.25; s.Parent=ui end
-local function mkBtn(parent,text)
-    local b=Instance.new("TextButton")
-    b.Text=text; b.AutoButtonColor=true
-    b.BackgroundColor3=Color3.fromRGB(20,20,20)
-    b.TextColor3=Color3.fromRGB(255,255,255)
-    b.Font=Enum.Font.GothamBold; b.TextSize=16; b.Parent=parent
-    corner(b,10); stroke(b,1,CFG.COLOR_ACC,0.4)
-    return b
-end
-
--- wipe old
-local old=PG:FindFirstChild("UFO_FlyPadGui"); if old then old:Destroy() end
+local function corner(ui,r) local c=ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=ui end
+local function stroke(ui,t,col,tr) local s=ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke"); s.Thickness=t; s.Color=col; s.Transparency=tr or 0.25; s.Parent=ui end
+local ACC = Color3.fromRGB(0,255,140)
 
 -- ScreenGui
-local gui=Instance.new("ScreenGui")
-gui.Name="UFO_FlyPadGui"; gui.ResetOnSpawn=false; gui.Parent=PG
+local gui = Instance.new("ScreenGui")
+gui.Name = "UFO_FlyPadGui"
+gui.ResetOnSpawn = false
+gui.Parent = PG
 
--- main box (exactly equals your red box)
-local box=Instance.new("Frame")
-box.Name="FlyBox"; box.Parent=gui
-box.Position=CFG.POS; box.Size=CFG.SIZE
-box.BackgroundColor3=CFG.COLOR_BG; box.BorderSizePixel=0
-corner(box,12); stroke(box,1.2,CFG.COLOR_ACC,0.35)
+-- กล่องหลัก (เฉพาะวางตำแหน่ง ยังไม่ใส่ระบบควบคุม)
+local box = Instance.new("Frame")
+box.Name = "FlyBox"
+box.Size = SIZE
+box.Position = POS
+box.BackgroundColor3 = Color3.fromRGB(0,0,0)
+box.BorderSizePixel = 0
+corner(box,12); stroke(box,1.2,ACC,0.35)
+box.Parent = gui
 
--- title + ON/OFF switch (อยู่ “ในกรอบสีแดง” เหมือนรูป)
-local title=Instance.new("TextLabel")
-title.Parent=box; title.BackgroundTransparency=1
-title.Size=UDim2.new(1,-60,0,22); title.Position=UDim2.new(0,10,0,8)
-title.Font=Enum.Font.GothamBold; title.TextXAlignment=Enum.TextXAlignment.Left
-title.TextSize=16; title.TextColor3=Color3.fromRGB(255,255,255)
-title.Text=CFG.TITLE
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Text = "Fly ✈️  |  Pos("..box.Position.X.Offset..","..box.Position.Y.Offset..") Size("..box.Size.X.Offset..","..box.Size.Y.Offset..")"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextSize = 16
+title.Position = UDim2.new(0,10,0,6)
+title.Size = UDim2.new(1,-20,0,22)
+title.Parent = box
 
-local switch=Instance.new("Frame")
-switch.Name="Switch"; switch.Parent=box
-switch.BackgroundColor3=CFG.COLOR_BG; switch.BorderSizePixel=0
-switch.Size=UDim2.fromOffset(44,20)
-switch.AnchorPoint=Vector2.new(1,0); switch.Position=UDim2.new(1,-10,0,7)
-corner(switch,999); stroke(switch,1,CFG.COLOR_ACC,0.35)
-local dot=Instance.new("Frame"); dot.Parent=switch
-dot.BackgroundColor3=Color3.fromRGB(120,120,120)
-dot.Size=UDim2.fromOffset(18,18); dot.Position=UDim2.new(0,1,0.5,-9)
-corner(dot,999)
+-- ปุ่มตัวอย่าง (ให้เห็นพื้นที่จริง) — เดี๋ยวค่อยใส่ระบบทีหลัง
+local demo = Instance.new("TextLabel")
+demo.Parent = box
+demo.BackgroundTransparency = 1
+demo.Text = "ตำแหน่งถูกแล้วค่อยทำระบบ"
+demo.TextColor3 = Color3.fromRGB(200,200,200)
+demo.Font = Enum.Font.GothamMedium
+demo.TextSize = 14
+demo.Position = UDim2.new(0,10,0,36)
+demo.Size = UDim2.new(1,-20,1,-46)
 
--- button grid (2 คอลัมน์ x 3 แถว) อยู่ “ในกรอบสีแดง”
-local panel=Instance.new("Frame")
-panel.Parent=box; panel.BackgroundTransparency=1
-panel.Position=UDim2.new(0,10,0,36)
-panel.Size=UDim2.new(1,-20,1,-46)
+-- ===== โหมดขยับแบบสด (ไม่ต้องแก้โค้ด) =====
+-- คีย์ลัด (กด Alt ค้าง):
+-- Alt + ลูกศร  = ขยับทีละ 5px
+-- Alt + Shift + ลูกศร = ขยับทีละ 20px
+-- Alt + [ / ]  = ลด/เพิ่มความกว้าง 5px  (Alt+Shift = 20px)
+-- Alt + ; / '  = ลด/เพิ่มความสูง 5px   (Alt+Shift = 20px)
+local altDown, shiftDown = false, false
+UserInput.InputBegan:Connect(function(io,gp)
+    if gp then return end
+    if io.KeyCode == Enum.KeyCode.LeftAlt or io.KeyCode == Enum.KeyCode.RightAlt then altDown = true end
+    if io.KeyCode == Enum.KeyCode.LeftShift or io.KeyCode == Enum.KeyCode.RightShift then shiftDown = true end
+    if not altDown then return end
 
-local function place(btn,row,col)
-    btn.Parent=panel
-    btn.Size=UDim2.new(0.5,-CFG.GAP/2,0,CFG.BTN_H)
-    btn.Position=UDim2.new(col==1 and 0 or 0.5, col==1 and 0 or CFG.GAP/2, 0, (row-1)*(CFG.BTN_H+CFG.GAP))
-end
+    local step = shiftDown and 20 or 5
+    local p = box.Position
+    local s = box.Size
 
-local bForward=mkBtn(panel,"Forward ⬆️"); local bUp=mkBtn(panel,"Up 🛫")
-local bLeft=mkBtn(panel,"Left ⬅️");     local bRight=mkBtn(panel,"Right ➡️")
-local bBack=mkBtn(panel,"Back ⬇️");     local bDown=mkBtn(panel,"Down 🛬")
-place(bForward,1,1); place(bUp,1,2)
-place(bLeft,2,1);    place(bRight,2,2)
-place(bBack,3,1);    place(bDown,3,2)
-
--- flight core
-local enabled=false; local pressing={F=false,B=false,L=false,R=false,U=false,D=false}
-local speed=CFG.SPEED
-local char=LP.Character or LP.CharacterAdded:Wait()
-local hum=char:WaitForChild("Humanoid")
-local root=char:WaitForChild("HumanoidRootPart")
-local bodyVel, bodyGyro
-
-local function setNoclip(on)
-    for _,p in ipairs((LP.Character or char):GetDescendants()) do
-        if p:IsA("BasePart") then p.CanCollide = not on end
+    if io.KeyCode == Enum.KeyCode.Left then
+        box.Position = UDim2.new(p.X.Scale, p.X.Offset - step, p.Y.Scale, p.Y.Offset)
+    elseif io.KeyCode == Enum.KeyCode.Right then
+        box.Position = UDim2.new(p.X.Scale, p.X.Offset + step, p.Y.Scale, p.Y.Offset)
+    elseif io.KeyCode == Enum.KeyCode.Up then
+        box.Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset - step)
+    elseif io.KeyCode == Enum.KeyCode.Down then
+        box.Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset + step)
+    elseif io.KeyCode == Enum.KeyCode.LeftBracket then
+        box.Size = UDim2.fromOffset(s.X.Offset - step, s.Y.Offset)
+    elseif io.KeyCode == Enum.KeyCode.RightBracket then
+        box.Size = UDim2.fromOffset(s.X.Offset + step, s.Y.Offset)
+    elseif io.KeyCode == Enum.KeyCode.Semicolon then
+        box.Size = UDim2.fromOffset(s.X.Offset, s.Y.Offset - step)
+    elseif io.KeyCode == Enum.KeyCode.Quote then
+        box.Size = UDim2.fromOffset(s.X.Offset, s.Y.Offset + step)
     end
-end
-local function startFly()
-    if enabled then return end; enabled=true
-    dot.Position=UDim2.new(1,-19,0.5,-9); dot.BackgroundColor3=CFG.COLOR_ACC
-    bodyVel=Instance.new("BodyVelocity"); bodyVel.MaxForce=Vector3.new(1e9,1e9,1e9); bodyVel.Velocity=Vector3.zero; bodyVel.Parent=root
-    bodyGyro=Instance.new("BodyGyro"); bodyGyro.MaxTorque=Vector3.new(1e9,1e9,1e9); bodyGyro.CFrame=workspace.CurrentCamera.CFrame; bodyGyro.P=9e4; bodyGyro.Parent=root
-    setNoclip(true)
-end
-local function stopFly()
-    if not enabled then return end; enabled=false
-    dot.Position=UDim2.new(0,1,0.5,-9); dot.BackgroundColor3=Color3.fromRGB(120,120,120)
-    if bodyVel then bodyVel:Destroy() bodyVel=nil end
-    if bodyGyro then bodyGyro:Destroy() bodyGyro=nil end
-    setNoclip(false)
-end
-switch.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 then if enabled then stopFly() else startFly() end end end)
 
--- hold buttons
-local function bindHold(btn,key)
-    local function down() pressing[key]=true end
-    local function up() pressing[key]=false end
-    btn.MouseButton1Down:Connect(down); btn.MouseButton1Up:Connect(up); btn.MouseLeave:Connect(up)
-    btn.TouchLongPress:Connect(function(_,state) if state==Enum.LongPressState.Start then down() end end)
-end
-bindHold(bForward,"F"); bindHold(bBack,"B"); bindHold(bLeft,"L"); bindHold(bRight,"R"); bindHold(bUp,"U"); bindHold(bDown,"D")
-
--- keyboard speed +/- (optional)
-UserInput.InputBegan:Connect(function(io,gp) if gp then return end
-    if io.KeyCode==Enum.KeyCode.Equals then speed=speed+10
-    elseif io.KeyCode==Enum.KeyCode.Minus then speed=math.max(10, speed-10) end
+    title.Text = ("Fly ✈️  |  Pos(%d,%d) Size(%d,%d)")
+        :format(box.Position.X.Offset, box.Position.Y.Offset, box.Size.X.Offset, box.Size.Y.Offset)
 end)
 
-RunService.Heartbeat:Connect(function(dt)
-    if not enabled then return end
-    char=LP.Character or char; if not char then return end
-    hum=char:FindFirstChildOfClass("Humanoid") or hum
-    root=char:FindFirstChild("HumanoidRootPart") or root
-    if not (hum and root) then return end
-
-    local cam=workspace.CurrentCamera
-    if bodyGyro then bodyGyro.CFrame=cam.CFrame end
-    local look=cam.CFrame.LookVector; local right=cam.CFrame.RightVector
-    local dir=Vector3.zero
-    if pressing.F then dir+=look end
-    if pressing.B then dir-=look end
-    if pressing.R then dir+=right end
-    if pressing.L then dir-=right end
-    if pressing.U then dir+=Vector3.new(0,1,0) end
-    if pressing.D then dir-=Vector3.new(0,1,0) end
-    if bodyVel then bodyVel.Velocity = (dir.Magnitude>0 and dir.Unit or dir) * speed end
+UserInput.InputEnded:Connect(function(io)
+    if io.KeyCode == Enum.KeyCode.LeftAlt or io.KeyCode == Enum.KeyCode.RightAlt then altDown = false end
+    if io.KeyCode == Enum.KeyCode.LeftShift or io.KeyCode == Enum.KeyCode.RightShift then shiftDown = false end
 end)
