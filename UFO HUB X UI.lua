@@ -370,49 +370,153 @@ do
         end)
     end
 end
--- 👤 ปุ่ม Player (ทำให้ชื่ออยู่บนปุ่มแน่นอน)
+----------------------------------------------------------------
+-- RIGHT HEADER: ป้าย "Player" มุมซ้ายบนของกรอบ Right (ทับรูป)
+----------------------------------------------------------------
 do
-    -- สร้าง/อัปเดตปุ่ม
-    local Btn = Left:FindFirstChild("BtnPlayer") or Instance.new("TextButton")
-    Btn.Name = "BtnPlayer"
-    Btn.Parent = Left
-    Btn.AutoButtonColor = false
-    Btn.BackgroundColor3 = BG_INNER
-    Btn.BorderSizePixel = 0
-    Btn.Text = ""                                   -- ไม่ใช้ Text ตรงปุ่ม จะใช้ Label แยก
-    Btn.Size = UDim2.new(1, -12, 0, 44)
-    Btn.Position = UDim2.new(0, 6, 0, 6)
-    Btn.ZIndex = 10                                 -- สูงกว่าพื้นหลังซ้าย
-    corner(Btn, 10)
-    local s = stroke(Btn, 1, GREEN, 0.35); s.ZIndex = 11
+    local header = Right:FindFirstChild("RightHeader")
+    if not header then
+        header = Instance.new("Frame")
+        header.Name = "RightHeader"
+        header.Parent = Right
+        header.BackgroundColor3 = (BG_INNER or Color3.fromRGB(22,22,22))
+        header.BorderSizePixel = 0
+        header.ZIndex = 30
+        header.Position = UDim2.new(0, 12, 0, 10)   -- ระยะจากมุมซ้ายบนของ Right
+        header.Size     = UDim2.new(0, 140, 0, 32)
 
-    -- ไอคอนซ้าย
-    local Icon = Btn:FindFirstChild("Icon") or Instance.new("ImageLabel")
-    Icon.Name = "Icon"
-    Icon.Parent = Btn
-    Icon.BackgroundTransparency = 1
-    Icon.AnchorPoint = Vector2.new(0, 0.5)
-    Icon.Position = UDim2.new(0, 10, 0.5, 0)
-    Icon.Size = UDim2.fromOffset(20, 20)
-    Icon.Image = "rbxassetid://114530675624359"     -- เปลี่ยนได้
-    Icon.ZIndex = 12
+        -- ขอบมน + เส้นเรือง
+        if typeof(corner) == "function" then corner(header, 10) end
+        if typeof(stroke) == "function" then stroke(header, 1, (MINT or Color3.fromRGB(0,255,140)), 0.35) end
 
-    -- ข้อความ “Player”
-    local Label = Btn:FindFirstChild("Label") or Instance.new("TextLabel")
-    Label.Name = "Label"
-    Label.Parent = Btn
-    Label.BackgroundTransparency = 1
-    Label.AnchorPoint = Vector2.new(0, 0.5)
-    Label.Position = UDim2.new(0, 40, 0.5, 0)
-    Label.Size = UDim2.new(1, -50, 1, 0)
-    Label.Font = Enum.Font.GothamBold
-    Label.TextSize = 16
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.TextColor3 = TEXT_WHITE or Color3.fromRGB(235,235,235)
-    Label.Text = "Player"
-    Label.ZIndex = 12
+        -- ไอคอนจุดเขียว (แทนรูปคนเล็ก ๆ)
+        local dot = Instance.new("Frame")
+        dot.Name = "Dot"
+        dot.Parent = header
+        dot.BackgroundColor3 = (GREEN or Color3.fromRGB(0, 255, 140))
+        dot.BorderSizePixel = 0
+        dot.AnchorPoint = Vector2.new(0, 0.5)
+        dot.Position = UDim2.new(0, 9, 0.5, 0)
+        dot.Size = UDim2.new(0, 10, 0, 10)
+        dot.ZIndex = 31
+        if typeof(corner) == "function" then corner(dot, 6) end
 
-    -- กันรูปพื้นหลังซ้ายบังปุ่ม (ถ้ามี)
-    local bg = Left:FindFirstChildWhichIsA("ImageLabel")
-    if bg then bg.ZIndex = 1 end
+        -- ข้อความ "Player"
+        local title = Instance.new("TextLabel")
+        title.Name = "Title"
+        title.Parent = header
+        title.BackgroundTransparency = 1
+        title.AnchorPoint = Vector2.new(0, 0.5)
+        title.Position = UDim2.new(0, 26, 0.5, 0)
+        title.Size = UDim2.new(1, -30, 1, -6)
+        title.Text = "Player"
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 16
+        title.TextColor3 = (TEXT_WHITE or Color3.fromRGB(255,255,255))
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.ZIndex = 31
+    end
+end
+
+----------------------------------------------------------------
+-- TAB / BUTTON EFFECT: ทำให้ BtnPlayer มีเอฟเฟกต์กด + Active state
+----------------------------------------------------------------
+do
+    -- สีปุ่มตอนปกติ / ตอน Active / ตอนกดค้าง
+    local COLOR_IDLE   = (BG_INNER or Color3.fromRGB(22,22,22))
+    local COLOR_ACTIVE = Color3.fromRGB(34,34,34)
+    local COLOR_DOWN   = Color3.fromRGB(18,18,18)
+
+    -- ถ้าปุ่มถูกสร้างไว้แล้ว ให้ตั้งค่ามาตรฐาน
+    if BtnPlayer and BtnPlayer:IsA("TextButton") then
+        BtnPlayer.AutoButtonColor = false
+        BtnPlayer.BackgroundColor3 = COLOR_IDLE
+        BtnPlayer.TextColor3 = (TEXT_WHITE or Color3.fromRGB(255,255,255))
+        BtnPlayer.ZIndex = 20
+
+        -- ปรับเส้นขอบของปุ่ม (ถ้ามี helper)
+        if typeof(stroke) == "function" then
+            -- ลบ UIStroke เดิมซ้ำซ้อน (กันหนาเกิน)
+            for _,c in ipairs(BtnPlayer:GetChildren()) do
+                if c:IsA("UIStroke") then c:Destroy() end
+            end
+            stroke(BtnPlayer, 1, (MINT or Color3.fromRGB(0,255,140)), 0.35)
+        end
+    end
+
+    -- เก็บกลุ่มแท็บเผื่ออนาคต (ตอนนี้มีหน้าเดียว)
+    local Tabs = {
+        { btn = BtnPlayer, page = PlayerPage }
+        -- ถ้ามีแท็บอื่นก็ใส่เพิ่มได้แบบนี้:
+        -- { btn = BtnInventory, page = InventoryPage },
+        -- { btn = BtnSettings,  page = SettingsPage  },
+    }
+
+    local function styleTab(tab, active)
+        if not (tab and tab.btn and tab.page) then return end
+        tab.page.Visible = active
+
+        -- ปรับสีให้รู้ว่ากำลังอยู่แท็บนี้
+        if active then
+            tab.btn.BackgroundColor3 = COLOR_ACTIVE
+            -- เน้นเส้นขอบตอน Active
+            local strokeObj = tab.btn:FindFirstChildOfClass("UIStroke")
+            if strokeObj then strokeObj.Transparency = 0.15 end
+        else
+            tab.btn.BackgroundColor3 = COLOR_IDLE
+            local strokeObj = tab.btn:FindFirstChildOfClass("UIStroke")
+            if strokeObj then strokeObj.Transparency = 0.35 end
+        end
+    end
+
+    local function setActive(which)
+        for i,tab in ipairs(Tabs) do
+            styleTab(tab, i == which)
+        end
+    end
+
+    -- เอฟเฟกต์ตอนกดค้าง (กดลง/ปล่อย/เมาส์ออก)
+    local function attachPressEffect(btn, index)
+        if not btn then return end
+        btn.InputBegan:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.MouseButton1
+            or io.UserInputType == Enum.UserInputType.Touch then
+                btn.BackgroundColor3 = COLOR_DOWN
+            end
+        end)
+        btn.InputEnded:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.MouseButton1
+            or io.UserInputType == Enum.UserInputType.Touch then
+                setActive(index)  -- เลือกแท็บนี้เป็น Active
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            -- กลับไปตามสถานะปัจจุบัน (Active/Idle)
+            -- ดูว่าแท็บนี้ Active อยู่ไหม
+            local isActive = btn.BackgroundColor3 == COLOR_DOWN
+            -- ป้องกันกลับผิดสีด้วยการรีเซ็ตตาม setActive อีกครั้ง
+            for i,tab in ipairs(Tabs) do
+                if tab.btn == btn then
+                    -- ใช้ค่า Visible ของ page เป็นตัวตัดสิน
+                    isActive = tab.page.Visible
+                    break
+                end
+            end
+            btn.BackgroundColor3 = isActive and COLOR_ACTIVE or COLOR_IDLE
+        end)
+        btn.MouseEnter:Connect(function()
+            -- hover เล็ก ๆ (ถ้าอยากได้)
+        end)
+        btn.MouseButton1Click:Connect(function()
+            setActive(index)
+        end)
+    end
+
+    -- ผูกทุกแท็บ
+    for i,tab in ipairs(Tabs) do
+        attachPressEffect(tab.btn, i)
+    end
+
+    -- ค่าเริ่มต้น: เปิดหน้า Player เป็นแท็บแอคทีฟ
+    setActive(1)
 end
