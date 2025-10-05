@@ -370,56 +370,49 @@ do
         end)
     end
 end
--- 👤 PLAYER BUTTON (พร้อมรูปและเอฟเฟกต์)
+-- 👤 ปุ่ม Player (ทำให้ชื่ออยู่บนปุ่มแน่นอน)
 do
-    local BtnPlayer = Instance.new("TextButton", Left)
-    BtnPlayer.Name = "BtnPlayer"
-    BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
-    BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-    BtnPlayer.BackgroundColor3 = BG_INNER
-    BtnPlayer.BorderSizePixel = 0
-    BtnPlayer.AutoButtonColor = false
-    corner(BtnPlayer, 10)
-    local strokeBtn = stroke(BtnPlayer, 1, GREEN, 0.35)
+    -- สร้าง/อัปเดตปุ่ม
+    local Btn = Left:FindFirstChild("BtnPlayer") or Instance.new("TextButton")
+    Btn.Name = "BtnPlayer"
+    Btn.Parent = Left
+    Btn.AutoButtonColor = false
+    Btn.BackgroundColor3 = BG_INNER
+    Btn.BorderSizePixel = 0
+    Btn.Text = ""                                   -- ไม่ใช้ Text ตรงปุ่ม จะใช้ Label แยก
+    Btn.Size = UDim2.new(1, -12, 0, 44)
+    Btn.Position = UDim2.new(0, 6, 0, 6)
+    Btn.ZIndex = 10                                 -- สูงกว่าพื้นหลังซ้าย
+    corner(Btn, 10)
+    local s = stroke(Btn, 1, GREEN, 0.35); s.ZIndex = 11
 
-    -- รูป 👽
-    local Icon = Instance.new("ImageLabel", BtnPlayer)
+    -- ไอคอนซ้าย
+    local Icon = Btn:FindFirstChild("Icon") or Instance.new("ImageLabel")
+    Icon.Name = "Icon"
+    Icon.Parent = Btn
     Icon.BackgroundTransparency = 1
     Icon.AnchorPoint = Vector2.new(0, 0.5)
     Icon.Position = UDim2.new(0, 10, 0.5, 0)
-    Icon.Size = UDim2.fromOffset(22, 22)
-    Icon.Image = "rbxassetid://114530675624359"
+    Icon.Size = UDim2.fromOffset(20, 20)
+    Icon.Image = "rbxassetid://114530675624359"     -- เปลี่ยนได้
+    Icon.ZIndex = 12
 
     -- ข้อความ “Player”
-    local Txt = Instance.new("TextLabel", BtnPlayer)
-    Txt.BackgroundTransparency = 1
-    Txt.AnchorPoint = Vector2.new(0, 0.5)
-    Txt.Position = UDim2.new(0, 40, 0.5, 0)
-    Txt.Size = UDim2.new(1, -50, 1, 0)
-    Txt.Font = Enum.Font.GothamBold
-    Txt.Text = "Player"
-    Txt.TextSize = 15
-    Txt.TextColor3 = TEXT_WHITE
-    Txt.TextXAlignment = Enum.TextXAlignment.Left
+    local Label = Btn:FindFirstChild("Label") or Instance.new("TextLabel")
+    Label.Name = "Label"
+    Label.Parent = Btn
+    Label.BackgroundTransparency = 1
+    Label.AnchorPoint = Vector2.new(0, 0.5)
+    Label.Position = UDim2.new(0, 40, 0.5, 0)
+    Label.Size = UDim2.new(1, -50, 1, 0)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 16
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.TextColor3 = TEXT_WHITE or Color3.fromRGB(235,235,235)
+    Label.Text = "Player"
+    Label.ZIndex = 12
 
-    -- เอฟเฟกต์ Hover / กด
-    local TS = game:GetService("TweenService")
-    local function tween(o, goal)
-        TS:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
-    end
-
-    BtnPlayer.MouseEnter:Connect(function()
-        tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(24,24,24)})
-        tween(strokeBtn, {Transparency = 0.15})
-    end)
-    BtnPlayer.MouseLeave:Connect(function()
-        tween(BtnPlayer, {BackgroundColor3 = BG_INNER})
-        tween(strokeBtn, {Transparency = 0.35})
-    end)
-    BtnPlayer.MouseButton1Down:Connect(function()
-        tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(30,30,30)})
-    end)
-    BtnPlayer.MouseButton1Up:Connect(function()
-        tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(24,24,24)})
-    end)
+    -- กันรูปพื้นหลังซ้ายบังปุ่ม (ถ้ามี)
+    local bg = Left:FindFirstChildWhichIsA("ImageLabel")
+    if bg then bg.ZIndex = 1 end
 end
