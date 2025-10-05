@@ -475,3 +475,46 @@ if not BtnPlayer then
         end)
     end)
 end
+----------------------------------------------------------------
+-- HEADER ฝั่งขวา (เพิ่มชื่อ + รูป บนกรอบใหญ่)  *วางต่อท้ายได้เลย*
+----------------------------------------------------------------
+-- ใช้ไอคอนเดียวกับปุ่มซ้าย (เปลี่ยนได้)
+local PLAYER_ICON = "rbxassetid://112676905543996"
+
+do
+    -- สร้างครั้งเดียว ถ้ามีแล้วจะไม่สร้างซ้ำ
+    local BigHeader = Right:FindFirstChild("BigHeader")
+    if not BigHeader then
+        BigHeader = Instance.new("Frame")
+        BigHeader.Name = "BigHeader"
+        BigHeader.Parent = Right
+        BigHeader.BackgroundTransparency = 1          -- ไม่ใส่เส้น/กรอบเพิ่ม
+        BigHeader.Size = UDim2.new(0, 200, 0, 36)
+        BigHeader.Position = UDim2.new(0, 14, 0, 12)  -- มุมซ้ายบนของ Right
+
+        -- รูปไอคอน
+        local HIcon = Instance.new("ImageLabel")
+        HIcon.Name = "Icon"
+        HIcon.Parent = BigHeader
+        HIcon.BackgroundTransparency = 1
+        HIcon.AnchorPoint = Vector2.new(0, 0.5)
+        HIcon.Position = UDim2.new(0, 0, 0.5, 0)
+        HIcon.Size = UDim2.fromOffset(24, 24)
+        HIcon.Image = PLAYER_ICON
+        HIcon.ScaleType = Enum.ScaleType.Fit
+
+        -- ข้อความ "Player"
+        local HText = Instance.new("TextLabel")
+        HText.Name = "Title"
+        HText.Parent = BigHeader
+        HText.BackgroundTransparency = 1
+        HText.AnchorPoint = Vector2.new(0, 0.5)
+        HText.Position = UDim2.new(0, 30, 0.5, 0)
+        HText.Size = UDim2.new(1, -34, 1, 0)
+        HText.Font = Enum.Font.GothamBold
+        HText.Text = "Player"
+        HText.TextSize = 18
+        HText.TextXAlignment = Enum.TextXAlignment.Left
+        HText.TextColor3 = Color3.fromRGB(255,255,255)
+    end
+end
