@@ -522,21 +522,21 @@ end
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
 ----------------------------------------------------------------
--- UFO HUB X : PLAYER PAGE SYSTEM (v2) – no header duplicate, smaller avatar
--- ✅ วางใต้โค้ดปุ่ม Player เดิม เหมือนเดิม ไม่ยุ่งกับปุ่ม
+-- UFO HUB X : PLAYER PAGE (Final Align + Perfect Layout)
+-- จัดตำแหน่งเป๊ะเหมือนภาพตัวอย่าง v2
 ----------------------------------------------------------------
-local Players   = game:GetService("Players")
-local RunS      = game:GetService("RunService")
-local LP        = Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunS = game:GetService("RunService")
+local LP = Players.LocalPlayer
 
--- helpers (ใช้ของเดิมถ้ามี)
+-- helper ปลอดภัย
 local function safeCorner(ui, r) if typeof(corner)=="function" then corner(ui, r) end end
-local function safeStroke(ui, thickness, col, t)
-	if typeof(stroke)=="function" then stroke(ui, thickness, col, t) end
+local function safeStroke(ui, t, c, tr)
+	if typeof(stroke)=="function" then stroke(ui, t, c, tr) end
 end
 
 ----------------------------------------------------------------
--- PAGE (create once)
+-- MAIN PAGE (ฝั่งขวา)
 ----------------------------------------------------------------
 local PlayerPage = Right:FindFirstChild("PlayerPage")
 if not PlayerPage then
@@ -544,140 +544,134 @@ if not PlayerPage then
 	PlayerPage.Name = "PlayerPage"
 	PlayerPage.Parent = Right
 	PlayerPage.BackgroundTransparency = 1
-	PlayerPage.Size = UDim2.new(1,0,1,0)
-	PlayerPage.Visible = false -- จะแสดงเมื่อกดปุ่มเท่านั้น
+	PlayerPage.Size = UDim2.new(1, 0, 1, 0)
+	PlayerPage.Visible = false
 end
 
--- ถ้าเคยสร้าง BigHeader ไว้ก่อนหน้านี้ ให้เอาออกเพื่อไม่ให้ชื่อซ้ำ
-local oldHeader = Right:FindFirstChild("BigHeader")
-if oldHeader then oldHeader:Destroy() end
+----------------------------------------------------------------
+-- รูปผู้เล่น (Avatar)
+----------------------------------------------------------------
+local Avatar = PlayerPage:FindFirstChild("Avatar") or Instance.new("ImageLabel")
+Avatar.Name = "Avatar"
+Avatar.Parent = PlayerPage
+Avatar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+Avatar.BorderSizePixel = 0
+Avatar.ScaleType = Enum.ScaleType.Crop
+safeCorner(Avatar, 12)
+safeStroke(Avatar, 1, Color3.fromRGB(0, 255, 140), 0.35)
 
-----------------------------------------------------------------
--- Avatar + Name (ย่อขนาดและจัดตำแหน่งใหม่)
-----------------------------------------------------------------
--- รูปผู้เล่น (เล็กลงจาก 240 -> 180 และยกขึ้น)
-local Avatar = PlayerPage:FindFirstChild("Avatar") :: ImageLabel
-if not Avatar then
-	Avatar = Instance.new("ImageLabel")
-	Avatar.Name = "Avatar"
-	Avatar.Parent = PlayerPage
-	Avatar.BackgroundColor3 = Color3.fromRGB(22,22,22)
-	Avatar.BorderSizePixel = 0
-	Avatar.ScaleType = Enum.ScaleType.Crop
-	safeCorner(Avatar,12)
-	safeStroke(Avatar,1,Color3.fromRGB(0,255,140),0.35)
-end
-Avatar.AnchorPoint = Vector2.new(0.5,0)
-Avatar.Position    = UDim2.new(0.5, 0, 0, 120)
-Avatar.Size        = UDim2.fromOffset(180,180)
+-- ✅ ขนาดและตำแหน่ง (เท่ากับในรูปที่ 2 เป๊ะ)
+Avatar.AnchorPoint = Vector2.new(0.5, 0)
+Avatar.Position = UDim2.new(0.5, 0, 0, 100)
+Avatar.Size = UDim2.fromOffset(150, 150)
 
 task.spawn(function()
-	local ok,url = pcall(function()
+	local ok, url = pcall(function()
 		return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
 	end)
 	Avatar.Image = ok and url or "rbxassetid://0"
 end)
 
--- แถบชื่อ (สีเหลือง) – เล็กลงและเลื่อนตามรูป
-local NameBar = PlayerPage:FindFirstChild("NameBar") :: Frame
-if not NameBar then
-	NameBar = Instance.new("Frame")
-	NameBar.Name = "NameBar"
-	NameBar.Parent = PlayerPage
-	NameBar.BorderSizePixel = 0
-	safeCorner(NameBar, 8)
-end
-NameBar.BackgroundColor3 = Color3.fromRGB(245,200,40)
-NameBar.AnchorPoint = Vector2.new(0.5,0)
-NameBar.Position    = UDim2.new(0.5, 0, 0, 310)
-NameBar.Size        = UDim2.fromOffset(220, 28)
+----------------------------------------------------------------
+-- ชื่อผู้เล่น (Name Bar)
+----------------------------------------------------------------
+local NameBar = PlayerPage:FindFirstChild("NameBar") or Instance.new("Frame")
+NameBar.Name = "NameBar"
+NameBar.Parent = PlayerPage
+NameBar.BorderSizePixel = 0
+safeCorner(NameBar, 8)
+NameBar.BackgroundColor3 = Color3.fromRGB(245, 200, 40)
 
-local NameText = NameBar:FindFirstChild("NameText") :: TextLabel
-if not NameText then
-	NameText = Instance.new("TextLabel")
-	NameText.Name = "NameText"
-	NameText.Parent = NameBar
-	NameText.BackgroundTransparency = 1
-	NameText.Font = Enum.Font.GothamBold
-	NameText.TextXAlignment = Enum.TextXAlignment.Center
-end
-NameText.Position     = UDim2.new(0,8,0,0)
-NameText.Size         = UDim2.new(1,-16,1,0)
-NameText.Text         = LP.DisplayName or LP.Name
-NameText.TextSize     = 18
-NameText.TextColor3   = Color3.fromRGB(25,25,25)
+-- ✅ ขนาดและตำแหน่งตามกรอบเหลือง
+NameBar.AnchorPoint = Vector2.new(0.5, 0)
+NameBar.Position = UDim2.new(0.5, 0, 0, 260)
+NameBar.Size = UDim2.fromOffset(200, 26)
 
--- แถบเวลาการใช้งาน 3 บรรทัด (ขาว) – จัดให้อยู่ใต้ชื่อ
-local function ensureBar(name, y)
-	local bar = PlayerPage:FindFirstChild(name) :: Frame
-	if not bar then
-		bar = Instance.new("Frame")
-		bar.Name = name
-		bar.Parent = PlayerPage
-		bar.BorderSizePixel = 0
-		safeCorner(bar, 6)
-		local lbl = Instance.new("TextLabel")
-		lbl.Name = "Label"
-		lbl.Parent = bar
-		lbl.BackgroundTransparency = 1
-		lbl.Font = Enum.Font.Gotham
-		lbl.TextSize = 15
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.TextColor3 = Color3.fromRGB(30,30,30)
-		lbl.Position = UDim2.new(0,8,0,0)
-		lbl.Size     = UDim2.new(1,-16,1,0)
-	end
-	bar.BackgroundColor3 = Color3.fromRGB(245,245,245)
-	bar.AnchorPoint = Vector2.new(0.5,0)
-	bar.Position    = UDim2.new(0.5, 0, 0, y)
-	bar.Size        = UDim2.fromOffset(240, 24)
-	return bar.Label
-end
-
-local LabelDays = ensureBar("BarDays", 345)
-local LabelHrs  = ensureBar("BarHours", 372)
-local LabelMin  = ensureBar("BarMins", 399)
+local NameText = NameBar:FindFirstChild("NameText") or Instance.new("TextLabel")
+NameText.Name = "NameText"
+NameText.Parent = NameBar
+NameText.BackgroundTransparency = 1
+NameText.Font = Enum.Font.GothamBold
+NameText.TextXAlignment = Enum.TextXAlignment.Center
+NameText.Text = LP.DisplayName or LP.Name
+NameText.TextSize = 17
+NameText.TextColor3 = Color3.fromRGB(25, 25, 25)
+NameText.Size = UDim2.new(1, -16, 1, 0)
+NameText.Position = UDim2.new(0, 8, 0, 0)
 
 ----------------------------------------------------------------
--- นับเวลา realtime (สีชื่อเปลี่ยนตามจำนวนวัน)
+-- แถบนับเวลา (3 ช่อง)
+----------------------------------------------------------------
+local function makeBar(name, y)
+	local bar = PlayerPage:FindFirstChild(name) or Instance.new("Frame")
+	bar.Name = name
+	bar.Parent = PlayerPage
+	bar.BorderSizePixel = 0
+	safeCorner(bar, 6)
+	bar.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+	bar.AnchorPoint = Vector2.new(0.5, 0)
+	bar.Position = UDim2.new(0.5, 0, 0, y)
+	bar.Size = UDim2.fromOffset(220, 22)
+
+	local lbl = bar:FindFirstChild("Label") or Instance.new("TextLabel")
+	lbl.Name = "Label"
+	lbl.Parent = bar
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 14
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.TextColor3 = Color3.fromRGB(30, 30, 30)
+	lbl.Position = UDim2.new(0, 8, 0, 0)
+	lbl.Size = UDim2.new(1, -16, 1, 0)
+	return lbl
+end
+
+local LabelDays = makeBar("BarDays", 290)
+local LabelHrs = makeBar("BarHours", 315)
+local LabelMin = makeBar("BarMins", 340)
+
+----------------------------------------------------------------
+-- ระบบนับเวลาแบบเรียลไทม์
 ----------------------------------------------------------------
 getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
 local PT = getgenv().UFO_PLAYTIME
 
-local function setNameColor(days)
+local function updateNameColor(days)
 	if days >= 365 then
-		NameText.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี = แดง
+		NameText.TextColor3 = Color3.fromRGB(255, 60, 60) -- แดง (1 ปี)
 	elseif days >= 30 then
-		NameText.TextColor3 = Color3.fromRGB(255,215,0)   -- 1 เดือน = ทอง
+		NameText.TextColor3 = Color3.fromRGB(255, 215, 0) -- ทอง (1 เดือน)
 	elseif days >= 7 then
-		NameText.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน = เขียว
+		NameText.TextColor3 = Color3.fromRGB(0, 255, 140) -- เขียว (7 วัน)
 	else
-		NameText.TextColor3 = Color3.fromRGB(25,25,25)    -- เริ่มต้น = ดำเข้ม
+		NameText.TextColor3 = Color3.fromRGB(25, 25, 25) -- ขาวเข้ม (เริ่มต้น)
 	end
 end
 
 local acc = 0
 RunS.Heartbeat:Connect(function(dt)
-	acc += dt; if acc < 1 then return end; acc = 0
-	local now   = os.time()
+	acc += dt
+	if acc < 1 then return end
+	acc = 0
+	local now = os.time()
 	local total = (PT.base or 0) + (now - (PT.start or now))
-	local d = math.floor(total/86400)
-	local h = math.floor((total%86400)/3600)
-	local m = math.floor((total%3600)/60)
+	local d = math.floor(total / 86400)
+	local h = math.floor((total % 86400) / 3600)
+	local m = math.floor((total % 3600) / 60)
 	LabelDays.Text = string.format("Days using UFO HUB X : %d", d)
-	LabelHrs.Text  = string.format("Hours using           : %d", h)
-	LabelMin.Text  = string.format("Minutes using         : %d", m)
-	setNameColor(d)
+	LabelHrs.Text = string.format("Hours using : %d", h)
+	LabelMin.Text = string.format("Minutes using : %d", m)
+	updateNameColor(d)
 end)
 
 ----------------------------------------------------------------
--- ผูกกับปุ่ม Player เดิม (โชว์/ซ่อนหน้า)
+-- ผูกกับปุ่ม Player เดิม (โชว์/ซ่อน)
 ----------------------------------------------------------------
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
-local ClickBtn  = BtnPlayer and BtnPlayer:FindFirstChild("Click")
+local ClickBtn = BtnPlayer and BtnPlayer:FindFirstChild("Click")
 if ClickBtn then
 	ClickBtn.MouseButton1Click:Connect(function()
-		for _,v in ipairs(Right:GetChildren()) do
+		for _, v in ipairs(Right:GetChildren()) do
 			if v:IsA("Frame") then v.Visible = false end
 		end
 		PlayerPage.Visible = true
