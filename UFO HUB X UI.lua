@@ -1079,95 +1079,112 @@ end
 alignFlyBox()
 local page = findPlayerPage()
 if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end
--- === UFO HUB X : Fly Direction Buttons (UI only, no movement yet) ===
+-- === UFO HUB X : Fly Direction Buttons (show when Fly switch turns ON) ===
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
 
--- หา BoolValue ของ Fly ที่ใช้ใน HUB
-local function findFlyEnabled()
-	for _, gui in ipairs(PG:GetDescendants()) do
-		if gui:IsA("TextLabel") and gui.Text and gui.Text:lower():find("fly") then
-			local parent = gui.Parent
-			if parent and parent:FindFirstChildOfClass("BoolValue") then
-				return parent:FindFirstChildOfClass("BoolValue")
+-- ===== helper: หา BoolValue ของสวิตช์ Fly ใน HUB =====
+local function findFlyEnabledValue()
+	for _, obj in ipairs(PG:GetDescendants()) do
+		if obj:IsA("BoolValue") and obj.Name:lower() == "enabled" then
+			local row = obj.Parent
+			if row and row:IsA("Frame") then
+				-- เงื่อนไข: ชื่อแถว หรือข้อความบนป้ายมีคำว่า "fly"
+				local nameHasFly = tostring(row.Name):lower():find("fly")
+				local textHasFly = false
+				for _, ch in ipairs(row:GetDescendants()) do
+					if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+						if (ch.Text or ""):lower():find("fly") then
+							textHasFly = true
+							break
+						end
+					end
+				end
+				if nameHasFly or textHasFly then
+					return obj
+				end
 			end
 		end
 	end
 	return nil
 end
 
-local FlyEnabled = findFlyEnabled() or Instance.new("BoolValue", PG)
-FlyEnabled.Name = "FlyEnabled_UI"
-FlyEnabled.Value = false
-
--- 🟩🟥🟦 สีตามภาพ
-local COL_RED   = Color3.fromRGB(235, 64, 52)
-local COL_GREEN = Color3.fromRGB(46, 200, 120)
-local COL_BLUE  = Color3.fromRGB(70, 140, 255)
+-- ====== UI ปุ่มควบคุมทิศ ======
+local COL_RED   = Color3.fromRGB(235, 64, 52)   -- forward
+local COL_GREEN = Color3.fromRGB(46, 200, 120)  -- back
+local COL_BLUE  = Color3.fromRGB(70, 140, 255)  -- left/right
 local COL_BLACK = Color3.fromRGB(10, 10, 10)
 local COL_LINE  = Color3.fromRGB(0, 255, 140)
 
--- สร้าง GUI
 local flyGui = PG:FindFirstChild("UFO_FlyUI") or Instance.new("ScreenGui")
 flyGui.Name = "UFO_FlyUI"
 flyGui.ResetOnSpawn = false
 flyGui.IgnoreGuiInset = true
 flyGui.Enabled = false
+flyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 flyGui.Parent = PG
 
--- กล่องหลัก
-local frame = Instance.new("Frame")
-frame.Name = "FlyControlPad"
-frame.Size = UDim2.fromOffset(250, 250)
-frame.AnchorPoint = Vector2.new(0, 1)
-frame.Position = UDim2.new(0, 90, 1, -110)
-frame.BackgroundColor3 = COL_BLACK
-frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.15
-frame.Parent = flyGui
+local pad = flyGui:FindFirstChild("FlyControlPad") or Instance.new("Frame")
+pad.Name = "FlyControlPad"
+pad.Size = UDim2.fromOffset(250, 250)
+pad.AnchorPoint = Vector2.new(0, 1)
+pad.Position = UDim2.new(0, 90, 1, -110) -- มุมซ้ายล่างตามรูป
+pad.BackgroundColor3 = COL_BLACK
+pad.BorderSizePixel = 0
+pad.BackgroundTransparency = 0.15
+pad.Parent = flyGui
+if not pad:FindFirstChildOfClass("UICorner") then
+	local c = Instance.new("UICorner", pad); c.CornerRadius = UDim.new(0,10)
+end
+if not pad:FindFirstChildOfClass("UIStroke") then
+	local s = Instance.new("UIStroke", pad); s.Color = COL_LINE; s.Thickness = 1.2; s.Transparency = 0.25
+end
 
-local uiCorner = Instance.new("UICorner", frame)
-uiCorner.CornerRadius = UDim.new(0, 10)
-local stroke = Instance.new("UIStroke", frame)
-stroke.Color = COL_LINE
-stroke.Thickness = 1.2
-stroke.Transparency = 0.25
-
--- ฟังก์ชันสร้างปุ่ม
-local function makeBtn(name, color)
-	local b = Instance.new("TextButton")
+local function makeBtn(name, color, pos)
+	local b = pad:FindFirstChild(name) or Instance.new("TextButton")
 	b.Name = name
 	b.Text = ""
 	b.BackgroundColor3 = color
 	b.BorderSizePixel = 0
-	b.Size = UDim2.fromOffset(70, 70)
-	local c = Instance.new("UICorner", b)
-	c.CornerRadius = UDim.new(0, 10)
-	local s = Instance.new("UIStroke", b)
-	s.Color = COL_LINE
-	s.Thickness = 1.2
-	s.Transparency = 0.25
-	b.Parent = frame
+	b.Size = UDim2.fromOffset(70,70)
+	b.Position = pos
+	b.Parent = pad
+	if not b:FindFirstChildOfClass("UICorner") then
+		local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,10)
+	end
+	if not b:FindFirstChildOfClass("UIStroke") then
+		local s = Instance.new("UIStroke", b); s.Color = COL_LINE; s.Thickness = 1.2; s.Transparency = 0.25
+	end
 	return b
 end
 
--- สร้างปุ่ม 4 ทิศ
-local btnForward = makeBtn("Forward", COL_RED)
-local btnBack    = makeBtn("Back", COL_GREEN)
-local btnLeft    = makeBtn("Left", COL_BLUE)
-local btnRight   = makeBtn("Right", COL_BLUE)
+-- จัดวางเหมือนรูป (กากบาท)
+makeBtn("Forward", COL_RED,   UDim2.new(0.5, -35, 0.0, 10))
+makeBtn("Back",    COL_GREEN, UDim2.new(0.5, -35, 1.0, -80))
+makeBtn("Left",    COL_BLUE,  UDim2.new(0.0, 10,   0.5, -35))
+makeBtn("Right",   COL_BLUE,  UDim2.new(1.0, -80,  0.5, -35))
 
--- จัดตำแหน่งแบบกากบาทเหมือนในรูป
-btnForward.Position = UDim2.new(0.5, -35, 0.0, 10)
-btnBack.Position    = UDim2.new(0.5, -35, 1, -80)
-btnLeft.Position    = UDim2.new(0.0, 10, 0.5, -35)
-btnRight.Position   = UDim2.new(1, -80, 0.5, -35)
+-- ===== bind แสดง/ซ่อนตามสวิตช์ Fly จริง =====
+local function applyFlyBinding()
+	local enabledVal = findFlyEnabledValue()
+	if not enabledVal then
+		-- ยังหาไม่เจอ ลองใหม่อีกนิดหน่อยหลังจาก GUI โหลด (รอบเดียว)
+		task.defer(function()
+			local retry = findFlyEnabledValue()
+			if retry then
+				retry.Changed:Connect(function()
+					flyGui.Enabled = retry.Value
+				end)
+				flyGui.Enabled = retry.Value
+			end
+		end)
+		return
+	end
+	enabledVal.Changed:Connect(function()
+		flyGui.Enabled = enabledVal.Value
+	end)
+	flyGui.Enabled = enabledVal.Value
+end
 
--- เปิด/ปิดตาม Fly
-FlyEnabled.Changed:Connect(function()
-	flyGui.Enabled = FlyEnabled.Value
-end)
-
--- ให้เปิด GUI ตามสวิตช์เริ่มต้น
-flyGui.Enabled = FlyEnabled.Value
+applyFlyBinding()
