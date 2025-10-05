@@ -730,43 +730,71 @@ if ClickBtn then
 		PlayerPage.Visible = true
 	end)
 end
--- 🛸 UFO HUB X : SPEED + JUMP SLIDER SYSTEM (Final Compact + Fix Inside Frame)
--- อยู่ใต้เวลาใน PlayerPage พอดี, มีกล่องดำขอบเขียว, มี emoji, ไม่มีบั๊กตอนปิด
+-- 🛸 UFO HUB X : SPEED + JUMP sliders (auto-find PlayerPage + safe position)
+-- - หา PlayerPage อัตโนมัติ (ไม่ต้องมีตัวแปร Right)
+-- - ถ้าไม่พบ TimeLabel จะอิงตำแหน่งจาก NameBar/Avatar แทน
+-- - กล่องสีดำขอบเขียว 2 แถว (Speed 🚀 / Jump 🦘) อยู่ใต้เวลาในกรอบพอดี
+-- - ปิดสวิตช์ = ค่าปกติ (เดิน/กระโดดได้ปกติ), เปิดสวิตช์ = 0–100
 
-local Players = game:GetService("Players")
+local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInput = game:GetService("UserInputService")
+local UserInput  = game:GetService("UserInputService")
+local LP         = Players.LocalPlayer
 
-local LP = Players.LocalPlayer
-local Char = LP.Character or LP.CharacterAdded:Wait()
-local Hum = Char:WaitForChild("Humanoid")
-
--- Helper UI function
+-- ---------- helpers ----------
 local function corner(ui, r)
 	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r)
-	c.Parent = ui
+	c.CornerRadius = UDim.new(0, r); c.Parent = ui
 end
-
 local function stroke(ui, t, col, tr)
 	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-	s.Thickness = t
-	s.Color = col
-	s.Transparency = tr or 0.25
-	s.Parent = ui
+	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
 end
-
 local function clamp(n,a,b) return math.max(a, math.min(b,n)) end
 
--- หา PlayerPage / TimeLabel
-local PlayerPage = Right:FindFirstChild("PlayerPage")
-if not PlayerPage then return end
-local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
+-- ---------- find PlayerPage safely ----------
+local function findPlayerPage()
+	-- 1) ถ้ามีตัวแปร Right อยู่ในสโคป (จากสคริปต์อื่น)
+	if _G.Right and typeof(_G.Right)=="Instance" then
+		local pp = _G.Right:FindFirstChild("PlayerPage")
+		if pp then return pp end
+	end
+	if Right and typeof(Right)=="Instance" then
+		local pp = Right:FindFirstChild("PlayerPage")
+		if pp then return pp end
+	end
+	-- 2) ไล่หาใน PlayerGui ทั้งหมด
+	local pg = LP:WaitForChild("PlayerGui", 5)
+	if not pg then return nil end
+	for _,g in ipairs(pg:GetDescendants()) do
+		if g:IsA("Frame") and g.Name == "PlayerPage" then
+			return g
+		end
+	end
+	return nil
+end
 
--- CONFIG (ขนาดสั้นลงเหมือนในรูปที่ 2)
+local PlayerPage = findPlayerPage()
+if not PlayerPage then
+	warn("[UFO] ไม่พบ PlayerPage — ตรวจชื่อ Frame ให้เป็น 'PlayerPage'")
+	return
+end
+
+-- อ้างอิงตำแหน่ง “เวลา” ถ้ามี
+local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
+-- ถ้าไม่มีเวลา ลองใช้ NameBar/Avatar เป็นฐานแทน
+local NameBar   = PlayerPage:FindFirstChild("NameBar")
+local Avatar    = PlayerPage:FindFirstChild("Avatar")
+
+-- ---------- Humanoid ----------
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local Hum  = Char:WaitForChild("Humanoid")
+Hum.UseJumpPower = true
+
+-- ---------- CONFIG ----------
 local CFG = {
 	BOX_W = 480, BOX_H = 64,
-	BOX_Y_OFFSET = 20,
+	BOX_Y_OFFSET = 20,    -- ระยะจาก “เวลา” ลงมา
 	ROW_GAP = 6,
 	LABEL_W = 96,
 	TRACK_W = 150, TRACK_H = 10,
@@ -776,30 +804,42 @@ local CFG = {
 	COLOR_ACC = Color3.fromRGB(0,255,140),
 }
 
--- กล่องรวมทั้งหมด
+-- ---------- Sliders container ----------
 local SlidersBox = Instance.new("Frame")
 SlidersBox.Name = "SlidersBox"
 SlidersBox.Parent = PlayerPage
 SlidersBox.BackgroundColor3 = CFG.COLOR_BG
-SlidersBox.BorderSizePixel = 0
+SlidersBox.BorderSizePixel  = 0
 corner(SlidersBox, 8)
 stroke(SlidersBox, 1.2, CFG.COLOR_ACC, 0.35)
 SlidersBox.ZIndex = 50
+SlidersBox.Visible = true
 
--- ฟังก์ชันวางตำแหน่งให้อยู่ใต้เวลา
+-- คำนวณตำแหน่งใต้วลา/หรืออิง NameBar/Avatar ถ้าไม่เจอ
 local function placeSlidersBox()
-	local pageTopY   = PlayerPage.AbsolutePosition.Y
-	local timeBottom = TimeLabel.AbsolutePosition.Y + TimeLabel.AbsoluteSize.Y
-	local localY     = (timeBottom - pageTopY) + CFG.BOX_Y_OFFSET
+	local pageTopY = PlayerPage.AbsolutePosition.Y
+	local baseBottomY
 
+	if TimeLabel then
+		baseBottomY = TimeLabel.AbsolutePosition.Y + TimeLabel.AbsoluteSize.Y
+	elseif NameBar then
+		baseBottomY = NameBar.AbsolutePosition.Y + NameBar.AbsoluteSize.Y
+	elseif Avatar then
+		baseBottomY = Avatar.AbsolutePosition.Y + Avatar.AbsoluteSize.Y + 40
+	else
+		-- fallback กลางหน้ากรอบ
+		baseBottomY = PlayerPage.AbsolutePosition.Y + PlayerPage.AbsoluteSize.Y*0.55
+	end
+
+	local localY = (baseBottomY - pageTopY) + CFG.BOX_Y_OFFSET
 	SlidersBox.AnchorPoint = Vector2.new(0.5, 0)
 	SlidersBox.Position    = UDim2.new(0.5, 0, 0, localY)
 	SlidersBox.Size        = UDim2.fromOffset(CFG.BOX_W, CFG.BOX_H)
 end
 placeSlidersBox()
-RunService.RenderStepped:Connect(placeSlidersBox)
+RunService.RenderStepped:Connect(placeSlidersBox) -- อัปเดตเมื่อ UI เปลี่ยนขนาด
 
--- ฟังก์ชันสร้างแต่ละแถว
+-- ---------- make one row ----------
 local function makeRow(name, emoji)
 	local row = Instance.new("Frame")
 	row.Name = name
@@ -821,8 +861,7 @@ local function makeRow(name, emoji)
 	lbl.AnchorPoint = Vector2.new(0, 0.5)
 	lbl.Position = UDim2.new(0, 0, 0.5, 0)
 	lbl.Size = UDim2.fromOffset(CFG.LABEL_W, 18)
-	corner(lbl, 8)
-	stroke(lbl, 1, CFG.COLOR_ACC, 0.35)
+	corner(lbl, 8); stroke(lbl, 1, CFG.COLOR_ACC, 0.35)
 
 	local track = Instance.new("Frame")
 	track.Name = "Track"
@@ -832,8 +871,7 @@ local function makeRow(name, emoji)
 	track.AnchorPoint = Vector2.new(0,0.5)
 	track.Position = UDim2.new(0, CFG.LABEL_W + 8, 0.5, 0)
 	track.Size = UDim2.fromOffset(CFG.TRACK_W, CFG.TRACK_H)
-	corner(track, 8)
-	stroke(track, 1, CFG.COLOR_ACC, 0.35)
+	corner(track, 8); stroke(track, 1, CFG.COLOR_ACC, 0.35)
 
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
@@ -853,78 +891,65 @@ local function makeRow(name, emoji)
 	knob.AnchorPoint = Vector2.new(0.5,0.5)
 	knob.Position = UDim2.new(0,0,0.5,0)
 	knob.Size = UDim2.fromOffset(CFG.KNOB_W, CFG.TRACK_H + 4)
-	corner(knob, 8)
-	stroke(knob, 1, CFG.COLOR_ACC, 0.35)
+	corner(knob, 8); stroke(knob, 1, CFG.COLOR_ACC, 0.35)
 
 	local sw = Instance.new("Frame")
 	sw.Name = "Switch"
 	sw.Parent = row
 	sw.BackgroundColor3 = CFG.COLOR_BG
 	sw.BorderSizePixel = 0
-	corner(sw, 999)
-	stroke(sw, 1, CFG.COLOR_ACC, 0.35)
 	sw.AnchorPoint = Vector2.new(1,0.5)
 	sw.Position = UDim2.new(1, 0, 0.5, 0)
 	sw.Size = UDim2.fromOffset(CFG.SWITCH_W, CFG.SWITCH_H)
+	corner(sw, 999); stroke(sw, 1, CFG.COLOR_ACC, 0.35)
 
 	local dot = Instance.new("Frame")
 	dot.Name = "Dot"
 	dot.Parent = sw
-	dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+	dot.BackgroundColor3 = Color3.fromRGB(120,120,120) -- start OFF
 	dot.AnchorPoint = Vector2.new(0,0.5)
 	dot.Position = UDim2.new(0,2,0.5,0)
 	dot.Size = UDim2.fromOffset(CFG.SWITCH_H-4, CFG.SWITCH_H-4)
-	corner(dot,999)
+	corner(dot, 999)
 
-	local val = Instance.new("NumberValue")
-	val.Name="Value"
-	val.Value=0
-	val.Parent=row
-
-	local ena = Instance.new("BoolValue")
-	ena.Name="Enabled"
-	ena.Value=false
-	ena.Parent=row
+	local val = Instance.new("NumberValue"); val.Name="Value";   val.Value=0;    val.Parent=row
+	local ena = Instance.new("BoolValue");   ena.Name="Enabled"; ena.Value=false; ena.Parent=row
 
 	return row
 end
 
--- 2 แถว Speed / Jump
+-- rows
 local rowSpeed = makeRow("Speed", "🚀")
-local rowJump = makeRow("Jump", "🦘")
-
+local rowJump  = makeRow("Jump",  "🦘")
 rowSpeed.Position = UDim2.new(0, 6, 0, 6)
-rowJump.Position = UDim2.new(0, 6, 0, 6 + (CFG.TRACK_H + 10) + CFG.ROW_GAP)
+rowJump.Position  = UDim2.new(0, 6, 0, 6 + (CFG.TRACK_H + 10) + CFG.ROW_GAP)
 
--- ฟังก์ชันลากสไลเดอร์และสวิตช์
+-- drag + toggle
 local dragging = nil
 local function bindRow(row)
 	local track, knob, fill, sw, dot = row.Track, row.Track.Knob, row.Track.Fill, row.Switch, row.Switch.Dot
-
 	local function setFromX(px)
 		local abs = track.AbsolutePosition.X
-		local w = track.AbsoluteSize.X - CFG.KNOB_W
+		local w   = track.AbsoluteSize.X - CFG.KNOB_W
 		local rel = clamp(px - abs, 0, w)
-		local v = math.floor((rel / w) * 100 + 0.5)
+		local v   = math.floor((rel / w) * 100 + 0.5)
 		row.Value.Value = v
-		fill.Size = UDim2.new(0, rel + CFG.KNOB_W/2, 1, 0)
-		knob.Position = UDim2.new(0, rel, 0.5, 0)
+		fill.Size       = UDim2.new(0, rel + CFG.KNOB_W/2, 1, 0)
+		knob.Position   = UDim2.new(0, rel, 0.5, 0)
 	end
-
 	knob.InputBegan:Connect(function(io)
-		if io.UserInputType == Enum.UserInputType.MouseButton1 then dragging = row end
+		if io.UserInputType==Enum.UserInputType.MouseButton1 then dragging=row end
 	end)
 	UserInput.InputChanged:Connect(function(io)
-		if dragging == row and io.UserInputType == Enum.UserInputType.MouseMovement then
+		if dragging==row and io.UserInputType==Enum.UserInputType.MouseMovement then
 			setFromX(io.Position.X)
 		end
 	end)
 	UserInput.InputEnded:Connect(function(io)
-		if io.UserInputType == Enum.UserInputType.MouseButton1 and dragging == row then dragging = nil end
+		if io.UserInputType==Enum.UserInputType.MouseButton1 and dragging==row then dragging=nil end
 	end)
-
 	sw.InputBegan:Connect(function(io)
-		if io.UserInputType == Enum.UserInputType.MouseButton1 then
+		if io.UserInputType==Enum.UserInputType.MouseButton1 then
 			row.Enabled.Value = not row.Enabled.Value
 			if row.Enabled.Value then
 				dot.Position = UDim2.new(1, -(CFG.SWITCH_H-2), 0.5, 0)
@@ -936,33 +961,29 @@ local function bindRow(row)
 		end
 	end)
 end
+bindRow(rowSpeed); bindRow(rowJump)
 
-bindRow(rowSpeed)
-bindRow(rowJump)
-
--- ค่าพื้นฐานและระบบปรับจริง
+-- apply values
 local DEF_WALKSPEED = 16
 local DEF_JUMPPOWER = 50
-Hum.UseJumpPower = true
 
 RunService.Heartbeat:Connect(function()
 	if not Hum or not Hum.Parent then
-		Char = LP.Character or LP.CharacterAdded:Wait()
-		Hum = Char:WaitForChild("Humanoid")
-		Hum.UseJumpPower = true
+		local c = LP.Character or LP.CharacterAdded:Wait()
+		Hum = c:WaitForChild("Humanoid"); Hum.UseJumpPower = true
 	end
-
-	-- Speed
+	-- speed
 	if rowSpeed.Enabled.Value then
 		Hum.WalkSpeed = clamp(rowSpeed.Value.Value, 0, 100)
 	else
 		Hum.WalkSpeed = DEF_WALKSPEED
 	end
-
-	-- Jump
+	-- jump
 	if rowJump.Enabled.Value then
-		Hum.JumpPower = clamp(rowJump.Value.Value, 0, 100)
+		Hum.UseJumpPower = true
+		Hum.JumpPower    = clamp(rowJump.Value.Value, 0, 100)
 	else
-		Hum.JumpPower = DEF_JUMPPOWER
+		Hum.UseJumpPower = true
+		Hum.JumpPower    = DEF_JUMPPOWER
 	end
 end)
