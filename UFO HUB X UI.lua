@@ -952,56 +952,62 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- UFO HUB X : FLY BOX (pin to RED area) — black box + neon-green stroke + toggle only
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-local PG = LP:WaitForChild("PlayerGui")
+-- UFO HUB X : FLY BOX (inside HUB panel) — black box + neon-green stroke + toggle
+local ACC = Color3.fromRGB(0,255,140)
 
--- ล้างของเดิม
-local old = PG:FindFirstChild("UFO_FlyPadGui")
+local Players = game:GetService("Players")
+local LP      = Players.LocalPlayer
+local PG      = LP:WaitForChild("PlayerGui")
+
+-- หา PlayerPage ใน HUB (ค้นทุกชั้น)
+local function findDescendantByName(root, name)
+	for _,d in ipairs(root:GetDescendants()) do
+		if d.Name == name then return d end
+	end
+end
+local PlayerPage = findDescendantByName(PG, "PlayerPage")
+if not PlayerPage then return end   -- ยังไม่เปิด HUB
+
+-- ลบของเดิม
+local old = PlayerPage:FindFirstChild("FlyBox")
 if old then old:Destroy() end
 
 -- helpers
 local function corner(ui, r)
-    local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r); c.Parent = ui
+	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r); c.Parent = ui
 end
 local function stroke(ui, t, col, tr)
-    local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-    s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
+	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
 end
-local ACC = Color3.fromRGB(0,255,140)
 
--- สร้าง ScreenGui
-local gui = Instance.new("ScreenGui")
-gui.Name = "UFO_FlyPadGui"
-gui.IgnoreGuiInset = true
-gui.ResetOnSpawn = false
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.DisplayOrder = 99999
-gui.Parent = PG
-
--- #### ตำแหน่ง/ขนาด “ให้ตรงกรอบแดง” ####
--- ยึดมุมซ้ายล่างของจอ (Anchor คงที่) แล้วกำหนดระยะขอบ + ขนาดให้เท่ากรอบแดง
-local MARGIN_LEFT   = 90     -- ระยะจากซ้ายของจอ -> เลือกไว้ให้ตรงกับภาพกรอบแดง
-local MARGIN_BOTTOM = 150    -- ระยะจากขอบล่างของจอ
-local BOX_WIDTH     = 420    -- ความยาวกล่อง (ยาวเท่ากรอบแดง)
-local BOX_HEIGHT    = 112    -- ความสูงกล่อง (หนาเท่ากรอบแดง)
+-- ====== ตำแหน่ง “ในแผง HUB” ให้เท่ากรอบแดง (ซ้ายล่างของ PlayerPage) ======
+local PAD_LEFT   = 18   -- เว้นจากขอบซ้ายของ PlayerPage
+local PAD_BOTTOM = 18   -- เว้นจากขอบล่างของ PlayerPage
+local WIDTH      = 420  -- ความยาวกล่อง = กรอบแดง
+local HEIGHT     = 112  -- ความสูงกล่อง = กรอบแดง
 
 -- กล่องหลัก
 local box = Instance.new("Frame")
 box.Name = "FlyBox"
 box.BackgroundColor3 = Color3.fromRGB(0,0,0)
 box.BorderSizePixel = 0
-box.AnchorPoint = Vector2.new(0,1)                                  -- ยึดซ้ายล่าง
-box.Position    = UDim2.new(0, MARGIN_LEFT, 1, -MARGIN_BOTTOM)       -- ตรงกรอบแดง
-box.Size        = UDim2.fromOffset(BOX_WIDTH, BOX_HEIGHT)            -- ขนาดตรงกรอบแดง
-box.ZIndex      = 50
+box.ZIndex = 200
 corner(box, 12)
 stroke(box, 1.2, ACC, 0.35)
-box.Parent = gui
+box.Parent = PlayerPage
 
--- หัวข้อ (สีขาว ไม่มีเส้นเขียว)
+-- จัดวางให้ยึดมุมซ้ายล่าง “ภายใน PlayerPage”
+local function layout()
+	box.AnchorPoint = Vector2.new(0,1)
+	box.Position    = UDim2.new(0, PAD_LEFT, 1, -PAD_BOTTOM)
+	box.Size        = UDim2.fromOffset(WIDTH, HEIGHT)
+end
+layout()
+PlayerPage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+
+-- หัวข้อ (ตัวอักษรสีขาว ไม่มีเส้น)
 local title = Instance.new("TextLabel")
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
@@ -1011,7 +1017,7 @@ title.TextSize = 16
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Position = UDim2.new(0, 12, 0, 8)
 title.Size = UDim2.new(1, -24, 0, 20)
-title.ZIndex = 51
+title.ZIndex = 201
 title.Parent = box
 
 -- เส้นเลเซอร์บน
@@ -1021,10 +1027,10 @@ laser.BorderSizePixel = 0
 laser.AnchorPoint = Vector2.new(0.5,0)
 laser.Position = UDim2.new(0.5, 0, 0, 34)
 laser.Size = UDim2.new(1, -24, 0, 2)
-laser.ZIndex = 51
+laser.ZIndex = 201
 laser.Parent = box
 
--- สวิตช์เปิด/ปิด (เฉพาะ UI ตอนนี้)
+-- สวิตช์เปิด/ปิด (UI เท่านั้น ตอนนี้)
 local sw = Instance.new("Frame")
 sw.Name = "Switch"
 sw.BackgroundColor3 = Color3.fromRGB(0,0,0)
@@ -1032,7 +1038,7 @@ sw.BorderSizePixel = 0
 sw.AnchorPoint = Vector2.new(1,0)
 sw.Position = UDim2.new(1, -12, 0, 8)
 sw.Size = UDim2.fromOffset(40, 18)
-sw.ZIndex = 51
+sw.ZIndex = 201
 corner(sw, 999); stroke(sw, 1, ACC, 0.35)
 sw.Parent = box
 
@@ -1043,43 +1049,30 @@ dot.BorderSizePixel = 0
 dot.AnchorPoint = Vector2.new(0,0.5)
 dot.Position = UDim2.new(0, 2, 0.5, 0)
 dot.Size = UDim2.fromOffset(14, 14)
-dot.ZIndex = 52
+dot.ZIndex = 202
 corner(dot, 999)
 dot.Parent = sw
 
--- พื้นที่ว่างด้านใน (เผื่อวางปุ่มควบคุมทีหลัง)
+-- พื้นที่ด้านใน (เผื่อปุ่มควบคุมภายหลัง)
 local inner = Instance.new("Frame")
+inner.Name = "Inner"
 inner.BackgroundTransparency = 1
 inner.AnchorPoint = Vector2.new(0,1)
 inner.Position = UDim2.new(0, 12, 1, -10)
 inner.Size = UDim2.new(1, -24, 1, -48)
-inner.ZIndex = 51
-inner.Name = "Inner"
+inner.ZIndex = 201
 inner.Parent = box
 
--- สถานะข้อความ (ตอนนี้ไว้บอกว่า UI ขึ้นถูกตำแหน่งแล้ว)
-local hint = Instance.new("TextLabel")
-hint.BackgroundTransparency = 1
-hint.Font = Enum.Font.GothamMedium
-hint.Text = "ตำแหน่ง/ขนาด = ตรงกรอบแดงแล้ว ✅\nถ้าโอเค เดี๋ยวใส่ปุ่ม Forward/Back/Left/Right/Up/Down ให้ต่อ"
-hint.TextColor3 = Color3.fromRGB(200,200,200)
-hint.TextSize = 14
-hint.TextXAlignment = Enum.TextXAlignment.Left
-hint.TextYAlignment = Enum.TextYAlignment.Top
-hint.Size = UDim2.new(1, 0, 1, 0)
-hint.ZIndex = 51
-hint.Parent = inner
-
--- ปฏิกิริยาสวิตช์ (แค่แสดงผลด้าน UI)
+-- คลิกสวิตช์ (แค่ UI)
 sw.InputBegan:Connect(function(io)
-    if io.UserInputType == Enum.UserInputType.MouseButton1 then
-        local on = dot.Position.X.Offset < sw.Size.X.Offset/2
-        if on then
-            dot.Position = UDim2.new(1, -16, 0.5, 0)
-            dot.BackgroundColor3 = ACC
-        else
-            dot.Position = UDim2.new(0, 2, 0.5, 0)
-            dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-        end
-    end
+	if io.UserInputType == Enum.UserInputType.MouseButton1 then
+		local on = dot.Position.X.Offset < sw.Size.X.Offset/2
+		if on then
+			dot.Position = UDim2.new(1, -16, 0.5, 0)
+			dot.BackgroundColor3 = ACC
+		else
+			dot.Position = UDim2.new(0, 2, 0.5, 0)
+			dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+		end
+	end
 end)
