@@ -200,10 +200,6 @@ Right.Position = UDim2.new(LEFT_RATIO, GAP_BETWEEN, 0, 0)
 Right.Size = UDim2.new(RIGHT_RATIO, -GAP_BETWEEN/2, 1, 0)
 Right.ClipsDescendants = true; corner(Right, 10); stroke(Right, 1.2, GREEN, 0); stroke(Right, 0.45, MINT, 0.35)
 
-local imgL = Instance.new("ImageLabel", Left)   -- ...
-
-local imgR = Instance.new("ImageLabel", Right)  -- ...
-
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IMG_SMALL; imgL.ScaleType = Enum.ScaleType.Crop
 
@@ -546,3 +542,8 @@ BtnPlayer.MouseButton1Click:Connect(function()
     end
     PlayerPage.Visible = true
 end)
+
+local imgL = Instance.new("ImageLabel", Left)   -- ...
+
+local imgR = Instance.new("ImageLabel", Right)  -- ...
+
