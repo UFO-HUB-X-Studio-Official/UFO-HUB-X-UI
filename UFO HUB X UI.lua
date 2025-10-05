@@ -630,38 +630,34 @@ local LabelDays = makeBar("BarDays", 290)
 local LabelHrs = makeBar("BarHours", 315)
 local LabelMin = makeBar("BarMins", 340)
 
-----------------------------------------------------------------
--- ระบบนับเวลาแบบเรียลไทม์
-----------------------------------------------------------------
+--======================================================
+-- TIME TRACKER (นับเมื่อมี UI รันอยู่)
+--======================================================
 getgenv().UFO_PLAYTIME = getgenv().UFO_PLAYTIME or { start = os.time(), base = 0 }
 local PT = getgenv().UFO_PLAYTIME
 
-local function updateNameColor(days)
-	if days >= 365 then
-		NameText.TextColor3 = Color3.fromRGB(255, 60, 60) -- แดง (1 ปี)
-	elseif days >= 30 then
-		NameText.TextColor3 = Color3.fromRGB(255, 215, 0) -- ทอง (1 เดือน)
-	elseif days >= 7 then
-		NameText.TextColor3 = Color3.fromRGB(0, 255, 140) -- เขียว (7 วัน)
-	else
-		NameText.TextColor3 = Color3.fromRGB(25, 25, 25) -- ขาวเข้ม (เริ่มต้น)
-	end
+local function setNameColor(days)
+    if days >= 365 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,60,60)   -- 1 ปี = แดง
+    elseif days >= 30 then
+        NameLabel.TextColor3 = Color3.fromRGB(255,215,0)   -- 30 วัน = ทอง
+    elseif days >= 7 then
+        NameLabel.TextColor3 = Color3.fromRGB(0,255,140)   -- 7 วัน = เขียว
+    else
+        NameLabel.TextColor3 = TEXT_WHITE                  -- ปกติ = ขาว
+    end
 end
 
 local acc = 0
 RunS.Heartbeat:Connect(function(dt)
-	acc += dt
-	if acc < 1 then return end
-	acc = 0
-	local now = os.time()
-	local total = (PT.base or 0) + (now - (PT.start or now))
-	local d = math.floor(total / 86400)
-	local h = math.floor((total % 86400) / 3600)
-	local m = math.floor((total % 3600) / 60)
-	LabelDays.Text = string.format("Days using UFO HUB X : %d", d)
-	LabelHrs.Text = string.format("Hours using : %d", h)
-	LabelMin.Text = string.format("Minutes using : %d", m)
-	updateNameColor(d)
+    acc += dt; if acc < 1 then return end; acc = 0
+    local now   = os.time()
+    local total = (PT.base or 0) + (now - (PT.start or now))
+    local d = math.floor(total/86400)
+    local h = math.floor((total%86400)/3600)
+    local m = math.floor((total%3600)/60)
+    TimeLabel.Text = string.format("ใช้ UFO HUB X ไปแล้ว: %d วัน  %d ชั่วโมง  %d นาที", d, h, m)
+    setNameColor(d)
 end)
 
 ----------------------------------------------------------------
