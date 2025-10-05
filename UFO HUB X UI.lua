@@ -915,3 +915,20 @@ task.spawn(function()
 		end
 	end
 end)
+-- === KILL OLD WHITE BARS (Days/Hours/Minutes) ===
+do
+    local pp = Right:FindFirstChild("PlayerPage")
+    if pp then
+        for _, n in ipairs({"BarDays","BarHours","BarMins"}) do
+            local f = pp:FindFirstChild(n)
+            if f then f:Destroy() end
+        end
+
+        -- ถ้ามี Label ของบาร์พวกนั้นค้างอยู่ (บางไฟล์ใช้ TextLabel ตรง ๆ)
+        for _, ch in ipairs(pp:GetChildren()) do
+            if ch:IsA("TextLabel") and (ch.Name == "Label" or ch.Text == "Label") then
+                ch:Destroy()
+            end
+        end
+    end
+end
