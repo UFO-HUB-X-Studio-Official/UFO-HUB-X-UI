@@ -1079,207 +1079,95 @@ end
 alignFlyBox()
 local page = findPlayerPage()
 if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end
--- === UFO HUB X : Mobile Fly D-Pad (show when Fly is ON) ===
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local UserInput    = game:GetService("UserInputService")
+-- === UFO HUB X : Fly Direction Buttons (UI only, no movement yet) ===
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
 
-local LP   = Players.LocalPlayer
-local PG   = LP:WaitForChild("PlayerGui")
-
--- ====== find your Fly row (the one that shows "Fly ✈️") ======
--- เราค้น TextLabel ที่มีคำว่า "Fly" แล้วหยิบ BoolValue ชื่อ Enabled ใต้แถวนั้นมาใช้
-local function findFlyEnabledBool()
-    local playerPage
-    for _,gui in ipairs(PG:GetDescendants()) do
-        if gui:IsA("Frame") and gui.Name == "PlayerPage" then
-            playerPage = gui
-            break
-        end
-    end
-    if not playerPage then return nil end
-
-    local flyRow
-    for _,d in ipairs(playerPage:GetDescendants()) do
-        if d:IsA("TextLabel") and d.Text and d.Text:lower():find("fly") then
-            flyRow = d.Parent
-            break
-        end
-    end
-    if not flyRow then return nil end
-    local enabled = flyRow:FindFirstChild("Enabled")
-    if enabled and enabled:IsA("BoolValue") then
-        return enabled
-    end
-    return nil
+-- หา BoolValue ของ Fly ที่ใช้ใน HUB
+local function findFlyEnabled()
+	for _, gui in ipairs(PG:GetDescendants()) do
+		if gui:IsA("TextLabel") and gui.Text and gui.Text:lower():find("fly") then
+			local parent = gui.Parent
+			if parent and parent:FindFirstChildOfClass("BoolValue") then
+				return parent:FindFirstChildOfClass("BoolValue")
+			end
+		end
+	end
+	return nil
 end
 
-local FlyEnabled = findFlyEnabledBool()
--- ถ้าไม่เจอ ก็สร้าง BoolValue ไว้เผื่อ (จะถือว่า OFF)
-if not FlyEnabled then
-    FlyEnabled = Instance.new("BoolValue")
-    FlyEnabled.Name = "FlyEnabled_Fallback"
-    FlyEnabled.Value = false
-    FlyEnabled.Parent = PG
+local FlyEnabled = findFlyEnabled() or Instance.new("BoolValue", PG)
+FlyEnabled.Name = "FlyEnabled_UI"
+FlyEnabled.Value = false
+
+-- 🟩🟥🟦 สีตามภาพ
+local COL_RED   = Color3.fromRGB(235, 64, 52)
+local COL_GREEN = Color3.fromRGB(46, 200, 120)
+local COL_BLUE  = Color3.fromRGB(70, 140, 255)
+local COL_BLACK = Color3.fromRGB(10, 10, 10)
+local COL_LINE  = Color3.fromRGB(0, 255, 140)
+
+-- สร้าง GUI
+local flyGui = PG:FindFirstChild("UFO_FlyUI") or Instance.new("ScreenGui")
+flyGui.Name = "UFO_FlyUI"
+flyGui.ResetOnSpawn = false
+flyGui.IgnoreGuiInset = true
+flyGui.Enabled = false
+flyGui.Parent = PG
+
+-- กล่องหลัก
+local frame = Instance.new("Frame")
+frame.Name = "FlyControlPad"
+frame.Size = UDim2.fromOffset(250, 250)
+frame.AnchorPoint = Vector2.new(0, 1)
+frame.Position = UDim2.new(0, 90, 1, -110)
+frame.BackgroundColor3 = COL_BLACK
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.15
+frame.Parent = flyGui
+
+local uiCorner = Instance.new("UICorner", frame)
+uiCorner.CornerRadius = UDim.new(0, 10)
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = COL_LINE
+stroke.Thickness = 1.2
+stroke.Transparency = 0.25
+
+-- ฟังก์ชันสร้างปุ่ม
+local function makeBtn(name, color)
+	local b = Instance.new("TextButton")
+	b.Name = name
+	b.Text = ""
+	b.BackgroundColor3 = color
+	b.BorderSizePixel = 0
+	b.Size = UDim2.fromOffset(70, 70)
+	local c = Instance.new("UICorner", b)
+	c.CornerRadius = UDim.new(0, 10)
+	local s = Instance.new("UIStroke", b)
+	s.Color = COL_LINE
+	s.Thickness = 1.2
+	s.Transparency = 0.25
+	b.Parent = frame
+	return b
 end
 
--- ====== tiny UI helpers ======
-local function corner(ui, r)
-    local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r); c.Parent = ui
-end
-local function stroke(ui, t, col, tr)
-    local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-    s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
-end
+-- สร้างปุ่ม 4 ทิศ
+local btnForward = makeBtn("Forward", COL_RED)
+local btnBack    = makeBtn("Back", COL_GREEN)
+local btnLeft    = makeBtn("Left", COL_BLUE)
+local btnRight   = makeBtn("Right", COL_BLUE)
 
--- ====== build FlyPad (เหมือนในรูป: 4 สี่เหลี่ยม + กลางดำ) ======
-local COLOR_ACC  = Color3.fromRGB(0,255,140)      -- เส้นเขียวโทนเดียวกับ HUB
-local COL_RED    = Color3.fromRGB(235, 64, 52)    -- บน (หน้า)
-local COL_GREEN  = Color3.fromRGB(46, 200, 120)   -- ล่าง (หลัง)
-local COL_BLUE   = Color3.fromRGB(70, 140, 255)   -- ซ้าย/ขวา
-local COL_BLACK  = Color3.fromRGB(12, 12, 12)     -- กลางดำ
+-- จัดตำแหน่งแบบกากบาทเหมือนในรูป
+btnForward.Position = UDim2.new(0.5, -35, 0.0, 10)
+btnBack.Position    = UDim2.new(0.5, -35, 1, -80)
+btnLeft.Position    = UDim2.new(0.0, 10, 0.5, -35)
+btnRight.Position   = UDim2.new(1, -80, 0.5, -35)
 
--- ขนาด/ตำแหน่งให้เหมือนภาพ (มุมซ้ายล่าง, ปุ่มสี่เหลี่ยม)
-local PAD_W, PAD_H = 250, 250
-local BTN = { size = 70, gap = 14 }
-
-local screenGui = PG:FindFirstChild("UFO_FlyPadGui") or Instance.new("ScreenGui")
-screenGui.Name = "UFO_FlyPadGui"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Enabled = false  -- เริ่มต้นซ่อนไว้ (จะโชว์เมื่อ FlyEnabled เป็น true)
-screenGui.Parent = PG
-
-local pad = Instance.new("Frame")
-pad.Name = "FlyPad"
-pad.BackgroundTransparency = 1
-pad.Size = UDim2.fromOffset(PAD_W, PAD_H)
--- ยึดตำแหน่งซ้ายล่างแบบในรูป (ขยับได้ตามต้องการ)
-pad.AnchorPoint = Vector2.new(0,1)
-pad.Position = UDim2.new(0, 90, 1, -110)
-pad.Parent = screenGui
-
--- กล่องพื้นหลัง (ดำ + ขอบเขียว) ให้เหมือน card ในรูป
-local card = Instance.new("Frame")
-card.Name = "Card"
-card.BackgroundColor3 = COL_BLACK
-card.BorderSizePixel = 0
-card.Size = UDim2.new(1, 0, 1, 0)
-corner(card, 12); stroke(card, 1.2, COLOR_ACC, 0.35)
-card.BackgroundTransparency = 0.15
-card.Parent = pad
-
--- ปุ่ม helper
-local function makeBtn(name, bg)
-    local b = Instance.new("TextButton")
-    b.Name = name
-    b.Text = ""
-    b.AutoButtonColor = false
-    b.BackgroundColor3 = bg
-    b.BorderSizePixel = 0
-    b.Size = UDim2.fromOffset(BTN.size, BTN.size)
-    corner(b, 10); stroke(b, 1.4, COLOR_ACC, 0.35)
-    b.Parent = card
-    return b
-end
-
-local BtnForward = makeBtn("Forward", COL_RED)
-local BtnBack    = makeBtn("Back",    COL_GREEN)
-local BtnLeft    = makeBtn("Left",    COL_BLUE)
-local BtnRight   = makeBtn("Right",   COL_BLUE)
-local BtnCenter  = makeBtn("Center",  COL_BLACK) -- ปุ่มกลาง (ตกแต่งเฉยๆ)
-
--- วางตำแหน่งให้เป็นกากบาทเหมือนรูป
-local cx, cy = PAD_W/2, PAD_H/2
-local s, g   = BTN.size, BTN.gap
-BtnCenter.Position = UDim2.fromOffset(cx - s/2, cy - s/2)
-BtnForward.Position= UDim2.fromOffset(cx - s/2, cy - g - s - s/2 + 6) -- เลื่อนขึ้นนิดให้บาลานซ์
-BtnBack.Position   = UDim2.fromOffset(cx - s/2, cy + g + s/2 - 6)
-BtnLeft.Position   = UDim2.fromOffset(cx - g - s - s/2 + 6, cy - s/2)
-BtnRight.Position  = UDim2.fromOffset(cx + g + s/2 - 6,   cy - s/2)
-
--- ====== Fly movement ======
-local Char = LP.Character or LP.CharacterAdded:Wait()
-local Hum  = Char:WaitForChild("Humanoid")
-local HRP  = Char:WaitForChild("HumanoidRootPart")
-
-local flying = false
-local inputDir = Vector3.zero    -- ทิศที่กดจากปุ่ม
-local FLY_SPEED = 80             -- ความเร็วบิน (ปรับได้)
-
--- ทำ noclip ขณะบิน
-local function setNoClip(state)
-    if not Char then return end
-    for _,p in ipairs(Char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            p.CanCollide = not state
-        end
-    end
-end
-
--- กดปุ่มทิศ (กดค้าง = เดินทางต่อเนื่อง, ปล่อย = หยุด)
-local function bindHold(btn, vecGetter)
-    local holding = false
-    btn.InputBegan:Connect(function(io)
-        if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-            holding = true
-            inputDir = vecGetter()  -- อัปเดตทิศทันทีตอนเริ่มกด
-        end
-    end)
-    btn.InputEnded:Connect(function(io)
-        if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-            holding = false
-            inputDir = Vector3.zero
-        end
-    end)
-    -- ป้องกันเคสหลุดโฟกัส
-    UserInput.InputEnded:Connect(function(io)
-        if holding and (io.UserInputType == Enum.UserInputType.Touch) then
-            holding = false
-            inputDir = Vector3.zero
-        end
-    end)
-end
-
--- ทิศสัมพันธ์กับกล้องเหมือนเกมส่วนใหญ่
-local function camFwd()  local c = workspace.CurrentCamera; return Vector3.new(c.CFrame.LookVector.X, 0, c.CFrame.LookVector.Z).Unit end
-local function camRight()local c = workspace.CurrentCamera; return Vector3.new(c.CFrame.RightVector.X,0, c.CFrame.RightVector.Z).Unit end
-
-bindHold(BtnForward, function() return camFwd() end)
-bindHold(BtnBack,    function() return -camFwd() end)
-bindHold(BtnLeft,    function() return -camRight() end)
-bindHold(BtnRight,   function() return camRight() end)
-
--- อัปเดตการบิน
-RunService.Heartbeat:Connect(function(dt)
-    if not flying then return end
-    -- refresh refs (เผื่อตาย/รีสปอน)
-    if not Char or not Char.Parent or not HRP or not HRP.Parent then
-        Char = LP.Character or LP.CharacterAdded:Wait()
-        Hum  = Char:WaitForChild("Humanoid")
-        HRP  = Char:WaitForChild("HumanoidRootPart")
-    end
-    if inputDir.Magnitude > 0 then
-        local step = inputDir.Unit * (FLY_SPEED * dt)
-        HRP.CFrame = HRP.CFrame + step
-        -- ให้ลอย/ไม่ตก
-        Hum:ChangeState(Enum.HumanoidStateType.Physics)
-        HRP.Velocity = Vector3.new(0,0,0)
-    end
-end)
-
--- ====== link visibility with Fly switch ======
-local function applyFlyState(on)
-    flying = on
-    screenGui.Enabled = on
-    setNoClip(on)
-    if not on then
-        inputDir = Vector3.zero
-    end
-end
-applyFlyState(FlyEnabled.Value)
-
+-- เปิด/ปิดตาม Fly
 FlyEnabled.Changed:Connect(function()
-    applyFlyState(FlyEnabled.Value)
+	flyGui.Enabled = FlyEnabled.Value
 end)
+
+-- ให้เปิด GUI ตามสวิตช์เริ่มต้น
+flyGui.Enabled = FlyEnabled.Value
