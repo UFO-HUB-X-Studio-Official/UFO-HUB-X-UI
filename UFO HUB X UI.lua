@@ -908,3 +908,114 @@ task.defer(function()
 		                   else h.UseJumpPower=true; h.JumpPower = DEFAULT_JUMP end
 	end)
 end)
+----------------------------------------------------------------
+-- PLAYER SLIDERS : Precision Fit v2 (match layout of image #2)
+-- วาง/ปรับขนาดสไลเดอร์ให้พอดีรูปตัวอย่างแบบสมมาตรอัตโนมัติ
+-- ✅ ไม่สร้างซ้ำ ถ้ามีอยู่แล้วจะอัปเดตขนาด/ตำแหน่งให้
+----------------------------------------------------------------
+local RunService = game:GetService("RunService")
+
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+
+local function lerp(a,b,t) return a+(b-a)*t end
+local function round(n) return math.floor(n+0.5) end
+
+-- ค่ามาตรฐาน (เทียบจากภาพตัวอย่าง)
+local CFG = {
+	relTrackWidth  = 0.365,  -- ความกว้างแถบแต่ละอัน ~36.5% ของความกว้าง PlayerPage
+	relPairOffsetX = 0.275,  -- ระยะเยื้องแกนกลางไปซ้าย/ขวา ~27.5% (ให้วางซ้าย-ขวาพอดี)
+	trackH         = 18,     -- ความสูงแถบ
+	knobW          = 12,     -- ความกว้างปุ่มเลื่อน
+	switchW        = 44,     -- สวิตช์ on/off
+	switchH        = 22,
+	baseGapY       = 14,     -- ระยะจาก TimeLabel ลงมา
+	holderPadX     = 10,     -- ระยะเผื่อพื้นที่สวิตช์ด้านขวา
+}
+
+-- หา TimeLabel/NameBar เพื่อคุมตำแหน่งแนวแกน Y
+local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
+local NameBar   = PlayerPage:FindFirstChild("NameBar")
+
+-- คืนตัวสไลเดอร์ (ที่สร้างไว้ก่อน) ถ้าไม่มีให้หยุด
+local SpeedUI = PlayerPage:FindFirstChild("SpeedSlider")
+local JumpUI  = PlayerPage:FindFirstChild("JumpSlider")
+if not (SpeedUI and JumpUI) then return end
+
+-- ฟังก์ชันอัปเดตตำแหน่ง/ขนาดแบบไดนามิก (เรียกเมื่อเริ่มและเวลา resize)
+local function updatePrecise()
+	-- รอให้ UI คำนวณขนาดจริง
+	RunService.RenderStepped:Wait()
+
+	local pgAbs = PlayerPage.AbsoluteSize
+	local pgTop = PlayerPage.AbsolutePosition
+
+	-- คำนวณความกว้าง track ตามสัดส่วน
+	local trackW = round(pgAbs.X * CFG.relTrackWidth)
+	local holderW = trackW + CFG.switchW + CFG.holderPadX
+	local holderH = math.max(CFG.trackH, CFG.switchH)
+
+	-- คำนวณตำแหน่งแกน Y อ้างอิงจาก TimeLabel (ตกลงรูปที่ 2: อยู่ใต้เวลา)
+	local baseY
+	if TimeLabel then
+		baseY = (TimeLabel.AbsolutePosition.Y - pgTop.Y) + TimeLabel.AbsoluteSize.Y + CFG.baseGapY
+	elseif NameBar then
+		baseY = (NameBar.AbsolutePosition.Y - pgTop.Y) + NameBar.AbsoluteSize.Y + 28
+	else
+		baseY = round(pgAbs.Y * 0.62)
+	end
+
+	-- ระยะเยื้องแกน X ให้แยกซ้าย/ขวาสมมาตร
+	local offsetX = round(pgAbs.X * CFG.relPairOffsetX)
+
+	-- === จัด Speed (ซ้าย)
+	SpeedUI.AnchorPoint = Vector2.new(0.5,0)
+	SpeedUI.Position    = UDim2.new(0.5, -offsetX, 0, baseY)
+	SpeedUI.Size        = UDim2.fromOffset(holderW, holderH)
+
+	local STrack = SpeedUI:FindFirstChild("Track")
+	local SKnob  = STrack and STrack:FindFirstChild("Knob")
+	local SFill  = STrack and STrack:FindFirstChild("Fill")
+	local SSwitch= SpeedUI:FindFirstChild("Switch")
+	if STrack then
+		STrack.Size     = UDim2.fromOffset(trackW, CFG.trackH)
+		STrack.Position = UDim2.new(0,0,0.5,0)
+	end
+	if SKnob then SKnob.Size = UDim2.fromOffset(CFG.knobW, CFG.trackH+6) end
+	if SFill then SFill.Size = UDim2.new(0, SFill.AbsoluteSize.X, 1, 0) end
+	if SSwitch then
+		SSwitch.AnchorPoint = Vector2.new(1,0.5)
+		SSwitch.Position    = UDim2.new(1, 0, 0.5, 0)
+		SSwitch.Size        = UDim2.fromOffset(CFG.switchW, CFG.switchH)
+	end
+
+	-- === จัด Jump (ขวา)
+	JumpUI.AnchorPoint = Vector2.new(0.5,0)
+	JumpUI.Position    = UDim2.new(0.5,  offsetX, 0, baseY)
+	JumpUI.Size        = UDim2.fromOffset(holderW, holderH)
+
+	local JTrack = JumpUI:FindFirstChild("Track")
+	local JKnob  = JTrack and JTrack:FindFirstChild("Knob")
+	local JFill  = JTrack and JTrack:FindFirstChild("Fill")
+	local JSwitch= JumpUI:FindFirstChild("Switch")
+	if JTrack then
+		JTrack.Size     = UDim2.fromOffset(trackW, CFG.trackH)
+		JTrack.Position = UDim2.new(0,0,0.5,0)
+	end
+	if JKnob then JKnob.Size = UDim2.fromOffset(CFG.knobW, CFG.trackH+6) end
+	if JFill then JFill.Size = UDim2.new(0, JFill.AbsoluteSize.X, 1, 0) end
+	if JSwitch then
+		JSwitch.AnchorPoint = Vector2.new(1,0.5)
+		JSwitch.Position    = UDim2.new(1, 0, 0.5, 0)
+		JSwitch.Size        = UDim2.fromOffset(CFG.switchW, CFG.switchH)
+	end
+end
+
+-- เรียกหนึ่งครั้ง และตามด้วย hook เวลาหน้าเปลี่ยนขนาด (ถ้ามี)
+task.defer(updatePrecise)
+-- ถ้าเกม/เฟรมเปลี่ยนขนาด UI บ่อย ๆ จะอัปเดตตามทุก 0.25s แบบเบาๆ
+task.spawn(function()
+	while task.wait(0.25) do
+		if PlayerPage.Visible then updatePrecise() end
+	end
+end)
