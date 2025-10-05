@@ -952,21 +952,35 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- UFO HUB X : FLY BOX (inside HUB panel) — black box + neon-green stroke + toggle
+-- FLY BOX — place INSIDE HUB (bottom-left of PlayerPage) black box + green stroke + toggle
 local ACC = Color3.fromRGB(0,255,140)
 
 local Players = game:GetService("Players")
 local LP      = Players.LocalPlayer
 local PG      = LP:WaitForChild("PlayerGui")
 
--- หา PlayerPage ใน HUB (ค้นทุกชั้น)
-local function findDescendantByName(root, name)
+-- ========== robust find ==========
+local function findDescendantByName(root, target)
 	for _,d in ipairs(root:GetDescendants()) do
-		if d.Name == name then return d end
+		if d.Name == target then return d end
 	end
 end
-local PlayerPage = findDescendantByName(PG, "PlayerPage")
-if not PlayerPage then return end   -- ยังไม่เปิด HUB
+
+local function waitPlayerPage(timeout)
+	local t,step = 0,0.2
+	while t < (timeout or 10) do
+		-- common layouts: Right -> PlayerPage
+		local Right = findDescendantByName(PG, "Right")
+		local PlayerPage = Right and findDescendantByName(Right, "PlayerPage") or findDescendantByName(PG,"PlayerPage")
+		if PlayerPage and PlayerPage.AbsoluteSize.X > 0 then
+			return PlayerPage
+		end
+		task.wait(step); t += step
+	end
+end
+
+local PlayerPage = waitPlayerPage(12)
+if not PlayerPage then return end  -- UI ยังไม่ถูกเปิด
 
 -- ลบของเดิม
 local old = PlayerPage:FindFirstChild("FlyBox")
@@ -982,11 +996,11 @@ local function stroke(ui, t, col, tr)
 	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
 end
 
--- ====== ตำแหน่ง “ในแผง HUB” ให้เท่ากรอบแดง (ซ้ายล่างของ PlayerPage) ======
-local PAD_LEFT   = 18   -- เว้นจากขอบซ้ายของ PlayerPage
-local PAD_BOTTOM = 18   -- เว้นจากขอบล่างของ PlayerPage
-local WIDTH      = 420  -- ความยาวกล่อง = กรอบแดง
-local HEIGHT     = 112  -- ความสูงกล่อง = กรอบแดง
+-- ====== ขนาด/ตำแหน่งเท่ากรอบแดง (มุมซ้ายล่างภายใน PlayerPage) ======
+local PAD_LEFT   = 18   -- ระยะจากขอบซ้ายของ PlayerPage
+local PAD_BOTTOM = 18   -- ระยะจากขอบล่างของ PlayerPage
+local WIDTH      = 420  -- ความยาวกล่อง
+local HEIGHT     = 112  -- ความสูงกล่อง
 
 -- กล่องหลัก
 local box = Instance.new("Frame")
@@ -998,10 +1012,9 @@ corner(box, 12)
 stroke(box, 1.2, ACC, 0.35)
 box.Parent = PlayerPage
 
--- จัดวางให้ยึดมุมซ้ายล่าง “ภายใน PlayerPage”
 local function layout()
 	box.AnchorPoint = Vector2.new(0,1)
-	box.Position    = UDim2.new(0, PAD_LEFT, 1, -PAD_BOTTOM)
+	box.Position    = UDim2.new(0, PAD_LEFT, 1, -PAD_BOTTOM)  -- ยึดมุมซ้ายล่าง
 	box.Size        = UDim2.fromOffset(WIDTH, HEIGHT)
 end
 layout()
@@ -1009,6 +1022,7 @@ PlayerPage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 
 -- หัวข้อ (ตัวอักษรสีขาว ไม่มีเส้น)
 local title = Instance.new("TextLabel")
+title.Name = "Title"
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.Text = "Fly ✈️"
@@ -1020,7 +1034,7 @@ title.Size = UDim2.new(1, -24, 0, 20)
 title.ZIndex = 201
 title.Parent = box
 
--- เส้นเลเซอร์บน
+-- เส้นสีเขียว (เลเซอร์)
 local laser = Instance.new("Frame")
 laser.BackgroundColor3 = ACC
 laser.BorderSizePixel = 0
@@ -1030,7 +1044,7 @@ laser.Size = UDim2.new(1, -24, 0, 2)
 laser.ZIndex = 201
 laser.Parent = box
 
--- สวิตช์เปิด/ปิด (UI เท่านั้น ตอนนี้)
+-- สวิตช์เปิด/ปิด (UI เท่านั้น – เดี๋ยวค่อยใส่ระบบบินจริง)
 local sw = Instance.new("Frame")
 sw.Name = "Switch"
 sw.BackgroundColor3 = Color3.fromRGB(0,0,0)
@@ -1053,17 +1067,6 @@ dot.ZIndex = 202
 corner(dot, 999)
 dot.Parent = sw
 
--- พื้นที่ด้านใน (เผื่อปุ่มควบคุมภายหลัง)
-local inner = Instance.new("Frame")
-inner.Name = "Inner"
-inner.BackgroundTransparency = 1
-inner.AnchorPoint = Vector2.new(0,1)
-inner.Position = UDim2.new(0, 12, 1, -10)
-inner.Size = UDim2.new(1, -24, 1, -48)
-inner.ZIndex = 201
-inner.Parent = box
-
--- คลิกสวิตช์ (แค่ UI)
 sw.InputBegan:Connect(function(io)
 	if io.UserInputType == Enum.UserInputType.MouseButton1 then
 		local on = dot.Position.X.Offset < sw.Size.X.Offset/2
@@ -1076,3 +1079,13 @@ sw.InputBegan:Connect(function(io)
 		end
 	end
 end)
+
+-- พื้นที่ภายใน (เผื่อปุ่ม Forward/Back/Left/Right/Up/Down จะเติมภายหลัง)
+local inner = Instance.new("Frame")
+inner.Name = "Inner"
+inner.BackgroundTransparency = 1
+inner.AnchorPoint = Vector2.new(0,1)
+inner.Position = UDim2.new(0, 12, 1, -10)
+inner.Size = UDim2.new(1, -24, 1, -48)
+inner.ZIndex = 201
+inner.Parent = box
