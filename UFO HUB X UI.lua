@@ -677,3 +677,60 @@ if ClickBtn then
 		PlayerPage.Visible = true
 	end)
 end
+----------------------------------------------------------------
+-- PLAYER PAGE : alignment patch (ยกให้สูงขึ้น + ปรับขนาด)
+-- วาง 'ต่อท้าย' โค้ดที่มีอยู่ (ไม่สร้างซ้ำ/ไม่ลบของเก่า)
+----------------------------------------------------------------
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end -- ยังไม่ถูกสร้างจากปุ่ม ก็ข้ามไป
+
+-- ===== ปรับได้เองง่ายๆ ตรงนี้ =====
+local AVATAR_W, AVATAR_H = 170, 170   -- ขนาดรูปผู้เล่น (เดิม 150)
+local AVATAR_Y          = 70          -- ระยะจากขอบบนของ Right (เดิม ~100)
+local NAME_BAR_W        = 220         -- กว้างแถบชื่อ
+local NAME_BAR_H        = 26
+local NAME_BAR_GAP      = 10          -- ช่องว่างใต้รูปถึงแถบชื่อ
+local TIME_BAR_W        = 240         -- กว้างแถบเวลา
+local TIME_BAR_H        = 22
+local TIME_GAP          = 24          -- ระยะห่างระหว่างแถบเวลาแต่ละอัน
+-- ===================================
+
+local Avatar  = PlayerPage:FindFirstChild("Avatar")
+local NameBar = PlayerPage:FindFirstChild("NameBar")
+local BarDays = PlayerPage:FindFirstChild("BarDays")
+local BarHours= PlayerPage:FindFirstChild("BarHours")
+local BarMins = PlayerPage:FindFirstChild("BarMins")
+
+-- เซ็ต Avatar ให้อยู่สูงขึ้นและใหญ่ขึ้นเล็กน้อย
+if Avatar then
+	Avatar.AnchorPoint = Vector2.new(0.5, 0)
+	Avatar.Position    = UDim2.new(0.5, 0, 0, AVATAR_Y)
+	Avatar.Size        = UDim2.fromOffset(AVATAR_W, AVATAR_H)
+end
+
+-- Y ของแถบชื่อ = ด้านล่างรูป + ช่องว่าง
+local nameY = AVATAR_Y + AVATAR_H + NAME_BAR_GAP
+
+if NameBar then
+	NameBar.AnchorPoint = Vector2.new(0.5, 0)
+	NameBar.Position    = UDim2.new(0.5, 0, 0, nameY)
+	NameBar.Size        = UDim2.fromOffset(NAME_BAR_W, NAME_BAR_H)
+end
+
+-- เริ่มวางแถบเวลาใต้แถบชื่อ แล้วเว้นระยะเท่ากัน
+local firstTimeY = nameY + NAME_BAR_H + 8
+if BarDays then
+	BarDays.AnchorPoint = Vector2.new(0.5, 0)
+	BarDays.Position    = UDim2.new(0.5, 0, 0, firstTimeY)
+	BarDays.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+end
+if BarHours then
+	BarHours.AnchorPoint = Vector2.new(0.5, 0)
+	BarHours.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP)
+	BarHours.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+end
+if BarMins then
+	BarMins.AnchorPoint = Vector2.new(0.5, 0)
+	BarMins.Position    = UDim2.new(0.5, 0, 0, firstTimeY + TIME_GAP*2)
+	BarMins.Size        = UDim2.fromOffset(TIME_BAR_W, TIME_BAR_H)
+end
