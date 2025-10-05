@@ -806,36 +806,111 @@ if BarMins then
 	BarMins.Position = UDim2.new(0.5, 0, 0, firstY + (TIME_H + TIME_GAP) * 2)
 	BarMins.Size = UDim2.fromOffset(TIME_W, TIME_H)
 end
+----------------------------------------------------------------
+-- UFO HUB X : REALTIME PLAYTIME (Simplified + Save + Color system)
+----------------------------------------------------------------
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local plr = Players.LocalPlayer
+
+-- 🔧 ตำแหน่งหน้า Player Page ที่มีอยู่แล้ว
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+
+-- ⚙️ UI อ้างอิงที่มีอยู่แล้ว
+local NameBar = PlayerPage:FindFirstChild("NameBar")
+local NameText = NameBar and NameBar:FindFirstChildOfClass("TextLabel")
 
 ----------------------------------------------------------------
--- ระบบนับเวลา real-time + เปลี่ยนสีชื่ออัตโนมัติ
+-- ตัวแสดงเวลา (แทนช่องสีขาว 3 ช่อง)
 ----------------------------------------------------------------
-local startTime = os.time()
+local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
+if not TimeLabel then
+	TimeLabel = Instance.new("TextLabel")
+	TimeLabel.Name = "TimeLabel"
+	TimeLabel.Parent = PlayerPage
+	TimeLabel.BackgroundTransparency = 1
+	TimeLabel.Font = Enum.Font.GothamBold
+	TimeLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	TimeLabel.TextScaled = true
+	TimeLabel.Size = UDim2.new(1,0,0,30)
+	TimeLabel.AnchorPoint = Vector2.new(0.5,0)
+	TimeLabel.Position = UDim2.new(0.5,0,0, NameBar.Position.Y.Offset + 40)
+	TimeLabel.Text = "00:00.00"
+end
 
+----------------------------------------------------------------
+-- 🧠 ระบบเก็บเวลา (เซฟข้ามเซสชัน)
+----------------------------------------------------------------
+local function loadTime()
+	pcall(function()
+		local saved = isfile and readfile("ufo_hubx_time.json")
+		if saved then
+			local data = HttpService:JSONDecode(saved)
+			if data and data.total then
+				getgenv().UFO_TIME = data
+				return
+			end
+		end
+	end)
+	getgenv().UFO_TIME = { total = 0, last = os.time() }
+end
+
+local function saveTime()
+	pcall(function()
+		if writefile then
+			writefile("ufo_hubx_time.json", HttpService:JSONEncode(getgenv().UFO_TIME))
+		end
+	end)
+end
+
+loadTime()
+local T = getgenv().UFO_TIME
+
+----------------------------------------------------------------
+-- ⏱️ ระบบนับเวลาแบบเรียลไทม์
+--   ถ้า UI ปิด แต่ยังรันระบบ UFO อยู่ มันจะนับต่อ
+----------------------------------------------------------------
+RunService.Heartbeat:Connect(function()
+	local now = os.time()
+	local delta = now - (T.last or now)
+	if delta > 0 then
+		T.total += delta
+		T.last = now
+	end
+end)
+
+-- บันทึกทุก ๆ 60 วินาที
 task.spawn(function()
 	while task.wait(60) do
-		local elapsed = os.time() - startTime
-		local days = math.floor(elapsed / 86400)
-		local hours = math.floor((elapsed % 86400) / 3600)
-		local minutes = math.floor((elapsed % 3600) / 60)
+		saveTime()
+	end
+end)
 
-		if BarDays and BarHours and BarMins then
-			BarDays.Text = string.format("Days using : %d", days)
-			BarHours.Text = string.format("Hours using : %d", hours)
-			BarMins.Text = string.format("Minutes using : %d", minutes)
-		end
+----------------------------------------------------------------
+-- 💡 อัปเดตตัวเลขเวลาและสีชื่อ
+----------------------------------------------------------------
+task.spawn(function()
+	while task.wait(0.1) do
+		local total = T.total + (os.time() - (T.last or os.time()))
+		local days = math.floor(total / 86400)
+		local hours = math.floor((total % 86400) / 3600)
+		local mins = math.floor((total % 3600) / 60)
+		local secs = math.floor(total % 60)
+
+		TimeLabel.Text = string.format("%02d:%02d.%02d", hours, mins, secs)
 
 		-- เปลี่ยนสีชื่อผู้เล่นตามเวลา
-		if NameBar and NameBar:FindFirstChildOfClass("TextLabel") then
-			local label = NameBar:FindFirstChildOfClass("TextLabel")
+		if NameText then
 			if days >= 365 then
-				label.TextColor3 = Color3.fromRGB(255,50,50)     -- 🔴 แดง (1 ปี)
+				NameText.TextColor3 = Color3.fromRGB(255,60,60) -- 🔴 1 ปี
 			elseif days >= 30 then
-				label.TextColor3 = Color3.fromRGB(255,215,0)     -- 🟡 ทอง (1 เดือน)
+				NameText.TextColor3 = Color3.fromRGB(255,215,0) -- 🟡 1 เดือน
 			elseif days >= 7 then
-				label.TextColor3 = Color3.fromRGB(0,255,140)     -- 🟢 เขียว (7 วัน)
+				NameText.TextColor3 = Color3.fromRGB(0,255,140) -- 🟢 7 วัน
 			else
-				label.TextColor3 = Color3.fromRGB(255,255,255)   -- ⚪ ขาว (เริ่มต้น)
+				NameText.TextColor3 = Color3.fromRGB(255,255,255) -- ⚪ เริ่มต้น
 			end
 		end
 	end
