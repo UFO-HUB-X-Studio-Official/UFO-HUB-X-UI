@@ -952,7 +952,7 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X – Fly System (Fix: toggle แสดงปุ่มทิศทางแน่นอน)
+-- 🛸 UFO HUB X – FlyPad (v4: ปุ่มดำ ขอบเขียว + ชื่อทิศทาง + ตำแหน่งตรงภาพ)
 local CoreGui = game:GetService("CoreGui")
 
 local ACCENT   = Color3.fromRGB(0,255,140)
@@ -962,7 +962,6 @@ local SW_W     = 30
 local SW_H     = 14
 local DOT_SIZE = SW_H - 4
 
--- หา PlayerPage / SpeedRow
 local function findPlayerPage()
 	for _,ui in ipairs(CoreGui:GetDescendants()) do
 		if ui:IsA("Frame") and ui.Name=="PlayerPage" then return ui end
@@ -983,7 +982,7 @@ local function findSpeedRow(page)
 	end
 end
 
--- FlyBox (สวิตช์)
+-- กล่อง Fly Switch
 local function createFlyBox(parent)
 	local fb = Instance.new("Frame")
 	fb.Name = "FlyBox"
@@ -1055,48 +1054,61 @@ local function createFlyBox(parent)
 	return fb, enabled
 end
 
--- แผงปุ่มทิศทาง
+-- FlyPad ปุ่มทิศทาง
 local function createFlyPad(parent)
 	local pad=Instance.new("Frame")
 	pad.Name="FlyPad"; pad.Parent=parent
-	pad.BackgroundColor3=COL_BG; pad.BorderSizePixel=0
+	pad.BackgroundColor3=Color3.fromRGB(0,0,0)
+	pad.BorderSizePixel=0
 	pad.Visible=false; pad.ZIndex=60
-	Instance.new("UICorner", pad).CornerRadius=UDim.new(0,10)
+	Instance.new("UICorner", pad).CornerRadius=UDim.new(0,12)
 	local s=Instance.new("UIStroke", pad)
-	s.Color=ACCENT; s.Thickness=1.2; s.Transparency=0.25
+	s.Color=ACCENT; s.Thickness=1.4; s.Transparency=0.25
 
-	local size=48
-	local function mkBtn(n, col, pos)
+	-- ปุ่มทั้ง 4 แบบมีขอบเขียว
+	local size=42
+	local spacing=8
+	local centerX, centerY = 0.5, 0.5
+	local fontColor = Color3.fromRGB(0,255,140)
+	local function makeButton(name,pos,text)
 		local b=Instance.new("TextButton")
-		b.Name=n; b.Text=""; b.Parent=pad
+		b.Name=name
+		b.Parent=pad
 		b.Size=UDim2.fromOffset(size,size)
 		b.Position=pos
-		b.BackgroundColor3=col; b.BorderSizePixel=0
+		b.BackgroundColor3=Color3.fromRGB(10,10,10)
+		b.BorderSizePixel=0
+		b.AutoButtonColor=false
 		b.ZIndex=61
-		Instance.new("UICorner", b).CornerRadius=UDim.new(0,8)
-		local bs=Instance.new("UIStroke", b)
-		bs.Color=ACCENT; bs.Thickness=1; bs.Transparency=.3
+		b.Font=Enum.Font.GothamBold
+		b.Text=text
+		b.TextColor3=fontColor
+		b.TextSize=14
+		Instance.new("UICorner",b).CornerRadius=UDim.new(0,8)
+		local st=Instance.new("UIStroke",b)
+		st.Color=ACCENT; st.Thickness=1.2; st.Transparency=0.25
 		return b
 	end
-	mkBtn("Forward", Color3.fromRGB(255,60,60), UDim2.new(0.5,-size/2,0,10))
-	mkBtn("Back",    Color3.fromRGB(60,255,120), UDim2.new(0.5,-size/2,1,-(size+10)))
-	mkBtn("Left",    Color3.fromRGB(60,140,255), UDim2.new(0,10,0.5,-size/2))
-	mkBtn("Right",   Color3.fromRGB(60,140,255), UDim2.new(1,-(size+10),0.5,-size/2))
+
+	-- ตำแหน่ง 4 ทิศทาง
+	makeButton("Up",    UDim2.new(centerX,-size/2,0,10), "▲")
+	makeButton("Down",  UDim2.new(centerX,-size/2,1,-(size+10)), "▼")
+	makeButton("Left",  UDim2.new(0,10,centerY,-size/2), "◀")
+	makeButton("Right", UDim2.new(1,-(size+10),centerY,-size/2), "▶")
+
 	return pad
 end
 
--- จัดตำแหน่ง + ผูกการมองเห็นกับสวิตช์ (ป้องกันผูกซ้ำ)
+-- จัดตำแหน่ง
 local wired = false
 local function alignUI()
 	local page=findPlayerPage(); if not page then return end
 	local speed=findSpeedRow(page); if not speed then return end
-
 	local fb = page:FindFirstChild("FlyBox")
 	local enabled
 	if not fb then fb, enabled = createFlyBox(page) else enabled = fb:FindFirstChild("Enabled") end
 	local pad = page:FindFirstChild("FlyPad") or createFlyPad(page)
 
-	-- วาง FlyBox เหนือ Speed
 	local x = speed.AbsolutePosition.X - page.AbsolutePosition.X
 	local y = speed.AbsolutePosition.Y - page.AbsolutePosition.Y
 	local w = speed.AbsoluteSize.X
@@ -1105,25 +1117,18 @@ local function alignUI()
 	fb.Position=UDim2.new(0,x,0,y-h-GAP_Y)
 	fb.Size=UDim2.fromOffset(w,h)
 
-	-- วางปุ่มทิศทาง มุมซ้ายล่างของหน้า (ในหน้าเดียวกัน)
+	-- วาง FlyPad ให้ตรงตำแหน่งในภาพ (มุมล่างซ้าย)
 	pad.AnchorPoint=Vector2.new(0,1)
-	pad.Position=UDim2.new(0,70,1,-100)
-	pad.Size=UDim2.fromOffset(220,220)
+	pad.Position=UDim2.new(0,80,1,-80)
+	pad.Size=UDim2.fromOffset(190,190)
 
-	-- ทำให้สถานะตรงตั้งแต่เริ่ม
 	if enabled then pad.Visible = enabled.Value end
-
-	-- ผูกครั้งเดียว
 	if not wired and enabled then
 		wired = true
-		enabled.Changed:Connect(function(val)
-			pad.Visible = enabled.Value
-		end)
+		enabled.Changed:Connect(function() pad.Visible = enabled.Value end)
 	end
 end
 
 alignUI()
 local page=findPlayerPage()
-if page then
-	page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignUI)
-end
+if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignUI) end
