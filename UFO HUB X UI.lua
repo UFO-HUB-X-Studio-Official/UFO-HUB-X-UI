@@ -951,213 +951,236 @@ RunService.Heartbeat:Connect(function()
 		Hum.JumpPower=DEF_JUMPPOWER
 	end
 end)
-----------------------------------------------------------------
--- UFO HUB X : FLY PAD (ตำแหน่งซ้ายตามภาพ + ปุ่มใหญ่)
---  ใช้ร่วมกับ FlyBox เดิม (สวิตช์ Fly) ที่อยู่ใต้เวลา
-----------------------------------------------------------------
+-- UFO HUB X : FLY PAD (compact, green outline, big buttons) - drop-in one block
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
 local UserInput    = game:GetService("UserInputService")
-local LP           = Players.LocalPlayer
 
--- ==== ป้องกัน error ถ้ายังไม่มี PlayerPage / FlyBox ====
-local PlayerPage = Right and Right:FindFirstChild("PlayerPage")
-if not PlayerPage then return end
-local FlyBox = PlayerPage:FindFirstChild("FlyBox")
-if not FlyBox then return end
-local Enabled = FlyBox:FindFirstChild("Enabled")
-if not Enabled then return end
-
--- ==== helper มุม/เส้น (ถ้าไฟล์เดิมไม่มีฟังก์ชัน corner/stroke จะสร้างให้) ====
-local function corner(ui, r)
-    local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r)
-    c.Parent = ui
-end
-local function stroke(ui, t, col, tr)
-    local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-    s.Thickness = t; s.Color = col; s.Transparency = tr or 0.35; s.Parent = ui
-end
+local LP   = Players.LocalPlayer
+local PG   = LP:WaitForChild("PlayerGui")
 
 ----------------------------------------------------------------
--- CONFIG : ตำแหน่ง/ขนาด “กล่องแดง” ทางซ้าย + ปุ่มใหญ่
+-- CONFIG (ตำแหน่ง/ขนาดให้ตรงกรอบสีแดงในภาพ)
 ----------------------------------------------------------------
 local CFG = {
-    PAD_POS = UDim2.new(0, 130, 0, 350),  -- << ตำแหน่ง “มุมซ้ายบน” ของกล่องปุ่ม (ปรับ 130,350 ให้ตรงกล่องแดง)
-    PAD_SIZE = Vector2.new(260, 130),     -- ขนาดกล่องปุ่ม
-    BTN_SIZE = Vector2.new(64, 64),       -- ขนาดปุ่มลูกศร (ใหญ่ตามที่ขอ)
-    GAP      = 10,                        -- ระยะห่างปุ่ม
-    COLOR_BG  = Color3.fromRGB(0,0,0),
-    COLOR_ACC = Color3.fromRGB(0,255,140),
-    Z = 60,
-    FLY_SPEED = 90,                       -- ความเร็วพื้นฐานตอนบิน (เพิ่ม/ลดได้)
+	POS  = UDim2.new(0, 120, 0, 320),  -- ตำแหน่งกรอบ (X,Y) -> ขยับให้ตรงรูปได้ที่นี่
+	SIZE = UDim2.fromOffset(260, 140), -- ขนาดกรอบ (เท่ากับกรอบสีแดง)
+
+	TITLE = "Fly ✈️",
+	COLOR_BG  = Color3.fromRGB(0,0,0),
+	COLOR_ACC = Color3.fromRGB(0,255,140),
+	BUTTON_H  = 36,     -- ความสูงปุ่ม
+	BUTTON_G  = 8,      -- ระยะห่างปุ่ม
+	SPEED     = 60,     -- ความเร็วบินเริ่มต้น (เปลี่ยนได้ระหว่างใช้งานด้วยคีย์  [ - / = ])
 }
 
 ----------------------------------------------------------------
--- กล่อง FlyPad (สีดำ ขอบเขียว) วางที่ตำแหน่งซ้าย (กล่องแดงในรูป)
+-- helpers
 ----------------------------------------------------------------
-local FlyPad = PlayerPage:FindFirstChild("FlyPad")
-if not FlyPad then
-    FlyPad = Instance.new("Frame")
-    FlyPad.Name = "FlyPad"
-    FlyPad.Parent = PlayerPage
+local function corner(ui, r)
+	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r); c.Parent = ui
 end
-FlyPad.BackgroundColor3 = CFG.COLOR_BG
-FlyPad.BorderSizePixel = 0
-FlyPad.AnchorPoint = Vector2.new(0,0)               -- อ้างมุมซ้ายบน
-FlyPad.Position    = CFG.PAD_POS
-FlyPad.Size        = UDim2.fromOffset(CFG.PAD_SIZE.X, CFG.PAD_SIZE.Y)
-FlyPad.ZIndex      = CFG.Z
-FlyPad.Visible     = false                           -- เริ่ม “ซ่อน” จนกว่าจะเปิดสวิตช์
-corner(FlyPad, 10)
-stroke(FlyPad, 1.2, CFG.COLOR_ACC, 0.35)
-
--- ป้าย "Fly" เล็ก ๆ มุมซ้ายบน
-local Title = FlyPad:FindFirstChild("Title") or Instance.new("TextLabel")
-Title.Name="Title"; Title.Parent=FlyPad
-Title.BackgroundTransparency = 1
-Title.Text = "Fly"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
-Title.TextColor3 = Color3.fromRGB(255,255,255)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Position = UDim2.new(0, 10, 0, 6)
-Title.Size     = UDim2.fromOffset(120, 18)
-Title.ZIndex   = CFG.Z+1
-
--- ฟังก์ชันสร้างปุ่มใหญ่
-local function bigBtn(name, txt)
-    local b = FlyPad:FindFirstChild(name) or Instance.new("TextButton")
-    b.Name=name; b.Parent=FlyPad
-    b.Text = txt; b.Font = Enum.Font.GothamBold; b.TextSize = 20
-    b.TextColor3 = Color3.fromRGB(255,255,255)
-    b.BackgroundColor3 = CFG.COLOR_BG; b.BorderSizePixel = 0
-    b.AutoButtonColor = true
-    b.Size = UDim2.fromOffset(CFG.BTN_SIZE.X, CFG.BTN_SIZE.Y)
-    b.ZIndex = CFG.Z+1
-    corner(b, 12); stroke(b, 1, CFG.COLOR_ACC, 0.35)
-    return b
+local function stroke(ui, t, col, tr)
+	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
 end
-
--- 4 ปุ่ม : ซ้าย/ขวา/ขึ้น/ลง
-local BtnLeft  = bigBtn("BtnLeft",  "◀")
-local BtnRight = bigBtn("BtnRight", "▶")
-local BtnUp    = bigBtn("BtnUp",    "▲")
-local BtnDown  = bigBtn("BtnDown",  "▼")
-
--- จัด layout เป็นรูปกากบาทในกรอบ
-local function layoutPad()
-    local w,h = CFG.PAD_SIZE.X, CFG.PAD_SIZE.Y
-    local bW,bH,g = CFG.BTN_SIZE.X, CFG.BTN_SIZE.Y, CFG.GAP
-    -- วางกลางกล่อง
-    local cx = math.floor((w - bW)/2)
-    local cy = math.floor((h - bH)/2)
-    BtnLeft.Position  = UDim2.new(0, cx - bW - g, 0, cy)
-    BtnRight.Position = UDim2.new(0, cx + bW + g, 0, cy)
-    BtnUp.Position    = UDim2.new(0, cx,            0, cy - bH - g)
-    BtnDown.Position  = UDim2.new(0, cx,            0, cy + bH + g)
+local function mkBtn(parent, text)
+	local b = Instance.new("TextButton")
+	b.Text = text
+	b.AutoButtonColor = true
+	b.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	b.TextColor3 = Color3.fromRGB(255,255,255)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 16
+	b.Parent = parent
+	corner(b, 8); stroke(b, 1, CFG.COLOR_ACC, 0.4)
+	return b
 end
-layoutPad()
 
 ----------------------------------------------------------------
--- Logic บิน: ใช้ BodyVelocity + ไม่ชน (noclip) + กล้องอ้างอิง
+-- build GUI
 ----------------------------------------------------------------
-local dir = {L=false, R=false, U=false, D=false, F=false, B=false} -- F/B เผื่อใช้คีย์บอร์ด
-local cam = workspace.CurrentCamera
-local Char = LP.Character or LP.CharacterAdded:Wait()
-local HRP  = Char:WaitForChild("HumanoidRootPart")
-local Hum  = Char:WaitForChild("Humanoid")
+-- ลบของเก่า
+local old = PG:FindFirstChild("UFO_FlyPadGui")
+if old then old:Destroy() end
 
-local BV = Instance.new("BodyVelocity")
-BV.MaxForce = Vector3.new(1e6,1e6,1e6)
-BV.Velocity = Vector3.zero
-BV.Parent = HRP
-BV.Enabled = false
+local gui = Instance.new("ScreenGui")
+gui.Name = "UFO_FlyPadGui"
+gui.ResetOnSpawn = false
+gui.Parent = PG
 
--- noclip
-local function setNoClip(on)
-    for _,p in ipairs(Char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            p.CanCollide = not on
-        end
-    end
+local box = Instance.new("Frame")
+box.Name = "FlyBox"
+box.Parent = gui
+box.Position = CFG.POS
+box.Size = CFG.SIZE
+box.BackgroundColor3 = CFG.COLOR_BG
+box.BorderSizePixel = 0
+corner(box, 10); stroke(box, 1.2, CFG.COLOR_ACC, 0.35)
+
+-- หัวข้อ + สวิตช์
+local title = Instance.new("TextLabel")
+title.Parent = box
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, -60, 0, 22)
+title.Position = UDim2.new(0, 10, 0, 8)
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Text = CFG.TITLE
+
+local switch = Instance.new("Frame")
+switch.Name = "Switch"
+switch.Parent = box
+switch.BackgroundColor3 = CFG.COLOR_BG
+switch.BorderSizePixel = 0
+switch.Size = UDim2.fromOffset(44, 20)
+switch.AnchorPoint = Vector2.new(1,0)
+switch.Position = UDim2.new(1, -10, 0, 7)
+corner(switch, 999); stroke(switch,1,CFG.COLOR_ACC,0.35)
+
+local dot = Instance.new("Frame")
+dot.Parent = switch
+dot.BackgroundColor3 = Color3.fromRGB(120,120,120)  -- เริ่มปิด
+dot.Size = UDim2.fromOffset(18,18)
+dot.Position = UDim2.new(0,1,0.5,-9)
+corner(dot,999)
+
+-- พื้นที่ปุ่ม (2x3)
+local panel = Instance.new("Frame")
+panel.Parent = box
+panel.BackgroundTransparency = 1
+panel.Position = UDim2.new(0, 10, 0, 36)
+panel.Size = UDim2.new(1, -20, 1, -46)
+
+-- แถวบน:      [ Forward ]   [ Up ]
+-- แถวกลาง:    [ Left   ]    [ Right ]
+-- แถวล่าง:    [ Back   ]    [ Down ]
+local colW   = (panel.AbsoluteSize.X > 0) and (panel.AbsoluteSize.X - CFG.BUTTON_G)/2 or 0
+local function place(btn, row, col)
+	btn.Parent = panel
+	btn.Size = UDim2.new(0.5, -CFG.BUTTON_G/2, 0, CFG.BUTTON_H)
+	btn.Position = UDim2.new((col==1) and 0 or 0.5, (col==1) and 0 or CFG.BUTTON_G/2,
+		0, (row-1)*(CFG.BUTTON_H+CFG.BUTTON_G))
 end
 
--- อัปเดตความเร็ว (อิงกล้อง: ซ้าย/ขวา = RightVector, ขึ้น/ลง = Y, เดินหน้า/ถอย = LookVector)
-local function updateVelocity()
-    if not Enabled.Value then BV.Enabled=false; return end
-    BV.Enabled = true
-    local right = cam.CFrame.RightVector
-    local look  = cam.CFrame.LookVector
-    local up    = Vector3.new(0,1,0)
+local bForward = mkBtn(panel, "Forward ⬆️")
+local bUp      = mkBtn(panel, "Up 🛫")
+local bLeft    = mkBtn(panel, "Left ⬅️")
+local bRight   = mkBtn(panel, "Right ➡️")
+local bBack    = mkBtn(panel, "Back ⬇️")
+local bDown    = mkBtn(panel, "Down 🛬")
 
-    local v = Vector3.zero
-    if dir.L then v -= right end
-    if dir.R then v += right end
-    if dir.U then v += up    end
-    if dir.D then v -= up    end
-    -- ถ้าต้องการเปิดเดินหน้า/ถอยด้วยคีย์บอร์ด (W/S)
-    if dir.F then v += look end
-    if dir.B then v -= look end
+place(bForward, 1, 1); place(bUp,    1, 2)
+place(bLeft,    2, 1); place(bRight, 2, 2)
+place(bBack,    3, 1); place(bDown,  3, 2)
 
-    if v.Magnitude > 0 then v = v.Unit * CFG.FLY_SPEED end
-    BV.Velocity = v
+----------------------------------------------------------------
+-- flight core
+----------------------------------------------------------------
+local enabled = false
+local pressing = {F=false,B=false,L=false,R=false,U=false,D=false}
+local speed = CFG.SPEED
+local char = LP.Character or LP.CharacterAdded:Wait()
+local hum  = char:WaitForChild("Humanoid")
+local root = char:WaitForChild("HumanoidRootPart")
+local bodyVel, bodyGyro
+
+local function setNoclip(on)
+	for _,p in ipairs(char:GetDescendants()) do
+		if p:IsA("BasePart") then p.CanCollide = not on end
+	end
 end
 
--- กด/ปล่อยปุ่ม (รองรับเมาส์และทัช)
+local function startFly()
+	if enabled then return end
+	enabled = true
+	dot.Position = UDim2.new(1, -19, 0.5, -9)
+	dot.BackgroundColor3 = CFG.COLOR_ACC
+
+	bodyVel = Instance.new("BodyVelocity")
+	bodyVel.MaxForce = Vector3.new(1e9,1e9,1e9)
+	bodyVel.Velocity = Vector3.zero
+	bodyVel.Parent = root
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(1e9,1e9,1e9)
+	bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+	bodyGyro.P = 9e4
+	bodyGyro.Parent = root
+
+	setNoclip(true)
+end
+
+local function stopFly()
+	if not enabled then return end
+	enabled = false
+	dot.Position = UDim2.new(0, 1, 0.5, -9)
+	dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+	if bodyVel then bodyVel:Destroy() bodyVel=nil end
+	if bodyGyro then bodyGyro:Destroy() bodyGyro=nil end
+	setNoclip(false)
+end
+
+-- toggle switch
+switch.InputBegan:Connect(function(io)
+	if io.UserInputType == Enum.UserInputType.MouseButton1 then
+		if enabled then stopFly() else startFly() end
+	end
+end)
+
+-- ปุ่มกดค้าง/ปล่อย
 local function bindHold(btn, key)
-    local holding = false
-    local function begin() holding = true; dir[key]=true;  updateVelocity() end
-    local function finish() holding = false; dir[key]=false; updateVelocity() end
-    btn.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then begin() end
-    end)
-    btn.InputEnded:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then finish() end
-    end)
-    -- เผื่อ pointer ออกนอกปุ่ม
-    btn.MouseLeave:Connect(function() if holding then finish() end end)
+	local function down()
+		pressing[key] = true
+	end
+	local function up()
+		pressing[key] = false
+	end
+	btn.MouseButton1Down:Connect(down)
+	btn.MouseButton1Up:Connect(up)
+	btn.TouchLongPress:Connect(function(_,state) if state==Enum.LongPressState.Start then down() end end)
+	btn.MouseLeave:Connect(up)
 end
-bindHold(BtnLeft,  "L")
-bindHold(BtnRight, "R")
-bindHold(BtnUp,    "U")
-bindHold(BtnDown,  "D")
+bindHold(bForward,"F"); bindHold(bBack,"B")
+bindHold(bLeft,"L");    bindHold(bRight,"R")
+bindHold(bUp,"U");      bindHold(bDown,"D")
 
--- คีย์บอร์ด เดินหน้า/ถอย (ตามที่คุยไว้ ใช้คีย์บอร์ดเท่านั้น)
-UserInput.InputBegan:Connect(function(io, gp)
-    if gp then return end
-    if not Enabled.Value then return end
-    if io.KeyCode==Enum.KeyCode.W then dir.F=true; updateVelocity() end
-    if io.KeyCode==Enum.KeyCode.S then dir.B=true; updateVelocity() end
-end)
-UserInput.InputEnded:Connect(function(io, gp)
-    if gp then return end
-    if io.KeyCode==Enum.KeyCode.W then dir.F=false; updateVelocity() end
-    if io.KeyCode==Enum.KeyCode.S then dir.B=false; updateVelocity() end
+-- คีย์บอร์ดช่วย (เพิ่ม/ลดความเร็ว)
+UserInput.InputBegan:Connect(function(io,gp)
+	if gp then return end
+	if io.KeyCode == Enum.KeyCode.Equals then speed = speed + 10
+	elseif io.KeyCode == Enum.KeyCode.Minus then speed = math.max(10, speed - 10) end
 end)
 
--- เปิด/ปิดตามสวิตช์ที่ FlyBox
-local function applyToggle(on)
-    FlyPad.Visible = on
-    setNoClip(on)
-    if not on then
-        dir.L=false; dir.R=false; dir.U=false; dir.D=false; dir.F=false; dir.B=false
-        BV.Velocity = Vector3.zero
-        BV.Enabled  = false
-    end
-end
-applyToggle(Enabled.Value)
-Enabled:GetPropertyChangedSignal("Value"):Connect(function()
-    applyToggle(Enabled.Value)
-end)
+-- อัปเดตการบิน
+RunService.Heartbeat:Connect(function(dt)
+	if not enabled then return end
+	char = LP.Character or char
+	if not char then return end
+	hum  = char:FindFirstChildOfClass("Humanoid") or hum
+	root = char:FindFirstChild("HumanoidRootPart") or root
+	if not (hum and root) then return end
 
--- เผื่อรีเซ็ตตัวละคร
-LP.CharacterAdded:Connect(function(c)
-    Char = c; HRP = c:WaitForChild("HumanoidRootPart"); Hum = c:WaitForChild("Humanoid")
-    BV:Destroy()
-    BV = Instance.new("BodyVelocity")
-    BV.MaxForce = Vector3.new(1e6,1e6,1e6)
-    BV.Velocity = Vector3.zero
-    BV.Parent = HRP
-    updateVelocity()
+	-- หมุนตามกล้อง
+	local cam = workspace.CurrentCamera
+	if bodyGyro then bodyGyro.CFrame = cam.CFrame end
+
+	-- ทิศทางการเคลื่อนที่
+	local dir = Vector3.zero
+	local look = cam.CFrame.LookVector
+	local right= cam.CFrame.RightVector
+	if pressing.F then dir = dir + look end
+	if pressing.B then dir = dir - look end
+	if pressing.R then dir = dir + right end
+	if pressing.L then dir = dir - right end
+	if pressing.U then dir = dir + Vector3.new(0,1,0) end
+	if pressing.D then dir = dir - Vector3.new(0,1,0) end
+
+	if dir.Magnitude > 0 then
+		dir = dir.Unit * speed
+	end
+	if bodyVel then bodyVel.Velocity = dir end
 end)
