@@ -952,252 +952,212 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 ----------------------------------------------------------------
--- UFO HUB X : FLY CONTROLS (robust drop-in / always show)
+-- UFO HUB X : FLY PAD (ตำแหน่งซ้ายตามภาพ + ปุ่มใหญ่)
+--  ใช้ร่วมกับ FlyBox เดิม (สวิตช์ Fly) ที่อยู่ใต้เวลา
 ----------------------------------------------------------------
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS        = game:GetService("UserInputService")
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local UserInput    = game:GetService("UserInputService")
+local LP           = Players.LocalPlayer
 
-local LP = Players.LocalPlayer
-local function waitChar()
-	local ch = LP.Character or LP.CharacterAdded:Wait()
-	local hum = ch:WaitForChild("Humanoid")
-	local hrp = ch:WaitForChild("HumanoidRootPart")
-	return ch, hum, hrp
-end
-local Char, Hum, HRP = waitChar()
+-- ==== ป้องกัน error ถ้ายังไม่มี PlayerPage / FlyBox ====
+local PlayerPage = Right and Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+local FlyBox = PlayerPage:FindFirstChild("FlyBox")
+if not FlyBox then return end
+local Enabled = FlyBox:FindFirstChild("Enabled")
+if not Enabled then return end
 
--- safe helpers
+-- ==== helper มุม/เส้น (ถ้าไฟล์เดิมไม่มีฟังก์ชัน corner/stroke จะสร้างให้) ====
 local function corner(ui, r)
-	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r); c.Parent = ui
+    local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r)
+    c.Parent = ui
 end
 local function stroke(ui, t, col, tr)
-	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.35; s.Parent = ui
+    local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+    s.Thickness = t; s.Color = col; s.Transparency = tr or 0.35; s.Parent = ui
 end
 
--- ===== find PlayerPage / anchor position =====
-local RightGui = Right or script.Parent or LP:FindFirstChildOfClass("PlayerGui")
-local PlayerPage = Right and Right:FindFirstChild("PlayerPage")
-if not PlayerPage then
-	-- หาแบบกว้าง ๆ เผื่อชื่อไม่ตรง
-	if RightGui then
-		for _,v in ipairs(RightGui:GetDescendants()) do
-			if v:IsA("Frame") and v.Name == "PlayerPage" then PlayerPage = v break end
-		end
-	end
-end
-if not PlayerPage then return end
-PlayerPage.ClipsDescendants = false -- กันโดนบัง
-
-local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
--- Fallback Y ถ้าไม่เจอ TimeLabel
-local baseY = (TimeLabel and (TimeLabel.Position.Y.Offset + TimeLabel.AbsoluteSize.Y)) or 206
-
--- ===== CONFIG (ยาวเท่าบาร์แดงในรูป) =====
+----------------------------------------------------------------
+-- CONFIG : ตำแหน่ง/ขนาด “กล่องแดง” ทางซ้าย + ปุ่มใหญ่
+----------------------------------------------------------------
 local CFG = {
-	W = 460, H = 36, Y_GAP = 10,
-	BTN_W = 64, BTN_H = 18, BTN_S = 6,
-	TITLE_W = 78,
-	COLOR_BG  = Color3.fromRGB(0,0,0),
-	COLOR_ACC = Color3.fromRGB(0,255,140),
-	Z = 50, -- ดันให้อยู่บนสุด
+    PAD_POS = UDim2.new(0, 130, 0, 350),  -- << ตำแหน่ง “มุมซ้ายบน” ของกล่องปุ่ม (ปรับ 130,350 ให้ตรงกล่องแดง)
+    PAD_SIZE = Vector2.new(260, 130),     -- ขนาดกล่องปุ่ม
+    BTN_SIZE = Vector2.new(64, 64),       -- ขนาดปุ่มลูกศร (ใหญ่ตามที่ขอ)
+    GAP      = 10,                        -- ระยะห่างปุ่ม
+    COLOR_BG  = Color3.fromRGB(0,0,0),
+    COLOR_ACC = Color3.fromRGB(0,255,140),
+    Z = 60,
+    FLY_SPEED = 90,                       -- ความเร็วพื้นฐานตอนบิน (เพิ่ม/ลดได้)
 }
 
--- ===== build FlyBox =====
-local FlyBox = PlayerPage:FindFirstChild("FlyBox")
-if not FlyBox then
-	FlyBox = Instance.new("Frame")
-	FlyBox.Name = "FlyBox"
-	FlyBox.Parent = PlayerPage
+----------------------------------------------------------------
+-- กล่อง FlyPad (สีดำ ขอบเขียว) วางที่ตำแหน่งซ้าย (กล่องแดงในรูป)
+----------------------------------------------------------------
+local FlyPad = PlayerPage:FindFirstChild("FlyPad")
+if not FlyPad then
+    FlyPad = Instance.new("Frame")
+    FlyPad.Name = "FlyPad"
+    FlyPad.Parent = PlayerPage
 end
-FlyBox.BackgroundColor3 = CFG.COLOR_BG
-FlyBox.BorderSizePixel = 0
-FlyBox.AnchorPoint = Vector2.new(0.5, 0)
-FlyBox.Position    = UDim2.new(0.5, 0, 0, baseY + CFG.Y_GAP)
-FlyBox.Size        = UDim2.fromOffset(CFG.W, CFG.H)
-FlyBox.Visible     = true
-FlyBox.ZIndex      = CFG.Z
-FlyBox.ClipsDescendants = false
-corner(FlyBox, 8); stroke(FlyBox, 1.2, CFG.COLOR_ACC, 0.35)
+FlyPad.BackgroundColor3 = CFG.COLOR_BG
+FlyPad.BorderSizePixel = 0
+FlyPad.AnchorPoint = Vector2.new(0,0)               -- อ้างมุมซ้ายบน
+FlyPad.Position    = CFG.PAD_POS
+FlyPad.Size        = UDim2.fromOffset(CFG.PAD_SIZE.X, CFG.PAD_SIZE.Y)
+FlyPad.ZIndex      = CFG.Z
+FlyPad.Visible     = false                           -- เริ่ม “ซ่อน” จนกว่าจะเปิดสวิตช์
+corner(FlyPad, 10)
+stroke(FlyPad, 1.2, CFG.COLOR_ACC, 0.35)
 
--- title
-local Title = FlyBox:FindFirstChild("Title") or Instance.new("TextLabel")
-Title.Name = "Title"; Title.Parent = FlyBox
-Title.BackgroundColor3 = CFG.COLOR_BG; Title.BorderSizePixel = 0
-Title.Text = "Fly ✈️"; Title.Font = Enum.Font.GothamBold; Title.TextSize = 14
+-- ป้าย "Fly" เล็ก ๆ มุมซ้ายบน
+local Title = FlyPad:FindFirstChild("Title") or Instance.new("TextLabel")
+Title.Name="Title"; Title.Parent=FlyPad
+Title.BackgroundTransparency = 1
+Title.Text = "Fly"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
 Title.TextColor3 = Color3.fromRGB(255,255,255)
-Title.TextXAlignment = Enum.TextXAlignment.Center
-Title.AnchorPoint = Vector2.new(0,0.5)
-Title.Position = UDim2.new(0, 6, 0.5, 0)
-Title.Size     = UDim2.fromOffset(CFG.TITLE_W, 18)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Position = UDim2.new(0, 10, 0, 6)
+Title.Size     = UDim2.fromOffset(120, 18)
 Title.ZIndex   = CFG.Z+1
-corner(Title,8); stroke(Title,1,CFG.COLOR_ACC,0.35)
 
--- switch
-local Switch = FlyBox:FindFirstChild("Switch") or Instance.new("Frame")
-Switch.Name="Switch"; Switch.Parent=FlyBox
-Switch.BackgroundColor3 = CFG.COLOR_BG; Switch.BorderSizePixel=0
-Switch.AnchorPoint = Vector2.new(1,0.5)
-Switch.Position    = UDim2.new(1, -6, 0.5, 0)
-Switch.Size        = UDim2.fromOffset(36,16)
-Switch.ZIndex      = CFG.Z+1
-corner(Switch,999); stroke(Switch,1,CFG.COLOR_ACC,0.35)
-
-local Dot = Switch:FindFirstChild("Dot") or Instance.new("Frame")
-Dot.Name="Dot"; Dot.Parent=Switch
-Dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-Dot.AnchorPoint = Vector2.new(0,0.5)
-Dot.Position = UDim2.new(0,2,0.5,0)
-Dot.Size     = UDim2.fromOffset(12,12)
-Dot.ZIndex   = CFG.Z+2
-corner(Dot,999)
-
-local Enabled = FlyBox:FindFirstChild("Enabled") or Instance.new("BoolValue")
-Enabled.Name="Enabled"; Enabled.Parent=FlyBox; Enabled.Value=false
-
--- make button helper
-local function makeBtn(name, txt)
-	local b = FlyBox:FindFirstChild(name) or Instance.new("TextButton")
-	b.Name=name; b.Parent=FlyBox
-	b.BackgroundColor3 = CFG.COLOR_BG; b.BorderSizePixel=0
-	b.Text=txt; b.Font=Enum.Font.GothamBold; b.TextSize=13
-	b.TextColor3 = Color3.fromRGB(255,255,255)
-	b.AutoButtonColor=true
-	b.Size=UDim2.fromOffset(CFG.BTN_W, CFG.BTN_H)
-	b.ZIndex = CFG.Z+1
-	corner(b,8); stroke(b,1,CFG.COLOR_ACC,0.35)
-	return b
+-- ฟังก์ชันสร้างปุ่มใหญ่
+local function bigBtn(name, txt)
+    local b = FlyPad:FindFirstChild(name) or Instance.new("TextButton")
+    b.Name=name; b.Parent=FlyPad
+    b.Text = txt; b.Font = Enum.Font.GothamBold; b.TextSize = 20
+    b.TextColor3 = Color3.fromRGB(255,255,255)
+    b.BackgroundColor3 = CFG.COLOR_BG; b.BorderSizePixel = 0
+    b.AutoButtonColor = true
+    b.Size = UDim2.fromOffset(CFG.BTN_SIZE.X, CFG.BTN_SIZE.Y)
+    b.ZIndex = CFG.Z+1
+    corner(b, 12); stroke(b, 1, CFG.COLOR_ACC, 0.35)
+    return b
 end
 
-local BtnLeft  = makeBtn("BtnLeft","◀")
-local BtnFwd   = makeBtn("BtnFwd","▲")
-local BtnRight = makeBtn("BtnRight","▶")
-local BtnDown  = makeBtn("BtnDown","Down")
-local BtnBack  = makeBtn("BtnBack","▼")
-local BtnUp    = makeBtn("BtnUp","Up")
+-- 4 ปุ่ม : ซ้าย/ขวา/ขึ้น/ลง
+local BtnLeft  = bigBtn("BtnLeft",  "◀")
+local BtnRight = bigBtn("BtnRight", "▶")
+local BtnUp    = bigBtn("BtnUp",    "▲")
+local BtnDown  = bigBtn("BtnDown",  "▼")
 
--- layout 2 rows, centered between title and switch
-local function layoutButtons()
-	local usable = CFG.W - (6 + CFG.TITLE_W + 6) - (36 + 6) -- left pads + title + space + switch + right pad
-	local startX = 6 + CFG.TITLE_W + math.max(6, math.floor((usable - (CFG.BTN_W*3 + CFG.BTN_S*2))/2))
-	local rowY1  = math.floor((CFG.H - (CFG.BTN_H*2 + 4)) / 2)
-	local rowY2  = rowY1 + CFG.BTN_H + 4
-	BtnLeft.Position  = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*0, 0, rowY1)
-	BtnFwd.Position   = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*1, 0, rowY1)
-	BtnRight.Position = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*2, 0, rowY1)
-	BtnDown.Position  = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*0, 0, rowY2)
-	BtnBack.Position  = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*1, 0, rowY2)
-	BtnUp.Position    = UDim2.new(0, startX + (CFG.BTN_W+CFG.BTN_S)*2, 0, rowY2)
+-- จัด layout เป็นรูปกากบาทในกรอบ
+local function layoutPad()
+    local w,h = CFG.PAD_SIZE.X, CFG.PAD_SIZE.Y
+    local bW,bH,g = CFG.BTN_SIZE.X, CFG.BTN_SIZE.Y, CFG.GAP
+    -- วางกลางกล่อง
+    local cx = math.floor((w - bW)/2)
+    local cy = math.floor((h - bH)/2)
+    BtnLeft.Position  = UDim2.new(0, cx - bW - g, 0, cy)
+    BtnRight.Position = UDim2.new(0, cx + bW + g, 0, cy)
+    BtnUp.Position    = UDim2.new(0, cx,            0, cy - bH - g)
+    BtnDown.Position  = UDim2.new(0, cx,            0, cy + bH + g)
 end
-layoutButtons()
-
--- ถ้ามี SlidersBox ก็เลื่อนลงไปต่อท้ายอัตโนมัติ
-local SlidersBox = PlayerPage:FindFirstChild("SlidersBox")
-if SlidersBox then
-	SlidersBox.AnchorPoint = Vector2.new(0.5,0)
-	SlidersBox.Position    = UDim2.new(0.5,0,0, FlyBox.Position.Y.Offset + CFG.H + 12)
-	SlidersBox.ZIndex      = CFG.Z-5
-end
+layoutPad()
 
 ----------------------------------------------------------------
--- Flight system (with noclip)
+-- Logic บิน: ใช้ BodyVelocity + ไม่ชน (noclip) + กล้องอ้างอิง
 ----------------------------------------------------------------
-local key = {w=false,a=false,s=false,d=false,up=false,down=false}
-local btn = {fwd=false,back=false,left=false,right=false,up=false,down=false}
-
--- on-screen hold
-local function hold(name, on) btn[name]=on end
-BtnFwd.MouseButton1Down:Connect(function() hold("fwd",true) end)
-BtnFwd.MouseButton1Up:Connect(function() hold("fwd",false) end)
-BtnBack.MouseButton1Down:Connect(function() hold("back",true) end)
-BtnBack.MouseButton1Up:Connect(function() hold("back",false) end)
-BtnLeft.MouseButton1Down:Connect(function() hold("left",true) end)
-BtnLeft.MouseButton1Up:Connect(function() hold("left",false) end)
-BtnRight.MouseButton1Down:Connect(function() hold("right",true) end)
-BtnRight.MouseButton1Up:Connect(function() hold("right",false) end)
-BtnUp.MouseButton1Down:Connect(function() hold("up",true) end)
-BtnUp.MouseButton1Up:Connect(function() hold("up",false) end)
-BtnDown.MouseButton1Down:Connect(function() hold("down",true) end)
-BtnDown.MouseButton1Up:Connect(function() hold("down",false) end)
-
--- keyboard
-UIS.InputBegan:Connect(function(io,gp)
-	if gp then return end
-	if io.KeyCode==Enum.KeyCode.W then key.w=true end
-	if io.KeyCode==Enum.KeyCode.S then key.s=true end
-	if io.KeyCode==Enum.KeyCode.A then key.a=true end
-	if io.KeyCode==Enum.KeyCode.D then key.d=true end
-	if io.KeyCode==Enum.KeyCode.Space then key.up=true end
-	if io.KeyCode==Enum.KeyCode.LeftControl then key.down=true end
-end)
-UIS.InputEnded:Connect(function(io)
-	if io.KeyCode==Enum.KeyCode.W then key.w=false end
-	if io.KeyCode==Enum.KeyCode.S then key.s=false end
-	if io.KeyCode==Enum.KeyCode.A then key.a=false end
-	if io.KeyCode==Enum.KeyCode.D then key.d=false end
-	if io.KeyCode==Enum.KeyCode.Space then key.up=false end
-	if io.KeyCode==Enum.KeyCode.LeftControl then key.down=false end
-end)
-
--- switch toggle
-Switch.InputBegan:Connect(function(io)
-	if io.UserInputType == Enum.UserInputType.MouseButton1 then
-		Enabled.Value = not Enabled.Value
-		if Enabled.Value then
-			Dot.Position = UDim2.new(1, -14, 0.5, 0)
-			Dot.BackgroundColor3 = CFG.COLOR_ACC
-		else
-			Dot.Position = UDim2.new(0, 2, 0.5, 0)
-			Dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-		end
-	end
-end)
-
--- noclip toggler
-local function setNoCollide(on)
-	for _,d in ipairs(Char:GetDescendants()) do
-		if d:IsA("BasePart") then d.CanCollide = not on end
-	end
-end
-
--- physics
-local speed, ascend = 80, 60
-local function camRight() return workspace.CurrentCamera.CFrame.RightVector end
-local function camLook()  return workspace.CurrentCamera.CFrame.LookVector  end
+local dir = {L=false, R=false, U=false, D=false, F=false, B=false} -- F/B เผื่อใช้คีย์บอร์ด
+local cam = workspace.CurrentCamera
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local HRP  = Char:WaitForChild("HumanoidRootPart")
+local Hum  = Char:WaitForChild("Humanoid")
 
 local BV = Instance.new("BodyVelocity")
-BV.MaxForce = Vector3.new(1e9,1e9,1e9)
+BV.MaxForce = Vector3.new(1e6,1e6,1e6)
 BV.Velocity = Vector3.zero
 BV.Parent = HRP
-BV.P = 1e4
+BV.Enabled = false
 
-RunService.Heartbeat:Connect(function()
-	-- refresh on respawn
-	if not Hum or not Hum.Parent then
-		Char, Hum, HRP = waitChar()
-		BV.Parent = HRP
-	end
+-- noclip
+local function setNoClip(on)
+    for _,p in ipairs(Char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.CanCollide = not on
+        end
+    end
+end
 
-	if Enabled.Value then
-		setNoCollide(true)
-		Hum:ChangeState(Enum.HumanoidStateType.Physics)
+-- อัปเดตความเร็ว (อิงกล้อง: ซ้าย/ขวา = RightVector, ขึ้น/ลง = Y, เดินหน้า/ถอย = LookVector)
+local function updateVelocity()
+    if not Enabled.Value then BV.Enabled=false; return end
+    BV.Enabled = true
+    local right = cam.CFrame.RightVector
+    local look  = cam.CFrame.LookVector
+    local up    = Vector3.new(0,1,0)
 
-		local v = Vector3.zero
-		if btn.fwd or key.w   then v += camLook()*speed end
-		if btn.back or key.s  then v -= camLook()*speed end
-		if btn.left or key.a  then v -= camRight()*speed end
-		if btn.right or key.d then v += camRight()*speed end
-		if btn.up or key.up   then v += Vector3.new(0,ascend,0) end
-		if btn.down or key.down then v -= Vector3.new(0,ascend,0) end
+    local v = Vector3.zero
+    if dir.L then v -= right end
+    if dir.R then v += right end
+    if dir.U then v += up    end
+    if dir.D then v -= up    end
+    -- ถ้าต้องการเปิดเดินหน้า/ถอยด้วยคีย์บอร์ด (W/S)
+    if dir.F then v += look end
+    if dir.B then v -= look end
 
-		BV.Velocity = v
-	else
-		BV.Velocity = Vector3.zero
-		setNoCollide(false)
-		if Hum:GetState()==Enum.HumanoidStateType.Physics then
-			Hum:ChangeState(Enum.HumanoidStateType.Running)
-		end
-	end
+    if v.Magnitude > 0 then v = v.Unit * CFG.FLY_SPEED end
+    BV.Velocity = v
+end
+
+-- กด/ปล่อยปุ่ม (รองรับเมาส์และทัช)
+local function bindHold(btn, key)
+    local holding = false
+    local function begin() holding = true; dir[key]=true;  updateVelocity() end
+    local function finish() holding = false; dir[key]=false; updateVelocity() end
+    btn.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then begin() end
+    end)
+    btn.InputEnded:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then finish() end
+    end)
+    -- เผื่อ pointer ออกนอกปุ่ม
+    btn.MouseLeave:Connect(function() if holding then finish() end end)
+end
+bindHold(BtnLeft,  "L")
+bindHold(BtnRight, "R")
+bindHold(BtnUp,    "U")
+bindHold(BtnDown,  "D")
+
+-- คีย์บอร์ด เดินหน้า/ถอย (ตามที่คุยไว้ ใช้คีย์บอร์ดเท่านั้น)
+UserInput.InputBegan:Connect(function(io, gp)
+    if gp then return end
+    if not Enabled.Value then return end
+    if io.KeyCode==Enum.KeyCode.W then dir.F=true; updateVelocity() end
+    if io.KeyCode==Enum.KeyCode.S then dir.B=true; updateVelocity() end
+end)
+UserInput.InputEnded:Connect(function(io, gp)
+    if gp then return end
+    if io.KeyCode==Enum.KeyCode.W then dir.F=false; updateVelocity() end
+    if io.KeyCode==Enum.KeyCode.S then dir.B=false; updateVelocity() end
+end)
+
+-- เปิด/ปิดตามสวิตช์ที่ FlyBox
+local function applyToggle(on)
+    FlyPad.Visible = on
+    setNoClip(on)
+    if not on then
+        dir.L=false; dir.R=false; dir.U=false; dir.D=false; dir.F=false; dir.B=false
+        BV.Velocity = Vector3.zero
+        BV.Enabled  = false
+    end
+end
+applyToggle(Enabled.Value)
+Enabled:GetPropertyChangedSignal("Value"):Connect(function()
+    applyToggle(Enabled.Value)
+end)
+
+-- เผื่อรีเซ็ตตัวละคร
+LP.CharacterAdded:Connect(function(c)
+    Char = c; HRP = c:WaitForChild("HumanoidRootPart"); Hum = c:WaitForChild("Humanoid")
+    BV:Destroy()
+    BV = Instance.new("BodyVelocity")
+    BV.MaxForce = Vector3.new(1e6,1e6,1e6)
+    BV.Velocity = Vector3.zero
+    BV.Parent = HRP
+    updateVelocity()
 end)
