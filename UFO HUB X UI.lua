@@ -952,140 +952,78 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- FLY BOX — place INSIDE HUB (bottom-left of PlayerPage) black box + green stroke + toggle
+-- === Attach FlyBox to the same parent as the Speed row (exactly like others) ===
 local ACC = Color3.fromRGB(0,255,140)
 
-local Players = game:GetService("Players")
-local LP      = Players.LocalPlayer
-local PG      = LP:WaitForChild("PlayerGui")
-
--- ========== robust find ==========
-local function findDescendantByName(root, target)
-	for _,d in ipairs(root:GetDescendants()) do
-		if d.Name == target then return d end
-	end
+-- 1) หาแถว Speed ที่มี label "Speed"
+local speedLabel
+for _,d in ipairs(script.Parent:GetDescendants()) do
+    if d:IsA("TextLabel") and d.Text:lower():match("^%s*speed") then
+        speedLabel = d; break
+    end
 end
+if not speedLabel then return end
 
-local function waitPlayerPage(timeout)
-	local t,step = 0,0.2
-	while t < (timeout or 10) do
-		-- common layouts: Right -> PlayerPage
-		local Right = findDescendantByName(PG, "Right")
-		local PlayerPage = Right and findDescendantByName(Right, "PlayerPage") or findDescendantByName(PG,"PlayerPage")
-		if PlayerPage and PlayerPage.AbsoluteSize.X > 0 then
-			return PlayerPage
-		end
-		task.wait(step); t += step
-	end
-end
+-- 2) สมมติแถว Speed มีโครง: Row(Frame) -> Track/Stuff, เราใช้ parent ของ "Row" เป็นพาเรนต์เดียวกัน
+local speedRow = speedLabel.Parent
+local sameParent = speedRow.Parent
 
-local PlayerPage = waitPlayerPage(12)
-if not PlayerPage then return end  -- UI ยังไม่ถูกเปิด
-
--- ลบของเดิม
-local old = PlayerPage:FindFirstChild("FlyBox")
+-- ลบของเก่า (ถ้ามี)
+local old = sameParent:FindFirstChild("FlyBox")
 if old then old:Destroy() end
 
--- helpers
-local function corner(ui, r)
-	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r); c.Parent = ui
-end
-local function stroke(ui, t, col, tr)
-	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
-end
+-- 3) สร้าง FlyBox: สีดำ เส้นเขียว ขนาด/ยาวเท่า “กรอบแดง” (ใช้ความกว้างเท่าแถบสไลด์)
+local fly = Instance.new("Frame")
+fly.Name = "FlyBox"
+fly.Parent = sameParent
+fly.BackgroundColor3 = Color3.fromRGB(0,0,0)
+fly.BorderSizePixel = 0
+local corner = Instance.new("UICorner", fly); corner.CornerRadius = UDim.new(0,12)
+local stroke = Instance.new("UIStroke", fly); stroke.Thickness = 1.2; stroke.Color = ACC; stroke.Transparency = 0.35
 
--- ====== ขนาด/ตำแหน่งเท่ากรอบแดง (มุมซ้ายล่างภายใน PlayerPage) ======
-local PAD_LEFT   = 18   -- ระยะจากขอบซ้ายของ PlayerPage
-local PAD_BOTTOM = 18   -- ระยะจากขอบล่างของ PlayerPage
-local WIDTH      = 420  -- ความยาวกล่อง
-local HEIGHT     = 112  -- ความสูงกล่อง
+-- วางให้ “ตรงจุดกรอบแดง” : ใช้แกน X และความกว้างเท่า track ของ Speed, และยกขึ้นให้อยู่ในปุ่ม
+local track = speedRow:FindFirstChild("Track", true) or speedRow
+local trackAbs = track.AbsoluteSize
+local trackPosY = track.Position.Y.Offset
 
--- กล่องหลัก
-local box = Instance.new("Frame")
-box.Name = "FlyBox"
-box.BackgroundColor3 = Color3.fromRGB(0,0,0)
-box.BorderSizePixel = 0
-box.ZIndex = 200
-corner(box, 12)
-stroke(box, 1.2, ACC, 0.35)
-box.Parent = PlayerPage
+-- ขนาดและตำแหน่ง (สีดำเส้นเขียว) ให้เท่าความยาวแถบแดง
+fly.AnchorPoint = Vector2.new(0,0.5)
+fly.Position = UDim2.new(track.Position.X.Scale, track.Position.X.Offset, 0, trackPosY) 
+fly.Size = UDim2.fromOffset(trackAbs.X, math.max(28, trackAbs.Y + 12))
 
-local function layout()
-	box.AnchorPoint = Vector2.new(0,1)
-	box.Position    = UDim2.new(0, PAD_LEFT, 1, -PAD_BOTTOM)  -- ยึดมุมซ้ายล่าง
-	box.Size        = UDim2.fromOffset(WIDTH, HEIGHT)
-end
-layout()
-PlayerPage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
-
--- หัวข้อ (ตัวอักษรสีขาว ไม่มีเส้น)
-local title = Instance.new("TextLabel")
-title.Name = "Title"
+-- 4) หัวข้อ (ตัวอักษรสีขาว ไม่มีเส้นเขียว) + สวิตช์ เปิด/ปิด (UI อย่างเดียวก่อน)
+local title = Instance.new("TextLabel", fly)
 title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
 title.Text = "Fly ✈️"
-title.TextColor3 = Color3.fromRGB(255,255,255)
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
 title.TextSize = 16
 title.TextXAlignment = Enum.TextXAlignment.Left
-title.Position = UDim2.new(0, 12, 0, 8)
-title.Size = UDim2.new(1, -24, 0, 20)
-title.ZIndex = 201
-title.Parent = box
+title.Position = UDim2.new(0, 10, 0, 4)
+title.Size = UDim2.new(1,-20,0,18)
 
--- เส้นสีเขียว (เลเซอร์)
-local laser = Instance.new("Frame")
-laser.BackgroundColor3 = ACC
-laser.BorderSizePixel = 0
-laser.AnchorPoint = Vector2.new(0.5,0)
-laser.Position = UDim2.new(0.5, 0, 0, 34)
-laser.Size = UDim2.new(1, -24, 0, 2)
-laser.ZIndex = 201
-laser.Parent = box
-
--- สวิตช์เปิด/ปิด (UI เท่านั้น – เดี๋ยวค่อยใส่ระบบบินจริง)
-local sw = Instance.new("Frame")
-sw.Name = "Switch"
+local sw = Instance.new("Frame", fly)
+sw.Name="Switch"
 sw.BackgroundColor3 = Color3.fromRGB(0,0,0)
 sw.BorderSizePixel = 0
-sw.AnchorPoint = Vector2.new(1,0)
-sw.Position = UDim2.new(1, -12, 0, 8)
-sw.Size = UDim2.fromOffset(40, 18)
-sw.ZIndex = 201
-corner(sw, 999); stroke(sw, 1, ACC, 0.35)
-sw.Parent = box
+local c2=Instance.new("UICorner", sw); c2.CornerRadius=UDim.new(0,999)
+local s2=Instance.new("UIStroke", sw); s2.Thickness=1; s2.Color=ACC; s2.Transparency=0.35
+sw.AnchorPoint = Vector2.new(1,0); sw.Position = UDim2.new(1,-10,0,4); sw.Size = UDim2.fromOffset(40,18)
 
-local dot = Instance.new("Frame")
-dot.Name = "Dot"
-dot.BackgroundColor3 = Color3.fromRGB(120,120,120) -- เริ่มปิด
-dot.BorderSizePixel = 0
-dot.AnchorPoint = Vector2.new(0,0.5)
-dot.Position = UDim2.new(0, 2, 0.5, 0)
-dot.Size = UDim2.fromOffset(14, 14)
-dot.ZIndex = 202
-corner(dot, 999)
-dot.Parent = sw
+local dot = Instance.new("Frame", sw)
+dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+dot.BorderSizePixel = 0; dot.AnchorPoint = Vector2.new(0,0.5)
+dot.Position = UDim2.new(0,2,0.5,0); dot.Size = UDim2.fromOffset(14,14)
+local c3=Instance.new("UICorner", dot); c3.CornerRadius = UDim.new(0,999)
 
+-- toggle (เฉพาะ UI)
 sw.InputBegan:Connect(function(io)
-	if io.UserInputType == Enum.UserInputType.MouseButton1 then
-		local on = dot.Position.X.Offset < sw.Size.X.Offset/2
-		if on then
-			dot.Position = UDim2.new(1, -16, 0.5, 0)
-			dot.BackgroundColor3 = ACC
-		else
-			dot.Position = UDim2.new(0, 2, 0.5, 0)
-			dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-		end
-	end
+    if io.UserInputType==Enum.UserInputType.MouseButton1 then
+        local on = dot.Position.X.Offset < sw.Size.X.Offset/2
+        if on then
+            dot.Position = UDim2.new(1,-16,0.5,0); dot.BackgroundColor3 = ACC
+        else
+            dot.Position = UDim2.new(0,2,0.5,0); dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+        end
+    end
 end)
-
--- พื้นที่ภายใน (เผื่อปุ่ม Forward/Back/Left/Right/Up/Down จะเติมภายหลัง)
-local inner = Instance.new("Frame")
-inner.Name = "Inner"
-inner.BackgroundTransparency = 1
-inner.AnchorPoint = Vector2.new(0,1)
-inner.Position = UDim2.new(0, 12, 1, -10)
-inner.Size = UDim2.new(1, -24, 1, -48)
-inner.ZIndex = 201
-inner.Parent = box
