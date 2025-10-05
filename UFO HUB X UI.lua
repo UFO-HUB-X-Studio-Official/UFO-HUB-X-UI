@@ -730,241 +730,232 @@ if ClickBtn then
 		PlayerPage.Visible = true
 	end)
 end
--- 🛸 UFO HUB X : SPEED + JUMP sliders (compact + mobile friendly, bugfixed)
--- - Auto find PlayerPage; auto place under TimeLabel (or NameBar/Avatar)
--- - Smaller like your pic; works with mouse & touch; high ZIndex so it’s clickable
+-- 🛸 UFO HUB X : SPEED + JUMP sliders (final – value display + zero fix)
+-- - ถ้ายังไม่ปรับ (ค่า 0) → ใช้ค่า default
+-- - มีตัวเลขแสดงค่าปัจจุบัน
+-- - รองรับทั้งเมาส์และทัช
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInput  = game:GetService("UserInputService")
 local LP         = Players.LocalPlayer
 
--- ---------- helpers ----------
 local function corner(ui, r)
 	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r); c.Parent = ui
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = ui
 end
+
 local function stroke(ui, t, col, tr)
 	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-	s.Thickness = t; s.Color = col; s.Transparency = tr or 0.25; s.Parent = ui
+	s.Thickness = t
+	s.Color = col
+	s.Transparency = tr or 0.25
+	s.Parent = ui
 end
+
 local function clamp(n,a,b) return math.max(a, math.min(b,n)) end
-local function isPrimaryPress(io)
-	return io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch
-end
+local function isPrimary(io) return io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch end
 
--- ---------- find PlayerPage ----------
-local function findPlayerPage()
-	if _G.Right and typeof(_G.Right)=="Instance" then
-		local pp = _G.Right:FindFirstChild("PlayerPage"); if pp then return pp end
-	end
-	if Right and typeof(Right)=="Instance" then
-		local pp = Right:FindFirstChild("PlayerPage"); if pp then return pp end
-	end
-	local pg = LP:WaitForChild("PlayerGui", 5); if not pg then return nil end
-	for _,g in ipairs(pg:GetDescendants()) do
-		if g:IsA("Frame") and g.Name=="PlayerPage" then return g end
-	end
-	return nil
-end
-
-local PlayerPage = findPlayerPage()
+-- หา PlayerPage
+local PlayerPage = (Right and Right:FindFirstChild("PlayerPage")) or nil
 if not PlayerPage then
-	warn("[UFO] PlayerPage not found (need a Frame named 'PlayerPage')."); return
+	for _,v in ipairs(LP:WaitForChild("PlayerGui"):GetDescendants()) do
+		if v:IsA("Frame") and v.Name=="PlayerPage" then PlayerPage=v break end
+	end
 end
+if not PlayerPage then warn("[UFO] PlayerPage not found.") return end
 
 local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
-local NameBar   = PlayerPage:FindFirstChild("NameBar")
-local Avatar    = PlayerPage:FindFirstChild("Avatar")
-
--- ---------- Humanoid ----------
 local Char = LP.Character or LP.CharacterAdded:Wait()
 local Hum  = Char:WaitForChild("Humanoid")
 Hum.UseJumpPower = true
 
--- ---------- CONFIG (smaller/shorter) ----------
 local CFG = {
-	BOX_W = 360, BOX_H = 58,       -- smaller container
-	BOX_Y_OFFSET = 24,             -- a bit below time
+	BOX_W = 360, BOX_H = 58,
+	BOX_Y_OFFSET = 24,
 	ROW_GAP = 4,
 	LABEL_W = 84,
-	TRACK_W = 120, TRACK_H = 8,    -- shorter track
+	TRACK_W = 120, TRACK_H = 8,
 	KNOB_W = 8,
 	SWITCH_W = 28, SWITCH_H = 14,
 	COLOR_BG = Color3.fromRGB(0,0,0),
 	COLOR_ACC = Color3.fromRGB(0,255,140),
-	Z = 200,                       -- high ZIndex to avoid overlap
+	Z = 200,
 }
 
--- ---------- container ----------
-local SlidersBox = Instance.new("Frame")
-SlidersBox.Name = "SlidersBox"
-SlidersBox.Parent = PlayerPage
-SlidersBox.BackgroundColor3 = CFG.COLOR_BG
-SlidersBox.BorderSizePixel  = 0
-corner(SlidersBox, 8)
-stroke(SlidersBox, 1.2, CFG.COLOR_ACC, 0.35)
-SlidersBox.ZIndex = CFG.Z
-SlidersBox.Visible = true
-SlidersBox.ClipsDescendants = false
-SlidersBox.Active = true
+-- กล่องหลัก
+local Box = Instance.new("Frame")
+Box.Name = "SlidersBox"
+Box.Parent = PlayerPage
+Box.BackgroundColor3 = CFG.COLOR_BG
+Box.BorderSizePixel  = 0
+corner(Box,8) stroke(Box,1.2,CFG.COLOR_ACC,0.35)
+Box.ZIndex = CFG.Z
 
-local function placeSlidersBox()
-	local pageTopY = PlayerPage.AbsolutePosition.Y
-	local baseBottomY
-	if TimeLabel then
-		baseBottomY = TimeLabel.AbsolutePosition.Y + TimeLabel.AbsoluteSize.Y
-	elseif NameBar then
-		baseBottomY = NameBar.AbsolutePosition.Y + NameBar.AbsoluteSize.Y
-	elseif Avatar then
-		baseBottomY = Avatar.AbsolutePosition.Y + Avatar.AbsoluteSize.Y + 24
-	else
-		baseBottomY = PlayerPage.AbsolutePosition.Y + PlayerPage.AbsoluteSize.Y*0.55
-	end
-	local localY = (baseBottomY - pageTopY) + CFG.BOX_Y_OFFSET
-	SlidersBox.AnchorPoint = Vector2.new(0.5, 0)
-	SlidersBox.Position    = UDim2.new(0.5, 0, 0, localY)
-	SlidersBox.Size        = UDim2.fromOffset(CFG.BOX_W, CFG.BOX_H)
+local function placeBox()
+	local baseY = (TimeLabel and (TimeLabel.Position.Y.Offset + TimeLabel.AbsoluteSize.Y)) or 210
+	Box.AnchorPoint = Vector2.new(0.5,0)
+	Box.Position    = UDim2.new(0.5,0,0,baseY + CFG.BOX_Y_OFFSET)
+	Box.Size        = UDim2.fromOffset(CFG.BOX_W,CFG.BOX_H)
 end
-placeSlidersBox()
-RunService.RenderStepped:Connect(placeSlidersBox)
+placeBox()
+RunService.RenderStepped:Connect(placeBox)
 
--- ---------- one row ----------
+-- ฟังก์ชันสร้าง slider
 local function makeRow(name, emoji)
 	local row = Instance.new("Frame")
-	row.Name = name; row.Parent = SlidersBox
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, -10, 0, CFG.TRACK_H + 12)
-	row.Position = UDim2.new(0, 5, 0, 0)
-	row.ZIndex = CFG.Z
+	row.Name=name; row.Parent=Box; row.BackgroundTransparency=1
+	row.Size=UDim2.new(1,-10,0,CFG.TRACK_H+12)
+	row.Position=UDim2.new(0,5,0,0); row.ZIndex=CFG.Z
 
-	local lbl = Instance.new("TextLabel")
+	local lbl=Instance.new("TextLabel")
 	lbl.Name="Title"; lbl.Parent=row
 	lbl.BackgroundColor3=CFG.COLOR_BG; lbl.BorderSizePixel=0
-	lbl.Text = name.." "..emoji; lbl.Font=Enum.Font.GothamBold
-	lbl.TextSize=13; lbl.TextColor3=Color3.fromRGB(255,255,255)
-	lbl.TextXAlignment = Enum.TextXAlignment.Center
-	lbl.AnchorPoint=Vector2.new(0,0.5); lbl.Position=UDim2.new(0,0,0.5,0)
-	lbl.Size=UDim2.fromOffset(CFG.LABEL_W, 18)
-	corner(lbl,8); stroke(lbl,1,CFG.COLOR_ACC,0.35)
-	lbl.ZIndex = CFG.Z+1
+	lbl.Text=name.." "..emoji
+	lbl.Font=Enum.Font.GothamBold; lbl.TextSize=13
+	lbl.TextColor3=Color3.fromRGB(255,255,255)
+	lbl.TextXAlignment=Enum.TextXAlignment.Center
+	lbl.AnchorPoint=Vector2.new(0,0.5)
+	lbl.Position=UDim2.new(0,0,0.5,0)
+	lbl.Size=UDim2.fromOffset(CFG.LABEL_W,18)
+	corner(lbl,8) stroke(lbl,1,CFG.COLOR_ACC,0.35)
+	lbl.ZIndex=CFG.Z+1
 
-	local track = Instance.new("Frame")
+	local track=Instance.new("Frame")
 	track.Name="Track"; track.Parent=row
 	track.BackgroundColor3=CFG.COLOR_BG; track.BorderSizePixel=0
 	track.AnchorPoint=Vector2.new(0,0.5)
-	track.Position=UDim2.new(0, CFG.LABEL_W+8, 0.5, 0)
-	track.Size=UDim2.fromOffset(CFG.TRACK_W, CFG.TRACK_H)
-	corner(track,8); stroke(track,1,CFG.COLOR_ACC,0.35)
-	track.ZIndex=CFG.Z+1; track.Active=true
+	track.Position=UDim2.new(0,CFG.LABEL_W+8,0.5,0)
+	track.Size=UDim2.fromOffset(CFG.TRACK_W,CFG.TRACK_H)
+	corner(track,8) stroke(track,1,CFG.COLOR_ACC,0.35)
+	track.ZIndex=CFG.Z+1
 
-	local fill = Instance.new("Frame")
+	local fill=Instance.new("Frame")
 	fill.Name="Fill"; fill.Parent=track
 	fill.BackgroundColor3=CFG.COLOR_ACC; fill.BorderSizePixel=0
-	fill.AnchorPoint=Vector2.new(0,0.5); fill.Position=UDim2.new(0,0,0.5,0)
-	fill.Size=UDim2.new(0,0,1,0); corner(fill,8)
-	fill.ZIndex=CFG.Z+2
+	fill.AnchorPoint=Vector2.new(0,0.5)
+	fill.Position=UDim2.new(0,0,0.5,0)
+	fill.Size=UDim2.new(0,0,1,0)
+	corner(fill,8); fill.ZIndex=CFG.Z+2
 
-	local knob = Instance.new("Frame")
+	local knob=Instance.new("Frame")
 	knob.Name="Knob"; knob.Parent=track
-	knob.BackgroundColor3=Color3.fromRGB(255,255,255); knob.BorderSizePixel=0
-	knob.AnchorPoint=Vector2.new(0.5,0.5); knob.Position=UDim2.new(0,0,0.5,0)
-	knob.Size=UDim2.fromOffset(CFG.KNOB_W, CFG.TRACK_H+4)
+	knob.BackgroundColor3=Color3.fromRGB(255,255,255)
+	knob.BorderSizePixel=0; knob.AnchorPoint=Vector2.new(0.5,0.5)
+	knob.Position=UDim2.new(0,0,0.5,0)
+	knob.Size=UDim2.fromOffset(CFG.KNOB_W,CFG.TRACK_H+4)
 	corner(knob,8); stroke(knob,1,CFG.COLOR_ACC,0.35)
-	knob.ZIndex=CFG.Z+3; knob.Active=true
+	knob.ZIndex=CFG.Z+3
 
-	local sw = Instance.new("Frame")
+	local valLabel=Instance.new("TextLabel")
+	valLabel.Name="ValText"; valLabel.Parent=row
+	valLabel.BackgroundTransparency=1
+	valLabel.Font=Enum.Font.GothamBold; valLabel.TextSize=12
+	valLabel.TextColor3=Color3.fromRGB(255,255,255)
+	valLabel.Text="0"
+	valLabel.AnchorPoint=Vector2.new(0,0.5)
+	valLabel.Position=UDim2.new(0, CFG.LABEL_W + CFG.TRACK_W + 12, 0.5, 0)
+	valLabel.Size=UDim2.fromOffset(28,14)
+	valLabel.ZIndex=CFG.Z+2
+
+	local sw=Instance.new("Frame")
 	sw.Name="Switch"; sw.Parent=row
 	sw.BackgroundColor3=CFG.COLOR_BG; sw.BorderSizePixel=0
-	sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1, 0, 0.5, 0)
-	sw.Size=UDim2.fromOffset(CFG.SWITCH_W, CFG.SWITCH_H)
-	corner(sw,999); stroke(sw,1,CFG.COLOR_ACC,0.35)
-	sw.ZIndex=CFG.Z+1; sw.Active=true
+	sw.AnchorPoint=Vector2.new(1,0.5)
+	sw.Position=UDim2.new(1,0,0.5,0)
+	sw.Size=UDim2.fromOffset(CFG.SWITCH_W,CFG.SWITCH_H)
+	corner(sw,999) stroke(sw,1,CFG.COLOR_ACC,0.35)
+	sw.ZIndex=CFG.Z+1
 
 	local dot=Instance.new("Frame")
 	dot.Name="Dot"; dot.Parent=sw
 	dot.BackgroundColor3=Color3.fromRGB(120,120,120)
-	dot.AnchorPoint=Vector2.new(0,0.5); dot.Position=UDim2.new(0,2,0.5,0)
-	dot.Size=UDim2.fromOffset(CFG.SWITCH_H-4, CFG.SWITCH_H-4)
+	dot.AnchorPoint=Vector2.new(0,0.5)
+	dot.Position=UDim2.new(0,2,0.5,0)
+	dot.Size=UDim2.fromOffset(CFG.SWITCH_H-4,CFG.SWITCH_H-4)
 	corner(dot,999); dot.ZIndex=CFG.Z+2
 
-	local val=Instance.new("NumberValue"); val.Name="Value"; val.Value=0; val.Parent=row
-	local ena=Instance.new("BoolValue");   ena.Name="Enabled"; ena.Value=false; ena.Parent=row
-
+	local val=Instance.new("NumberValue") val.Name="Value"; val.Value=0; val.Parent=row
+	local ena=Instance.new("BoolValue")   ena.Name="Enabled"; ena.Value=false; ena.Parent=row
 	return row
 end
 
-local rowSpeed = makeRow("Speed","🚀")
-local rowJump  = makeRow("Jump","🦘")
-rowSpeed.Position = UDim2.new(0,5,0,4)
-rowJump.Position  = UDim2.new(0,5,0,4 + (CFG.TRACK_H+12) + CFG.ROW_GAP)
+local rowSpeed=makeRow("Speed","🚀")
+local rowJump=makeRow("Jump","🦘")
+rowSpeed.Position=UDim2.new(0,5,0,4)
+rowJump.Position=UDim2.new(0,5,0,4+(CFG.TRACK_H+12)+CFG.ROW_GAP)
 
--- ---------- drag & toggle (mouse + touch + tap track) ----------
-local dragging = nil
+-- การลากและสวิตช์
+local dragging=nil
 local function bindRow(row)
-	local track, knob, fill, sw, dot = row.Track, row.Track.Knob, row.Track.Fill, row.Switch, row.Switch.Dot
+	local track,knob,fill,sw,dot,valLabel=row.Track,row.Track.Knob,row.Track.Fill,row.Switch,row.Switch.Dot,row.ValText
 	local function setFromX(px)
-		local absX = track.AbsolutePosition.X
-		local width = math.max(1, track.AbsoluteSize.X - CFG.KNOB_W)
-		local rel = clamp(px - absX, 0, width)
-		local v = math.floor((rel / width) * 100 + 0.5)
-		row.Value.Value = v
-		fill.Size     = UDim2.new(0, rel + CFG.KNOB_W/2, 1, 0)
-		knob.Position = UDim2.new(0, rel, 0.5, 0)
+		local absX=track.AbsolutePosition.X
+		local w=math.max(1,track.AbsoluteSize.X-CFG.KNOB_W)
+		local rel=clamp(px-absX,0,w)
+		local v=math.floor((rel/w)*100+0.5)
+		row.Value.Value=v
+		fill.Size=UDim2.new(0,rel+CFG.KNOB_W/2,1,0)
+		knob.Position=UDim2.new(0,rel,0.5,0)
+		valLabel.Text=tostring(v)
 	end
 
-	-- แตะ/คลิกที่แทร็กเพื่อเซ็ต
+	-- แตะเพื่อเซ็ต
 	track.InputBegan:Connect(function(io)
-		if isPrimaryPress(io) then setFromX(io.Position.X) end
+		if isPrimary(io) then setFromX(io.Position.X) end
 	end)
-
-	-- ลากที่ปุ่ม
 	knob.InputBegan:Connect(function(io)
-		if isPrimaryPress(io) then dragging = row end
+		if isPrimary(io) then dragging=row end
 	end)
 	UserInput.InputChanged:Connect(function(io)
-		if dragging == row and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
+		if dragging==row and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
 			setFromX(io.Position.X)
 		end
 	end)
 	UserInput.InputEnded:Connect(function(io)
-		if isPrimaryPress(io) and dragging==row then dragging=nil end
+		if isPrimary(io) and dragging==row then dragging=nil end
 	end)
 
-	-- toggle
 	sw.InputBegan:Connect(function(io)
-		if isPrimaryPress(io) then
-			row.Enabled.Value = not row.Enabled.Value
+		if isPrimary(io) then
+			row.Enabled.Value=not row.Enabled.Value
 			if row.Enabled.Value then
-				dot.Position = UDim2.new(1, -(CFG.SWITCH_H-2), 0.5, 0)
-				dot.BackgroundColor3 = CFG.COLOR_ACC
+				dot.Position=UDim2.new(1,-(CFG.SWITCH_H-2),0.5,0)
+				dot.BackgroundColor3=CFG.COLOR_ACC
 			else
-				dot.Position = UDim2.new(0, 2, 0.5, 0)
-				dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
+				dot.Position=UDim2.new(0,2,0.5,0)
+				dot.BackgroundColor3=Color3.fromRGB(120,120,120)
 			end
 		end
 	end)
 end
-bindRow(rowSpeed); bindRow(rowJump)
+bindRow(rowSpeed)
+bindRow(rowJump)
 
--- ---------- apply ----------
-local DEF_WALKSPEED = 16
-local DEF_JUMPPOWER = 50
-
+-- อัปเดตจริง
+local DEF_WALKSPEED=16
+local DEF_JUMPPOWER=50
 RunService.Heartbeat:Connect(function()
 	if not Hum or not Hum.Parent then
-		local c = LP.Character or LP.CharacterAdded:Wait()
-		Hum = c:WaitForChild("Humanoid")
-		Hum.UseJumpPower = true
+		Char=LP.Character or LP.CharacterAdded:Wait()
+		Hum=Char:WaitForChild("Humanoid")
+		Hum.UseJumpPower=true
 	end
+
+	-- SPEED
 	if rowSpeed.Enabled.Value then
-		Hum.WalkSpeed = clamp(rowSpeed.Value.Value, 0, 100)
+		local v=rowSpeed.Value.Value
+		if v>0 then Hum.WalkSpeed=clamp(v,0,100) else Hum.WalkSpeed=DEF_WALKSPEED end
 	else
-		Hum.WalkSpeed = DEF_WALKSPEED
+		Hum.WalkSpeed=DEF_WALKSPEED
 	end
+
+	-- JUMP
 	if rowJump.Enabled.Value then
-		Hum.JumpPower = clamp(rowJump.Value.Value, 0, 100)
+		local v=rowJump.Value.Value
+		if v>0 then Hum.JumpPower=clamp(v,0,100) else Hum.JumpPower=DEF_JUMPPOWER end
 	else
-		Hum.JumpPower = DEF_JUMPPOWER
+		Hum.JumpPower=DEF_JUMPPOWER
 	end
 end)
