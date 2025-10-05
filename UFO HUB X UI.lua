@@ -518,3 +518,29 @@ do
         HText.TextColor3 = Color3.fromRGB(255,255,255)
     end
 end
+----------------------------------------------------------------
+-- 🔸 แสดง/ซ่อน Header เมื่อกดปุ่ม Player
+----------------------------------------------------------------
+local BigHeader = Right:FindFirstChild("BigHeader")
+if BigHeader then
+    -- ซ่อนก่อนเริ่มต้น
+    BigHeader.Visible = false
+
+    -- หา BtnPlayer ที่มีอยู่
+    local BtnFrame = Left:FindFirstChild("BtnPlayer")
+    if BtnFrame and BtnFrame:FindFirstChild("Click") then
+        local Click = BtnFrame.Click
+
+        Click.MouseButton1Click:Connect(function()
+            -- ซ่อนทุก Header ก่อน
+            for _, v in ipairs(Right:GetChildren()) do
+                if v:IsA("Frame") and v.Name:match("Header") or v.Name == "BigHeader" then
+                    v.Visible = false
+                end
+            end
+
+            -- แสดงเฉพาะอันนี้
+            BigHeader.Visible = true
+        end)
+    end
+end
