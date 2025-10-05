@@ -370,3 +370,56 @@ do
         end)
     end
 end
+--======================================================
+-- 👤 PLAYER BUTTON (พร้อมรูป + เอฟเฟกต์ hover)
+--======================================================
+local BtnPlayer = Instance.new("TextButton", Left)
+BtnPlayer.Name = "BtnPlayer"
+BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
+BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
+BtnPlayer.BackgroundColor3 = BG_INNER
+BtnPlayer.BorderSizePixel = 0
+BtnPlayer.AutoButtonColor = false
+corner(BtnPlayer, 10)
+local strokeBtn = stroke(BtnPlayer, 1, GREEN, 0.35)
+
+-- 🖼️ รูปไอคอนซ้าย
+local Icon = Instance.new("ImageLabel", BtnPlayer)
+Icon.BackgroundTransparency = 1
+Icon.AnchorPoint = Vector2.new(0, 0.5)
+Icon.Position = UDim2.new(0, 10, 0.5, 0)
+Icon.Size = UDim2.fromOffset(22, 22)
+Icon.Image = "rbxassetid://114530675624359"
+
+-- 🧾 ชื่อปุ่ม
+local Txt = Instance.new("TextLabel", BtnPlayer)
+Txt.BackgroundTransparency = 1
+Txt.AnchorPoint = Vector2.new(0, 0.5)
+Txt.Position = UDim2.new(0, 42, 0.5, 0)
+Txt.Size = UDim2.new(1, -50, 1, 0)
+Txt.Font = Enum.Font.GothamBold
+Txt.Text = "Player"
+Txt.TextSize = 15
+Txt.TextColor3 = TEXT_WHITE
+Txt.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ✨ เอฟเฟกต์ hover & press
+local TS = game:GetService("TweenService")
+local function tween(o, goal)
+    TS:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
+end
+
+BtnPlayer.MouseEnter:Connect(function()
+    tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(24,24,24)})
+    tween(strokeBtn, {Transparency = 0.15})
+end)
+BtnPlayer.MouseLeave:Connect(function()
+    tween(BtnPlayer, {BackgroundColor3 = BG_INNER})
+    tween(strokeBtn, {Transparency = 0.35})
+end)
+BtnPlayer.MouseButton1Down:Connect(function()
+    tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(30,30,30)})
+end)
+BtnPlayer.MouseButton1Up:Connect(function()
+    tween(BtnPlayer, {BackgroundColor3 = Color3.fromRGB(24,24,24)})
+end)
