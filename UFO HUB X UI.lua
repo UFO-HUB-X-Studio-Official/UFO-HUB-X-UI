@@ -731,204 +731,186 @@ if ClickBtn then
 	end)
 end
 ----------------------------------------------------------------
--- UFO HUB X : SPEED/JUMP SLIDERS (v2 – compact exact size)
--- แถบดำ + เส้นเขียว + ปุ่มกลม + สวิตช์ เปิด/ปิด
--- วางใต้ TimeLabel ตรงตำแหน่ง/สัดส่วนให้เล็กแบบในรูปที่ 2
+-- UFO HUB X : SPEED / JUMP SLIDERS (v3 – compact & center join)
+-- ให้เหมือนรูปที่ 2 : สั้นกว่า, ชิดกันตรงกลาง, สีดำขอบเขียว
 ----------------------------------------------------------------
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local UserInput    = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInput = game:GetService("UserInputService")
 
-local LP    = Players.LocalPlayer
-local Char  = LP.Character or LP.CharacterAdded:Wait()
-local Hum   = Char:WaitForChild("Humanoid")
+local LP = Players.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local Hum = Char:WaitForChild("Humanoid")
 
--- ใช้ corner()/stroke() ของเดิมถ้ามี ไม่งั้นสร้าง UICorner/UIStroke ให้เอง
-local function applyCorner(inst, r)
-	if typeof(corner)=="function" then corner(inst, r) else
-		local c = inst:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0, r); c.Parent = inst
-	end
+-- helper corner/stroke
+local function applyCorner(ui, r)
+	local c = ui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = ui
 end
-local function applyStroke(inst, thickness, color, transparency)
-	if typeof(stroke)=="function" then stroke(inst, thickness, color, transparency) else
-		local s = inst:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-		s.Thickness = thickness; s.Color = color; s.Transparency = transparency or 0; s.Parent = inst
-	end
+local function applyStroke(ui, thick, color)
+	local s = ui:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	s.Thickness = thick
+	s.Color = color
+	s.Transparency = 0.25
+	s.Parent = ui
 end
 local function clamp(n,a,b) return math.max(a, math.min(b,n)) end
 
--- อ้างอิง PlayerPage + TimeLabel (ที่มีอยู่แล้ว)
-local PlayerPage = Right:FindFirstChild("PlayerPage"); if not PlayerPage then return end
-local TimeLabel  = PlayerPage:FindFirstChild("TimeLabel")
-
--- ===== ค่าขนาด/ตำแหน่งแบบ “เล็กกะทัดรัด” ให้เหมือนรูปที่ 2 =====
+----------------------------------------------------------------
+-- CONFIG (ขนาดแบบรูปที่ 2)
+----------------------------------------------------------------
 local CFG = {
-	TRACK_W      = 230,   -- ความกว้างแทร็ค (เล็กลงจากเดิม)
-	TRACK_H      = 12,    -- ความสูงแทร็ค (เตี้ย)
-	KNOB_W       = 10,    -- ปุ่มเลื่อน
-	SWITCH_W     = 34,    -- สวิตช์เล็ก
-	SWITCH_H     = 18,
-	PAIR_OFF_X   = 168,   -- ระยะเลื่อนออกจากกึ่งกลาง (ซ้าย/ขวา) ≈ 168px
-	BASE_Y_ADD   = 16,    -- ระยะจากใต้ตัวเลขเวลา ลงมาอีกเล็กน้อย
-	holderPadX   = 8,     -- ระแนบสวิตช์กับแทร็ค
-	colorTrack   = Color3.fromRGB(10,10,10),
-	colorFill    = Color3.fromRGB(0,255,140),
-	colorStroke  = Color3.fromRGB(0,255,140),
-	colorKnob    = Color3.fromRGB(225,225,225),
+	TRACK_W = 150,   -- สั้นลง
+	TRACK_H = 10,    -- เตี้ยลง
+	KNOB_W  = 10,    -- ปุ่มกลม
+	SWITCH_W = 30,
+	SWITCH_H = 16,
+	BASE_Y_ADD = 16,
+	COLOR_BG = Color3.fromRGB(0,0,0),
+	COLOR_ACC = Color3.fromRGB(0,255,140),
 }
 
--- สร้าง slider 1 ชุด
-local function ensureSlider(name)
-	local Holder = PlayerPage:FindFirstChild(name)
-	if not Holder then
-		Holder = Instance.new("Frame")
-		Holder.Name = name
-		Holder.BackgroundTransparency = 1
-		Holder.Parent = PlayerPage
+----------------------------------------------------------------
+-- หา PlayerPage + TimeLabel
+----------------------------------------------------------------
+local PlayerPage = Right:FindFirstChild("PlayerPage")
+if not PlayerPage then return end
+local TimeLabel = PlayerPage:FindFirstChild("TimeLabel")
 
-		local Track = Instance.new("Frame")
-		Track.Name = "Track"; Track.Parent = Holder
-		Track.AnchorPoint = Vector2.new(0,0.5)
-		Track.BackgroundColor3 = CFG.colorTrack; Track.BorderSizePixel = 0
-		applyCorner(Track, 10); applyStroke(Track, 1.2, CFG.colorStroke, 0.25)
+----------------------------------------------------------------
+-- function: สร้าง slider เดี่ยว
+----------------------------------------------------------------
+local function makeSlider(name)
+	local f = Instance.new("Frame")
+	f.Name = name
+	f.BackgroundTransparency = 1
+	f.Size = UDim2.fromOffset(CFG.TRACK_W + CFG.SWITCH_W + 6, CFG.SWITCH_H)
+	f.Parent = PlayerPage
 
-		local Fill = Instance.new("Frame")
-		Fill.Name = "Fill"; Fill.Parent = Track
-		Fill.AnchorPoint = Vector2.new(0,0.5)
-		Fill.Position = UDim2.new(0,0,0.5,0)
-		Fill.Size = UDim2.new(0,0,1,0)
-		Fill.BackgroundColor3 = CFG.colorFill; Fill.BorderSizePixel = 0
-		applyCorner(Fill, 10)
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.Parent = f
+	track.BackgroundColor3 = CFG.COLOR_BG
+	track.BorderSizePixel = 0
+	applyCorner(track, 8)
+	applyStroke(track, 1, CFG.COLOR_ACC)
+	track.AnchorPoint = Vector2.new(0,0.5)
+	track.Position = UDim2.new(0,0,0.5,0)
+	track.Size = UDim2.fromOffset(CFG.TRACK_W, CFG.TRACK_H)
 
-		local Knob = Instance.new("Frame")
-		Knob.Name = "Knob"; Knob.Parent = Track
-		Knob.AnchorPoint = Vector2.new(0.5,0.5)
-		Knob.Position = UDim2.new(0,0,0.5,0)
-		Knob.Size = UDim2.fromOffset(CFG.KNOB_W, CFG.TRACK_H + 6)
-		Knob.BackgroundColor3 = CFG.colorKnob; Knob.BorderSizePixel = 0
-		applyCorner(Knob, 10); applyStroke(Knob, 1.0, CFG.colorStroke, 0)
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Parent = track
+	fill.BackgroundColor3 = CFG.COLOR_ACC
+	fill.BorderSizePixel = 0
+	fill.AnchorPoint = Vector2.new(0,0.5)
+	fill.Position = UDim2.new(0,0,0.5,0)
+	fill.Size = UDim2.new(0,0,1,0)
+	applyCorner(fill,8)
 
-		local Switch = Instance.new("Frame")
-		Switch.Name = "Switch"; Switch.Parent = Holder
-		Switch.BackgroundColor3 = CFG.colorTrack; Switch.BorderSizePixel = 0
-		applyCorner(Switch, 999); applyStroke(Switch, 1.0, CFG.colorStroke, 0.25)
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.Parent = track
+	knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+	knob.BorderSizePixel = 0
+	knob.AnchorPoint = Vector2.new(0.5,0.5)
+	knob.Position = UDim2.new(0,0,0.5,0)
+	knob.Size = UDim2.fromOffset(CFG.KNOB_W, CFG.TRACK_H + 4)
+	applyCorner(knob,8)
+	applyStroke(knob,1,CFG.COLOR_ACC)
 
-		local Dot = Instance.new("Frame")
-		Dot.Name = "Dot"; Dot.Parent = Switch
-		Dot.BackgroundColor3 = CFG.colorFill; Dot.BorderSizePixel = 0
-		applyCorner(Dot, 999)
-		Dot.AnchorPoint = Vector2.new(0,0.5)
-		Dot.Position = UDim2.new(0,2,0.5,0)
-		Dot.Size = UDim2.fromOffset(CFG.SWITCH_H-4, CFG.SWITCH_H-4)
+	local switch = Instance.new("Frame")
+	switch.Name = "Switch"
+	switch.Parent = f
+	switch.BackgroundColor3 = CFG.COLOR_BG
+	switch.BorderSizePixel = 0
+	applyCorner(switch,999)
+	applyStroke(switch,1,CFG.COLOR_ACC)
+	switch.AnchorPoint = Vector2.new(1,0.5)
+	switch.Position = UDim2.new(1,0,0.5,0)
+	switch.Size = UDim2.fromOffset(CFG.SWITCH_W, CFG.SWITCH_H)
 
-		local Val = Instance.new("NumberValue")  Val.Name="Value";   Val.Parent=Holder;   Val.Value=0
-		local Ena = Instance.new("BoolValue")    Ena.Name="Enabled"; Ena.Parent=Holder;   Ena.Value=true
-	end
-	return Holder
+	local dot = Instance.new("Frame")
+	dot.Name = "Dot"
+	dot.Parent = switch
+	dot.BackgroundColor3 = CFG.COLOR_ACC
+	dot.AnchorPoint = Vector2.new(0,0.5)
+	dot.Position = UDim2.new(0,2,0.5,0)
+	dot.Size = UDim2.fromOffset(CFG.SWITCH_H-4,CFG.SWITCH_H-4)
+	applyCorner(dot,999)
+
+	local val = Instance.new("NumberValue") val.Name="Value"; val.Value=0; val.Parent=f
+	local ena = Instance.new("BoolValue")   ena.Name="Enabled"; ena.Value=true; ena.Parent=f
+	return f
 end
 
-local SpeedUI = ensureSlider("SpeedSlider")
-local JumpUI  = ensureSlider("JumpSlider")
+local SpeedS = makeSlider("SpeedSlider")
+local JumpS  = makeSlider("JumpSlider")
 
--- จัดวางตำแหน่ง/ขนาด (เท่ากันซ้าย-ขวา และเล็กลง)
+----------------------------------------------------------------
+-- วาง layout ตรงกลางและชิดกัน
+----------------------------------------------------------------
 local function layout()
-	RunService.RenderStepped:Wait()
+	local y = (TimeLabel and (TimeLabel.Position.Y.Offset + TimeLabel.AbsoluteSize.Y + CFG.BASE_Y_ADD)) or 210
+	local totalW = CFG.TRACK_W + CFG.SWITCH_W + 6
+	local gap = 6 -- ระยะห่างระหว่างสองอัน (ชิดกลาง)
 
-	local y = (TimeLabel and (TimeLabel.Position.Y.Offset + TimeLabel.AbsoluteSize.Y + CFG.BASE_Y_ADD)) or 220
-	local holderW = CFG.TRACK_W + CFG.SWITCH_W + CFG.holderPadX
-	local holderH = math.max(CFG.TRACK_H, CFG.SWITCH_H)
-
-	local function place(Holder, side) -- side = -1 (ซ้าย), 1 (ขวา)
-		Holder.AnchorPoint = Vector2.new(0.5,0)
-		Holder.Position    = UDim2.new(0.5, side*CFG.PAIR_OFF_X, 0, y)
-		Holder.Size        = UDim2.fromOffset(holderW, holderH)
-
-		local Track  = Holder.Track
-		local Fill   = Track.Fill
-		local Knob   = Track.Knob
-		local Switch = Holder.Switch
-		local Dot    = Switch.Dot
-
-		Track.Size     = UDim2.fromOffset(CFG.TRACK_W, CFG.TRACK_H)
-		Track.Position = UDim2.new(0,0,0.5,0)
-		Knob.Size      = UDim2.fromOffset(CFG.KNOB_W, CFG.TRACK_H+6)
-
-		Switch.AnchorPoint = Vector2.new(1,0.5)
-		Switch.Position    = UDim2.new(1, 0, 0.5, 0)
-		Switch.Size        = UDim2.fromOffset(CFG.SWITCH_W, CFG.SWITCH_H)
-		Dot.Size           = UDim2.fromOffset(CFG.SWITCH_H-4, CFG.SWITCH_H-4)
-
-		local v  = clamp(Holder.Value.Value, 0, 100)
-		local px = math.floor((v/100) * (CFG.TRACK_W - CFG.KNOB_W) + 0.5)
-		Knob.Position = UDim2.new(0, px, 0.5, 0)
-		Fill.Size     = UDim2.new(0, px + CFG.KNOB_W*0.5, 1, 0)
-
-		if Holder.Enabled.Value then
-			Dot.Position = UDim2.new(1, -(CFG.SWITCH_H-2), 0.5, 0)
-			Dot.BackgroundColor3 = CFG.colorFill
-		else
-			Dot.Position = UDim2.new(0, 2, 0.5, 0)
-			Dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-		end
-	end
-
-	place(SpeedUI, -1)   -- ซ้าย = วิ่งไว
-	place(JumpUI,   1)   -- ขวา = กระโดดสูง
+	SpeedS.AnchorPoint = Vector2.new(1,0)
+	JumpS.AnchorPoint  = Vector2.new(0,0)
+	SpeedS.Position = UDim2.new(0.5, -gap/2, 0, y)
+	JumpS.Position  = UDim2.new(0.5, gap/2, 0, y)
 end
 layout()
-task.spawn(function()
-	while task.wait(0.3) do
-		if PlayerPage.Visible then layout() end
-	end
-end)
 
--- ลากเพื่อปรับค่า 0–100
+----------------------------------------------------------------
+-- การลากและเปิด/ปิด
+----------------------------------------------------------------
 local dragging = nil
-local function bindDrag(Holder)
-	local Track = Holder.Track
-	local Knob  = Track.Knob
+local function bindSlider(f)
+	local t = f.Track
+	local k = t.Knob
 	local function setFromX(x)
-		local abs = Track.AbsolutePosition
-		local size= Track.AbsoluteSize
-		local rel = clamp(x - abs.X, 0, size.X - CFG.KNOB_W)
-		local v   = math.floor((rel / (size.X - CFG.KNOB_W)) * 100 + 0.5)
-		Holder.Value.Value = v
-		layout()
+		local abs=t.AbsolutePosition
+		local size=t.AbsoluteSize
+		local rel=clamp(x-abs.X,0,size.X-CFG.KNOB_W)
+		local v=math.floor((rel/(size.X-CFG.KNOB_W))*100+0.5)
+		f.Value.Value=v
+		t.Fill.Size=UDim2.new(0,rel+CFG.KNOB_W/2,1,0)
+		k.Position=UDim2.new(0,rel,0.5,0)
 	end
-	Knob.InputBegan:Connect(function(io)
-		if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=Holder end
+	k.InputBegan:Connect(function(io)
+		if io.UserInputType==Enum.UserInputType.MouseButton1 then dragging=f end
 	end)
 	UserInput.InputEnded:Connect(function(io)
-		if (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) and dragging==Holder then dragging=nil end
+		if io.UserInputType==Enum.UserInputType.MouseButton1 and dragging==f then dragging=nil end
 	end)
 	UserInput.InputChanged:Connect(function(io)
-		if dragging==Holder and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
+		if dragging==f and io.UserInputType==Enum.UserInputType.MouseMovement then
 			setFromX(io.Position.X)
 		end
 	end)
-	Track.InputBegan:Connect(function(io)
-		if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-			setFromX(io.Position.X); dragging=Holder
+	f.Switch.InputBegan:Connect(function(io)
+		if io.UserInputType==Enum.UserInputType.MouseButton1 then
+			f.Enabled.Value=not f.Enabled.Value
+			if f.Enabled.Value then
+				f.Switch.Dot.Position=UDim2.new(1,-(CFG.SWITCH_H-2),0.5,0)
+				f.Switch.Dot.BackgroundColor3=CFG.COLOR_ACC
+			else
+				f.Switch.Dot.Position=UDim2.new(0,2,0.5,0)
+				f.Switch.Dot.BackgroundColor3=Color3.fromRGB(120,120,120)
+			end
 		end
 	end)
 end
-bindDrag(SpeedUI); bindDrag(JumpUI)
+bindSlider(SpeedS)
+bindSlider(JumpS)
 
--- สวิตช์เปิด/ปิด
-local function bindSwitch(Holder)
-	Holder.Switch.InputBegan:Connect(function(io)
-		if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-			Holder.Enabled.Value = not Holder.Enabled.Value
-			layout()
-		end
-	end)
-end
-bindSwitch(SpeedUI); bindSwitch(JumpUI)
-
--- เซ็ตค่าจริงให้ Humanoid (0–100) และคืนดีฟอลต์เมื่อปิดสวิตช์
-local DEFAULT_SPEED = 16
-local DEFAULT_JUMP  = 50
+----------------------------------------------------------------
+-- ระบบจริง : ปรับค่าเดิน/กระโดด
+----------------------------------------------------------------
+local DEF_SPEED=16
+local DEF_JUMP=50
 RunService.Heartbeat:Connect(function()
 	Char = LP.Character or Char
 	if Char and Char:FindFirstChildOfClass("Humanoid") then
@@ -936,17 +918,17 @@ RunService.Heartbeat:Connect(function()
 	end
 	if not Hum then return end
 
-	if SpeedUI.Enabled.Value then
-		Hum.WalkSpeed = clamp(SpeedUI.Value.Value, 0, 100)
+	if SpeedS.Enabled.Value then
+		Hum.WalkSpeed = clamp(SpeedS.Value.Value,0,100)
 	else
-		Hum.WalkSpeed = DEFAULT_SPEED
+		Hum.WalkSpeed = DEF_SPEED
 	end
 
-	if JumpUI.Enabled.Value then
-		Hum.UseJumpPower = true
-		Hum.JumpPower = clamp(JumpUI.Value.Value, 0, 100)
+	if JumpS.Enabled.Value then
+		Hum.UseJumpPower=true
+		Hum.JumpPower=clamp(JumpS.Value.Value,0,100)
 	else
-		Hum.UseJumpPower = true
-		Hum.JumpPower = DEFAULT_JUMP
+		Hum.UseJumpPower=true
+		Hum.JumpPower=DEF_JUMP
 	end
 end)
