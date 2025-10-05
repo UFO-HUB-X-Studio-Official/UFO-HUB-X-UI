@@ -370,64 +370,95 @@ do
         end)
     end
 end
--- ต้องมีไว้ข้างบนไฟล์อยู่แล้ว:
--- local TS = game:GetService("TweenService")
+------------------------------------------------------------
+-- ตั้งค่าไอคอนที่ใช้ (เปลี่ยนเป็น asset ของนาย)
+------------------------------------------------------------
+local ICON_PLAYER = "rbxassetid://YOUR_PLAYER_ICON_ID" -- << ใส่ไอดีรูปปุ่มที่นี่
+local ICON_PLAYER_LG = "rbxassetid://YOUR_PLAYER_ICON_ID" -- ใช้ซ้ำเป็นหัวข้อใหญ่ก็ได้
 
 ------------------------------------------------------------
--- ปุ่ม PLAYER (ซ้าย) = รูปอย่างเดียว
+-- ปุ่ม PLAYER (ซ้าย) — ใช้ "รูป" + ข้อความ ไม่มีอีโมจิ
 ------------------------------------------------------------
-local BtnPlayer = Instance.new("ImageButton")
+local BtnPlayer = Instance.new("TextButton")
 BtnPlayer.Name = "BtnPlayer"
 BtnPlayer.Parent = Left
-BtnPlayer.Size = UDim2.new(0, 40, 0, 40)
+BtnPlayer.Size = UDim2.new(1, -12, 0, 40)
 BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
 BtnPlayer.BackgroundColor3 = Color3.fromRGB(22,22,22)
 BtnPlayer.BorderSizePixel = 0
 BtnPlayer.AutoButtonColor = false
-BtnPlayer.Image = "rbxassetid://6031068426" -- ไอคอนผู้ใช้ (สามารถเปลี่ยนเป็นรูปของนายเองได้)
-BtnPlayer.ImageColor3 = Color3.fromRGB(255,255,255)
-BtnPlayer.ImageTransparency = 0
-corner(BtnPlayer, 10) -- มุมโค้งเล็กน้อย
--- ไม่ stroke เพื่อไม่ให้มีเส้นเขียว
+BtnPlayer.Font = Enum.Font.GothamBold
+BtnPlayer.Text = "Player"
+BtnPlayer.TextSize = 15
+BtnPlayer.TextColor3 = Color3.fromRGB(255,255,255)
+BtnPlayer.TextXAlignment = Enum.TextXAlignment.Left
+corner(BtnPlayer, 10)
+stroke(BtnPlayer, 1, Color3.fromRGB(0,255,140), 0.35)
 
--- สีเอฟเฟกต์ของปุ่ม
-local COLOR_IDLE   = Color3.fromRGB(22,22,22)
-local COLOR_HOVER  = Color3.fromRGB(28,28,28)
-local COLOR_DOWN   = Color3.fromRGB(16,16,16)
-local COLOR_ACTIVE = Color3.fromRGB(34,34,34)
+-- เว้นระยะซ้ายให้รูป
+local P = Instance.new("UIPadding", BtnPlayer)
+P.PaddingLeft = UDim.new(0, 36)
+
+-- ไอคอนในปุ่ม (ซ้าย)
+local BtnIcon = Instance.new("ImageLabel")
+BtnIcon.Name = "Icon"
+BtnIcon.Parent = BtnPlayer
+BtnIcon.BackgroundTransparency = 1
+BtnIcon.Image = ICON_PLAYER
+BtnIcon.Size = UDim2.fromOffset(20,20)
+BtnIcon.Position = UDim2.new(0,10,0.5,-10)
+BtnIcon.ScaleType = Enum.ScaleType.Fit
 
 ------------------------------------------------------------
--- หน้า PLAYER (ขวา)
+-- หน้า PLAYER PAGE (ขวา)
 ------------------------------------------------------------
 local PlayerPage = Instance.new("Frame")
 PlayerPage.Name = "PlayerPage"
 PlayerPage.Parent = Right
 PlayerPage.BackgroundTransparency = 1
 PlayerPage.Size = UDim2.new(1,0,1,0)
-PlayerPage.Visible = true  -- หน้าแรกโชว์เลย
+PlayerPage.Visible = true  -- ให้เห็นเป็นหน้าแรก
 
--- หัวชื่อใหญ่ "Player" (ไม่มีกรอบ/เส้น)
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Parent = PlayerPage
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 14, 0, 12)
-Title.Size = UDim2.new(0, 300, 0, 34)
-Title.Text = "Player"
-Title.Font = Enum.Font.GothamBold
-Title.TextColor3 = Color3.fromRGB(255,255,255)
-Title.TextSize = 22
-Title.TextXAlignment = Enum.TextXAlignment.Left
+-- หัวข้อใหญ่: ไอคอน + คำว่า Player (ไม่ทำกรอบเขียว)
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Parent = PlayerPage
+Header.BackgroundTransparency = 1
+Header.Position = UDim2.new(0, 16, 0, 16)
+Header.Size = UDim2.new(1, -32, 0, 36)
 
--- ถ้ามีพื้นหลังรูปโลโก้เดิมอยู่แล้วก็ปล่อยไว้ได้ ไม่ทับกัน
+local HIcon = Instance.new("ImageLabel")
+HIcon.Name = "Icon"
+HIcon.Parent = Header
+HIcon.BackgroundTransparency = 1
+HIcon.Image = ICON_PLAYER_LG
+HIcon.Size = UDim2.fromOffset(26,26)
+HIcon.Position = UDim2.new(0,0,0.5,-13)
+HIcon.ScaleType = Enum.ScaleType.Fit
+
+local HText = Instance.new("TextLabel")
+HText.Parent = Header
+HText.BackgroundTransparency = 1
+HText.Position = UDim2.new(0, 34, 0, 0)
+HText.Size = UDim2.new(0, 220, 1, 0)
+HText.Font = Enum.Font.GothamBold
+HText.Text = "Player"
+HText.TextSize = 20
+HText.TextXAlignment = Enum.TextXAlignment.Left
+HText.TextColor3 = Color3.fromRGB(255,255,255)
 
 ------------------------------------------------------------
--- เอฟเฟกต์กดปุ่ม + สถานะ Active
+-- เอฟเฟกต์ปุ่ม (Hover / Active / Click)
 ------------------------------------------------------------
--- เริ่มต้นให้แท็บนี้ Active
+local COLOR_IDLE   = Color3.fromRGB(22,22,22)
+local COLOR_HOVER  = Color3.fromRGB(28,28,28)
+local COLOR_DOWN   = Color3.fromRGB(16,16,16)
+local COLOR_ACTIVE = Color3.fromRGB(34,34,34)
+
+-- ให้ปุ่มนี้เป็น active ตั้งแต่เริ่ม
 BtnPlayer.BackgroundColor3 = COLOR_ACTIVE
 
-local function SetPlayerTabActive(isActive)
+local function SetActive(isActive)
 	if isActive then
 		BtnPlayer.BackgroundColor3 = COLOR_ACTIVE
 		PlayerPage.Visible = true
@@ -437,31 +468,36 @@ local function SetPlayerTabActive(isActive)
 	end
 end
 
--- Hover/Leave
 BtnPlayer.MouseEnter:Connect(function()
 	if BtnPlayer.BackgroundColor3 ~= COLOR_ACTIVE then
 		BtnPlayer.BackgroundColor3 = COLOR_HOVER
 	end
 end)
+
 BtnPlayer.MouseLeave:Connect(function()
 	if BtnPlayer.BackgroundColor3 ~= COLOR_ACTIVE then
 		BtnPlayer.BackgroundColor3 = COLOR_IDLE
 	end
 end)
 
--- Press (ย่อ/เด้งด้วย Tween)
-local function tweenScale(obj, s)
-	TS:Create(obj, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 40 * s, 0, 40 * s)}):Play()
-end
 BtnPlayer.MouseButton1Down:Connect(function()
-	BtnPlayer.BackgroundColor3 = COLOR_DOWN
-	tweenScale(BtnPlayer, 0.94)
-end)
-BtnPlayer.MouseButton1Up:Connect(function()
-	tweenScale(BtnPlayer, 1)
+	if BtnPlayer.BackgroundColor3 ~= COLOR_ACTIVE then
+		BtnPlayer.BackgroundColor3 = COLOR_DOWN
+	end
 end)
 
--- คลิก = ทำแท็บนี้ Active (ถ้ามีแท็บอื่นค่อยไปปิดแท็บอื่นภายหลัง)
+BtnPlayer.MouseButton1Up:Connect(function()
+	if BtnPlayer.BackgroundColor3 ~= COLOR_ACTIVE then
+		BtnPlayer.BackgroundColor3 = COLOR_HOVER
+	end
+end)
+
 BtnPlayer.MouseButton1Click:Connect(function()
-	SetPlayerTabActive(true)
+	-- ถ้ามีหน้าอื่นใน Right ก็ปิดก่อน (กันซ้อน)
+	for _,child in ipairs(Right:GetChildren()) do
+		if child:IsA("Frame") and child ~= PlayerPage then
+			child.Visible = false
+		end
+	end
+	SetActive(true)
 end)
