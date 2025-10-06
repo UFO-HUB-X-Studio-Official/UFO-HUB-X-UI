@@ -371,87 +371,6 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Right Content Hard-Scroll (DROP-IN PATCH)
--- ทำให้หน้าเนื้อหาใน Right เลื่อนขึ้นลงได้จริง แม้มีเฟรมใสทับ
--- - BigHeader คงอยู่ด้านบน
--- - ไม่แตะภาพพื้นหลัง/ของเดิม
-----------------------------------------------------------------
-local RunService = game:GetService("RunService")
-local UserInput  = game:GetService("UserInputService")
-
--- หา Right จากตัวแปรเดิม หรือค้นหาใน CoreGui
-local CoreGui = game:GetService("CoreGui")
-local function findRight()
-	if typeof(Right) == "Instance" and Right.Parent then return Right end
-	for _,ui in ipairs(CoreGui:GetDescendants()) do
-		if ui:IsA("Frame") and ui.Name == "Right" then return ui end
-	end
-	return nil
-end
-local Right = findRight()
-if not Right then return end
-
--- ใช้ BigHeader ที่มีอยู่
-local BigHeader = Right:FindFirstChild("BigHeader")
-
--- ถ้ายังไม่มี ScrollingFrame ให้สร้าง
-local holder = Right:FindFirstChild("RightScroll")
-if not holder then
-	holder = Instance.new("ScrollingFrame")
-	holder.Name = "RightScroll"
-	holder.Parent = Right
-	holder.BackgroundTransparency = 1
-	holder.BorderSizePixel = 0
-	holder.ClipsDescendants = true
-	holder.ScrollingDirection = Enum.ScrollingDirection.Y
-	holder.ScrollBarThickness = 8
-	holder.ScrollingEnabled = true
-	holder.Active = true
-	holder.CanvasSize = UDim2.new(0,0,0,0) -- จะอัปเดตให้อัตโนมัติด้านล่าง
-
-	-- วางตำแหน่ง/ขนาดใต้ BigHeader (ถ้ามี)
-	local function layout()
-		local topGap = 12 + 36 + 8 -- ค่าเริ่มต้น (y=12, header h=36, padding 8)
-		if BigHeader then
-			topGap = (BigHeader.Position.Y.Offset) + (BigHeader.AbsoluteSize.Y) + 8
-		end
-		holder.Position = UDim2.new(0, 10, 0, topGap)
-		holder.Size     = UDim2.new(1, -20, 1, -(topGap + 10))
-	end
-	layout()
-	if BigHeader then
-		BigHeader:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
-		BigHeader:GetPropertyChangedSignal("Position"):Connect(layout)
-	end
-	Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
-
-	-- ย้ายลูกของ Right ทั้งหมด (ยกเว้น BigHeader และตัว holder เอง) เข้ากล่องสกอร์ล
-	for _,ch in ipairs(Right:GetChildren()) do
-		if ch ~= holder and ch ~= BigHeader and ch:IsA("GuiObject") then
-			ch.Parent = holder
-		end
-	end
-
-	-- อัปเดต CanvasSize ตามเนื้อหา (คำนวณเอง ทุกเฟรม)
-	RunService.Heartbeat:Connect(function()
-		local minY, maxY = math.huge, -math.huge
-		for _,c in ipairs(holder:GetChildren()) do
-			if c:IsA("GuiObject") and c.Visible then
-				local top = c.AbsolutePosition.Y - holder.AbsolutePosition.Y
-				local bot = top + c.AbsoluteSize.Y
-				if top < minY then minY = top end
-				if bot > maxY then maxY = bot end
-			end
-		end
-		if minY == math.huge then
-			holder.CanvasSize = UDim2.new(0,0,0,0)
-		else
-			local contentH = math.max(0, maxY - minY) + 12
-			holder.CanvasSize = UDim2.new(0,0,0, contentH)
-		end
-	end)
-end
-----------------------------------------------------------------
 -- UFO HUB X : Player Button + BigHeader (ADD-ON, DROP-IN ONLY)
 -- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม
 ----------------------------------------------------------------
@@ -601,6 +520,150 @@ else
 end
 ----------------------------------------------------------------
 -- END (จบส่วนเพิ่ม)
+----------------------------------------------------------------
+----------------------------------------------------------------
+-- UFO HUB X : Right Content Scroll (FINAL / 100% approach)
+-- ใช้ ScrollingFrame + Canvas(AutoSize) → เลื่อนขึ้นลงได้เสถียร
+-- ไม่ใช้ Heartbeat, ไม่ยุ่ง Background, ไม่พาเนื้อหาลอย
+----------------------------------------------------------------
+local CoreGui = game:GetService("CoreGui")
+
+-- หา Right (จากตัวแปรเดิม หรือค้นหา)
+local function getRight()
+    if typeof(Right) == "Instance" and Right.Parent then return Right end
+    for _,ui in ipairs(CoreGui:GetDescendants()) do
+        if ui:IsA("Frame") and ui.Name == "Right" then return ui end
+    end
+    return nil
+end
+
+local Right = getRight()
+if not Right then return end
+
+-- ใช้ BigHeader ถ้ามี
+local BigHeader = Right:FindFirstChild("BigHeader")
+
+-- สร้าง ScrollingFrame + Canvas (ถ้ายังไม่มี)
+local holder = Right:FindFirstChild("RightScroll")
+if not holder then
+    holder = Instance.new("ScrollingFrame")
+    holder.Name = "RightScroll"
+    holder.Parent = Right
+    holder.BackgroundTransparency = 1
+    holder.BorderSizePixel = 0
+    holder.ClipsDescendants = true
+    holder.ScrollingDirection = Enum.ScrollingDirection.Y
+    holder.ScrollBarThickness = 8
+    holder.ScrollingEnabled = true
+    holder.Active = true
+    holder.ZIndex = 20  -- สูงพอให้เหนือคอนเทนต์อื่น
+    holder.CanvasSize = UDim2.new(0,0,0,0)
+
+    -- Canvas เก็บคอนเทนต์จริง (AutoSize Y = คำนวณจากลูก ๆ อัตโนมัติ)
+    local canvas = Instance.new("Frame")
+    canvas.Name = "Canvas"
+    canvas.Parent = holder
+    canvas.BackgroundTransparency = 1
+    canvas.BorderSizePixel = 0
+    canvas.Size = UDim2.new(1, 0, 0, 0)
+    canvas.AutomaticSize = Enum.AutomaticSize.Y
+    canvas.ZIndex = 20
+
+    -- จัดตำแหน่ง holder ใต้ BigHeader
+    local function layout()
+        local PAD_X = 10
+        local PAD_B = 10
+        local topGap = 12 + 36 + 8 -- ค่า default เผื่อไม่มี BigHeader
+        if BigHeader then
+            topGap = BigHeader.Position.Y.Offset + BigHeader.AbsoluteSize.Y + 8
+        end
+        holder.Position = UDim2.new(0, PAD_X, 0, topGap)
+        holder.Size     = UDim2.new(1, -(PAD_X*2), 1, -(topGap + PAD_B))
+        canvas.Size     = UDim2.new(1, 0, 0, canvas.AbsoluteSize.Y)
+        holder.CanvasSize = UDim2.new(0,0,0, canvas.AbsoluteSize.Y)
+    end
+
+    -- อัปเดต CanvasSize เมื่อขนาด Canvas เปลี่ยน (อัตโนมัติ/ไม่มี Heartbeat)
+    canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        holder.CanvasSize = UDim2.new(0,0,0, canvas.AbsoluteSize.Y)
+    end)
+
+    -- bind layout signals
+    if BigHeader then
+        BigHeader:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+        BigHeader:GetPropertyChangedSignal("Position"):Connect(layout)
+    end
+    Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+    layout()
+
+    -- ย้ายลูกของ Right (ยกเว้น BigHeader และ holder) เข้าสู่ Canvas
+    for _,ch in ipairs(Right:GetChildren()) do
+        if ch ~= holder and ch ~= BigHeader and ch:IsA("GuiObject") then
+            ch.Parent = canvas
+        end
+    end
+
+    -- กัน BigHeader ถูกบัง (ถ้ามี)
+    if BigHeader then
+        BigHeader.ZIndex = 50
+        for _,d in ipairs(BigHeader:GetDescendants()) do
+            if d:IsA("GuiObject") then d.ZIndex =  Fifty or 50 end
+        end
+    end
+end
+
+-- (ทางเลือก) เพิ่ม proxy จับ wheel/ทัช เฉพาะกรณีมี UI ไปทับด้านบนจริง ๆ
+-- เปิดใช้ถ้าอยาก “บังคับ” ให้เลื่อนได้แน่ ๆ
+--[[ 
+local proxy = Right:FindFirstChild("ScrollProxy")
+if not proxy then
+    proxy = Instance.new("TextButton")
+    proxy.Name = "ScrollProxy"
+    proxy.Parent = Right
+    proxy.BackgroundTransparency = 1
+    proxy.BorderSizePixel = 0
+    proxy.AutoButtonColor = false
+    proxy.Text = ""
+    proxy.ZIndex = 45 -- ต่ำกว่า BigHeader(50) สูงกว่า holder(20) พอจับ input
+    proxy.Active = true
+
+    local function syncProxy()
+        local h = Right:FindFirstChild("RightScroll")
+        if not h then return end
+        proxy.Position = h.Position
+        proxy.Size     = h.Size
+    end
+    Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncProxy)
+    syncProxy()
+
+    proxy.MouseWheelForward:Connect(function()
+        local h = Right:FindFirstChild("RightScroll"); if not h then return end
+        h.CanvasPosition = Vector2.new(0, math.max(h.CanvasPosition.Y - 48, 0))
+    end)
+    proxy.MouseWheelBackward:Connect(function()
+        local h = Right:FindFirstChild("RightScroll"); if not h then return end
+        h.CanvasPosition = Vector2.new(0, h.CanvasPosition.Y + 48)
+    end)
+
+    local dragging, lastY = false, 0
+    proxy.InputBegan:Connect(function(io)
+        if io.UserInputType == Enum.UserInputType.Touch then dragging = true; lastY = io.Position.Y end
+    end)
+    proxy.InputChanged:Connect(function(io)
+        if dragging and io.UserInputType == Enum.UserInputType.Touch then
+            local h = Right:FindFirstChild("RightScroll"); if not h then return end
+            local dy = io.Position.Y - lastY; lastY = io.Position.Y
+            h.CanvasPosition = Vector2.new(0, math.max(h.CanvasPosition.Y - dy, 0))
+        end
+    end)
+    proxy.InputEnded:Connect(function(io)
+        if io.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+end
+]]
+print("[UFO HUB X] ✅ Right content scrolling enabled (AutoSize Canvas).")
+----------------------------------------------------------------
+-- END
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
