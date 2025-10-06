@@ -205,6 +205,110 @@ imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0); imgL.Image = IM
 
 local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0); imgR.Image = IMG_LARGE; imgR.ScaleType = Enum.ScaleType.Crop
+----------------------------------------------------------------
+-- Right panel: Standard Scroll (ScrollingFrame + UIListLayout)
+-- ใช้กันทั่วไป: เลื่อนลื่น, ไม่พา BG/หัววิ่งตาม
+----------------------------------------------------------------
+local TS = game:GetService("TweenService")
+
+local PAD_OUTER  = 12   -- ระยะขอบรอบกรอบขวา
+local TOP_GAP    = 56   -- เว้นที่ให้ BigHeader
+local PAD_INNER  = 10   -- padding ด้านในของคอนเทนต์
+local BAR_WIDTH  = 6
+
+-- 1) พื้นหลัง (อยู่นอกสกรอล, ไม่ขยับ)
+local function ensureRightBG()
+	if not Right then return end
+	local bg = Right:FindFirstChild("RightBG")
+	if not (bg and bg:IsA("ImageLabel")) then
+		bg = Instance.new("ImageLabel")
+		bg.Name = "RightBG"
+		bg.Parent = Right
+		bg.BackgroundTransparency = 1
+		bg.BorderSizePixel = 0
+		bg.Image = "rbxassetid://116976545042904" -- เปลี่ยนได้
+		bg.ScaleType = Enum.ScaleType.Stretch    -- เต็มกรอบ ไม่ซูม/ขยับเอง
+		bg.ZIndex = 0
+	end
+	bg.Position = UDim2.new(0, PAD_OUTER, 0, PAD_OUTER)
+	bg.Size     = UDim2.new(1, -(PAD_OUTER*2), 1, -(PAD_OUTER*2))
+end
+
+-- 2) สร้าง ScrollingFrame + Content ภายใน
+local function makeRightScroll()
+	if not Right then return end
+	if Right:FindFirstChild("RightScroll") then return end
+
+	-- สกรอล (อยู่เหนือ BG ใต้คอนเทนต์)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "RightScroll"
+	scroll.Parent = Right
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ClipsDescendants = true
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.ScrollBarThickness = BAR_WIDTH
+	scroll.ScrollBarImageTransparency = 0.15
+	scroll.Position = UDim2.new(0, PAD_OUTER, 0, TOP_GAP)
+	scroll.Size     = UDim2.new(1, -(PAD_OUTER*2), 1, -(TOP_GAP + PAD_OUTER))
+	scroll.ZIndex   = 2
+	scroll.CanvasSize = UDim2.new(0,0,0,0) -- จะอัปเดตอัตโนมัติด้านล่าง
+
+	-- คอนเทนต์จริง (ยืดความสูงอัตโนมัติ)
+	local content = Instance.new("Frame")
+	content.Name = "Content"
+	content.Parent = scroll
+	content.BackgroundTransparency = 1
+	content.BorderSizePixel = 0
+	content.Size = UDim2.new(1, 0, 0, 0)
+	content.AutomaticSize = Enum.AutomaticSize.Y
+	content.ZIndex = 3
+
+	-- Padding ด้านใน
+	local pad = Instance.new("UIPadding")
+	pad.Parent = content
+	pad.PaddingTop    = UDim.new(0, PAD_INNER)
+	pad.PaddingBottom = UDim.new(0, PAD_INNER)
+	pad.PaddingLeft   = UDim.new(0, PAD_INNER)
+	pad.PaddingRight  = UDim.new(0, PAD_INNER)
+
+	-- จัดเรียงแนวตั้ง
+	local list = Instance.new("UIListLayout")
+	list.Parent = content
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 10)
+
+	-- อัปเดต CanvasSize ตามคอนเทนต์ (มาตรฐาน)
+	local function refresh()
+		local h = list.AbsoluteContentSize.Y + PAD_INNER*2
+		scroll.CanvasSize = UDim2.new(0,0,0, h)
+	end
+	list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refresh)
+	content:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
+	refresh()
+
+	-- ย้าย “คอนเทนต์” ทั้งหมดเข้า Content
+	for _, ch in ipairs(Right:GetChildren()) do
+		if ch ~= scroll and ch.Name ~= "RightBG" and ch.Name ~= "BigHeader" and ch:IsA("GuiObject") then
+			ch.Parent = content
+			ch.LayoutOrder = ch.LayoutOrder or 0
+			ch.ZIndex = 4
+		end
+	end
+
+	-- ถ้ามีการเปลี่ยนขนาดกรอบขวา ปรับ BG และ Canvas ใหม่
+	Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		ensureRightBG()
+		refresh()
+	end)
+end
+
+ensureRightBG()
+makeRightScroll()
+----------------------------------------------------------------
+-- END
+----------------------------------------------------------------
 --==========================================================
 -- SCROLLBAR PATCH • ซ่อนแท่งสกอลล์บาร์ (เลื่อนยังทำงานได้)
 --==========================================================
@@ -1218,118 +1322,3 @@ RunService.Heartbeat:Connect(function(dt)
 		root.CFrame=CFrame.new(p, p+Vector3.new(blended.X,0,blended.Z))
 	end
 end)
-----------------------------------------------------------------
--- UFO HUB X : Right Big Panel Scroll + Fixed Background
--- - ทำให้ Right เลื่อนขึ้น/ลงได้
--- - พื้นหลังเต็มกรอบ ไม่ไหล/ไม่ซูม และอยู่หลังคอนเทนต์
--- วาง "ต่อท้าย" โค้ดเดิมได้เลย
-----------------------------------------------------------------
-local RunService = game:GetService("RunService")
-
--- สร้าง/ล็อกภาพพื้นหลัง (อยู่นอก ScrollingFrame)
-local function ensureRightBackground()
-	if not Right then return end
-
-	-- padding ขอบด้านในของกรอบเขียว (ปรับได้)
-	local PAD = 12
-
-	-- หา/สร้าง Backdrop
-	local bg = Right:FindFirstChild("RightBG")
-	if not (bg and bg:IsA("ImageLabel")) then
-		bg = Instance.new("ImageLabel")
-		bg.Name = "RightBG"
-		bg.Parent = Right
-		bg.BorderSizePixel = 0
-		bg.BackgroundTransparency = 1
-		-- ใส่รูปที่ต้องการเป็นพื้นหลัง (ถ้าเพื่อนมีตัว BG เดิม ให้เปลี่ยน id ตรงนี้)
-		bg.Image = "rbxassetid://116976545042904" -- โลโก้เอเลี่ยนตัวเขียว
-		-- ให้ไปอยู่ชั้นหลังสุด
-		bg.ZIndex = 0
-	end
-
-	-- ให้ "เต็มกรอบ" ตามขนาด Right (ไม่ให้ซูมและไม่ให้เลื่อน)
-	bg.AnchorPoint = Vector2.new(0,0)
-	bg.Position    = UDim2.new(0, PAD, 0, PAD)
-	bg.Size        = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
-	-- ไม่ตั้ง ScaleType = Fit เพื่อให้เต็มกรอบจริง ๆ (ถ้าต้องการรักษาสัดส่วนให้เปลี่ยนเป็น Fit ได้)
-	bg.ScaleType   = Enum.ScaleType.Stretch
-
-	-- กันใครมาแก้ Size/Position ให้ดึงกลับ
-	if not bg:GetAttribute("LOCKED") then
-		bg:SetAttribute("LOCKED", true)
-		bg:GetPropertyChangedSignal("Position"):Connect(function()
-			bg.Position = UDim2.new(0, PAD, 0, PAD)
-		end)
-		bg:GetPropertyChangedSignal("Size"):Connect(function()
-			bg.Size = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
-		end)
-	end
-
-	-- ถ้า Right เปลี่ยนขนาด ให้คง "เต็มกรอบ" ไว้เสมอ
-	Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		bg.Position = UDim2.new(0, PAD, 0, PAD)
-		bg.Size     = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
-	end)
-end
-
--- ทำ Right ให้เลื่อนขึ้น/ลงได้ โดยเว้น BigHeader และ RightBG ไว้ด้านนอก
-local function makeRightScrollable()
-	if not Right or not Right.Parent then return end
-	if Right:FindFirstChild("RightScroll") then return end
-
-	local TOP_GAP = 56   -- เผื่อพื้นที่หัว (BigHeader)
-	local PAD     = 12
-	local BAR     = 6
-
-	-- สร้าง ScrollingFrame
-	local holder = Instance.new("ScrollingFrame")
-	holder.Name = "RightScroll"
-	holder.Parent = Right
-	holder.BackgroundTransparency = 1
-	holder.BorderSizePixel = 0
-	holder.ClipsDescendants = true
-	holder.ScrollingDirection = Enum.ScrollingDirection.Y
-	holder.ScrollBarThickness = BAR
-	holder.AnchorPoint = Vector2.new(0,0)
-	holder.Position = UDim2.new(0, PAD, 0, TOP_GAP)
-	holder.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
-	holder.CanvasSize = UDim2.new(0,0,0,0)
-	holder.ZIndex = 2 -- ให้อยู่เหนือพื้นหลัง
-
-	-- ย้ายลูกของ Right เข้า holder ยกเว้น BigHeader และ RightBG และตัว holder เอง
-	for _,ch in ipairs(Right:GetChildren()) do
-		if ch ~= holder and ch.Name ~= "BigHeader" and ch.Name ~= "RightBG" and ch:IsA("GuiObject") then
-			ch.Parent = holder
-			ch.ZIndex = 3 -- เหนือสกรอล
-		end
-	end
-
-	-- คำนวณ CanvasSize ตามคอนเทนต์จริง
-	local function updateCanvas()
-		local minY, maxY = math.huge, -math.huge
-		for _,c in ipairs(holder:GetChildren()) do
-			if c:IsA("GuiObject") and c.Visible then
-				local top = c.AbsolutePosition.Y - holder.AbsolutePosition.Y
-				local bot = top + c.AbsoluteSize.Y
-				if top < minY then minY = top end
-				if bot > maxY then maxY = bot end
-			end
-		end
-		if minY == math.huge then
-			holder.CanvasSize = UDim2.new(0,0,0,0)
-		else
-			local contentH = math.max(0, maxY - minY) + PAD
-			holder.CanvasSize = UDim2.new(0,0,0, contentH)
-		end
-	end
-
-	RunService.Heartbeat:Connect(updateCanvas)
-	updateCanvas()
-end
-
--- เรียกใช้
-ensureRightBackground()
-makeRightScrollable()
-----------------------------------------------------------------
--- END
-----------------------------------------------------------------
