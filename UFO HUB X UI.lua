@@ -952,318 +952,299 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X — Fly v9 (one-drop, fast, true hover, hard noclip, terrain bypass)
+-- 🛸 UFO HUB X — Fly v8.5 (true terrain noclip + stable hover + faster fly)
 local CoreGui    = game:GetService("CoreGui")
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Physics    = game:GetService("PhysicsService")
 local LP         = Players.LocalPlayer
 
---========================
--- CLEANUP OLD UI
---========================
+-- ล้าง overlay เก่าทิ้ง
 pcall(function()
-	for _,n in ipairs({"UFO_FlyPadOverlay","UFO_FlyToggle"}) do
-		local o = CoreGui:FindFirstChild(n); if o then o:Destroy() end
+	for _,n in ipairs({"UFO_FlyPadOverlay"}) do
+		local o = CoreGui:FindFirstChild(n)
+		if o then o:Destroy() end
 	end
 end)
 
---========================
--- THEME / CONFIG
---========================
-local ACCENT    = Color3.fromRGB(0,255,140)   -- เขียวเรือง
-local COL_BG    = Color3.fromRGB(0,0,0)       -- ดำ
-local COL_TXT   = Color3.fromRGB(255,255,255) -- ข้อความ/ลูกศร
+-- ==== Theme / Speed Config ====
+local ACCENT = Color3.fromRGB(0,255,140)
+local COL_BG = Color3.fromRGB(0,0,0)
+local COL_TXT= Color3.fromRGB(255,255,255)
 
--- ความเร็ว / ความรู้สึก
-local FLY_SPEED   = 320   -- เดินหน้าถอยหลัง/ซ้ายขวา (เร็วขึ้น)
-local FLY_UPVEL   = 220   -- ขึ้น/ลง (เร็วขึ้น)
-local TURN_ACCEL  = 14    -- สมูทการหมุนหน้า (มาก=ไวแต่นุ่ม)
-local HOVER_LIFT  = 6.5   -- ยกตัวขึ้นเล็กน้อยตอนเริ่มบิน
+local FLY_SPEED  = 420   -- บินไวขึ้น
+local FLY_UPVEL  = 260   -- ขึ้น/ลงไวขึ้น
+local TURN_ACCEL = 14
+local HOVER_LIFT = 5.5   -- ยกลอยตอนเริ่ม
 
--- ตำแหน่ง/ขนาดปุ่ม
-local BTN_SIZE, GAP        = 54, 10
-local PAD_LEFT, PAD_BOT    = 95, 170       -- D-Pad มุมซ้ายล่าง
-local RBTN_SIZE, RBTN_GAP  = 64, 24
-local RPAD_RIGHT, RPAD_BOT = 120, 210      -- ปุ่ม ⬆ ⬇ มุมขวาล่าง
+-- ==== Layout ====
+local BTN_SIZE,GAP,PAD_LEFT,PAD_BOT = 54,10,95,170
+local RBTN_SIZE,RBTN_GAP,RPAD_RIGHT,RPAD_BOT = 64,24,120,210
 
---========================
--- UTIL (Humanoid / Root / Force)
---========================
-local function getHum()
-	local ch = LP.Character or LP.CharacterAdded:Wait()
-	return ch:FindFirstChildOfClass("Humanoid"), ch
-end
-local function getRoot()
-	local _,ch = getHum(); if not ch then return end
-	return ch:FindFirstChild("HumanoidRootPart")
-end
-local function ensureForce(root)
-	local att = root:FindFirstChild("UFO_Att") or Instance.new("Attachment", root); att.Name = "UFO_Att"
-	local vf  = root:FindFirstChild("UFO_VF")  or Instance.new("VectorForce", root);  vf.Name  = "UFO_VF"
-	vf.Attachment0 = att
-	vf.RelativeTo  = Enum.ActuatorRelativeTo.World
-	return vf
+-- ==== หา PlayerPage ====
+local function findPlayerPage()
+	for _,ui in ipairs(CoreGui:GetDescendants()) do
+		if ui:IsA("Frame") and ui.Name=="PlayerPage" then return ui end
+	end
 end
 
---========================
--- HARD NOCLIP (รวมถึง terrain)
---========================
-local GHOST = "UFO_Ghost"
-pcall(function() Physics:CreateCollisionGroup(GHOST) end)
-for _,g in ipairs(Physics:GetCollisionGroups()) do
-	pcall(function() Physics:CollisionGroupSetCollidable(GHOST, g.name, false) end)
-end
-pcall(function() Physics:CollisionGroupSetCollidable(GHOST, GHOST, false) end)
+-- ==== สวิตช์ Fly ====
+local function createFlyBox(parent)
+	local fb=Instance.new("Frame")
+	fb.Name="FlyBox"; fb.Parent=parent
+	fb.BackgroundColor3=COL_BG; fb.BorderSizePixel=0
+	local st=Instance.new("UIStroke",fb); st.Color=ACCENT; st.Thickness=1.3; st.Transparency=.35
+	Instance.new("UICorner",fb).CornerRadius=UDim.new(0,10)
 
-local noclipConn, childConn
-local function ghostify(character)
-	for _,p in ipairs(character:GetDescendants()) do
-		if p:IsA("BasePart") then
-			p.CollisionGroup = GHOST
-			p.CanCollide = false; p.CanTouch = false; p.CanQuery = false
-			p.Massless = true
-			-- ปิดฟิสิกส์เฉพาะโลคอล เพื่อฝ่า terrain/map
-			p.LocalPhysicsMode = Enum.LocalPhysicsMode.Disabled
+	local title=Instance.new("TextLabel")
+	title.Parent=fb; title.BackgroundTransparency=1
+	title.Font=Enum.Font.GothamBold; title.TextSize=14
+	title.Text="Fly ✈️"; title.TextColor3=COL_TXT
+	title.TextXAlignment=Enum.TextXAlignment.Left
+	title.AnchorPoint=Vector2.new(0,0.5)
+	title.Position=UDim2.new(0,10,0.5,0)
+	title.Size=UDim2.new(0.6,0,1,0)
+
+	local SW_W,SW_H=30,14
+	local sw=Instance.new("Frame")
+	sw.Parent=fb; sw.BackgroundColor3=COL_BG
+	sw.AnchorPoint=Vector2.new(1,0.5)
+	sw.Position=UDim2.new(1,-10,0.5,0)
+	sw.Size=UDim2.fromOffset(SW_W,SW_H)
+	local ss=Instance.new("UIStroke",sw)
+	ss.Color=ACCENT; ss.Thickness=1; ss.Transparency=.3
+	Instance.new("UICorner",sw).CornerRadius=UDim.new(0,999)
+
+	local dot=Instance.new("Frame")
+	dot.Parent=sw; dot.BackgroundColor3=Color3.fromRGB(120,120,120)
+	dot.AnchorPoint=Vector2.new(0,0.5)
+	dot.Position=UDim2.new(0,2,0.5,0)
+	dot.Size=UDim2.fromOffset(SW_H-4,SW_H-4)
+	Instance.new("UICorner",dot).CornerRadius=UDim.new(0,999)
+
+	local hit=Instance.new("TextButton")
+	hit.Parent=sw; hit.BackgroundTransparency=1
+	hit.Text=""; hit.AutoButtonColor=false
+	hit.Size=UDim2.fromScale(1,1)
+
+	local enabled=Instance.new("BoolValue",fb)
+	enabled.Name="Enabled"; enabled.Value=false
+
+	local function setState(on)
+		enabled.Value=on
+		if on then
+			dot:TweenPosition(UDim2.new(1,-(SW_H-2),0.5,0),"Out","Quad",0.12,true)
+			dot.BackgroundColor3=ACCENT
+		else
+			dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.12,true)
+			dot.BackgroundColor3=Color3.fromRGB(120,120,120)
 		end
 	end
+	hit.Activated:Connect(function() setState(not enabled.Value) end)
+	return fb
 end
-local function setNoClip(character, on)
+
+-- ==== ปุ่มกด ====
+local function pressFx(btn,on)
+	local s=btn:FindFirstChildOfClass("UIStroke")
 	if on then
-		ghostify(character)
-		if noclipConn then noclipConn:Disconnect() end
-		if childConn then childConn:Disconnect() end
-		noclipConn = RunService.Stepped:Connect(function()
-			ghostify(character)
-		end)
-		childConn = character.DescendantAdded:Connect(function(d)
-			if d:IsA("BasePart") then
-				task.wait(0.03)
-				d.CollisionGroup = GHOST
-				d.CanCollide=false; d.CanTouch=false; d.CanQuery=false
-				d.LocalPhysicsMode = Enum.LocalPhysicsMode.Disabled
-			end
-		end)
+		btn:TweenSize(UDim2.fromOffset(btn.Size.X.Offset-6,btn.Size.Y.Offset-6),"Out","Quad",0.08,true)
+		if s then s.Thickness=2.4 end
 	else
-		if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
-		if childConn then childConn:Disconnect(); childConn=nil end
-		-- ไม่บังคับคืนค่า CanCollide/LocalPhysicsMode เดิม (ปล่อยเกมจัดการเมื่อปิดบิน)
+		local base=btn:GetAttribute("baseSize") or btn.Size.X.Offset
+		btn:TweenSize(UDim2.fromOffset(base,base),"Out","Quad",0.08,true)
+		if s then s.Thickness=1.6 end
 	end
 end
-
-local function setAutoRotate(h,on) pcall(function() h.AutoRotate = on end) end
-
---========================
--- UI HELPERS
---========================
-local function newSquareButton(parent, label, sideSize)
-	local b = Instance.new("TextButton")
-	b.Name = "Btn"; b.Parent = parent; b.AutoButtonColor = false; b.BorderSizePixel = 0
-	b.Size = UDim2.fromOffset(sideSize, sideSize); b.Text = label
-	b.Font = Enum.Font.GothamBold; b.TextSize = 16; b.TextColor3 = COL_TXT
-	b.BackgroundColor3 = COL_BG
-	local s = Instance.new("UIStroke", b); s.Color = ACCENT; s.Thickness = 1.6; s.Transparency = 0.2
-	local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0, 8)
+local function newButton(parent,label,side)
+	local b=Instance.new("TextButton")
+	b.Parent=parent; b.Text=label
+	b.AutoButtonColor=false; b.BorderSizePixel=0
+	b.Size=UDim2.fromOffset(side,side)
+	b:SetAttribute("baseSize",side)
+	b.Font=Enum.Font.GothamBold; b.TextSize=16
+	b.TextColor3=COL_TXT; b.BackgroundColor3=COL_BG
+	local s=Instance.new("UIStroke",b)
+	s.Color=ACCENT; s.Thickness=1.6; s.Transparency=.2
+	Instance.new("UICorner",b).CornerRadius=UDim.new(0,8)
 	return b
 end
 
-local function pressFx(btn, on)
-	local s = btn:FindFirstChildOfClass("UIStroke")
-	if on then
-		btn:TweenSize(UDim2.fromOffset(btn.Size.X.Offset - 6, btn.Size.Y.Offset - 6), "Out", "Quad", 0.08, true)
-		if s then s.Thickness = 2.4 end
-	else
-		local base = btn:GetAttribute("baseSize") or btn.Size.X.Offset
-		btn:TweenSize(UDim2.fromOffset(base, base), "Out", "Quad", 0.08, true)
-		if s then s.Thickness = 1.6 end
+-- ==== สร้าง overlay ====
+local overlay=Instance.new("ScreenGui")
+overlay.Name="UFO_FlyPadOverlay"
+overlay.IgnoreGuiInset=true
+overlay.DisplayOrder=2000
+overlay.ResetOnSpawn=false
+overlay.Enabled=false
+overlay.Parent=CoreGui
+
+-- D-pad
+local pad=Instance.new("Frame")
+pad.Parent=overlay; pad.BackgroundTransparency=1
+pad.AnchorPoint=Vector2.new(0,1)
+pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
+pad.Size=UDim2.fromOffset(BTN_SIZE*3+GAP*2,BTN_SIZE*3+GAP*2)
+
+local upBtn    = newButton(pad,"▲",BTN_SIZE)
+local leftBtn  = newButton(pad,"◀",BTN_SIZE)
+local rightBtn = newButton(pad,"▶",BTN_SIZE)
+local downBtn  = newButton(pad,"▼",BTN_SIZE)
+upBtn.Position    = UDim2.fromOffset(BTN_SIZE+GAP,0)
+leftBtn.Position  = UDim2.fromOffset(0,BTN_SIZE+GAP)
+rightBtn.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP),BTN_SIZE+GAP)
+downBtn.Position  = UDim2.fromOffset(BTN_SIZE+GAP,2*(BTN_SIZE+GAP))
+
+-- ปุ่ม ⬆ ⬇
+local rpad=Instance.new("Frame")
+rpad.Parent=overlay; rpad.BackgroundTransparency=1
+rpad.AnchorPoint=Vector2.new(1,1)
+rpad.Position=UDim2.new(1,-RPAD_RIGHT,1,-RPAD_BOT)
+rpad.Size=UDim2.fromOffset(RBTN_SIZE,RBTN_SIZE*2+RBTN_GAP)
+local riseBtn=newButton(rpad,"⬆",RBTN_SIZE)
+local fallBtn=newButton(rpad,"⬇",RBTN_SIZE)
+riseBtn.Position=UDim2.fromOffset(0,0)
+fallBtn.Position=UDim2.fromOffset(0,RBTN_SIZE+RBTN_GAP)
+
+-- ==== Helpers ====
+local function getHum()
+	local ch=LP.Character or LP.CharacterAdded:Wait()
+	return ch:FindFirstChildOfClass("Humanoid"),ch
+end
+local function getRoot()
+	local _,ch=getHum(); if not ch then return end
+	return ch:FindFirstChild("HumanoidRootPart")
+end
+local function ensureForce(root)
+	local att=root:FindFirstChild("UFO_Att") or Instance.new("Attachment",root); att.Name="UFO_Att"
+	local vf=root:FindFirstChild("UFO_VF") or Instance.new("VectorForce",root); vf.Name="UFO_VF"
+	vf.Attachment0=att; vf.RelativeTo=Enum.ActuatorRelativeTo.World
+	return vf
+end
+
+-- ==== Hard NoClip (ทะลุทุกอย่าง/terrain) ====
+local GHOST="UFO_Ghost"
+pcall(function() Physics:CreateCollisionGroup(GHOST) end)
+for _,g in ipairs(Physics:GetCollisionGroups()) do
+	pcall(function() Physics:CollisionGroupSetCollidable(GHOST,g.name,false) end)
+end
+pcall(function() Physics:CollisionGroupSetCollidable(GHOST,GHOST,false) end)
+
+local function ghostify(ch)
+	for _,p in ipairs(ch:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.CollisionGroup=GHOST
+			p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
+			p.Massless=true
+			p.LocalPhysicsMode=Enum.LocalPhysicsMode.Disabled
+		end
 	end
 end
 
---========================
--- BUILD UI (overlay + toggle + pads)
---========================
-local overlay = Instance.new("ScreenGui")
-overlay.Name = "UFO_FlyPadOverlay"
-overlay.IgnoreGuiInset = true
-overlay.DisplayOrder = 2000
-overlay.ResetOnSpawn = false
-overlay.Enabled = false
-overlay.Parent = CoreGui
-
--- สวิตช์เปิด/ปิดบิน (แผ่นเล็ก ๆ ด้านล่างซ้าย เหนือ D-Pad)
-local toggleGui = Instance.new("ScreenGui")
-toggleGui.Name = "UFO_FlyToggle"
-toggleGui.IgnoreGuiInset = true
-toggleGui.DisplayOrder = 2001
-toggleGui.ResetOnSpawn = false
-toggleGui.Parent = CoreGui
-
-local toggle = Instance.new("Frame")
-toggle.Name = "Toggle"; toggle.Parent = toggleGui
-toggle.BackgroundColor3 = COL_BG; toggle.BorderSizePixel = 0
-toggle.AnchorPoint = Vector2.new(0,1)
-toggle.Position = UDim2.new(0, PAD_LEFT, 1, -(PAD_BOT + BTN_SIZE*3 + GAP*2 + 18))
-toggle.Size = UDim2.fromOffset(110, 26)
-local tgS = Instance.new("UIStroke", toggle); tgS.Color = ACCENT; tgS.Thickness = 1.2; tgS.Transparency = .35
-local tgC = Instance.new("UICorner", toggle); tgC.CornerRadius = UDim.new(0, 10)
-
-local tLabel = Instance.new("TextLabel")
-tLabel.BackgroundTransparency = 1; tLabel.Parent = toggle
-tLabel.Text = "Fly ✈️"; tLabel.Font = Enum.Font.GothamBold; tLabel.TextSize = 14
-tLabel.TextColor3 = COL_TXT; tLabel.TextXAlignment = Enum.TextXAlignment.Left
-tLabel.AnchorPoint = Vector2.new(0,0.5); tLabel.Position = UDim2.new(0, 10, 0.5, 0); tLabel.Size = UDim2.new(0.6, 0, 1, 0)
-
-local sw = Instance.new("Frame")
-sw.Name = "Switch"; sw.Parent = toggle; sw.BackgroundColor3 = COL_BG; sw.BorderSizePixel = 0
-sw.AnchorPoint = Vector2.new(1,0.5); sw.Position = UDim2.new(1, -8, 0.5, 0); sw.Size = UDim2.fromOffset(30, 14); sw.Active = true
-Instance.new("UICorner", sw).CornerRadius = UDim.new(0, 999)
-local swS = Instance.new("UIStroke", sw); swS.Color = ACCENT; swS.Thickness = 1; swS.Transparency = .3
-local dot = Instance.new("Frame")
-dot.Name = "Dot"; dot.Parent = sw; dot.BackgroundColor3 = Color3.fromRGB(120,120,120)
-dot.BorderSizePixel = 0; dot.AnchorPoint = Vector2.new(0,0.5)
-dot.Position = UDim2.new(0, 2, 0.5, 0); dot.Size = UDim2.fromOffset(10, 10)
-Instance.new("UICorner", dot).CornerRadius = UDim.new(0, 999)
-local tHit = Instance.new("TextButton")
-tHit.Name = "Hit"; tHit.Parent = sw; tHit.BackgroundTransparency = 1; tHit.Text = ""; tHit.AutoButtonColor = false
-tHit.Size = UDim2.fromScale(1,1); tHit.ZIndex = 50
-
--- D-Pad ซ้ายล่าง
-local pad = Instance.new("Frame")
-pad.Parent = overlay; pad.BackgroundTransparency = 1
-pad.AnchorPoint = Vector2.new(0,1); pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
-pad.Size = UDim2.fromOffset(BTN_SIZE*3 + GAP*2, BTN_SIZE*3 + GAP*2)
-
-local upBtn    = newSquareButton(pad, "▲", BTN_SIZE); upBtn:SetAttribute("baseSize", BTN_SIZE)
-local leftBtn  = newSquareButton(pad, "◀", BTN_SIZE); leftBtn:SetAttribute("baseSize", BTN_SIZE)
-local rightBtn = newSquareButton(pad, "▶", BTN_SIZE); rightBtn:SetAttribute("baseSize", BTN_SIZE)
-local downBtn  = newSquareButton(pad, "▼", BTN_SIZE); downBtn:SetAttribute("baseSize", BTN_SIZE)
-upBtn.Position    = UDim2.fromOffset(BTN_SIZE + GAP, 0)
-leftBtn.Position  = UDim2.fromOffset(0, BTN_SIZE + GAP)
-rightBtn.Position = UDim2.fromOffset(2*(BTN_SIZE + GAP), BTN_SIZE + GAP)
-downBtn.Position  = UDim2.fromOffset(BTN_SIZE + GAP, 2*(BTN_SIZE + GAP))
-
--- ปุ่มขึ้น/ลง (ขวาล่าง)
-local rpad = Instance.new("Frame")
-rpad.Parent = overlay; rpad.BackgroundTransparency = 1
-rpad.AnchorPoint = Vector2.new(1,1); rpad.Position = UDim2.new(1, -RPAD_RIGHT, 1, -RPAD_BOT)
-rpad.Size = UDim2.fromOffset(RBTN_SIZE, RBTN_SIZE*2 + RBTN_GAP)
-local riseBtn = newSquareButton(rpad, "⬆", RBTN_SIZE); riseBtn:SetAttribute("baseSize", RBTN_SIZE)
-local fallBtn = newSquareButton(rpad, "⬇", RBTN_SIZE); fallBtn:SetAttribute("baseSize", RBTN_SIZE)
-riseBtn.Position = UDim2.fromOffset(0, 0)
-fallBtn.Position = UDim2.fromOffset(0, RBTN_SIZE + RBTN_GAP)
-
---========================
--- STATE / INPUT
---========================
-local enabled = false
-local targetY = nil
-local move = {F=false, B=false, L=false, R=false, Up=false, Down=false}
-
-local function hookHold(btn, key)
-	btn.MouseButton1Down:Connect(function() move[key] = true  pressFx(btn, true)  end)
-	btn.MouseButton1Up:Connect(function()   move[key] = false pressFx(btn, false) end)
-	btn.MouseLeave:Connect(function()       move[key] = false pressFx(btn, false) end)
-end
-hookHold(upBtn,   "F")
-hookHold(downBtn, "B")
-hookHold(leftBtn, "L")
-hookHold(rightBtn,"R")
-hookHold(riseBtn, "Up")
-hookHold(fallBtn, "Down")
-
-local function setEnabled(on)
-	enabled = on
-	overlay.Enabled = on
+local noclipConn
+local function setNoClip(ch,on)
 	if on then
-		local hum, ch = getHum(); if not hum or not ch then return end
-		local root = getRoot(); if not root then return end
-		setNoClip(ch, true)
-		setAutoRotate(hum, false)
-		local vf = ensureForce(root)
-		-- ต้านแรงโน้มถ่วงคงที่เพื่อ "ลอยค้าง"
-		vf.Force = Vector3.new(0, workspace.Gravity * root.AssemblyMass, 0)
-		root.LocalPhysicsMode = Enum.LocalPhysicsMode.Disabled
-		-- ยกขึ้นเล็กน้อยและหยุดความเร็วเดิม
-		root.CFrame = root.CFrame + Vector3.new(0, HOVER_LIFT, 0)
-		root.AssemblyLinearVelocity = Vector3.zero
-		targetY = root.Position.Y
+		ghostify(ch)
+		if noclipConn then noclipConn:Disconnect() end
+		noclipConn=RunService.Stepped:Connect(function()
+			ghostify(ch)
+		end)
 	else
-		local hum, ch = getHum(); if not hum or not ch then return end
-		local root = getRoot(); if not root then return end
-		setNoClip(ch, false)
-		setAutoRotate(hum, true)
-		local vf = root:FindFirstChild("UFO_VF"); if vf then vf.Force = Vector3.zero end
-		-- คืนฟิสิกส์
-		root.LocalPhysicsMode = Enum.LocalPhysicsMode.Default
-		targetY = nil
-		-- clear press FX
-		for _,b in ipairs({upBtn,leftBtn,rightBtn,downBtn,riseBtn,fallBtn}) do pressFx(b,false) end
-		move = {F=false,B=false,L=false,R=false,Up=false,Down=false}
+		if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
 	end
-	-- อนิเมชันสวิตช์
-	dot:TweenPosition(on and UDim2.new(1, -(10+2), 0.5, 0) or UDim2.new(0, 2, 0.5, 0), "Out", "Quad", 0.12, true)
-	dot.BackgroundColor3 = on and ACCENT or Color3.fromRGB(120,120,120)
 end
 
-tHit.Activated:Connect(function() setEnabled(not enabled) end)
+-- ==== Movement ====
+local move={F=false,B=false,L=false,R=false,Up=false,Down=false}
+local function hookHold(btn,key)
+	btn.MouseButton1Down:Connect(function() move[key]=true; pressFx(btn,true) end)
+	btn.MouseButton1Up:Connect(function() move[key]=false; pressFx(btn,false) end)
+	btn.MouseLeave:Connect(function() move[key]=false; pressFx(btn,false) end)
+end
+hookHold(upBtn,"F"); hookHold(downBtn,"B"); hookHold(leftBtn,"L"); hookHold(rightBtn,"R")
+hookHold(riseBtn,"Up"); hookHold(fallBtn,"Down")
 
---========================
--- MAIN LOOP
---========================
+-- ==== Visibility Binding ====
+local targetY=nil
+local function bind()
+	local page=findPlayerPage(); if not page then return end
+	local fb=page:FindFirstChild("FlyBox") or createFlyBox(page)
+	local en=fb:FindFirstChild("Enabled"); if not en then return end
+	local function apply()
+		overlay.Enabled=en.Value
+		local hum,ch=getHum(); if not hum or not ch then return end
+		local root=getRoot(); if not root then return end
+		if en.Value then
+			setNoClip(ch,true)
+			hum.AutoRotate=false
+			local vf=ensureForce(root)
+			vf.Force=Vector3.new(0,workspace.Gravity*root.AssemblyMass,0)
+			root.CFrame=root.CFrame+Vector3.new(0,HOVER_LIFT,0)
+			root.AssemblyLinearVelocity=Vector3.zero
+			targetY=root.Position.Y
+		else
+			setNoClip(ch,false)
+			hum.AutoRotate=true
+			targetY=nil
+			local vf=root:FindFirstChild("UFO_VF"); if vf then vf.Force=Vector3.zero end
+		end
+	end
+	apply(); en.Changed:Connect(apply)
+end
+bind()
+
+-- ==== Fly Logic ====
 RunService.Heartbeat:Connect(function(dt)
-	if not enabled then return end
-	local hum, ch = getHum(); if not hum or not ch then return end
-	local root = getRoot(); if not root then return end
+	local page=findPlayerPage(); if not page then return end
+	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
+	local en=fb:FindFirstChild("Enabled"); if not (en and en.Value) then return end
 
-	-- ให้เป็นผีตลอด (กันสคริปต์อื่นรีเซ็ต)
-	setNoClip(ch, true)
+	local hum,ch=getHum(); if not hum or not ch then return end
+	local root=getRoot(); if not root then return end
+	setNoClip(ch,true)
 
-	-- VectorForce ต้านแรงโน้มถ่วงคงที่ (hover จริง)
-	local vf = ensureForce(root)
-	vf.Force = Vector3.new(0, workspace.Gravity * root.AssemblyMass, 0)
+	local vf=ensureForce(root)
+	vf.Force=Vector3.new(0,workspace.Gravity*root.AssemblyMass,0)
 
-	-- ตามกล้องเฉพาะแกนราบ (X/Z)
-	local cam     = workspace.CurrentCamera
-	local flatF   = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
-	if flatF.Magnitude > 0 then flatF = flatF.Unit end
-	local flatR   = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
-	if flatR.Magnitude > 0 then flatR = flatR.Unit end
-
-	-- แนวนอน
-	local dir = Vector3.zero
-	if move.F then dir += flatF end
-	if move.B then dir -= flatF end
-	if move.L then dir -= flatR end
-	if move.R then dir += flatR end
-	local horizVel = (dir.Magnitude > 0 and dir.Unit or Vector3.zero) * FLY_SPEED
-
-	-- แนวตั้ง: ใช้ targetY เพื่อ “อยู่นิ่ง” ถ้าไม่กด
-	if not targetY then targetY = root.Position.Y end
-	if move.Up   then targetY += FLY_UPVEL * dt end
-	if move.Down then targetY -= FLY_UPVEL * 1.2 * dt end  -- ลงไวกว่าและทะลุจริง
-
-	local pos   = root.Position
-	local diffY = targetY - pos.Y
-	local smoothY = diffY * 6 * dt        -- ลดการแกว่ง/ซึ้ง
-	local vY = smoothY * 60               -- แปลงเป็นความเร็ว
-
-	-- ถ้าไม่กดทิศทางใดเลย → อยู่กับที่ (เว้นขึ้น/ลง)
-	if dir.Magnitude == 0 then
-		root.AssemblyLinearVelocity = Vector3.new(0, vY, 0)
-	else
-		root.AssemblyLinearVelocity = Vector3.new(horizVel.X, vY, horizVel.Z)
+	if targetY then
+		if move.Up then targetY+=FLY_UPVEL*dt end
+		if move.Down then targetY-=FLY_UPVEL*dt end
 	end
 
-	-- หันหน้าแบบสมูทตามทิศที่กด (สัมพันธ์กล้อง ถูกด้าน)
-	local wantLook = nil
-	if move.L then      wantLook = -flatR end
-	if move.R then      wantLook =  flatR end
-	if move.F then      wantLook =  flatF end
-	if move.B and not (move.F or move.L or move.R) then wantLook = -flatF end
-	if wantLook and wantLook.Magnitude > 0 then
-		local alpha   = 1 - math.exp(-TURN_ACCEL * dt)
-		local blended = (root.CFrame.LookVector*(1-alpha) + wantLook*alpha).Unit
-		local p = root.Position
-		root.CFrame = CFrame.new(p, p + Vector3.new(blended.X, 0, blended.Z))
+	local cam=workspace.CurrentCamera
+	local flatF=Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z)
+	if flatF.Magnitude>0 then flatF=flatF.Unit end
+	local flatR=Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z)
+	if flatR.Magnitude>0 then flatR=flatR.Unit end
+
+	local dir=Vector3.zero
+	if move.F then dir+=flatF end
+	if move.B then dir-=flatF end
+	if move.L then dir-=flatR end
+	if move.R then dir+=flatR end
+	local horizVel=(dir.Magnitude>0 and dir.Unit or Vector3.zero)*FLY_SPEED
+
+	local vY=0
+	if move.Up then vY=FLY_UPVEL elseif move.Down then vY=-FLY_UPVEL end
+
+	local pos=root.Position
+	if targetY and vY==0 then
+		root.AssemblyLinearVelocity=Vector3.new(horizVel.X,0,horizVel.Z)
+		root.CFrame=CFrame.new(Vector3.new(pos.X,targetY,pos.Z),Vector3.new(pos.X,targetY,pos.Z)+root.CFrame.LookVector)
+	else
+		root.AssemblyLinearVelocity=Vector3.new(horizVel.X,vY,horizVel.Z)
+		if targetY then targetY=pos.Y end
+	end
+
+	local wantLook=nil
+	if move.L then wantLook=-flatR end
+	if move.R then wantLook= flatR end
+	if move.F then wantLook= flatF end
+	if move.B and not(move.F or move.L or move.R) then wantLook=-flatF end
+	if wantLook and wantLook.Magnitude>0 then
+		local alpha=1-math.exp(-TURN_ACCEL*dt)
+		local blended=(root.CFrame.LookVector*(1-alpha)+wantLook*alpha).Unit
+		local p=root.Position
+		root.CFrame=CFrame.new(p,p+Vector3.new(blended.X,0,blended.Z))
 	end
 end)
