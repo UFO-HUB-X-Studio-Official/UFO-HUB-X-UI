@@ -1219,144 +1219,137 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
--- 🛸 UFO HUB X — Right Panel Scroll (drop-in patch)
--- ทำให้ "กรอบขวาอันใหญ่" เลื่อนขึ้นลงได้ตลอด โดยไม่เลื่อนตำแหน่ง UI เดิม
+-- 🛸 UFO HUB X — Scroll by Buttons (panel-right targeted)
+-- เลื่อนกรอบขวาเมื่อ "ลากบนปุ่ม" เท่านั้น
 
 local CoreGui = game:GetService("CoreGui")
+local UIS     = game:GetService("UserInputService")
 
 task.defer(function()
 	-- หา PlayerPage
 	local function findPlayerPage()
 		for _,ui in ipairs(CoreGui:GetDescendants()) do
-			if ui:IsA("Frame") and ui.Name == "PlayerPage" and ui.Visible then
+			if ui:IsA("Frame") and ui.Name=="PlayerPage" and ui.Visible then
 				return ui
 			end
 		end
 	end
-
 	local page = findPlayerPage()
 	if not page then return end
 
-	-- เลือก "กรอบขวาอันใหญ่" แบบอัตโนมัติ: child ที่กว้างและอยู่ด้านขวา
-	local target
+	-- เลือกกรอบขวาอัตโนมัติ (พื้นที่ใหญ่ฝั่งขวา)
+	local panelRight
 	do
 		local pageLeft = page.AbsolutePosition.X
 		local pageW    = page.AbsoluteSize.X
-		local minX     = pageLeft + pageW*0.35   -- อะไรที่เกิน 35% ขวาถือว่าเป็นฝั่งขวา
+		local minX     = pageLeft + pageW*0.35
 		local bestArea = 0
 		for _,ch in ipairs(page:GetChildren()) do
 			if ch:IsA("Frame") and ch.Visible then
 				local posX = ch.AbsolutePosition.X
 				local size = ch.AbsoluteSize
-				local area = size.X * size.Y
-				if posX >= minX and area > bestArea then
-					target   = ch
-					bestArea = area
+				local area = size.X*size.Y
+				if posX >= minX and area>bestArea then
+					panelRight, bestArea = ch, area
 				end
 			end
 		end
 	end
-	if not target then return end
+	if not panelRight then return end
 
-	-- ป้องกันทำซ้ำ
-	if target:FindFirstChild("UFO_ScrollWrap") then return end
+	-- ใช้ ScrollingFrame ถ้ามีอยู่แล้ว มิฉะนั้นสร้างหุ้มเบาๆ
+	local scroll
+	for _,d in ipairs(panelRight:GetChildren()) do
+		if d:IsA("ScrollingFrame") then scroll = d break end
+	end
+	if not scroll then
+		scroll = Instance.new("ScrollingFrame")
+		scroll.Name = "UFO_RightScroller"
+		scroll.BackgroundTransparency = 1
+		scroll.BorderSizePixel = 0
+		scroll.Size = UDim2.fromScale(1,1)
+		scroll.ClipsDescendants = true
+		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		scroll.CanvasSize = UDim2.new(0,0,0,0)
+		scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+		scroll.ScrollBarThickness = 6
+		scroll.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
+		scroll.Active = true
+		scroll.Parent = panelRight
 
-	-- เก็บลูกเดิมทั้งหมด (ยกเว้น UICorner/UIStroke/UILayout/ScrollFrame)
-	local moveList = {}
-	for _,v in ipairs(target:GetChildren()) do
-		if v:IsA("GuiObject") and not v:IsA("ScrollingFrame") then
-			if not v:IsA("UIListLayout") and not v:IsA("UIGridLayout") and not v:IsA("UIPadding")
-			   and not v:IsA("UIStroke") and not v:IsA("UICorner") then
-				table.insert(moveList, v)
+		-- ย้ายลูก GUI (ที่เป็นคอนเทนต์) เข้าไปข้างใน
+		local content = Instance.new("Frame")
+		content.Name = "Content"
+		content.BackgroundTransparency = 1
+		content.Size = UDim2.new(1,0,0,0)
+		content.AutomaticSize = Enum.AutomaticSize.Y
+		content.Parent = scroll
+		local list = Instance.new("UIListLayout")
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		list.Padding = UDim.new(0,12)
+		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		list.Parent = content
+
+		for _,v in ipairs(panelRight:GetChildren()) do
+			if v ~= scroll and v:IsA("GuiObject") then
+				v.Parent = content
 			end
 		end
 	end
 
-	-- ครอบด้วย ScrollingFrame ขนาดพอดีกรอบเดิม (เผื่อขอบ 8px ไม่ให้ชน stroke)
-	local wrap = Instance.new("Frame")
-	wrap.Name = "UFO_ScrollWrap"
-	wrap.BackgroundTransparency = 1
-	wrap.Size = UDim2.fromScale(1,1)
-	wrap.Parent = target
-	wrap.ZIndex = 1
+	-- รายชื่อปุ่มที่ “อนุญาตให้ลากเพื่อสกรอลล์”
+	-- ถ้ารู้ชื่อปุ่มตรงๆ ให้เติมในลิสต์นี้ได้ เช่น {"FlyRow","SpeedRow","JumpRow"}
+	local WHITELIST = { }  -- ว่างไว้ = อนุญาตทุก TextButton ในกรอบขวา
 
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop    = UDim.new(0,8)
-	padding.PaddingBottom = UDim.new(0,8)
-	padding.PaddingLeft   = UDim.new(0,8)
-	padding.PaddingRight  = UDim.new(0,8)
-	padding.Parent = wrap
-
-	local scroll = Instance.new("ScrollingFrame")
-	scroll.Name = "UFO_RightScroller"
-	scroll.Parent = wrap
-	scroll.BackgroundTransparency = 1
-	scroll.BorderSizePixel = 0
-	scroll.Size = UDim2.fromScale(1,1)
-	scroll.CanvasSize = UDim2.new(0,0,0,0)
-	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	scroll.ScrollBarThickness = 6
-	scroll.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
-	scroll.ClipsDescendants = true
-	scroll.Active = true
-	scroll.Selectable = false -- ไม่แย่งโฟกัส
-
-	-- เนื้อหาภายใน
-	local content = Instance.new("Frame")
-	content.Name = "Content"
-	content.Parent = scroll
-	content.BackgroundTransparency = 1
-	content.Size = UDim2.new(1,0,0,0)
-	content.AutomaticSize = Enum.AutomaticSize.Y
-
-	local list = Instance.new("UIListLayout")
-	list.Parent = content
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Padding = UDim.new(0,12)
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-	-- ย้ายลูกเดิมทั้งหมดเข้าไป (คง LayoutOrder เดิม)
-	for _,v in ipairs(moveList) do
-		v.Parent = content
-	end
-
-	-- ปรับ Canvas หลังเฟรมเรนเดอร์ เพื่อให้เลื่อนลื่นทั้งจอ
-	task.wait()
-	scroll.CanvasPosition = Vector2.new(0,0)
-
-	-- ลากที่ไหนก็เลื่อน (จับ gesture ที่กรอบขวา)
-	local UIS = game:GetService("UserInputService")
-	local dragging = false
-	local startY, startCanvas
-
-	local function onStart(input)
-		dragging = true
-		startY = input.Position.Y
-		startCanvas = scroll.CanvasPosition
-	end
-	local function onMove(input)
-		if not dragging then return end
-		local dy = input.Position.Y - startY
-		scroll.CanvasPosition = Vector2.new(0, math.max(0, startCanvas.Y - dy))
-	end
-	local function onEnd()
-		dragging = false
-	end
-
-	wrap.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			onStart(input)
+	local function allowed(btn: Instance)
+		if #WHITELIST == 0 then
+			return btn:IsA("TextButton")
 		end
-	end)
-	wrap.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-			onMove(input)
+		if not btn:IsA("TextButton") then return false end
+		for _,n in ipairs(WHITELIST) do
+			if btn.Name == n then return true end
 		end
-	end)
-	wrap.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			onEnd()
-		end
+		return false
+	end
+
+	-- ฟังก์ชันผูก “ลากเพื่อเลื่อน” ให้ปุ่ม
+	local function hookButton(btn: Instance)
+		if not allowed(btn) then return end
+		if btn:GetAttribute("UFO_ScrollHooked") then return end
+		btn:SetAttribute("UFO_ScrollHooked", true)
+
+		local dragging = false
+		local startY, startCanvas
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.Touch
+				or input.UserInputType==Enum.UserInputType.MouseButton1 then
+				dragging = true
+				startY = input.Position.Y
+				startCanvas = scroll.CanvasPosition
+			end
+		end)
+		btn.InputChanged:Connect(function(input)
+			if not dragging then return end
+			if input.UserInputType==Enum.UserInputType.Touch
+				or input.UserInputType==Enum.UserInputType.MouseMovement then
+				local dy = input.Position.Y - startY
+				scroll.CanvasPosition = Vector2.new(0, math.max(0, startCanvas.Y - dy))
+			end
+		end)
+		btn.InputEnded:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.Touch
+				or input.UserInputType==Enum.UserInputType.MouseButton1 then
+				dragging = false
+			end
+		end)
+	end
+
+	-- ผูกให้ทุกปุ่มที่มีอยู่ และปุ่มที่เกิดใหม่
+	for _,d in ipairs(panelRight:GetDescendants()) do
+		if d:IsA("TextButton") then hookButton(d) end
+	end
+	panelRight.DescendantAdded:Connect(function(d)
+		if d:IsA("TextButton") then hookButton(d) end
 	end)
 end)
