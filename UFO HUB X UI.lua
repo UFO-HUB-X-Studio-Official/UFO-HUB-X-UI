@@ -371,20 +371,18 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Right Content Scroll + Background Lock (DROP-IN)
--- ทำให้กรอบใหญ่ฝั่งขวาเลื่อนขึ้นลงได้ และล็อกภาพพื้นหลังให้เต็มกรอบ
+-- UFO HUB X : Right Scroll + Solid Background (FINAL DROP-IN)
+-- วางต่อท้ายสคริปต์เดิมได้เลย
 ----------------------------------------------------------------
 local RunService = game:GetService("RunService")
 
--- ปรับระยะให้พอดีกับดีไซน์เดิมของเพื่อน
-local TOP_GAP = 56          -- ระยะจากขอบบน (ไว้ให้หัวข้อ/แถบบน)
-local PAD     = 10          -- ระยะขอบซ้ายขวา/ล่าง
-local BAR_W   = 6           -- ความหนาแถบสกอร์ล
-local BG_IMG  = "rbxassetid://116976545042904"   -- เปลี่ยนได้ตามต้องการ (โลโก้)
+local TOP_GAP = 56            -- เว้นหัวแถบด้านบน
+local PAD     = 10
+local BAR_W   = 6
+local DEFAULT_BG = "rbxassetid://116976545042904"  -- เปลี่ยนได้
 
--- ป้องกันสร้างซ้ำ
 if Right and not Right:FindFirstChild("RightScroll") then
-    -- 1) สร้างชั้นภาพพื้นหลัง (ไม่ไหลตามสกอร์ล และ “เต็มกรอบ” เสมอ)
+    -- ===== ชั้นภาพพื้นหลัง (อยู่นิ่ง เต็มกรอบเสมอ) =====
     local under = Right:FindFirstChild("Underlay")
     if not under then
         under = Instance.new("Frame")
@@ -392,8 +390,8 @@ if Right and not Right:FindFirstChild("RightScroll") then
         under.Parent = Right
         under.BackgroundTransparency = 1
         under.BorderSizePixel = 0
-        under.ZIndex = 0
         under.ClipsDescendants = true
+        under.ZIndex = 0
         under.Position = UDim2.new(0, PAD, 0, TOP_GAP)
         under.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
     end
@@ -409,18 +407,12 @@ if Right and not Right:FindFirstChild("RightScroll") then
         bg.AnchorPoint = Vector2.new(0.5, 0.5)
         bg.Position    = UDim2.fromScale(0.5, 0.5)
         bg.Size        = UDim2.fromScale(1, 1)
-        -- **สำคัญ**: ให้ “เต็มกรอบ” ไม่ยืดเพี้ยน และไม่เลื่อนเอง
-        bg.ScaleType   = Enum.ScaleType.Crop     -- เต็มพื้นที่ (ครอปถ้าสัดส่วนไม่เท่ากัน)
-        bg.Image       = BG_IMG
-    else
-        -- รีเซ็ตเผื่อเคยโดนสคริปต์อื่นเปลี่ยนจนรูป “ไหลลง”
-        bg.AnchorPoint = Vector2.new(0.5, 0.5)
-        bg.Position    = UDim2.fromScale(0.5, 0.5)
-        bg.Size        = UDim2.fromScale(1, 1)
-        bg.ScaleType   = Enum.ScaleType.Crop
+        bg.ScaleType   = Enum.ScaleType.Crop     -- เต็มพื้นที่ (ครอป)
+        bg.Image       = DEFAULT_BG
+        bg.TileSize    = UDim2.new(0,0,0,0)      -- กันการ tile
     end
 
-    -- 2) ทำ “เนื้อหา” ให้เลื่อนขึ้นลงได้ โดยหัวข้อ/ภาพพื้นหลังไม่ขยับ
+    -- ===== พื้นที่เลื่อน (เนื้อหา/ปุ่มอยู่ในนี้) =====
     local holder = Instance.new("ScrollingFrame")
     holder.Name = "RightScroll"
     holder.Parent = Right
@@ -429,48 +421,74 @@ if Right and not Right:FindFirstChild("RightScroll") then
     holder.ClipsDescendants = true
     holder.ScrollingDirection = Enum.ScrollingDirection.Y
     holder.ScrollBarThickness = BAR_W
-    holder.AnchorPoint = Vector2.new(0, 0)
     holder.Position = UDim2.new(0, PAD, 0, TOP_GAP)
     holder.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
     holder.CanvasSize = UDim2.new(0, 0, 0, 0)
-    -- ใช้ออโต้ปรับสูง (รองรับ UI ที่จัดวางเองด้วย) + มีตัวคำนวณสำรองด้านล่าง
+    holder.ZIndex = 10  -- สูงกว่าพื้นหลังแน่นอน
     pcall(function() holder.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
 
-    -- ย้าย “ลูก ๆ” ทั้งหมดของ Right (ยกเว้นหัวข้อใหญ่/Underlay/ตัวเราเอง) ให้ไปอยู่ในสกอร์ล
+    -- ย้ายลูกๆ ทั้งหมดของ Right (ยกเว้นหัวข้อ/พื้นหลัง/ตัวเราเอง) เข้า holder
     for _, ch in ipairs(Right:GetChildren()) do
         if ch ~= holder and ch ~= under and ch.Name ~= "BigHeader" and ch:IsA("GuiObject") then
             ch.Parent = holder
+            -- ให้คอนเทนต์ทับพื้นหลังชัวร์
+            if ch.ZIndex < 11 then ch.ZIndex = 11 end
         end
     end
 
-    -- 3) อัปเดต CanvasSize อัตโนมัติให้ครอบคลุมคอนเทนต์ทั้งหมด
+    -- ===== ดูด “รูปแบนเนอร์ใหญ่” ที่ซ้ำกับพื้นหลัง แล้วใช้เป็น BG แทน =====
+    local function absorbBigBanner()
+        local biggest, area = nil, 0
+        for _, d in ipairs(holder:GetDescendants()) do
+            if d:IsA("ImageLabel") and d.Visible then
+                local a = d.AbsoluteSize.X * d.AbsoluteSize.Y
+                if a > area and d.AbsoluteSize.Y > holder.AbsoluteSize.Y*0.35 then
+                    biggest, area = d, a
+                end
+            end
+        end
+        if biggest then
+            -- ใช้รูปเดียวกันเป็นพื้นหลัง แล้วซ่อนตัวเดิม
+            if biggest.Image and biggest.Image ~= "" then
+                bg.Image = biggest.Image
+            end
+            biggest.Visible = false
+        end
+    end
+    absorbBigBanner()
+
+    -- ===== อัปเดต CanvasSize ให้พอดีคอนเทนต์ =====
     local function updateCanvas()
         local topY, botY = math.huge, -math.huge
         for _, c in ipairs(holder:GetChildren()) do
             if c:IsA("GuiObject") and c.Visible then
-                local gpos = c.AbsolutePosition.Y
-                local gbot = gpos + c.AbsoluteSize.Y
-                if gpos < topY then topY = gpos end
-                if gbot > botY then botY = gbot end
+                local y1 = c.AbsolutePosition.Y
+                local y2 = y1 + c.AbsoluteSize.Y
+                if y1 < topY then topY = y1 end
+                if y2 > botY then botY = y2 end
             end
         end
         if topY < math.huge and botY > -math.huge then
-            local contentH = (botY - topY) + PAD
-            holder.CanvasSize = UDim2.new(0, 0, 0, contentH)
+            holder.CanvasSize = UDim2.new(0,0,0,(botY - topY) + PAD)
         else
-            holder.CanvasSize = UDim2.new(0, 0, 0, 0)
+            holder.CanvasSize = UDim2.new(0,0,0,0)
         end
     end
-    RunService.Heartbeat:Connect(updateCanvas)
-    updateCanvas()
 
-    -- 4) กันกรณีสคริปต์อื่นขยับภาพพื้นหลังให้ “ไหลลง” → รีเซ็ตทุก ๆ เฟรม
+    -- ===== รีเซ็ตพื้นหลังทุกเฟรม กันสคริปต์อื่นขยับ/ซูม =====
     RunService.Heartbeat:Connect(function()
-        if bg.Parent ~= under then bg.Parent = under end
+        -- พื้นหลังล็อกกลางกรอบ เสมอเต็มพื้นที่
         bg.AnchorPoint = Vector2.new(0.5, 0.5)
         bg.Position    = UDim2.fromScale(0.5, 0.5)
         bg.Size        = UDim2.fromScale(1, 1)
         bg.ScaleType   = Enum.ScaleType.Crop
+        bg.TileSize    = UDim2.new(0,0,0,0)
+        -- คอนเทนต์อยู่เหนือพื้นหลังชัวร์
+        if holder.ZIndex < 10 then holder.ZIndex = 10 end
+        for _, c in ipairs(holder:GetDescendants()) do
+            if c:IsA("GuiObject") and c.ZIndex < 11 then c.ZIndex = 11 end
+        end
+        updateCanvas()
     end)
 end
 ----------------------------------------------------------------
