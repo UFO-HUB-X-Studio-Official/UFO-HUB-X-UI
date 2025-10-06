@@ -952,14 +952,17 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X – Fly Switch + Outside D-Pad (v5.1: add green stroke on D-Pad)
+-- 🛸 UFO HUB X – Fly Switch + Outside D-Pad
+-- v5.1 : Green Border FIX (ล้อมปุ่มจริง), press/hold เอฟเฟกต์, ไม่มี label
 local CoreGui    = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
-local ACCENT   = Color3.fromRGB(0,255,140)
-local COL_BG   = Color3.fromRGB(0,0,0)
-local COL_TXT  = Color3.fromRGB(255,255,255)
+-- ===== THEME =====
+local ACCENT   = Color3.fromRGB(0,255,140)   -- เขียวเรือง
+local COL_BG   = Color3.fromRGB(0,0,0)       -- พื้นดำ
+local COL_TXT  = Color3.fromRGB(255,255,255) -- ลูกศรสีขาว
 
+-- ===== Fly switch (บนแถว Speed) =====
 local GAP_Y, SW_W, SW_H = 12, 30, 14
 local DOT_SIZE = SW_H - 4
 
@@ -1039,9 +1042,9 @@ end
 alignFlyBox()
 do local page=findPlayerPage(); if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end end
 
--- ===== D-Pad =====
-local BTN_SIZE, GAP  = 54, 10
-local PAD_LEFT, PAD_BOT = 95, 170
+-- ===== OUTSIDE D-PAD (มุมซ้ายล่าง, 4 ปุ่มสี่เหลี่ยมดำ ขอบเขียว, ไม่มีชื่อ) =====
+local BTN_SIZE, GAP  = 54, 10            -- ขนาดปุ่ม/ช่องไฟ
+local PAD_LEFT, PAD_BOT = 95, 170        -- ตำแหน่ง (ซ้าย/ล่าง)
 
 local function destroyOldOverlay()
 	local old = CoreGui:FindFirstChild("UFO_FlyPadOverlay"); if old then old:Destroy() end
@@ -1051,10 +1054,12 @@ local function pressFx(btn, on)
 	local stroke = btn:FindFirstChildOfClass("UIStroke")
 	if on then
 		btn:TweenSize(UDim2.fromOffset(BTN_SIZE-6, BTN_SIZE-6),"Out","Quad",0.08,true)
-		if stroke then stroke.Thickness = 2.4 end
+		btn.TextSize = 20
+		if stroke then stroke.Thickness = 3 end
 	else
 		btn:TweenSize(UDim2.fromOffset(BTN_SIZE, BTN_SIZE),"Out","Quad",0.08,true)
-		if stroke then stroke.Thickness = 1.6 end
+		btn.TextSize = 18
+		if stroke then stroke.Thickness = 2 end
 	end
 end
 
@@ -1071,37 +1076,59 @@ local function hookPressEvents(btn)
 	btn.MouseLeave:Connect(function() pressFx(btn,false) end)
 end
 
+-- >>> ปุ่มเวอร์ชัน “ขอบเขียวล้อมปุ่มจริง ๆ”
 local function newSquareButton(parent, name, glyph)
-	local b=Instance.new("TextButton")
-	b.Name=name; b.Parent=parent; b.AutoButtonColor=false
-	b.Size=UDim2.fromOffset(BTN_SIZE, BTN_SIZE); b.Text=glyph
-	b.Font=Enum.Font.GothamBold; b.TextSize=18; b.TextColor3=COL_TXT
-	b.BackgroundColor3=COL_BG; b.BorderSizePixel=0
-	local c=Instance.new("UICorner",b); c.CornerRadius=UDim.new(0,8)
-	local s=Instance.new("UIStroke",b) -- เพิ่มขอบสีเขียว
-	s.Color=ACCENT; s.Thickness=2; s.Transparency=0.1
+	local b = Instance.new("TextButton")
+	b.Name = name
+	b.Parent = parent
+	b.AutoButtonColor = false
+	b.Size = UDim2.fromOffset(BTN_SIZE, BTN_SIZE)
+	b.BackgroundColor3 = COL_BG
+	b.BorderSizePixel = 0
+	b.Text = glyph               -- "▲" "▼" "◀" "▶"
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 18
+	b.TextColor3 = COL_TXT
+	b.ZIndex = 20
+
+	local c = Instance.new("UICorner", b)
+	c.CornerRadius = UDim.new(0, 8)
+
+	local s = Instance.new("UIStroke")
+	s.Parent = b
+	s.Color = ACCENT
+	s.Thickness = 2
+	s.Transparency = 0.1
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.LineJoinMode = Enum.LineJoinMode.Round
+	s.ZIndex = 21
+
 	hookPressEvents(b)
 	return b
 end
+-- <<<
 
 local overlay, pad
 local function makeOverlay()
 	destroyOldOverlay()
+
 	overlay=Instance.new("ScreenGui")
 	overlay.Name="UFO_FlyPadOverlay"; overlay.IgnoreGuiInset=true
 	overlay.DisplayOrder=2000; overlay.ResetOnSpawn=false; overlay.Parent=CoreGui
 
 	pad=Instance.new("Frame")
 	pad.Name="Pad"; pad.Parent=overlay; pad.BackgroundTransparency=1
-	pad.AnchorPoint=Vector2.new(0,1)
+	pad.AnchorPoint=Vector2.new(0,1) -- ซ้ายล่าง
 	pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
 	pad.Size=UDim2.fromOffset(BTN_SIZE*3 + GAP*2, BTN_SIZE*3 + GAP*2)
 
+	-- ปุ่ม 4 อัน (ไม่มีคำ, มีลูกศรเท่านั้น)
 	local up    = newSquareButton(pad,"UP","▲")
 	local left  = newSquareButton(pad,"LEFT","◀")
 	local right = newSquareButton(pad,"RIGHT","▶")
 	local down  = newSquareButton(pad,"DOWN","▼")
 
+	-- วางเป็นกากบาท
 	up.Position    = UDim2.fromOffset(BTN_SIZE + GAP, 0)
 	left.Position  = UDim2.fromOffset(0, BTN_SIZE + GAP)
 	right.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP), BTN_SIZE + GAP)
@@ -1109,12 +1136,12 @@ local function makeOverlay()
 end
 makeOverlay()
 
+-- แสดง/ซ่อนตามสวิตช์ Fly
 local function getFlyEnabled()
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
 	return fb:FindFirstChild("Enabled")
 end
-
 local function applyVisibility()
 	local en=getFlyEnabled()
 	if not en then overlay.Enabled=false return end
@@ -1123,13 +1150,12 @@ local function applyVisibility()
 		pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
 	end
 end
-
 applyVisibility()
 do
 	local en=getFlyEnabled(); if en then en.Changed:Connect(applyVisibility) end
 	RunService.RenderStepped:Connect(function()
 		if overlay and overlay.Enabled then
-			pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
+			pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT) -- คงตำแหน่งเดิมทุกเฟรม
 		end
 	end)
 end
