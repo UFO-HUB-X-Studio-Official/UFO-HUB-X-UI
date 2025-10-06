@@ -521,6 +521,63 @@ end
 ----------------------------------------------------------------
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
+-- END (จบส่วนเพิ่ม)
+----------------------------------------------------------------
+-- UFO HUB X : Right Big Panel Scroll (ADD-ON)
+-- วาง "ต่อท้าย" โค้ดของเพื่อนด้านบนนี้ได้เลย
+-- ทำให้กรอบใหญ่ฝั่งขวา (Right) เลื่อนขึ้นลงได้ โดยคง BigHeader ไว้ด้านบน
+----------------------------------------------------------------
+local RunService = game:GetService("RunService")
+
+local function makeRightScrollable()
+    if not Right or not Right.Parent then return end
+    if Right:FindFirstChild("RightScroll") then return end
+
+    local TOP_GAP = 56
+    local PAD     = 8
+    local BAR     = 6
+
+    local holder = Instance.new("ScrollingFrame")
+    holder.Name = "RightScroll"
+    holder.Parent = Right
+    holder.BackgroundTransparency = 1
+    holder.BorderSizePixel = 0
+    holder.ClipsDescendants = true
+    holder.ScrollingDirection = Enum.ScrollingDirection.Y
+    holder.ScrollBarThickness = BAR
+    holder.AnchorPoint = Vector2.new(0,0)
+    holder.Position = UDim2.new(0, PAD, 0, TOP_GAP)
+    holder.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
+    holder.CanvasSize = UDim2.new(0,0,0,0)
+
+    for _,ch in ipairs(Right:GetChildren()) do
+        if ch ~= holder and ch.Name ~= "BigHeader" and ch:IsA("GuiObject") then
+            ch.Parent = holder
+        end
+    end
+
+    local function updateCanvas()
+        local minY, maxY = math.huge, -math.huge
+        for _,c in ipairs(holder:GetChildren()) do
+            if c:IsA("GuiObject") and c.Visible then
+                local top = c.AbsolutePosition.Y - holder.AbsolutePosition.Y
+                local bot = top + c.AbsoluteSize.Y
+                if top < minY then minY = top end
+                if bot > maxY then maxY = bot end
+            end
+        end
+        local contentH = math.max(0, maxY - minY) + PAD
+        holder.CanvasSize = UDim2.new(0,0,0, contentH)
+    end
+
+    RunService.Heartbeat:Connect(updateCanvas)
+    updateCanvas()
+end
+
+makeRightScrollable()
+----------------------------------------------------------------
+-- END
+----------------------------------------------------------------
 ----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
 -- • เวลาอยู่ใต้ชื่อในแท่งดำขอบเขียว (ตำแหน่งเดียวกับกรอบแดง)
