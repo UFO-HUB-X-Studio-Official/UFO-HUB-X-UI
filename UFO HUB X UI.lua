@@ -574,6 +574,89 @@ end
 stopBGZoom()
 ----------------------------------------------------------------
 ----------------------------------------------------------------
+-- PATCH v2: Stop background image from zooming AND drifting down
+-- วางต่อท้ายสคริปต์เดิมได้เลย
+----------------------------------------------------------------
+local TS         = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local function lockPlayerBG()
+    local right = Right
+    if not right then return end
+
+    -- หา Image พื้นหลัง (ใช้ชื่อ "BG" ถ้ามี; ไม่งั้นเลือก ImageLabel ที่ใหญ่สุดใต้ Right)
+    local bg = right:FindFirstChild("BG", true)
+    if not bg then
+        local biggest, area = nil, 0
+        for _,v in ipairs(right:GetDescendants()) do
+            if v:IsA("ImageLabel") then
+                local a = v.AbsoluteSize.X * v.AbsoluteSize.Y
+                if a > area then biggest, area = v, a end
+            end
+        end
+        bg = biggest
+    end
+    if not (bg and bg:IsA("ImageLabel")) then return end
+
+    -- ล็อกวิธีแสดง + กึ่งกลาง
+    bg.ScaleType   = Enum.ScaleType.Fit
+    bg.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    -- ล็อก "ขนาดพิกเซล" ตามค่าปัจจุบัน เพื่อกันซูม
+    local LOCK_W   = math.floor(bg.AbsoluteSize.X + 0.5)
+    local LOCK_H   = math.floor(bg.AbsoluteSize.Y + 0.5)
+    bg.Size        = UDim2.fromOffset(LOCK_W, LOCK_H)
+
+    -- ล็อกตำแหน่งให้อยู่กึ่งกลางเสมอ
+    local CENTER   = UDim2.fromScale(0.5, 0.5)
+    bg.Position    = CENTER
+
+    -- แท็กกันโดนแก้ซ้ำ
+    bg:SetAttribute("NoZoom",  true)
+    bg:SetAttribute("NoDrift", true)
+
+    -- กัน Tween อื่นๆ ที่พยายามเขียน Size/Position
+    pcall(function()
+        TS:Create(bg, TweenInfo.new(0.001), {Size = bg.Size}):Cancel()
+        TS:Create(bg, TweenInfo.new(0.001), {Position = CENTER}):Cancel()
+    end)
+
+    -- ถ้าคอนเทนเนอร์เปลี่ยนขนาด → คงขนาดพิกเซลและกึ่งกลางไว้
+    local container = bg.Parent
+    if container then
+        container:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            if bg:GetAttribute("NoZoom") then
+                bg.Size     = UDim2.fromOffset(LOCK_W, LOCK_H)
+            end
+            if bg:GetAttribute("NoDrift") then
+                bg.Position = CENTER
+            end
+        end)
+    end
+
+    -- ถ้ามีสคริปต์อื่นมาเปลี่ยน Position/Size ภายหลัง → ดึงกลับทันที
+    bg:GetPropertyChangedSignal("Position"):Connect(function()
+        if bg:GetAttribute("NoDrift") and bg.Position ~= CENTER then
+            bg.Position = CENTER
+        end
+    end)
+    bg:GetPropertyChangedSignal("Size"):Connect(function()
+        if bg:GetAttribute("NoZoom") and (bg.Size ~= UDim2.fromOffset(LOCK_W, LOCK_H)) then
+            bg.Size = UDim2.fromOffset(LOCK_W, LOCK_H)
+        end
+    end)
+
+    -- บังคับ “รีเซ็ตกึ่งกลาง” ช่วง 1 วินาทีแรก เผื่อมีทวีนนอกที่ยังรันอยู่
+    local t0 = os.clock()
+    local rsCon; rsCon = RunService.RenderStepped:Connect(function()
+        if os.clock() - t0 > 1 then rsCon:Disconnect() return end
+        if bg.Position ~= CENTER then bg.Position = CENTER end
+    end)
+end
+
+lockPlayerBG()
+----------------------------------------------------------------
+----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
 -- • เวลาอยู่ใต้ชื่อในแท่งดำขอบเขียว (ตำแหน่งเดียวกับกรอบแดง)
 -- • เวลาเล็กลง ขาวในกรอบดำ
