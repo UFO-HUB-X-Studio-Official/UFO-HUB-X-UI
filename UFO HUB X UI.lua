@@ -522,6 +522,57 @@ end
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
 ----------------------------------------------------------------
+-- 🛸 UFO HUB X : Right Content Scroll (Final Add-On)
+-- ทำให้หน้าเนื้อหาใน Right เลื่อนขึ้น-ลงได้ โดย BigHeader อยู่คงที่
+----------------------------------------------------------------
+local RunService = game:GetService("RunService")
+
+local function makeRightScrollable()
+	local right = Right
+	if not right or right:FindFirstChild("ScrollContent") then return end
+
+	-- เว้นช่องไว้สำหรับ BigHeader
+	local TOP_GAP = 48
+	local PAD     = 10
+	local BAR     = 8
+
+	-- 🧩 สร้างกรอบ scroll
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "ScrollContent"
+	scroll.Parent = right
+	scroll.AnchorPoint = Vector2.new(0, 0)
+	scroll.Position = UDim2.new(0, PAD, 0, TOP_GAP)
+	scroll.Size = UDim2.new(1, -(PAD * 2), 1, -(TOP_GAP + PAD))
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ClipsDescendants = true
+	scroll.ScrollBarThickness = BAR
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+	-- ย้ายเนื้อหาทั้งหมด (ยกเว้น BigHeader) เข้ามาใน scroll
+	for _, child in ipairs(right:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "BigHeader" and child.Name ~= "ScrollContent" then
+			child.Parent = scroll
+		end
+	end
+
+	-- แก้ปัญหาภาพเลื่อนเอง / ค่อยๆ เคลื่อน
+	RunService.Heartbeat:Connect(function()
+		if scroll.CanvasPosition.Y < 0 then
+			scroll.CanvasPosition = Vector2.new(0, 0)
+		end
+	end)
+
+	print("[UFO HUB X] ✅ Content scroll enabled for Right.")
+end
+
+makeRightScrollable()
+----------------------------------------------------------------
+-- END
+----------------------------------------------------------------
+----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
 -- • เวลาอยู่ใต้ชื่อในแท่งดำขอบเขียว (ตำแหน่งเดียวกับกรอบแดง)
 -- • เวลาเล็กลง ขาวในกรอบดำ
