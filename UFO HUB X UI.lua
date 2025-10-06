@@ -952,7 +952,7 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X – Fly + GamePad (v6: add green glowing border on buttons)
+-- 🛸 UFO HUB X – GamePad (RESURGE) : always shows first, then auto-link to Fly switch
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
@@ -961,11 +961,11 @@ local ACCENT   = Color3.fromRGB(0,255,140)
 local COL_BG   = Color3.fromRGB(0,0,0)
 local COL_TXT  = Color3.fromRGB(255,255,255)
 
--- ===== CONFIG =====
+-- ===== LAYOUT =====
 local BTN_SIZE, GAP  = 54, 10
-local PAD_LEFT, PAD_BOT = 95, 170
+local PAD_LEFT, PAD_BOT = 95, 170   -- ตำแหน่งจอยด้านซ้ายล่าง
 
--- ล้างของเก่า
+-- เคลียร์ของเก่า
 local old = CoreGui:FindFirstChild("UFO_FlyPadOverlay")
 if old then old:Destroy() end
 
@@ -988,8 +988,7 @@ local function hookPressEvents(btn)
 	btn.MouseButton1Up:Connect(function() pressFx(btn,false) end)
 	btn.TouchLongPress:Connect(function(_, state)
 		if state == Enum.LongPressState.Begin then pressFx(btn,true)
-		elseif state == Enum.LongPressState.End or state == Enum.LongPressState.Cancel then pressFx(btn,false)
-		end
+		else pressFx(btn,false) end
 	end)
 	btn.MouseLeave:Connect(function() pressFx(btn,false) end)
 end
@@ -1007,33 +1006,30 @@ local function newButton(parent, name, glyph)
 	b.BackgroundColor3 = COL_BG
 	b.BorderSizePixel = 0
 
-	-- มุมโค้ง
 	local c = Instance.new("UICorner", b)
 	c.CornerRadius = UDim.new(0, 8)
 
-	-- เส้นขอบเขียวเรือง
 	local s = Instance.new("UIStroke", b)
 	s.Color = ACCENT
 	s.Thickness = 1.8
 	s.Transparency = 0.15
 
-	-- เงาเรืองขอบ
 	local glow = Instance.new("UIGradient", b)
 	glow.Rotation = 90
-	glow.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 140)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 100, 60))
-	})
-	glow.Transparency = NumberSequence.new({
+	glow.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,140)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(0,100,60)),
+	}
+	glow.Transparency = NumberSequence.new{
 		NumberSequenceKeypoint.new(0, 0.25),
-		NumberSequenceKeypoint.new(1, 0.85)
-	})
+		NumberSequenceKeypoint.new(1, 0.85),
+	}
 
 	hookPressEvents(b)
 	return b
 end
 
--- ===== Overlay =====
+-- ===== Overlay & Pad =====
 local overlay = Instance.new("ScreenGui")
 overlay.Name = "UFO_FlyPadOverlay"
 overlay.IgnoreGuiInset = true
@@ -1049,38 +1045,48 @@ pad.AnchorPoint = Vector2.new(0, 1)
 pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
 pad.Size = UDim2.fromOffset(BTN_SIZE * 3 + GAP * 2, BTN_SIZE * 3 + GAP * 2)
 
--- ปุ่ม 4 อัน
 local up    = newButton(pad, "UP", "▲")
 local left  = newButton(pad, "LEFT", "◀")
 local right = newButton(pad, "RIGHT", "▶")
 local down  = newButton(pad, "DOWN", "▼")
 
--- ตำแหน่งแบบ D-PAD
+-- จัดตำแหน่งแบบ D-PAD
 up.Position    = UDim2.fromOffset(BTN_SIZE + GAP, 0)
 left.Position  = UDim2.fromOffset(0, BTN_SIZE + GAP)
 right.Position = UDim2.fromOffset(2 * (BTN_SIZE + GAP), BTN_SIZE + GAP)
 down.Position  = UDim2.fromOffset(BTN_SIZE + GAP, 2 * (BTN_SIZE + GAP))
 
--- === แสดงเฉพาะตอน Fly เปิด ===
+-- คงตำแหน่งให้เป๊ะทุกเฟรม (กันเลื่อนตามสเกลจอ)
+RunService.RenderStepped:Connect(function()
+	pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
+end)
+
+-- ===== ผูกการแสดงผลกับสวิตช์ Fly แบบอัตโนมัติ =====
+-- กลไก: ช่วงแรก "แสดงไว้ก่อน" เพื่อให้เห็นแน่ ๆ
+overlay.Enabled = true
+
 local function findFlyEnabled()
 	for _, ui in ipairs(CoreGui:GetDescendants()) do
-		if ui:IsA("BoolValue") and ui.Name == "Enabled" and ui.Parent.Name == "FlyBox" then
+		if ui:IsA("BoolValue") and ui.Name == "Enabled" and ui.Parent and ui.Parent.Name == "FlyBox" then
 			return ui
 		end
 	end
 end
 
-local flyEnabled = findFlyEnabled()
-local function updateVisible()
-	if flyEnabled and flyEnabled.Value then
-		overlay.Enabled = true
-	else
-		overlay.Enabled = false
+-- ตัวเฝ้าดู: หา BoolValue ของ FlyBox เรื่อย ๆ จนเจอ แล้วค่อยผูกให้เปิด/ปิดตามจริง
+task.spawn(function()
+	local linked = false
+	while task.wait(0.5) do
+		if not linked then
+			local flag = findFlyEnabled()
+			if flag then
+				linked = true
+				local function apply()
+					overlay.Enabled = flag.Value
+				end
+				flag.Changed:Connect(apply)
+				apply()
+			end
+		end
 	end
-end
-if flyEnabled then flyEnabled.Changed:Connect(updateVisible) end
-updateVisible()
-
-RunService.RenderStepped:Connect(function()
-	pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
 end)
