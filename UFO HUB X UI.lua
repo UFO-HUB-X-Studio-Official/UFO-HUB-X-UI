@@ -1218,3 +1218,98 @@ RunService.Heartbeat:Connect(function(dt)
 		root.CFrame=CFrame.new(p, p+Vector3.new(blended.X,0,blended.Z))
 	end
 end)
+-- 🛠 UFO HUB X – PlayerPage Scroll FIX (ไม่ลบของเดิม แค่ใส่ ScrollingFrame ให้เลื่อนขึ้น-ลงได้)
+local CoreGui = game:GetService("CoreGui")
+
+-- หา PlayerPage ที่อยู่ฝั่ง Right ของ UI (ตามโปรเจกต์เดิมของเพื่อน)
+local function findPlayerPage()
+	for _,ui in ipairs(CoreGui:GetDescendants()) do
+		if ui:IsA("Frame") and ui.Name == "PlayerPage" then
+			return ui
+		end
+	end
+end
+
+local page = findPlayerPage()
+if not page then return end
+
+-- ถ้ายังไม่มี ScrollingFrame ก็สร้าง
+local scroll = page:FindFirstChild("PlayerScroll")
+if not scroll then
+	scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "PlayerScroll"
+	scroll.Parent = page
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	-- ขยับเข้าในกรอบใหญ่เล็กน้อย (กันชิดขอบ)
+	scroll.AnchorPoint = Vector2.new(0.5, 0)
+	scroll.Position = UDim2.new(0.5, 0, 0, 0)
+	scroll.Size = UDim2.new(1, -24, 1, -24)
+
+	-- ✅ เปิดเลื่อน + ปรับ Canvas อัตโนมัติแนวตั้ง
+	scroll.ScrollingEnabled = true
+	scroll.ScrollBarThickness = 6
+	scroll.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.CanvasSize = UDim2.new(0,0,0,0)
+	scroll.ClipsDescendants = true
+	scroll.Active = true
+
+	-- Layout แนวตั้ง + เว้นขอบ
+	local pad = Instance.new("UIPadding")
+	pad.Parent = scroll
+	pad.PaddingTop = UDim.new(0, 12)
+	pad.PaddingBottom = UDim.new(0, 12)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+
+	local list = Instance.new("UIListLayout")
+	list.Parent = scroll
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 10)
+
+	-- ย้ายลูก ๆ ของ PlayerPage ทั้งหมดเข้าไปใน ScrollingFrame (เว้นตัวที่ไม่ควรย้าย)
+	-- ไม่ลบอะไรเลย แค่เปลี่ยน parent → เลื่อนได้ทันที
+	for _,ch in ipairs(page:GetChildren()) do
+		-- เว้น ScrollingFrame ตัวใหม่เอง
+		if ch ~= scroll then
+			-- เว้นพวก layout/padding เดิมของเพจ (ถ้ามี) และเว้น FlyBox ถ้าต้องการตรึงตำแหน่งไว้
+			if not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
+				-- ถ้ามี "FlyBox" ที่อยากให้ติดหัวเพจ (ไม่ขยับเวลาเลื่อน) ให้ไม่ย้าย:
+				if ch.Name ~= "FlyBox" then
+					ch.Parent = scroll
+					-- ถ้ายังไม่มี LayoutOrder ตั้งให้เรียงสวย ๆ
+					if ch.LayoutOrder == 0 then
+						ch.LayoutOrder = 100
+					end
+				end
+			end
+		end
+	end
+
+	-- กันกรอบใหญ่ไปบัง gesture เลื่อน
+	page.Active = false
+	page.ClipsDescendants = false
+end
+
+-- ป้องกัน widget ที่อาจบังการเลื่อนโดยไม่ตั้งใจ
+-- ถ้ามีปุ่ม/กรอบใหญ่กินคลิกเต็มจอ (เช่น Hit ของสวิตช์) ให้จำกัดอยู่ในขนาดของมันเอง
+for _,d in ipairs(page:GetDescendants()) do
+	if d:IsA("TextButton") or d:IsA("ImageButton") then
+		-- ไม่ไปยุ่งปุ่มตัวเล็ก ๆ แค่ให้แน่ใจว่าไม่ใช่ปุ่มโปร่งใสบังทั้งหน้า
+		if d.BackgroundTransparency == 1 and d.AutoButtonColor == false then
+			d.ZIndex = d.ZIndex -- touch to force update (no-op)
+		end
+	end
+	-- กรอบธรรมดาไม่ควร Active เพราะจะรับ gesture แทน Scroll
+	if d:IsA("Frame") and d ~= scroll then
+		if d.Active then d.Active = false end
+	end
+end
+
+-- เผื่อมี UI อื่นปรับขนาดเพจทีหลัง → sync ขนาด ScrollFrame ให้พอดีตลอด
+page:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	scroll.Size = UDim2.new(1, -24, 1, -24)
+end)
