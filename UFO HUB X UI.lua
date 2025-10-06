@@ -371,209 +371,188 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Player Button + BigHeader + Right Content Scroll
--- DROP-IN (ก๊อปวางต่อท้ายสคริปต์เดิมได้เลย ไม่ต้องแก้ของเก่า)
--- ใช้ ScrollingFrame แบบ Kavo-Style: AutoCanvas + UIListLayout
+-- 🛸 UFO HUB X : Player Button + BigHeader + Right Scroll (ONE FILE)
+-- วางต่อท้ายสคริปต์หลักได้เลย ไม่ไปยุ่งหรือทำลายของเดิม
 ----------------------------------------------------------------
-local TS = game:GetService("TweenService")
+local TS          = game:GetService("TweenService")
+local RunService  = game:GetService("RunService")
 
--- ========= ตั้งค่า =========
+-- สมมติว่ามีตัวแปร Left / Right อยู่แล้ว (จาก UI เดิม)
+local Left  = rawget(getfenv(), "Left")  or Left
+local Right = rawget(getfenv(), "Right") or Right
+if not (Left and Right and Left.Parent and Right.Parent) then return end
+
+-- ===== helpers (ไม่ชนของเดิม) =====
+local function corner(gui, r)
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = gui; return c
+end
+local function stroke(gui, th, col, tr)
+	local s = Instance.new("UIStroke"); s.Thickness = th or 1.2; s.Color = col or Color3.fromRGB(0,255,140); s.Transparency = tr or .6; s.Parent = gui; return s
+end
+
+-- ===== config =====
 local PLAYER_ICON = "rbxassetid://116976545042904"
 local ACCENT      = Color3.fromRGB(0,255,140)
-local PAD         = 10          -- ระยะขอบใน
-local TOP_GAP     = 56          -- เว้นพื้นที่หัวข้อ (BigHeader) ด้านบน
-local BAR_THICK   = 6           -- ความหนา ScrollBar
 
--- ========= ปุ่ม PLAYER (ฝั่งซ้าย) =========
+-- ##############################################################
+-- 1) ปุ่ม PLAYER (ฝั่งซ้าย)
+-- ##############################################################
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
 if not BtnPlayer then
-    BtnPlayer = Instance.new("Frame")
-    BtnPlayer.Name = "BtnPlayer"
-    BtnPlayer.Parent = Left
-    BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
-    BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-    BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    BtnPlayer.BorderSizePixel = 0
-    BtnPlayer.ClipsDescendants = true
-    if corner then corner(BtnPlayer, 10) end
-    if stroke then stroke(BtnPlayer, 1.2, ACCENT, 0.6) end
+	BtnPlayer = Instance.new("Frame")
+	BtnPlayer.Name = "BtnPlayer"
+	BtnPlayer.Parent = Left
+	BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
+	BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
+	BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	BtnPlayer.BorderSizePixel = 0
+	BtnPlayer.ClipsDescendants = true
+	corner(BtnPlayer, 10)
+	stroke(BtnPlayer, 1.2, ACCENT, 0.6)
 
-    local Click = Instance.new("TextButton")
-    Click.Name = "Click"
-    Click.Parent = BtnPlayer
-    Click.BackgroundTransparency = 1
-    Click.BorderSizePixel = 0
-    Click.Size = UDim2.new(1,0,1,0)
-    Click.Text = ""
+	local Click = Instance.new("TextButton")
+	Click.Name = "Click"; Click.Parent = BtnPlayer
+	Click.BackgroundTransparency = 1; Click.BorderSizePixel = 0
+	Click.Size = UDim2.new(1,0,1,0); Click.Text = ""
 
-    local Icon = Instance.new("ImageLabel")
-    Icon.Name = "Icon"
-    Icon.Parent = BtnPlayer
-    Icon.BackgroundTransparency = 1
-    Icon.AnchorPoint = Vector2.new(0,0.5)
-    Icon.Position  = UDim2.new(0, 10, 0.5, 0)
-    Icon.Size      = UDim2.new(0, 22, 0, 22)
-    Icon.Image     = PLAYER_ICON
-    Icon.ScaleType = Enum.ScaleType.Fit
-    Icon.ZIndex    = 2
+	local Icon = Instance.new("ImageLabel")
+	Icon.Name = "Icon"; Icon.Parent = BtnPlayer
+	Icon.BackgroundTransparency = 1
+	Icon.AnchorPoint = Vector2.new(0,0.5)
+	Icon.Position  = UDim2.new(0, 10, 0.5, 0)
+	Icon.Size      = UDim2.new(0, 22, 0, 22)
+	Icon.Image     = PLAYER_ICON
+	Icon.ScaleType = Enum.ScaleType.Fit
+	Icon.ZIndex    = 2
 
-    local Text = Instance.new("TextLabel")
-    Text.Name = "Label"
-    Text.Parent = BtnPlayer
-    Text.BackgroundTransparency = 1
-    Text.AnchorPoint = Vector2.new(0,0.5)
-    Text.Position = UDim2.new(0, 42, 0.5, 0)
-    Text.Size = UDim2.new(1, -52, 1, 0)
-    Text.Font = Enum.Font.GothamBold
-    Text.Text = "Player"
-    Text.TextSize = 15
-    Text.TextXAlignment = Enum.TextXAlignment.Left
-    Text.TextColor3 = Color3.fromRGB(255,255,255)
-    Text.ZIndex = 2
+	local Text = Instance.new("TextLabel")
+	Text.Name = "Label"; Text.Parent = BtnPlayer
+	Text.BackgroundTransparency = 1
+	Text.AnchorPoint = Vector2.new(0,0.5)
+	Text.Position = UDim2.new(0, 42, 0.5, 0)
+	Text.Size = UDim2.new(1, -52, 1, 0)
+	Text.Font = Enum.Font.GothamBold
+	Text.Text = "Player"; Text.TextSize = 15
+	Text.TextXAlignment = Enum.TextXAlignment.Left
+	Text.TextColor3 = Color3.fromRGB(255,255,255); Text.ZIndex = 2
 
-    local COLOR_IDLE   = Color3.fromRGB(20,20,20)
-    local COLOR_HOVER  = Color3.fromRGB(28,28,28)
-    local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
+	local COLOR_IDLE   = Color3.fromRGB(20,20,20)
+	local COLOR_HOVER  = Color3.fromRGB(28,28,28)
+	local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
+	local function tweenBG(c)
+		TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = c}):Play()
+	end
+	BtnPlayer:SetAttribute("active", false)
+	Click.MouseEnter:Connect(function() if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_HOVER) end end)
+	Click.MouseLeave:Connect(function() if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_IDLE)  end end)
+	Click.MouseButton1Down:Connect(function() tweenBG(COLOR_ACTIVE); Icon:TweenSize(UDim2.new(0,20,0,20),"Out","Quad",0.08,true) end)
+	Click.MouseButton1Up:Connect(function()   Icon:TweenSize(UDim2.new(0,22,0,22),"Out","Quad",0.08,true) end)
 
-    local function tweenBG(c)
-        TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundColor3 = c
-        }):Play()
-    end
-
-    BtnPlayer:SetAttribute("active", false)
-
-    Click.MouseEnter:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_HOVER) end
-    end)
-    Click.MouseLeave:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_IDLE) end
-    end)
-    Click.MouseButton1Down:Connect(function()
-        tweenBG(COLOR_ACTIVE)
-        Icon:TweenSize(UDim2.new(0,20,0,20), "Out", "Quad", 0.08, true)
-    end)
-    Click.MouseButton1Up:Connect(function()
-        Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
-    end)
-
-    -- เมื่อกดแล้วแสดงหัวข้อ + เปิดคอนเทนต์ที่เลื่อนได้
-    Click.MouseButton1Click:Connect(function()
-        BtnPlayer:SetAttribute("active", true)
-        tweenBG(COLOR_ACTIVE)
-        if stroke then
-            stroke(BtnPlayer, 1.8, ACCENT, 1)
-            task.delay(0.25, function() stroke(BtnPlayer, 1.2, ACCENT, 0.6) end)
-        end
-
-        local header = Right:FindFirstChild("BigHeader")
-        if header then header.Visible = true end
-
-        local scroll = Right:FindFirstChild("RightScroll")
-        if scroll then
-            scroll.Visible = true
-        end
-    end)
+	Click.MouseButton1Click:Connect(function()
+		BtnPlayer:SetAttribute("active", true)
+		tweenBG(COLOR_ACTIVE)
+		stroke(BtnPlayer, 1.8, ACCENT, 1); task.delay(0.25, function() stroke(BtnPlayer, 1.2, ACCENT, 0.6) end)
+		local header = Right:FindFirstChild("BigHeader"); if header then header.Visible = true end
+	end)
 end
 
--- ========= BigHeader (ตรึงบน) =========
+-- ##############################################################
+-- 2) หัวข้อใหญ่ฝั่งขวา (BigHeader) + ติดบนสุดเสมอ
+-- ##############################################################
 local BigHeader = Right:FindFirstChild("BigHeader")
 if not BigHeader then
-    BigHeader = Instance.new("Frame")
-    BigHeader.Name = "BigHeader"
-    BigHeader.Parent = Right
-    BigHeader.BackgroundTransparency = 1
-    BigHeader.Size = UDim2.new(1, -(PAD*2), 0, 36)
-    BigHeader.Position = UDim2.new(0, PAD, 0, PAD)
-    BigHeader.Visible = false  -- โชว์เมื่อกดปุ่ม Player
+	BigHeader = Instance.new("Frame")
+	BigHeader.Name = "BigHeader"; BigHeader.Parent = Right
+	BigHeader.BackgroundTransparency = 1
+	BigHeader.Size = UDim2.new(0, 200, 0, 36)
+	BigHeader.Position = UDim2.new(0, 14, 0, 12)
+	-- เริ่ม “แสดง” ไว้เลย เพื่อคำนวณตำแหน่ง scroll ถูก
+	BigHeader.Visible = true
 
-    local HIcon = Instance.new("ImageLabel")
-    HIcon.Name = "Icon"
-    HIcon.Parent = BigHeader
-    HIcon.BackgroundTransparency = 1
-    HIcon.AnchorPoint = Vector2.new(0, 0.5)
-    HIcon.Position = UDim2.new(0, 0, 0.5, 0)
-    HIcon.Size = UDim2.fromOffset(24, 24)
-    HIcon.Image = PLAYER_ICON
-    HIcon.ScaleType = Enum.ScaleType.Fit
+	local HIcon = Instance.new("ImageLabel")
+	HIcon.Name = "Icon"; HIcon.Parent = BigHeader
+	HIcon.BackgroundTransparency = 1
+	HIcon.AnchorPoint = Vector2.new(0, 0.5)
+	HIcon.Position = UDim2.new(0, 0, 0.5, 0)
+	HIcon.Size = UDim2.fromOffset(24, 24)
+	HIcon.Image = PLAYER_ICON; HIcon.ScaleType = Enum.ScaleType.Fit
 
-    local HText = Instance.new("TextLabel")
-    HText.Name = "Title"
-    HText.Parent = BigHeader
-    HText.BackgroundTransparency = 1
-    HText.AnchorPoint = Vector2.new(0, 0.5)
-    HText.Position = UDim2.new(0, 30, 0.5, 0)
-    HText.Size = UDim2.new(1, -34, 1, 0)
-    HText.Font = Enum.Font.GothamBold
-    HText.Text = "Player"
-    HText.TextSize = 18
-    HText.TextXAlignment = Enum.TextXAlignment.Left
-    HText.TextColor3 = Color3.fromRGB(255,255,255)
+	local HText = Instance.new("TextLabel")
+	HText.Name = "Title"; HText.Parent = BigHeader
+	HText.BackgroundTransparency = 1
+	HText.AnchorPoint = Vector2.new(0, 0.5)
+	HText.Position = UDim2.new(0, 30, 0.5, 0)
+	HText.Size = UDim2.new(1, -34, 1, 0)
+	HText.Font = Enum.Font.GothamBold
+	HText.Text = "Player"; HText.TextSize = 18
+	HText.TextXAlignment = Enum.TextXAlignment.Left
+	HText.TextColor3 = Color3.fromRGB(255,255,255)
+end
+BigHeader.ZIndex = (Right.ZIndex or 1) + 5
+BigHeader.ClipsDescendants = false
+
+-- ##############################################################
+-- 3) สร้าง ScrollingFrame ให้กรอบขวา + ย้ายคอนเทนต์เข้าไป
+-- ##############################################################
+if not Right:FindFirstChild("ContentScroll") then
+	local PAD_OUTER = 8
+	local function currentTopGap()
+		return (BigHeader.Visible and (BigHeader.AbsoluteSize.Y + 16)) or 56
+	end
+
+	local holder = Instance.new("ScrollingFrame")
+	holder.Name = "ContentScroll"; holder.Parent = Right
+	holder.BackgroundTransparency = 1; holder.BorderSizePixel = 0
+	holder.ScrollBarThickness = 6
+	holder.ScrollingDirection = Enum.ScrollingDirection.Y
+	holder.ScrollingEnabled = true
+	holder.ElasticBehavior = Enum.ElasticBehavior.Never
+	holder.ClipsDescendants = true
+	holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	holder.CanvasSize = UDim2.new(0,0,0,0)
+
+	local function applyTop()
+		local gap = currentTopGap()
+		holder.Position = UDim2.new(0, PAD_OUTER, 0, gap)
+		holder.Size     = UDim2.new(1, -(PAD_OUTER*2), 1, -(gap + PAD_OUTER))
+	end
+	applyTop()
+	BigHeader:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyTop)
+	BigHeader:GetPropertyChangedSignal("Visible"):Connect(applyTop)
+
+	local innerPad = Instance.new("UIPadding")
+	innerPad.PaddingTop    = UDim.new(0, 8)
+	innerPad.PaddingBottom = UDim.new(0, 8)
+	innerPad.PaddingLeft   = UDim.new(0, 8)
+	innerPad.PaddingRight  = UDim.new(0, 8)
+	innerPad.Parent = holder
+
+	local layout = Instance.new("UIListLayout")
+	layout.Name = "ContentLayout"; layout.Parent = holder
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 8)
+
+	-- ย้ายทุกคอนเทนต์ (ยกเว้น BigHeader/holder เอง) เข้าไป
+	for _, ch in ipairs(Right:GetChildren()) do
+		if ch ~= holder and ch ~= BigHeader and ch:IsA("GuiObject") then ch.Parent = holder end
+	end
+
+	-- ทำให้รูปภาพเต็มกรอบและไม่เลื่อนไหลเอง
+	local function fixImage(img)
+		if not img:IsA("ImageLabel") then return end
+		img.ScaleType = Enum.ScaleType.Fit
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.Size = UDim2.fromScale(1, 1)
+		if img.Parent and img.Parent:IsA("GuiObject") then img.Parent.ClipsDescendants = true end
+	end
+	for _,d in ipairs(holder:GetDescendants()) do if d:IsA("ImageLabel") then fixImage(d) end end
+	holder.DescendantAdded:Connect(function(d) if d:IsA("ImageLabel") then fixImage(d) end end)
 end
 
--- ========= RightScroll (Kavo-style Scroll) =========
--- ครอบ “หน้าคอนเทนต์ทั้งหมด” ยกเว้น BigHeader ให้เลื่อนขึ้นลงได้ 100%
-local RightScroll = Right:FindFirstChild("RightScroll")
-if not RightScroll then
-    RightScroll = Instance.new("ScrollingFrame")
-    RightScroll.Name = "RightScroll"
-    RightScroll.Parent = Right
-    RightScroll.BackgroundTransparency = 1
-    RightScroll.BorderSizePixel = 0
-    RightScroll.ClipsDescendants = true
-    RightScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-    RightScroll.ScrollBarThickness = BAR_THICK
-    RightScroll.ScrollBarImageColor3 = ACCENT
-    RightScroll.AnchorPoint = Vector2.new(0,0)
-    RightScroll.Position = UDim2.new(0, PAD, 0, TOP_GAP)
-    RightScroll.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
-
-    -- จุดสำคัญ: ใช้ AutomaticCanvasSize = Y (ไม่ต้องคำนวนเอง)
-    RightScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    RightScroll.CanvasSize = UDim2.new(0,0,0,0) -- ให้ auto ทำงาน
-
-    -- ย้าย “ทุกอย่าง” ที่เป็นคอนเทนต์ (ยกเว้น BigHeader และ RightScroll เอง) มาไว้ใน Content
-    local Content = Instance.new("Frame")
-    Content.Name = "Content"
-    Content.Parent = RightScroll
-    Content.BackgroundTransparency = 1
-    Content.Size = UDim2.new(1, -PAD*2, 0, 0) -- กว้างเต็ม เว้นข้าง
-    Content.Position = UDim2.new(0, PAD, 0, 0)
-    Content.AutomaticSize = Enum.AutomaticSize.Y
-
-    local layout = Instance.new("UIListLayout")
-    layout.Parent = Content
-    layout.FillDirection = Enum.FillDirection.Vertical
-    layout.Padding = UDim.new(0, 8)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    -- helper: ตรวจว่าเป็นชิ้นคอนเทนต์ที่ควรย้าย
-    local function isContentGui(obj)
-        return obj:IsA("GuiObject")
-           and obj.Name ~= "BigHeader"
-           and obj.Name ~= "RightScroll"
-    end
-
-    -- ย้ายของเดิมเข้า Content
-    for _,ch in ipairs(Right:GetChildren()) do
-        if isContentGui(ch) then
-            ch.Parent = Content
-        end
-    end
-
-    -- ถ้ามีของใหม่เพิ่มเข้ามาทีหลัง ก็ย้ายให้อัตโนมัติ
-    Right.ChildAdded:Connect(function(ch)
-        if isContentGui(ch) then
-            ch.Parent = Content
-        end
-    end)
-
-    -- เริ่มต้นซ่อน จนกว่าจะกดปุ่ม Player
-    RightScroll.Visible = false
-end
-
--- ====== (จบ) ======
+----------------------------------------------------------------
+-- END
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
