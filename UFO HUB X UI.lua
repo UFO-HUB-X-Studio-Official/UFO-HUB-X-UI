@@ -952,32 +952,26 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X — Fly v8.4 (final patch): stop noclip when OFF (restore Default collision) + keep all previous fixes
+-- 🛸 UFO HUB X — Fly v8.4.1 (OFF = ลุกขึ้น/เดินได้แน่นอน): unghostify + reset humanoid state
 local CoreGui    = game:GetService("CoreGui")
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Physics    = game:GetService("PhysicsService")
 local LP         = Players.LocalPlayer
 
-pcall(function()
-	local x = CoreGui:FindFirstChild("UFO_FlyPadOverlay"); if x then x:Destroy() end
-end)
+pcall(function() local x=CoreGui:FindFirstChild("UFO_FlyPadOverlay"); if x then x:Destroy() end end)
 
 -- === THEME / SPEED ===
 local ACCENT = Color3.fromRGB(0,255,140)
 local COL_BG = Color3.fromRGB(0,0,0)
 local COL_TXT= Color3.fromRGB(255,255,255)
-
-local FLY_SPEED  = 320
-local FLY_UPVEL  = 220
-local TURN_ACCEL = 14
-local HOVER_LIFT = 6.5
+local FLY_SPEED, FLY_UPVEL, TURN_ACCEL, HOVER_LIFT = 320, 220, 14, 6.5
 
 -- === LAYOUT ===
 local BTN_SIZE,GAP,PAD_LEFT,PAD_BOT = 54,10,95,170
 local RBTN_SIZE,RBTN_GAP,RPAD_RIGHT,RPAD_BOT = 64,24,120,210
 
--- === Find anchors ===
+-- === find anchors ===
 local function findPlayerPage()
 	for _,ui in ipairs(CoreGui:GetDescendants()) do
 		if ui:IsA("Frame") and ui.Name=="PlayerPage" then return ui end
@@ -1005,45 +999,29 @@ local function createFlyBox(parent)
 	fb.BackgroundColor3=COL_BG; fb.BorderSizePixel=0
 	local st=Instance.new("UIStroke",fb); st.Color=ACCENT; st.Thickness=1.3; st.Transparency=.35
 	Instance.new("UICorner",fb).CornerRadius=UDim.new(0,10)
-
-	local title=Instance.new("TextLabel")
-	title.Name="Title"; title.Parent=fb; title.BackgroundTransparency=1
-	title.Font=Enum.Font.GothamBold; title.TextSize=14; title.Text="Fly ✈️"
-	title.TextColor3=COL_TXT; title.TextXAlignment=Enum.TextXAlignment.Left
+	local title=Instance.new("TextLabel"); title.Name="Title"; title.Parent=fb
+	title.BackgroundTransparency=1; title.Font=Enum.Font.GothamBold; title.TextSize=14
+	title.Text="Fly ✈️"; title.TextColor3=COL_TXT; title.TextXAlignment=Enum.TextXAlignment.Left
 	title.AnchorPoint=Vector2.new(0,0.5); title.Position=UDim2.new(0,10,0.5,0); title.Size=UDim2.new(0.6,0,1,0)
-
 	local SW_W,SW_H=30,14
-	local sw=Instance.new("Frame")
-	sw.Name="Switch"; sw.Parent=fb; sw.BackgroundColor3=COL_BG; sw.BorderSizePixel=0
+	local sw=Instance.new("Frame"); sw.Name="Switch"; sw.Parent=fb; sw.BackgroundColor3=COL_BG; sw.BorderSizePixel=0
 	sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0); sw.Size=UDim2.fromOffset(SW_W,SW_H); sw.Active=true
 	Instance.new("UICorner",sw).CornerRadius=UDim.new(0,999)
 	local ss=Instance.new("UIStroke",sw); ss.Color=ACCENT; ss.Thickness=1; ss.Transparency=.3
-
-	local dot=Instance.new("Frame")
-	dot.Name="Dot"; dot.Parent=sw; dot.BackgroundColor3=Color3.fromRGB(120,120,120)
-	dot.BorderSizePixel=0; dot.AnchorPoint=Vector2.new(0,0.5)
-	dot.Position=UDim2.new(0,2,0.5,0); dot.Size=UDim2.fromOffset(SW_H-4,SW_H-4)
+	local dot=Instance.new("Frame"); dot.Name="Dot"; dot.Parent=sw; dot.BackgroundColor3=Color3.fromRGB(120,120,120)
+	dot.BorderSizePixel=0; dot.AnchorPoint=Vector2.new(0,0.5); dot.Position=UDim2.new(0,2,0.5,0); dot.Size=UDim2.fromOffset(SW_H-4,SW_H-4)
 	Instance.new("UICorner",dot).CornerRadius=UDim.new(0,999)
-
-	local hit=Instance.new("TextButton")
-	hit.Name="Hit"; hit.Parent=sw; hit.BackgroundTransparency=1; hit.Text=""; hit.AutoButtonColor=false
+	local hit=Instance.new("TextButton"); hit.Name="Hit"; hit.Parent=sw; hit.BackgroundTransparency=1; hit.Text=""; hit.AutoButtonColor=false
 	hit.Size=UDim2.fromScale(1,1); hit.ZIndex=50
-
 	local enabled=Instance.new("BoolValue",fb); enabled.Name="Enabled"; enabled.Value=false
 	local function setState(on)
 		enabled.Value=on
-		if on then
-			dot:TweenPosition(UDim2.new(1,-(SW_H-2),0.5,0),"Out","Quad",0.12,true)
-			dot.BackgroundColor3=ACCENT
-		else
-			dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.12,true)
-			dot.BackgroundColor3=Color3.fromRGB(120,120,120)
-		end
+		if on then dot:TweenPosition(UDim2.new(1,-(SW_H-2),0.5,0),"Out","Quad",0.12,true); dot.BackgroundColor3=ACCENT
+		else dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.12,true); dot.BackgroundColor3=Color3.fromRGB(120,120,120) end
 	end
 	hit.Activated:Connect(function() setState(not enabled.Value) end)
 	return fb
 end
-
 local function alignFlyBox()
 	local page=findPlayerPage(); if not page then return end
 	local anchor=findSpeedRow(page)
@@ -1051,15 +1029,12 @@ local function alignFlyBox()
 	local ax=anchor.AbsolutePosition.X-page.AbsolutePosition.X
 	local ay=anchor.AbsolutePosition.Y-page.AbsolutePosition.Y
 	local aw,ah=anchor.AbsoluteSize.X,anchor.AbsoluteSize.Y
-	fb.AnchorPoint=Vector2.new(0,0); fb.Size=UDim2.fromOffset(aw,ah)
-	fb.Position=UDim2.new(0,ax,0,ay-(ah+12))
+	fb.AnchorPoint=Vector2.new(0,0); fb.Size=UDim2.fromOffset(aw,ah); fb.Position=UDim2.new(0,ax,0,ay-(ah+12))
 end
-alignFlyBox()
-do local page=findPlayerPage(); if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end end
+alignFlyBox(); do local p=findPlayerPage(); if p then p:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end end
 
--- === UI buttons ===
-local function pressFx(btn,on)
-	local stroke=btn:FindFirstChildOfClass("UIStroke")
+-- === buttons ===
+local function pressFx(btn,on) local stroke=btn:FindFirstChildOfClass("UIStroke")
 	if on then btn:TweenSize(UDim2.fromOffset(btn.Size.X.Offset-6,btn.Size.Y.Offset-6),"Out","Quad",0.08,true) if stroke then stroke.Thickness=2.4 end
 	else local base=btn:GetAttribute("baseSize") or btn.Size.X.Offset; btn:TweenSize(UDim2.fromOffset(base,base),"Out","Quad",0.08,true) if stroke then stroke.Thickness=1.6 end end
 end
@@ -1068,14 +1043,11 @@ local function newSquareButton(parent,label,side)
 	b.Size=UDim2.fromOffset(side,side); b:SetAttribute("baseSize",side)
 	b.Font=Enum.Font.GothamBold; b.TextSize=16; b.TextColor3=COL_TXT; b.BackgroundColor3=COL_BG
 	local s=Instance.new("UIStroke",b); s.Color=ACCENT; s.Thickness=1.6; s.Transparency=.2
-	Instance.new("UICorner",b).CornerRadius=UDim.new(0,8)
-	return b
+	Instance.new("UICorner",b).CornerRadius=UDim.new(0,8); return b
 end
 
-local overlay=Instance.new("ScreenGui")
-overlay.Name="UFO_FlyPadOverlay"; overlay.IgnoreGuiInset=true
-overlay.DisplayOrder=2000; overlay.ResetOnSpawn=false; overlay.Enabled=false
-overlay.Parent=CoreGui
+local overlay=Instance.new("ScreenGui"); overlay.Name="UFO_FlyPadOverlay"; overlay.IgnoreGuiInset=true
+overlay.DisplayOrder=2000; overlay.ResetOnSpawn=false; overlay.Enabled=false; overlay.Parent=CoreGui
 
 local pad=Instance.new("Frame"); pad.Parent=overlay; pad.BackgroundTransparency=1
 pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
@@ -1084,58 +1056,40 @@ local upBtn    = newSquareButton(pad,"▲",BTN_SIZE)
 local leftBtn  = newSquareButton(pad,"◀",BTN_SIZE)
 local rightBtn = newSquareButton(pad,"▶",BTN_SIZE)
 local downBtn  = newSquareButton(pad,"▼",BTN_SIZE)
-upBtn.Position    = UDim2.fromOffset(BTN_SIZE+GAP,0)
-leftBtn.Position  = UDim2.fromOffset(0,BTN_SIZE+GAP)
-rightBtn.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP),BTN_SIZE+GAP)
-downBtn.Position  = UDim2.fromOffset(BTN_SIZE+GAP,2*(BTN_SIZE+GAP))
+upBtn.Position=UDim2.fromOffset(BTN_SIZE+GAP,0)
+leftBtn.Position=UDim2.fromOffset(0,BTN_SIZE+GAP)
+rightBtn.Position=UDim2.fromOffset(2*(BTN_SIZE+GAP),BTN_SIZE+GAP)
+downBtn.Position=UDim2.fromOffset(BTN_SIZE+GAP,2*(BTN_SIZE+GAP))
 
 local rpad=Instance.new("Frame"); rpad.Parent=overlay; rpad.BackgroundTransparency=1
 rpad.AnchorPoint=Vector2.new(1,1); rpad.Position=UDim2.new(1,-RPAD_RIGHT,1,-RPAD_BOT)
 rpad.Size=UDim2.fromOffset(RBTN_SIZE, RBTN_SIZE*2+RBTN_GAP)
-local riseBtn = newSquareButton(rpad,"⬆",RBTN_SIZE);  riseBtn.Position = UDim2.fromOffset(0,0)
-local fallBtn = newSquareButton(rpad,"⬇",RBTN_SIZE);  fallBtn.Position = UDim2.fromOffset(0,RBTN_SIZE+RBTN_GAP)
+local riseBtn=newSquareButton(rpad,"⬆",RBTN_SIZE);  riseBtn.Position=UDim2.fromOffset(0,0)
+local fallBtn=newSquareButton(rpad,"⬇",RBTN_SIZE);  fallBtn.Position=UDim2.fromOffset(0,RBTN_SIZE+RBTN_GAP)
 
--- === Character helpers ===
-local function getHum()
-	local ch = LP.Character or LP.CharacterAdded:Wait()
-	return ch:FindFirstChildOfClass("Humanoid"), ch
-end
-local function getRoot()
-	local _,ch=getHum(); if not ch then return end
-	return ch:FindFirstChild("HumanoidRootPart")
-end
+-- === character helpers ===
+local function getHum() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChildOfClass("Humanoid"), ch end
+local function getRoot() local _,ch=getHum(); if not ch then return end; return ch:FindFirstChild("HumanoidRootPart") end
 local function ensureForce(root)
-	local att = root:FindFirstChild("UFO_Att") or Instance.new("Attachment",root); att.Name="UFO_Att"
-	local vf  = root:FindFirstChild("UFO_VF")  or Instance.new("VectorForce",root); vf.Name="UFO_VF"
-	vf.Attachment0 = att; vf.RelativeTo = Enum.ActuatorRelativeTo.World
-	return vf
+	local att=root:FindFirstChild("UFO_Att") or Instance.new("Attachment",root); att.Name="UFO_Att"
+	local vf=root:FindFirstChild("UFO_VF") or Instance.new("VectorForce",root); vf.Name="UFO_VF"
+	vf.Attachment0=att; vf.RelativeTo=Enum.ActuatorRelativeTo.World; return vf
 end
 
--- === Collision Groups ===
-local GHOST   = "UFO_Ghost"
-local DEFAULT = "Default"
+-- === collision groups ===
+local GHOST, DEFAULT = "UFO_Ghost", "Default"
 pcall(function() Physics:CreateCollisionGroup(GHOST) end)
-for _,g in ipairs(Physics:GetCollisionGroups()) do
-	pcall(function() Physics:CollisionGroupSetCollidable(GHOST, g.name, false) end)
-end
+for _,g in ipairs(Physics:GetCollisionGroups()) do pcall(function() Physics:CollisionGroupSetCollidable(GHOST, g.name, false) end) end
 pcall(function() Physics:CollisionGroupSetCollidable(GHOST, GHOST, false) end)
 
 local function ghostify(character)
 	for _,p in ipairs(character:GetDescendants()) do
-		if p:IsA("BasePart") then
-			p.CollisionGroup = GHOST
-			p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
-			p.Massless=true
-		end
+		if p:IsA("BasePart") then p.CollisionGroup=GHOST; p.CanCollide=false; p.CanTouch=false; p.CanQuery=false; p.Massless=true end
 	end
 end
-local function unghostify(character) -- ☑ คืนสภาพตอนปิดสวิตช์
+local function unghostify(character)
 	for _,p in ipairs(character:GetDescendants()) do
-		if p:IsA("BasePart") then
-			p.CollisionGroup = DEFAULT
-			p.CanCollide=true;  p.CanTouch=true;  p.CanQuery=true
-			p.Massless=false
-		end
+		if p:IsA("BasePart") then p.CollisionGroup=DEFAULT; p.CanCollide=true; p.CanTouch=true; p.CanQuery=true; p.Massless=false end
 	end
 end
 
@@ -1145,127 +1099,122 @@ local function setNoClip(ch,on)
 		ghostify(ch)
 		if noclipStepConn then noclipStepConn:Disconnect() end
 		if childConn     then childConn:Disconnect()     end
-		noclipStepConn = RunService.Stepped:Connect(function() ghostify(ch) end)
-		childConn = ch.DescendantAdded:Connect(function(d)
-			if d:IsA("BasePart") then
-				d.CollisionGroup = GHOST
-				d.CanCollide=false; d.CanTouch=false; d.CanQuery=false
-				d.Massless=true
-			end
+		noclipStepConn=RunService.Stepped:Connect(function() ghostify(ch) end)
+		childConn=ch.DescendantAdded:Connect(function(d)
+			if d:IsA("BasePart") then d.CollisionGroup=GHOST; d.CanCollide=false; d.CanTouch=false; d.CanQuery=false; d.Massless=true end
 		end)
 	else
 		if noclipStepConn then noclipStepConn:Disconnect(); noclipStepConn=nil end
 		if childConn     then childConn:Disconnect();     childConn=nil end
-		unghostify(ch) -- <<< สำคัญ: คืน Default group + เปิด collide
+		unghostify(ch)
 	end
 end
 
+-- physics toggles
 local function setHumanoidPhysics(h,on)
 	if on then
-		h.PlatformStand = true
+		h.PlatformStand=true
 		pcall(function() h:ChangeState(Enum.HumanoidStateType.Physics) end)
 	else
-		h.PlatformStand = false
+		h.PlatformStand=false
 	end
 end
-
--- === input hold ===
-local move = {F=false,B=false,L=false,R=false, Up=false, Down=false}
-local function hookHold(btn, key)
-	btn.MouseButton1Down:Connect(function() move[key]=true  pressFx(btn,true)  end)
-	btn.MouseButton1Up:Connect(function()   move[key]=false pressFx(btn,false) end)
-	btn.MouseLeave:Connect(function()      move[key]=false pressFx(btn,false) end)
+local function fullyRestoreHumanoid(h, root)
+	-- ยกเลิกแรง/สถานะที่ค้าง
+	local vf = root and root:FindFirstChild("UFO_VF")
+	if vf then vf.Force = Vector3.zero end
+	root.AssemblyAngularVelocity = Vector3.zero
+	-- ลุกขึ้นและกลับไปวิ่ง
+	pcall(function() h.Sit=false end)
+	pcall(function() h:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+	task.delay(0.05, function() pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end)
 end
-hookHold(upBtn,"F"); hookHold(downBtn,"B"); hookHold(leftBtn,"L"); hookHold(rightBtn,"R")
-hookHold(riseBtn,"Up"); hookHold(fallBtn,"Down")
 
--- === bind switch ===
-local targetY = nil
+-- input
+local move={F=false,B=false,L=false,R=false,Up=false,Down=false}
+local function hookHold(btn,key)
+	btn.MouseButton1Down:Connect(function() move[key]=true  pressFx(btn,true) end)
+	btn.MouseButton1Up:Connect(function()   move[key]=false pressFx(btn,false) end)
+	btn.MouseLeave:Connect(function()       move[key]=false pressFx(btn,false) end)
+end
+hookHold(upBtn,"F"); hookHold(downBtn,"B"); hookHold(leftBtn,"L"); hookHold(rightBtn,"R"); hookHold(riseBtn,"Up"); hookHold(fallBtn,"Down")
+
+-- bind switch
+local targetY=nil
 local function bindVisibility()
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox") or createFlyBox(page)
 	local en=fb:FindFirstChild("Enabled"); if not en then return end
-
 	local function apply()
-		overlay.Enabled = en.Value
-		local hum,ch = getHum(); if not hum or not ch then return end
-		local root = getRoot(); if not root then return end
+		overlay.Enabled=en.Value
+		local hum,ch=getHum(); if not hum or not ch then return end
+		local root=getRoot();  if not root then return end
 		if en.Value then
-			setNoClip(ch,true)
-			setHumanoidPhysics(hum,true)
-			hum.AutoRotate=false
-			local vf=ensureForce(root)
-			vf.Force = Vector3.new(0, workspace.Gravity * root.AssemblyMass, 0)
-			root.CFrame = root.CFrame + Vector3.new(0,HOVER_LIFT,0)
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-			targetY = root.Position.Y
+			setNoClip(ch,true); setHumanoidPhysics(hum,true); hum.AutoRotate=false
+			local vf=ensureForce(root); vf.Force=Vector3.new(0,workspace.Gravity*root.AssemblyMass,0)
+			root.CFrame=root.CFrame+Vector3.new(0,HOVER_LIFT,0)
+			root.AssemblyLinearVelocity=Vector3.zero; root.AssemblyAngularVelocity=Vector3.zero
+			targetY=root.Position.Y
 		else
-			setNoClip(ch,false)
-			setHumanoidPhysics(hum,false)
-			hum.AutoRotate=true
-			targetY = nil
-			local vf = root:FindFirstChild("UFO_VF"); if vf then vf.Force = Vector3.zero end
+			setNoClip(ch,false); setHumanoidPhysics(hum,false); hum.AutoRotate=true
+			targetY=nil
+			fullyRestoreHumanoid(hum, root) -- <<< ทำให้ลุกและควบคุมได้ทันที
 		end
 	end
 	apply(); en.Changed:Connect(apply)
 end
 bindVisibility()
 
--- === main fly ===
+-- main
 RunService.Heartbeat:Connect(function(dt)
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
 	local en=fb:FindFirstChild("Enabled"); if not (en and en.Value) then return end
 
-	local hum,ch = getHum(); if not hum or not ch then return end
-	local root = getRoot(); if not root then return end
+	local hum,ch=getHum(); if not hum or not ch then return end
+	local root=getRoot(); if not root then return end
 
-	local vf=ensureForce(root)
-	vf.Force = Vector3.new(0, workspace.Gravity * root.AssemblyMass, 0)
+	local vf=ensureForce(root); vf.Force=Vector3.new(0,workspace.Gravity*root.AssemblyMass,0)
 
 	if targetY then
-		if move.Up   then targetY += FLY_UPVEL * dt end
-		if move.Down then targetY -= FLY_UPVEL * dt end
+		if move.Up then targetY += FLY_UPVEL*dt end
+		if move.Down then targetY -= FLY_UPVEL*dt end
 	end
 
 	local cam=workspace.CurrentCamera
-	local flatF=(Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z)); if flatF.Magnitude>0 then flatF=flatF.Unit end
-	local flatR=(Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z)); if flatR.Magnitude>0 then flatR=flatR.Unit end
+	local flatF=Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z); if flatF.Magnitude>0 then flatF=flatF.Unit end
+	local flatR=Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z); if flatR.Magnitude>0 then flatR=flatR.Unit end
 
-	local dir = Vector3.zero
+	local dir=Vector3.zero
 	if move.F then dir += flatF end
 	if move.B then dir -= flatF end
 	if move.L then dir -= flatR end
 	if move.R then dir += flatR end
-	local horizVel = (dir.Magnitude>0 and dir.Unit or Vector3.zero) * FLY_SPEED
+	local horizVel=(dir.Magnitude>0 and dir.Unit or Vector3.zero)*FLY_SPEED
 
-	local vY = 0
-	if move.Up then vY =  FLY_UPVEL elseif move.Down then vY = -FLY_UPVEL end
+	local vY=0; if move.Up then vY= FLY_UPVEL elseif move.Down then vY=-FLY_UPVEL end
 
-	local pos = root.Position
-	if targetY and vY == 0 then
-		root.AssemblyLinearVelocity = Vector3.new(horizVel.X, 0, horizVel.Z)
-		root.AssemblyAngularVelocity = Vector3.zero
-		local look = root.CFrame.LookVector
-		local anchorY = targetY
-		root.CFrame = CFrame.new(Vector3.new(pos.X, anchorY, pos.Z),
-		                         Vector3.new(pos.X, anchorY, pos.Z) + Vector3.new(look.X,0,look.Z))
+	local pos=root.Position
+	if targetY and vY==0 then
+		root.AssemblyLinearVelocity=Vector3.new(horizVel.X,0,horizVel.Z)
+		root.AssemblyAngularVelocity=Vector3.zero
+		local look=root.CFrame.LookVector; local anchorY=targetY
+		root.CFrame=CFrame.new(Vector3.new(pos.X,anchorY,pos.Z), Vector3.new(pos.X,anchorY,pos.Z)+Vector3.new(look.X,0,look.Z))
 	else
-		root.AssemblyLinearVelocity = Vector3.new(horizVel.X, vY, horizVel.Z)
-		root.AssemblyAngularVelocity = Vector3.zero
-		if targetY then targetY = pos.Y end
+		root.AssemblyLinearVelocity=Vector3.new(horizVel.X,vY,horizVel.Z)
+		root.AssemblyAngularVelocity=Vector3.zero
+		if targetY then targetY=pos.Y end
 	end
 
 	local wantLook=nil
-	if move.L then wantLook = -flatR end
-	if move.R then wantLook =  flatR end
-	if move.F then wantLook =  flatF end
-	if move.B and not (move.F or move.L or move.R) then wantLook = -flatF end
+	if move.L then wantLook=-flatR end
+	if move.R then wantLook= flatR end
+	if move.F then wantLook= flatF end
+	if move.B and not (move.F or move.L or move.R) then wantLook=-flatF end
 	if wantLook and wantLook.Magnitude>0 then
 		local alpha=1-math.exp(-TURN_ACCEL*dt)
 		local blended=(root.CFrame.LookVector*(1-alpha)+wantLook*alpha).Unit
 		local p=root.Position
-		root.CFrame = CFrame.new(p, p + Vector3.new(blended.X,0,blended.Z))
+		root.CFrame=CFrame.new(p, p+Vector3.new(blended.X,0,blended.Z))
 	end
 end)
