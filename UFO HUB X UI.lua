@@ -952,19 +952,18 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X — Fly v8.4 (patched): hard noclip + true hover lock + fix "DOWN not going"
+-- 🛸 UFO HUB X — Fly v8.4 (final patch): stop noclip when OFF (restore Default collision) + keep all previous fixes
 local CoreGui    = game:GetService("CoreGui")
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Physics    = game:GetService("PhysicsService")
 local LP         = Players.LocalPlayer
 
--- ลบ overlay ซ้ำ (คง UI/สวิตช์เดิม)
 pcall(function()
 	local x = CoreGui:FindFirstChild("UFO_FlyPadOverlay"); if x then x:Destroy() end
 end)
 
--- ===== Theme / Speed (เหมือนเดิม) =====
+-- === THEME / SPEED ===
 local ACCENT = Color3.fromRGB(0,255,140)
 local COL_BG = Color3.fromRGB(0,0,0)
 local COL_TXT= Color3.fromRGB(255,255,255)
@@ -974,11 +973,11 @@ local FLY_UPVEL  = 220
 local TURN_ACCEL = 14
 local HOVER_LIFT = 6.5
 
--- ===== Layout (เหมือนเดิม) =====
+-- === LAYOUT ===
 local BTN_SIZE,GAP,PAD_LEFT,PAD_BOT = 54,10,95,170
 local RBTN_SIZE,RBTN_GAP,RPAD_RIGHT,RPAD_BOT = 64,24,120,210
 
--- ===== หา PlayerPage / SpeedRow (เหมือนเดิม) =====
+-- === Find anchors ===
 local function findPlayerPage()
 	for _,ui in ipairs(CoreGui:GetDescendants()) do
 		if ui:IsA("Frame") and ui.Name=="PlayerPage" then return ui end
@@ -1000,7 +999,7 @@ local function findSpeedRow(page)
 	return page
 end
 
--- ===== กล่องสวิตช์ Fly (เหมือนเดิม) =====
+-- === Fly switch box ===
 local function createFlyBox(parent)
 	local fb=Instance.new("Frame"); fb.Name="FlyBox"; fb.Parent=parent
 	fb.BackgroundColor3=COL_BG; fb.BorderSizePixel=0
@@ -1058,7 +1057,7 @@ end
 alignFlyBox()
 do local page=findPlayerPage(); if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end end
 
--- ===== UI ปุ่ม (เหมือนเดิม) =====
+-- === UI buttons ===
 local function pressFx(btn,on)
 	local stroke=btn:FindFirstChildOfClass("UIStroke")
 	if on then btn:TweenSize(UDim2.fromOffset(btn.Size.X.Offset-6,btn.Size.Y.Offset-6),"Out","Quad",0.08,true) if stroke then stroke.Thickness=2.4 end
@@ -1078,7 +1077,6 @@ overlay.Name="UFO_FlyPadOverlay"; overlay.IgnoreGuiInset=true
 overlay.DisplayOrder=2000; overlay.ResetOnSpawn=false; overlay.Enabled=false
 overlay.Parent=CoreGui
 
--- D-Pad ซ้าย
 local pad=Instance.new("Frame"); pad.Parent=overlay; pad.BackgroundTransparency=1
 pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
 pad.Size=UDim2.fromOffset(BTN_SIZE*3+GAP*2, BTN_SIZE*3+GAP*2)
@@ -1091,14 +1089,13 @@ leftBtn.Position  = UDim2.fromOffset(0,BTN_SIZE+GAP)
 rightBtn.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP),BTN_SIZE+GAP)
 downBtn.Position  = UDim2.fromOffset(BTN_SIZE+GAP,2*(BTN_SIZE+GAP))
 
--- ปุ่ม ⬆ ⬇ ขวา
 local rpad=Instance.new("Frame"); rpad.Parent=overlay; rpad.BackgroundTransparency=1
 rpad.AnchorPoint=Vector2.new(1,1); rpad.Position=UDim2.new(1,-RPAD_RIGHT,1,-RPAD_BOT)
 rpad.Size=UDim2.fromOffset(RBTN_SIZE, RBTN_SIZE*2+RBTN_GAP)
 local riseBtn = newSquareButton(rpad,"⬆",RBTN_SIZE);  riseBtn.Position = UDim2.fromOffset(0,0)
 local fallBtn = newSquareButton(rpad,"⬇",RBTN_SIZE);  fallBtn.Position = UDim2.fromOffset(0,RBTN_SIZE+RBTN_GAP)
 
--- ===== Character helpers =====
+-- === Character helpers ===
 local function getHum()
 	local ch = LP.Character or LP.CharacterAdded:Wait()
 	return ch:FindFirstChildOfClass("Humanoid"), ch
@@ -1114,8 +1111,9 @@ local function ensureForce(root)
 	return vf
 end
 
--- ===== GHOST Collision Group (ทะลุทุกอย่าง/terrain จริง) =====
-local GHOST = "UFO_Ghost"
+-- === Collision Groups ===
+local GHOST   = "UFO_Ghost"
+local DEFAULT = "Default"
 pcall(function() Physics:CreateCollisionGroup(GHOST) end)
 for _,g in ipairs(Physics:GetCollisionGroups()) do
 	pcall(function() Physics:CollisionGroupSetCollidable(GHOST, g.name, false) end)
@@ -1131,6 +1129,15 @@ local function ghostify(character)
 		end
 	end
 end
+local function unghostify(character) -- ☑ คืนสภาพตอนปิดสวิตช์
+	for _,p in ipairs(character:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.CollisionGroup = DEFAULT
+			p.CanCollide=true;  p.CanTouch=true;  p.CanQuery=true
+			p.Massless=false
+		end
+	end
+end
 
 local noclipStepConn, childConn
 local function setNoClip(ch,on)
@@ -1138,9 +1145,7 @@ local function setNoClip(ch,on)
 		ghostify(ch)
 		if noclipStepConn then noclipStepConn:Disconnect() end
 		if childConn     then childConn:Disconnect()     end
-		noclipStepConn = RunService.Stepped:Connect(function()
-			ghostify(ch)
-		end)
+		noclipStepConn = RunService.Stepped:Connect(function() ghostify(ch) end)
 		childConn = ch.DescendantAdded:Connect(function(d)
 			if d:IsA("BasePart") then
 				d.CollisionGroup = GHOST
@@ -1151,10 +1156,10 @@ local function setNoClip(ch,on)
 	else
 		if noclipStepConn then noclipStepConn:Disconnect(); noclipStepConn=nil end
 		if childConn     then childConn:Disconnect();     childConn=nil end
+		unghostify(ch) -- <<< สำคัญ: คืน Default group + เปิด collide
 	end
 end
 
--- ===== เพิ่มโหมด Physics ให้ Humanoid ระหว่างบิน (แก้อาการ "ลงไม่ยอมลง") =====
 local function setHumanoidPhysics(h,on)
 	if on then
 		h.PlatformStand = true
@@ -1164,7 +1169,7 @@ local function setHumanoidPhysics(h,on)
 	end
 end
 
--- ===== input hold =====
+-- === input hold ===
 local move = {F=false,B=false,L=false,R=false, Up=false, Down=false}
 local function hookHold(btn, key)
 	btn.MouseButton1Down:Connect(function() move[key]=true  pressFx(btn,true)  end)
@@ -1174,7 +1179,7 @@ end
 hookHold(upBtn,"F"); hookHold(downBtn,"B"); hookHold(leftBtn,"L"); hookHold(rightBtn,"R")
 hookHold(riseBtn,"Up"); hookHold(fallBtn,"Down")
 
--- ===== binding กับสวิตช์ + hover lock จริง =====
+-- === bind switch ===
 local targetY = nil
 local function bindVisibility()
 	local page=findPlayerPage(); if not page then return end
@@ -1207,7 +1212,7 @@ local function bindVisibility()
 end
 bindVisibility()
 
--- ===== main fly =====
+-- === main fly ===
 RunService.Heartbeat:Connect(function(dt)
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
@@ -1216,17 +1221,14 @@ RunService.Heartbeat:Connect(function(dt)
 	local hum,ch = getHum(); if not hum or not ch then return end
 	local root = getRoot(); if not root then return end
 
-	-- ต้านแรงโน้มถ่วงตลอด
 	local vf=ensureForce(root)
 	vf.Force = Vector3.new(0, workspace.Gravity * root.AssemblyMass, 0)
 
-	-- ปรับ targetY จาก ⬆/⬇ ถ้ากด
 	if targetY then
 		if move.Up   then targetY += FLY_UPVEL * dt end
 		if move.Down then targetY -= FLY_UPVEL * dt end
 	end
 
-	-- ทิศทางแนวนอนตามกล้อง
 	local cam=workspace.CurrentCamera
 	local flatF=(Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z)); if flatF.Magnitude>0 then flatF=flatF.Unit end
 	local flatR=(Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z)); if flatR.Magnitude>0 then flatR=flatR.Unit end
@@ -1238,11 +1240,9 @@ RunService.Heartbeat:Connect(function(dt)
 	if move.R then dir += flatR end
 	local horizVel = (dir.Magnitude>0 and dir.Unit or Vector3.zero) * FLY_SPEED
 
-	-- ความเร็วแกน Y = 0 ถ้าไม่กด ⬆/⬇ (ไม่ลอยเอง)
 	local vY = 0
 	if move.Up then vY =  FLY_UPVEL elseif move.Down then vY = -FLY_UPVEL end
 
-	-- อัปเดตตำแหน่ง/ความเร็ว (ล็อกให้ “นิ่ง” เมื่อไม่กดขึ้น/ลง)
 	local pos = root.Position
 	if targetY and vY == 0 then
 		root.AssemblyLinearVelocity = Vector3.new(horizVel.X, 0, horizVel.Z)
@@ -1257,7 +1257,6 @@ RunService.Heartbeat:Connect(function(dt)
 		if targetY then targetY = pos.Y end
 	end
 
-	-- หมุนหน้าสมูท
 	local wantLook=nil
 	if move.L then wantLook = -flatR end
 	if move.R then wantLook =  flatR end
