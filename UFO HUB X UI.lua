@@ -1218,3 +1218,118 @@ RunService.Heartbeat:Connect(function(dt)
 		root.CFrame=CFrame.new(p, p+Vector3.new(blended.X,0,blended.Z))
 	end
 end)
+----------------------------------------------------------------
+-- UFO HUB X : Right Big Panel Scroll + Fixed Background
+-- - ทำให้ Right เลื่อนขึ้น/ลงได้
+-- - พื้นหลังเต็มกรอบ ไม่ไหล/ไม่ซูม และอยู่หลังคอนเทนต์
+-- วาง "ต่อท้าย" โค้ดเดิมได้เลย
+----------------------------------------------------------------
+local RunService = game:GetService("RunService")
+
+-- สร้าง/ล็อกภาพพื้นหลัง (อยู่นอก ScrollingFrame)
+local function ensureRightBackground()
+	if not Right then return end
+
+	-- padding ขอบด้านในของกรอบเขียว (ปรับได้)
+	local PAD = 12
+
+	-- หา/สร้าง Backdrop
+	local bg = Right:FindFirstChild("RightBG")
+	if not (bg and bg:IsA("ImageLabel")) then
+		bg = Instance.new("ImageLabel")
+		bg.Name = "RightBG"
+		bg.Parent = Right
+		bg.BorderSizePixel = 0
+		bg.BackgroundTransparency = 1
+		-- ใส่รูปที่ต้องการเป็นพื้นหลัง (ถ้าเพื่อนมีตัว BG เดิม ให้เปลี่ยน id ตรงนี้)
+		bg.Image = "rbxassetid://116976545042904" -- โลโก้เอเลี่ยนตัวเขียว
+		-- ให้ไปอยู่ชั้นหลังสุด
+		bg.ZIndex = 0
+	end
+
+	-- ให้ "เต็มกรอบ" ตามขนาด Right (ไม่ให้ซูมและไม่ให้เลื่อน)
+	bg.AnchorPoint = Vector2.new(0,0)
+	bg.Position    = UDim2.new(0, PAD, 0, PAD)
+	bg.Size        = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
+	-- ไม่ตั้ง ScaleType = Fit เพื่อให้เต็มกรอบจริง ๆ (ถ้าต้องการรักษาสัดส่วนให้เปลี่ยนเป็น Fit ได้)
+	bg.ScaleType   = Enum.ScaleType.Stretch
+
+	-- กันใครมาแก้ Size/Position ให้ดึงกลับ
+	if not bg:GetAttribute("LOCKED") then
+		bg:SetAttribute("LOCKED", true)
+		bg:GetPropertyChangedSignal("Position"):Connect(function()
+			bg.Position = UDim2.new(0, PAD, 0, PAD)
+		end)
+		bg:GetPropertyChangedSignal("Size"):Connect(function()
+			bg.Size = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
+		end)
+	end
+
+	-- ถ้า Right เปลี่ยนขนาด ให้คง "เต็มกรอบ" ไว้เสมอ
+	Right:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		bg.Position = UDim2.new(0, PAD, 0, PAD)
+		bg.Size     = UDim2.new(1, -(PAD*2), 1, -(PAD*2))
+	end)
+end
+
+-- ทำ Right ให้เลื่อนขึ้น/ลงได้ โดยเว้น BigHeader และ RightBG ไว้ด้านนอก
+local function makeRightScrollable()
+	if not Right or not Right.Parent then return end
+	if Right:FindFirstChild("RightScroll") then return end
+
+	local TOP_GAP = 56   -- เผื่อพื้นที่หัว (BigHeader)
+	local PAD     = 12
+	local BAR     = 6
+
+	-- สร้าง ScrollingFrame
+	local holder = Instance.new("ScrollingFrame")
+	holder.Name = "RightScroll"
+	holder.Parent = Right
+	holder.BackgroundTransparency = 1
+	holder.BorderSizePixel = 0
+	holder.ClipsDescendants = true
+	holder.ScrollingDirection = Enum.ScrollingDirection.Y
+	holder.ScrollBarThickness = BAR
+	holder.AnchorPoint = Vector2.new(0,0)
+	holder.Position = UDim2.new(0, PAD, 0, TOP_GAP)
+	holder.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
+	holder.CanvasSize = UDim2.new(0,0,0,0)
+	holder.ZIndex = 2 -- ให้อยู่เหนือพื้นหลัง
+
+	-- ย้ายลูกของ Right เข้า holder ยกเว้น BigHeader และ RightBG และตัว holder เอง
+	for _,ch in ipairs(Right:GetChildren()) do
+		if ch ~= holder and ch.Name ~= "BigHeader" and ch.Name ~= "RightBG" and ch:IsA("GuiObject") then
+			ch.Parent = holder
+			ch.ZIndex = 3 -- เหนือสกรอล
+		end
+	end
+
+	-- คำนวณ CanvasSize ตามคอนเทนต์จริง
+	local function updateCanvas()
+		local minY, maxY = math.huge, -math.huge
+		for _,c in ipairs(holder:GetChildren()) do
+			if c:IsA("GuiObject") and c.Visible then
+				local top = c.AbsolutePosition.Y - holder.AbsolutePosition.Y
+				local bot = top + c.AbsoluteSize.Y
+				if top < minY then minY = top end
+				if bot > maxY then maxY = bot end
+			end
+		end
+		if minY == math.huge then
+			holder.CanvasSize = UDim2.new(0,0,0,0)
+		else
+			local contentH = math.max(0, maxY - minY) + PAD
+			holder.CanvasSize = UDim2.new(0,0,0, contentH)
+		end
+	end
+
+	RunService.Heartbeat:Connect(updateCanvas)
+	updateCanvas()
+end
+
+-- เรียกใช้
+ensureRightBackground()
+makeRightScrollable()
+----------------------------------------------------------------
+-- END
+----------------------------------------------------------------
