@@ -371,186 +371,108 @@ do
     end
 end
 ----------------------------------------------------------------
--- 🛸 UFO HUB X : Player Button + BigHeader + Right Scroll (ONE FILE)
--- วางต่อท้ายสคริปต์หลักได้เลย ไม่ไปยุ่งหรือทำลายของเดิม
+-- UFO HUB X : Right Content Scroll + Background Lock (DROP-IN)
+-- ทำให้กรอบใหญ่ฝั่งขวาเลื่อนขึ้นลงได้ และล็อกภาพพื้นหลังให้เต็มกรอบ
 ----------------------------------------------------------------
-local TS          = game:GetService("TweenService")
-local RunService  = game:GetService("RunService")
+local RunService = game:GetService("RunService")
 
--- สมมติว่ามีตัวแปร Left / Right อยู่แล้ว (จาก UI เดิม)
-local Left  = rawget(getfenv(), "Left")  or Left
-local Right = rawget(getfenv(), "Right") or Right
-if not (Left and Right and Left.Parent and Right.Parent) then return end
+-- ปรับระยะให้พอดีกับดีไซน์เดิมของเพื่อน
+local TOP_GAP = 56          -- ระยะจากขอบบน (ไว้ให้หัวข้อ/แถบบน)
+local PAD     = 10          -- ระยะขอบซ้ายขวา/ล่าง
+local BAR_W   = 6           -- ความหนาแถบสกอร์ล
+local BG_IMG  = "rbxassetid://116976545042904"   -- เปลี่ยนได้ตามต้องการ (โลโก้)
 
--- ===== helpers (ไม่ชนของเดิม) =====
-local function corner(gui, r)
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = gui; return c
+-- ป้องกันสร้างซ้ำ
+if Right and not Right:FindFirstChild("RightScroll") then
+    -- 1) สร้างชั้นภาพพื้นหลัง (ไม่ไหลตามสกอร์ล และ “เต็มกรอบ” เสมอ)
+    local under = Right:FindFirstChild("Underlay")
+    if not under then
+        under = Instance.new("Frame")
+        under.Name = "Underlay"
+        under.Parent = Right
+        under.BackgroundTransparency = 1
+        under.BorderSizePixel = 0
+        under.ZIndex = 0
+        under.ClipsDescendants = true
+        under.Position = UDim2.new(0, PAD, 0, TOP_GAP)
+        under.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
+    end
+
+    local bg = under:FindFirstChild("Backdrop")
+    if not bg then
+        bg = Instance.new("ImageLabel")
+        bg.Name = "Backdrop"
+        bg.Parent = under
+        bg.BackgroundTransparency = 1
+        bg.BorderSizePixel = 0
+        bg.ZIndex = 0
+        bg.AnchorPoint = Vector2.new(0.5, 0.5)
+        bg.Position    = UDim2.fromScale(0.5, 0.5)
+        bg.Size        = UDim2.fromScale(1, 1)
+        -- **สำคัญ**: ให้ “เต็มกรอบ” ไม่ยืดเพี้ยน และไม่เลื่อนเอง
+        bg.ScaleType   = Enum.ScaleType.Crop     -- เต็มพื้นที่ (ครอปถ้าสัดส่วนไม่เท่ากัน)
+        bg.Image       = BG_IMG
+    else
+        -- รีเซ็ตเผื่อเคยโดนสคริปต์อื่นเปลี่ยนจนรูป “ไหลลง”
+        bg.AnchorPoint = Vector2.new(0.5, 0.5)
+        bg.Position    = UDim2.fromScale(0.5, 0.5)
+        bg.Size        = UDim2.fromScale(1, 1)
+        bg.ScaleType   = Enum.ScaleType.Crop
+    end
+
+    -- 2) ทำ “เนื้อหา” ให้เลื่อนขึ้นลงได้ โดยหัวข้อ/ภาพพื้นหลังไม่ขยับ
+    local holder = Instance.new("ScrollingFrame")
+    holder.Name = "RightScroll"
+    holder.Parent = Right
+    holder.BackgroundTransparency = 1
+    holder.BorderSizePixel = 0
+    holder.ClipsDescendants = true
+    holder.ScrollingDirection = Enum.ScrollingDirection.Y
+    holder.ScrollBarThickness = BAR_W
+    holder.AnchorPoint = Vector2.new(0, 0)
+    holder.Position = UDim2.new(0, PAD, 0, TOP_GAP)
+    holder.Size     = UDim2.new(1, -(PAD*2), 1, -(TOP_GAP + PAD))
+    holder.CanvasSize = UDim2.new(0, 0, 0, 0)
+    -- ใช้ออโต้ปรับสูง (รองรับ UI ที่จัดวางเองด้วย) + มีตัวคำนวณสำรองด้านล่าง
+    pcall(function() holder.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
+
+    -- ย้าย “ลูก ๆ” ทั้งหมดของ Right (ยกเว้นหัวข้อใหญ่/Underlay/ตัวเราเอง) ให้ไปอยู่ในสกอร์ล
+    for _, ch in ipairs(Right:GetChildren()) do
+        if ch ~= holder and ch ~= under and ch.Name ~= "BigHeader" and ch:IsA("GuiObject") then
+            ch.Parent = holder
+        end
+    end
+
+    -- 3) อัปเดต CanvasSize อัตโนมัติให้ครอบคลุมคอนเทนต์ทั้งหมด
+    local function updateCanvas()
+        local topY, botY = math.huge, -math.huge
+        for _, c in ipairs(holder:GetChildren()) do
+            if c:IsA("GuiObject") and c.Visible then
+                local gpos = c.AbsolutePosition.Y
+                local gbot = gpos + c.AbsoluteSize.Y
+                if gpos < topY then topY = gpos end
+                if gbot > botY then botY = gbot end
+            end
+        end
+        if topY < math.huge and botY > -math.huge then
+            local contentH = (botY - topY) + PAD
+            holder.CanvasSize = UDim2.new(0, 0, 0, contentH)
+        else
+            holder.CanvasSize = UDim2.new(0, 0, 0, 0)
+        end
+    end
+    RunService.Heartbeat:Connect(updateCanvas)
+    updateCanvas()
+
+    -- 4) กันกรณีสคริปต์อื่นขยับภาพพื้นหลังให้ “ไหลลง” → รีเซ็ตทุก ๆ เฟรม
+    RunService.Heartbeat:Connect(function()
+        if bg.Parent ~= under then bg.Parent = under end
+        bg.AnchorPoint = Vector2.new(0.5, 0.5)
+        bg.Position    = UDim2.fromScale(0.5, 0.5)
+        bg.Size        = UDim2.fromScale(1, 1)
+        bg.ScaleType   = Enum.ScaleType.Crop
+    end)
 end
-local function stroke(gui, th, col, tr)
-	local s = Instance.new("UIStroke"); s.Thickness = th or 1.2; s.Color = col or Color3.fromRGB(0,255,140); s.Transparency = tr or .6; s.Parent = gui; return s
-end
-
--- ===== config =====
-local PLAYER_ICON = "rbxassetid://116976545042904"
-local ACCENT      = Color3.fromRGB(0,255,140)
-
--- ##############################################################
--- 1) ปุ่ม PLAYER (ฝั่งซ้าย)
--- ##############################################################
-local BtnPlayer = Left:FindFirstChild("BtnPlayer")
-if not BtnPlayer then
-	BtnPlayer = Instance.new("Frame")
-	BtnPlayer.Name = "BtnPlayer"
-	BtnPlayer.Parent = Left
-	BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
-	BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-	BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
-	BtnPlayer.BorderSizePixel = 0
-	BtnPlayer.ClipsDescendants = true
-	corner(BtnPlayer, 10)
-	stroke(BtnPlayer, 1.2, ACCENT, 0.6)
-
-	local Click = Instance.new("TextButton")
-	Click.Name = "Click"; Click.Parent = BtnPlayer
-	Click.BackgroundTransparency = 1; Click.BorderSizePixel = 0
-	Click.Size = UDim2.new(1,0,1,0); Click.Text = ""
-
-	local Icon = Instance.new("ImageLabel")
-	Icon.Name = "Icon"; Icon.Parent = BtnPlayer
-	Icon.BackgroundTransparency = 1
-	Icon.AnchorPoint = Vector2.new(0,0.5)
-	Icon.Position  = UDim2.new(0, 10, 0.5, 0)
-	Icon.Size      = UDim2.new(0, 22, 0, 22)
-	Icon.Image     = PLAYER_ICON
-	Icon.ScaleType = Enum.ScaleType.Fit
-	Icon.ZIndex    = 2
-
-	local Text = Instance.new("TextLabel")
-	Text.Name = "Label"; Text.Parent = BtnPlayer
-	Text.BackgroundTransparency = 1
-	Text.AnchorPoint = Vector2.new(0,0.5)
-	Text.Position = UDim2.new(0, 42, 0.5, 0)
-	Text.Size = UDim2.new(1, -52, 1, 0)
-	Text.Font = Enum.Font.GothamBold
-	Text.Text = "Player"; Text.TextSize = 15
-	Text.TextXAlignment = Enum.TextXAlignment.Left
-	Text.TextColor3 = Color3.fromRGB(255,255,255); Text.ZIndex = 2
-
-	local COLOR_IDLE   = Color3.fromRGB(20,20,20)
-	local COLOR_HOVER  = Color3.fromRGB(28,28,28)
-	local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
-	local function tweenBG(c)
-		TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = c}):Play()
-	end
-	BtnPlayer:SetAttribute("active", false)
-	Click.MouseEnter:Connect(function() if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_HOVER) end end)
-	Click.MouseLeave:Connect(function() if not BtnPlayer:GetAttribute("active") then tweenBG(COLOR_IDLE)  end end)
-	Click.MouseButton1Down:Connect(function() tweenBG(COLOR_ACTIVE); Icon:TweenSize(UDim2.new(0,20,0,20),"Out","Quad",0.08,true) end)
-	Click.MouseButton1Up:Connect(function()   Icon:TweenSize(UDim2.new(0,22,0,22),"Out","Quad",0.08,true) end)
-
-	Click.MouseButton1Click:Connect(function()
-		BtnPlayer:SetAttribute("active", true)
-		tweenBG(COLOR_ACTIVE)
-		stroke(BtnPlayer, 1.8, ACCENT, 1); task.delay(0.25, function() stroke(BtnPlayer, 1.2, ACCENT, 0.6) end)
-		local header = Right:FindFirstChild("BigHeader"); if header then header.Visible = true end
-	end)
-end
-
--- ##############################################################
--- 2) หัวข้อใหญ่ฝั่งขวา (BigHeader) + ติดบนสุดเสมอ
--- ##############################################################
-local BigHeader = Right:FindFirstChild("BigHeader")
-if not BigHeader then
-	BigHeader = Instance.new("Frame")
-	BigHeader.Name = "BigHeader"; BigHeader.Parent = Right
-	BigHeader.BackgroundTransparency = 1
-	BigHeader.Size = UDim2.new(0, 200, 0, 36)
-	BigHeader.Position = UDim2.new(0, 14, 0, 12)
-	-- เริ่ม “แสดง” ไว้เลย เพื่อคำนวณตำแหน่ง scroll ถูก
-	BigHeader.Visible = true
-
-	local HIcon = Instance.new("ImageLabel")
-	HIcon.Name = "Icon"; HIcon.Parent = BigHeader
-	HIcon.BackgroundTransparency = 1
-	HIcon.AnchorPoint = Vector2.new(0, 0.5)
-	HIcon.Position = UDim2.new(0, 0, 0.5, 0)
-	HIcon.Size = UDim2.fromOffset(24, 24)
-	HIcon.Image = PLAYER_ICON; HIcon.ScaleType = Enum.ScaleType.Fit
-
-	local HText = Instance.new("TextLabel")
-	HText.Name = "Title"; HText.Parent = BigHeader
-	HText.BackgroundTransparency = 1
-	HText.AnchorPoint = Vector2.new(0, 0.5)
-	HText.Position = UDim2.new(0, 30, 0.5, 0)
-	HText.Size = UDim2.new(1, -34, 1, 0)
-	HText.Font = Enum.Font.GothamBold
-	HText.Text = "Player"; HText.TextSize = 18
-	HText.TextXAlignment = Enum.TextXAlignment.Left
-	HText.TextColor3 = Color3.fromRGB(255,255,255)
-end
-BigHeader.ZIndex = (Right.ZIndex or 1) + 5
-BigHeader.ClipsDescendants = false
-
--- ##############################################################
--- 3) สร้าง ScrollingFrame ให้กรอบขวา + ย้ายคอนเทนต์เข้าไป
--- ##############################################################
-if not Right:FindFirstChild("ContentScroll") then
-	local PAD_OUTER = 8
-	local function currentTopGap()
-		return (BigHeader.Visible and (BigHeader.AbsoluteSize.Y + 16)) or 56
-	end
-
-	local holder = Instance.new("ScrollingFrame")
-	holder.Name = "ContentScroll"; holder.Parent = Right
-	holder.BackgroundTransparency = 1; holder.BorderSizePixel = 0
-	holder.ScrollBarThickness = 6
-	holder.ScrollingDirection = Enum.ScrollingDirection.Y
-	holder.ScrollingEnabled = true
-	holder.ElasticBehavior = Enum.ElasticBehavior.Never
-	holder.ClipsDescendants = true
-	holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	holder.CanvasSize = UDim2.new(0,0,0,0)
-
-	local function applyTop()
-		local gap = currentTopGap()
-		holder.Position = UDim2.new(0, PAD_OUTER, 0, gap)
-		holder.Size     = UDim2.new(1, -(PAD_OUTER*2), 1, -(gap + PAD_OUTER))
-	end
-	applyTop()
-	BigHeader:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyTop)
-	BigHeader:GetPropertyChangedSignal("Visible"):Connect(applyTop)
-
-	local innerPad = Instance.new("UIPadding")
-	innerPad.PaddingTop    = UDim.new(0, 8)
-	innerPad.PaddingBottom = UDim.new(0, 8)
-	innerPad.PaddingLeft   = UDim.new(0, 8)
-	innerPad.PaddingRight  = UDim.new(0, 8)
-	innerPad.Parent = holder
-
-	local layout = Instance.new("UIListLayout")
-	layout.Name = "ContentLayout"; layout.Parent = holder
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 8)
-
-	-- ย้ายทุกคอนเทนต์ (ยกเว้น BigHeader/holder เอง) เข้าไป
-	for _, ch in ipairs(Right:GetChildren()) do
-		if ch ~= holder and ch ~= BigHeader and ch:IsA("GuiObject") then ch.Parent = holder end
-	end
-
-	-- ทำให้รูปภาพเต็มกรอบและไม่เลื่อนไหลเอง
-	local function fixImage(img)
-		if not img:IsA("ImageLabel") then return end
-		img.ScaleType = Enum.ScaleType.Fit
-		img.AnchorPoint = Vector2.new(0.5, 0.5)
-		img.Position = UDim2.fromScale(0.5, 0.5)
-		img.Size = UDim2.fromScale(1, 1)
-		if img.Parent and img.Parent:IsA("GuiObject") then img.Parent.ClipsDescendants = true end
-	end
-	for _,d in ipairs(holder:GetDescendants()) do if d:IsA("ImageLabel") then fixImage(d) end end
-	holder.DescendantAdded:Connect(function(d) if d:IsA("ImageLabel") then fixImage(d) end end)
-end
-
 ----------------------------------------------------------------
 -- END
 ----------------------------------------------------------------
