@@ -371,229 +371,96 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Player Button + BigHeader + RightPanel Scroller
--- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม (ใช้ Left, Right, corner, stroke)
+-- UFO HUB X : Force Scroll for PlayerPage (DROP-IN PATCH)
+-- ทำให้กรอบขวาเลื่อนขึ้นลงได้แน่นอน โดยหุ้ม PlayerPage ด้วย ScrollingFrame
 ----------------------------------------------------------------
-local TS = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 
--- ไอคอนที่ใช้ทั้งปุ่มซ้าย และหัวข้อใหญ่ฝั่งขวา (เปลี่ยนได้)
-local PLAYER_ICON = "rbxassetid://116976545042904"
-
-----------------------------------------------------------------
--- 1) สร้าง/หา ScrollingFrame ให้ฝั่ง Right (สกรอลล์ได้ตลอด)
-----------------------------------------------------------------
-local function ensureRightScroller()
-    if not Right then return nil end
-
-    -- ถ้ามีอยู่แล้ว ใช้อันเดิม
-    local scroller = Right:FindFirstChild("UFO_RightScroller")
-    if scroller and scroller:IsA("ScrollingFrame") then
-        return scroller
+-- หา PlayerPage (อิงชื่อเดิมที่เราใช้กับสคริปต์ก่อนหน้า)
+local function waitPlayerPage(timeout)
+    local t0 = os.clock()
+    while os.clock() - t0 < (timeout or 8) do
+        for _,ui in ipairs(CoreGui:GetDescendants()) do
+            if ui:IsA("Frame") and ui.Name == "PlayerPage" then return ui end
+        end
+        task.wait(0.05)
     end
+end
 
-    -- สร้าง ScrollingFrame ครอบพื้นที่ Right ทั้งหมด
+local PlayerPage = waitPlayerPage(8)
+if not PlayerPage then return end
+
+-- ถ้ามีอยู่แล้วไม่ต้องสร้างซ้ำ
+local scroller = PlayerPage:FindFirstChild("UFO_PageScroll")
+if not scroller then
     scroller = Instance.new("ScrollingFrame")
-    scroller.Name = "UFO_RightScroller"
-    scroller.Parent = Right
+    scroller.Name = "UFO_PageScroll"
+    scroller.Parent = PlayerPage
     scroller.Active = true
-    scroller.ClipsDescendants = true
     scroller.BackgroundTransparency = 1
     scroller.BorderSizePixel = 0
+    scroller.ClipsDescendants = true
     scroller.Size = UDim2.fromScale(1,1)
     scroller.Position = UDim2.fromScale(0,0)
-    scroller.ScrollBarThickness = 6
     scroller.ScrollingDirection = Enum.ScrollingDirection.Y
-    scroller.CanvasSize = UDim2.new(0,0,0,0)
-    scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroller.ScrollBarThickness = 6
     scroller.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
+    scroller.CanvasSize = UDim2.new(0,0,0,0) -- จะอัปเดตด้านล่าง
 
-    -- คอนเทนต์จริงจะอยู่ใน Frame นี้ (AutoHeight)
-    local content = Instance.new("Frame")
-    content.Name = "Content"
-    content.Parent = scroller
-    content.BackgroundTransparency = 1
-    content.Size = UDim2.new(1, -8, 0, 0) -- เว้นขวาเล็กน้อยกันทับสกรอลบาร์
-    content.Position = UDim2.new(0, 0, 0, 0)
-    content.AutomaticSize = Enum.AutomaticSize.Y
-
-    local list = Instance.new("UIListLayout")
-    list.Name = "Layout"
-    list.Parent = content
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    list.Padding = UDim.new(0, 12)
-    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-    -- ย้ายลูกๆ เดิมของ Right เข้าไปไว้ใน content (ยกเว้นตัวที่เพิ่งสร้าง)
-    for _,child in ipairs(Right:GetChildren()) do
-        if child ~= scroller and child:IsA("GuiObject") then
-            child.Parent = content
+    -- ย้ายลูกของ PlayerPage เข้าไปในสกรอลเลอร์ (เว้น FlyBox)
+    for _,child in ipairs(PlayerPage:GetChildren()) do
+        if child ~= scroller and child.Name ~= "FlyBox" then
+            child.Parent = scroller
         end
     end
-
-    return scroller
 end
 
--- เรียกครั้งแรกให้แน่ใจว่าพร้อมสกรอลล์
-local RightScroller = ensureRightScroller()
-
-----------------------------------------------------------------
--- 2) ปุ่ม PLAYER (ฝั่งซ้าย)
-----------------------------------------------------------------
-local BtnPlayer = Left:FindFirstChild("BtnPlayer")
-if not BtnPlayer then
-    BtnPlayer = Instance.new("Frame")
-    BtnPlayer.Name = "BtnPlayer"
-    BtnPlayer.Parent = Left
-    BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
-    BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
-    BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    BtnPlayer.BorderSizePixel = 0
-    BtnPlayer.ClipsDescendants = true
-    corner(BtnPlayer, 10)
-    stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6) -- กรอบเขียว
-
-    -- ปุ่มคลิกโปร่งใส
-    local Click = Instance.new("TextButton")
-    Click.Name = "Click"
-    Click.Parent = BtnPlayer
-    Click.BackgroundTransparency = 1
-    Click.BorderSizePixel = 0
-    Click.Size = UDim2.new(1,0,1,0)
-    Click.Text = ""
-
-    -- รูปไอคอนทางซ้าย
-    local Icon = Instance.new("ImageLabel")
-    Icon.Name = "Icon"
-    Icon.Parent = BtnPlayer
-    Icon.BackgroundTransparency = 1
-    Icon.AnchorPoint = Vector2.new(0,0.5)
-    Icon.Position  = UDim2.new(0, 10, 0.5, 0)
-    Icon.Size      = UDim2.new(0, 22, 0, 22)
-    Icon.Image     = PLAYER_ICON
-    Icon.ScaleType = Enum.ScaleType.Fit
-    Icon.ZIndex    = 2
-
-    -- ชื่อ "Player"
-    local Text = Instance.new("TextLabel")
-    Text.Name = "Label"
-    Text.Parent = BtnPlayer
-    Text.BackgroundTransparency = 1
-    Text.AnchorPoint = Vector2.new(0,0.5)
-    Text.Position = UDim2.new(0, 42, 0.5, 0)
-    Text.Size = UDim2.new(1, -52, 1, 0)
-    Text.Font = Enum.Font.GothamBold
-    Text.Text = "Player"
-    Text.TextSize = 15
-    Text.TextXAlignment = Enum.TextXAlignment.Left
-    Text.TextColor3 = Color3.fromRGB(255,255,255)
-    Text.ZIndex = 2
-
-    -- เอฟเฟกต์ปุ่ม
-    local COLOR_IDLE   = Color3.fromRGB(20,20,20)
-    local COLOR_HOVER  = Color3.fromRGB(28,28,28)
-    local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
-
-    local function tweenBG(c)
-        TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundColor3 = c
-        }):Play()
+-- ฟังก์ชันคำนวณ CanvasSize จากขอบบน/ล่างของทุก GuiObject ภายใน
+local function updateCanvas()
+    local minY, maxY = math.huge, -math.huge
+    for _,g in ipairs(scroller:GetChildren()) do
+        if g:IsA("GuiObject") then
+            local y0 = g.AbsolutePosition.Y - scroller.AbsolutePosition.Y
+            local y1 = y0 + g.AbsoluteSize.Y
+            if y0 < minY then minY = y0 end
+            if y1 > maxY then maxY = y1 end
+        end
     end
-
-    BtnPlayer:SetAttribute("active", false)
-
-    Click.MouseEnter:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then
-            tweenBG(COLOR_HOVER)
-        end
-    end)
-
-    Click.MouseLeave:Connect(function()
-        if not BtnPlayer:GetAttribute("active") then
-            tweenBG(COLOR_IDLE)
-        end
-    end)
-
-    Click.MouseButton1Down:Connect(function()
-        tweenBG(COLOR_ACTIVE)
-        Icon:TweenSize(UDim2.new(0,20,0,20), "Out", "Quad", 0.08, true)
-    end)
-
-    Click.MouseButton1Up:Connect(function()
-        Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
-    end)
-
-    -- เมื่อคลิกปุ่ม: ทำให้ Active + แสดงหัวข้อใหญ่ฝั่งขวา
-    Click.MouseButton1Click:Connect(function()
-        BtnPlayer:SetAttribute("active", true)
-        tweenBG(COLOR_ACTIVE)
-        stroke(BtnPlayer, 1.8, Color3.fromRGB(0,255,140), 1)
-        task.delay(0.25, function()
-            stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6)
-        end)
-
-        -- ให้สกรอลเลอร์พร้อมใช้งานเสมอ (เผื่อ Right ถูก recreate)
-        RightScroller = ensureRightScroller()
-
-        -- โชว์หัวข้อใหญ่
-        local header = Right:FindFirstChild("BigHeader")
-        if header then header.Visible = true end
-
-        -- รีเซ็ตตำแหน่งเลื่อนกลับบนสุดเล็กน้อย (เอฟเฟกต์)
-        if RightScroller then
-            RightScroller.CanvasPosition = Vector2.new(0, math.max(0, RightScroller.CanvasPosition.Y - 24))
-        end
-    end)
-end
-
-----------------------------------------------------------------
--- 3) หัวข้อใหญ่ฝั่งขวา (ชื่อ + รูป) เริ่มต้นซ่อน
-----------------------------------------------------------------
-local BigHeader = Right:FindFirstChild("BigHeader")
-if not BigHeader then
-    BigHeader = Instance.new("Frame")
-    BigHeader.Name = "BigHeader"
-    -- วางไว้ใน Scroller ถ้ามี เพื่อให้เลื่อนรวมไปกับคอนเทนต์
-    local sc = ensureRightScroller()
-    local parentForHeader = sc and sc:FindFirstChild("Content") or Right
-    BigHeader.Parent = parentForHeader
-
-    BigHeader.BackgroundTransparency = 1
-    BigHeader.Size = UDim2.new(1, -20, 0, 36)
-    BigHeader.Position = UDim2.new(0, 10, 0, 12)
-    BigHeader.Visible = false
-
-    local HIcon = Instance.new("ImageLabel")
-    HIcon.Name = "Icon"
-    HIcon.Parent = BigHeader
-    HIcon.BackgroundTransparency = 1
-    HIcon.AnchorPoint = Vector2.new(0, 0.5)
-    HIcon.Position = UDim2.new(0, 0, 0.5, 0)
-    HIcon.Size = UDim2.fromOffset(24, 24)
-    HIcon.Image = PLAYER_ICON
-    HIcon.ScaleType = Enum.ScaleType.Fit
-
-    local HText = Instance.new("TextLabel")
-    HText.Name = "Title"
-    HText.Parent = BigHeader
-    HText.BackgroundTransparency = 1
-    HText.AnchorPoint = Vector2.new(0, 0.5)
-    HText.Position = UDim2.new(0, 30, 0.5, 0)
-    HText.Size = UDim2.new(1, -34, 1, 0)
-    HText.Font = Enum.Font.GothamBold
-    HText.Text = "Player"
-    HText.TextSize = 18
-    HText.TextXAlignment = Enum.TextXAlignment.Left
-    HText.TextColor3 = Color3.fromRGB(255,255,255)
-else
-    -- ถ้ามีอยู่แล้ว: ย้ายเข้าไปใน Content ของ Scroller เพื่อให้เลื่อนด้วย
-    local sc = ensureRightScroller()
-    local content = sc and sc:FindFirstChild("Content")
-    if content and BigHeader.Parent ~= content then
-        BigHeader.Parent = content
+    if maxY == -math.huge then
+        scroller.CanvasSize = UDim2.new(0,0,0,0)
+        return
     end
-    BigHeader.Visible = false
+    local pad = 16
+    local height = math.max(0, maxY + pad)
+    scroller.CanvasSize = UDim2.new(0,0,0,height)
 end
 
+-- อัปเดตครั้งแรก
+task.defer(updateCanvas)
+
+-- อัปเดตเมื่อมีการเปลี่ยนขนาด/เพิ่มลบลูก
+local function hookChild(g)
+    if not g:IsA("GuiObject") then return end
+    g:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateCanvas)
+    g:GetPropertyChangedSignal("Position"):Connect(updateCanvas)
+    g:GetPropertyChangedSignal("Size"):Connect(updateCanvas)
+end
+for _,g in ipairs(scroller:GetChildren()) do hookChild(g) end
+scroller.ChildAdded:Connect(function(g) hookChild(g); task.defer(updateCanvas) end)
+scroller.ChildRemoved:Connect(function() task.defer(updateCanvas) end)
+
+-- เผื่อหน้าต่างถูกย่อ/ขยาย
+PlayerPage:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateCanvas)
+
+-- ให้ FlyBox (ถ้ามี) ลอยอยู่เหนือสกรอลเลอร์
+local fly = PlayerPage:FindFirstChild("FlyBox")
+if fly then
+    fly.ZIndex = math.max(fly.ZIndex, (scroller.ZIndex or 1) + 10)
+end
+
+-- ปรับแต่งเพิ่มเติม (ไม่บังคับ): เลื่อนด้วยการลากที่ไหนก็ได้ในกรอบ
+-- ถ้ามีเฟรมโปร่งใสทับด้านบน สกรอลเลอร์จะเลื่อนให้เองเพราะ Active = true
 ----------------------------------------------------------------
 -- END
 ----------------------------------------------------------------
