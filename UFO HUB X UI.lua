@@ -371,116 +371,155 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Scroll Add-On (DROP-IN)
--- เพิ่มสกอร์ลให้กรอบใหญ่ฝั่งขวา + แถบเมนูฝั่งซ้าย
--- วางต่อท้ายสคริปต์เดิม (ที่มีตัวแปร Left, Right อยู่แล้ว)
+-- UFO HUB X : Player Button + BigHeader (ADD-ON, DROP-IN ONLY)
+-- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม
 ----------------------------------------------------------------
-local RunService = game:GetService("RunService")
+local TS = game:GetService("TweenService")
 
--- ใช้ตัวแปร Left/Right ของเดิม ถ้าไม่มี ให้ลองหาใน CoreGui ตามชื่อ
-local function findPanel(name, fallback)
-	if typeof(fallback) == "Instance" then return fallback end
-	for _,ui in ipairs(game:GetService("CoreGui"):GetDescendants()) do
-		if ui:IsA("Frame") and ui.Name == name then return ui end
-	end
-	return nil
+-- ไอคอนที่ใช้ทั้งปุ่มซ้าย และหัวข้อใหญ่ฝั่งขวา (เปลี่ยนได้)
+local PLAYER_ICON = "rbxassetid://116976545042904"
+
+-- ===== ปุ่ม PLAYER (ฝั่งซ้าย) =====
+local BtnPlayer = Left:FindFirstChild("BtnPlayer")
+if not BtnPlayer then
+    BtnPlayer = Instance.new("Frame")
+    BtnPlayer.Name = "BtnPlayer"
+    BtnPlayer.Parent = Left
+    BtnPlayer.Size = UDim2.new(1, -12, 0, 46)
+    BtnPlayer.Position = UDim2.new(0, 6, 0, 6)
+    BtnPlayer.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    BtnPlayer.BorderSizePixel = 0
+    BtnPlayer.ClipsDescendants = true
+    corner(BtnPlayer, 10)
+    stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6) -- กรอบเขียว
+
+    -- ปุ่มคลิกโปร่งใส
+    local Click = Instance.new("TextButton")
+    Click.Name = "Click"
+    Click.Parent = BtnPlayer
+    Click.BackgroundTransparency = 1
+    Click.BorderSizePixel = 0
+    Click.Size = UDim2.new(1,0,1,0)
+    Click.Text = ""
+
+    -- รูปไอคอนทางซ้าย
+    local Icon = Instance.new("ImageLabel")
+    Icon.Name = "Icon"
+    Icon.Parent = BtnPlayer
+    Icon.BackgroundTransparency = 1
+    Icon.AnchorPoint = Vector2.new(0,0.5)
+    Icon.Position  = UDim2.new(0, 10, 0.5, 0)
+    Icon.Size      = UDim2.new(0, 22, 0, 22)
+    Icon.Image     = PLAYER_ICON
+    Icon.ScaleType = Enum.ScaleType.Fit
+    Icon.ZIndex    = 2
+
+    -- ชื่อ "Player"
+    local Text = Instance.new("TextLabel")
+    Text.Name = "Label"
+    Text.Parent = BtnPlayer
+    Text.BackgroundTransparency = 1
+    Text.AnchorPoint = Vector2.new(0,0.5)
+    Text.Position = UDim2.new(0, 42, 0.5, 0)
+    Text.Size = UDim2.new(1, -52, 1, 0)
+    Text.Font = Enum.Font.GothamBold
+    Text.Text = "Player"
+    Text.TextSize = 15
+    Text.TextXAlignment = Enum.TextXAlignment.Left
+    Text.TextColor3 = Color3.fromRGB(255,255,255)
+    Text.ZIndex = 2
+
+    -- เอฟเฟกต์ปุ่ม
+    local COLOR_IDLE   = Color3.fromRGB(20,20,20)
+    local COLOR_HOVER  = Color3.fromRGB(28,28,28)
+    local COLOR_ACTIVE = Color3.fromRGB(40,40,40)
+
+    local function tweenBG(c)
+        TS:Create(BtnPlayer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = c
+        }):Play()
+    end
+
+    BtnPlayer:SetAttribute("active", false)
+
+    Click.MouseEnter:Connect(function()
+        if not BtnPlayer:GetAttribute("active") then
+            tweenBG(COLOR_HOVER)
+        end
+    end)
+
+    Click.MouseLeave:Connect(function()
+        if not BtnPlayer:GetAttribute("active") then
+            tweenBG(COLOR_IDLE)
+        end
+    end)
+
+    Click.MouseButton1Down:Connect(function()
+        tweenBG(COLOR_ACTIVE)
+        Icon:TweenSize(UDim2.new(0,20,0,20), "Out", "Quad", 0.08, true)
+    end)
+
+    Click.MouseButton1Up:Connect(function()
+        Icon:TweenSize(UDim2.new(0,22,0,22), "Out", "Quad", 0.08, true)
+    end)
+
+    -- เมื่อคลิกปุ่ม: ทำให้ Active + แสดงหัวข้อใหญ่ฝั่งขวา
+    Click.MouseButton1Click:Connect(function()
+        BtnPlayer:SetAttribute("active", true)
+        tweenBG(COLOR_ACTIVE)
+        -- เอฟเฟกต์ขอบ
+        stroke(BtnPlayer, 1.8, Color3.fromRGB(0,255,140), 1)
+        task.delay(0.25, function()
+            stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6)
+        end)
+
+        -- โชว์หัวข้อใหญ่เฉพาะตอนกดปุ่ม
+        local header = Right:FindFirstChild("BigHeader")
+        if header then
+            header.Visible = true
+        end
+    end)
 end
-Left  = findPanel("Left",  Left)
-Right = findPanel("Right", Right)
 
--- สร้างสกอร์ลจาก "กรอบเดิม" โดยไม่ขยับตำแหน่งกรอบ
--- ตัวกรอบเดิมยังอยู่ที่เดิมทั้งหมด เราใส่ ScrollingFrame เข้าไป "ด้านใน" เท่านั้น
-local function makeScrollInside(container : Frame, opts)
-	if not container or not container.Parent then return nil end
-	opts = opts or {}
-	local pad = opts.pad or 8    -- ช่องว่างรอบๆ ด้านในกรอบ
-	local thick = opts.thick or 6
+-- ===== หัวข้อใหญ่ฝั่งขวา (ชื่อ + รูป) เริ่มต้นซ่อน =====
+local BigHeader = Right:FindFirstChild("BigHeader")
+if not BigHeader then
+    BigHeader = Instance.new("Frame")
+    BigHeader.Name = "BigHeader"
+    BigHeader.Parent = Right
+    BigHeader.BackgroundTransparency = 1      -- ไม่มีกรอบเพิ่ม
+    BigHeader.Size = UDim2.new(0, 200, 0, 36)
+    BigHeader.Position = UDim2.new(0, 14, 0, 12) -- มุมซ้ายบนของ Right
+    BigHeader.Visible = false                  -- << สำคัญ: ซ่อนก่อน จนกว่าจะกดปุ่ม
 
-	-- กันซ้ำ
-	local holder = container:FindFirstChild("ScrollHolder")
-	if holder and holder:IsA("ScrollingFrame") then
-		return holder
-	end
+    local HIcon = Instance.new("ImageLabel")
+    HIcon.Name = "Icon"
+    HIcon.Parent = BigHeader
+    HIcon.BackgroundTransparency = 1
+    HIcon.AnchorPoint = Vector2.new(0, 0.5)
+    HIcon.Position = UDim2.new(0, 0, 0.5, 0)
+    HIcon.Size = UDim2.fromOffset(24, 24)
+    HIcon.Image = PLAYER_ICON
+    HIcon.ScaleType = Enum.ScaleType.Fit
 
-	-- ทำชั้นในสำหรับวางของที่ต้องเลื่อน
-	holder = Instance.new("ScrollingFrame")
-	holder.Name = "ScrollHolder"
-	holder.Parent = container
-	holder.AnchorPoint = Vector2.new(0,0)
-	holder.Position = UDim2.fromOffset(pad,pad)
-	holder.Size = UDim2.new(1, -(pad*2), 1, -(pad*2))
-	holder.BackgroundTransparency = 1
-	holder.BorderSizePixel = 0
-	holder.ClipsDescendants = true
-	holder.ScrollingDirection = Enum.ScrollingDirection.Y
-	holder.ScrollBarThickness = thick
-	holder.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
-	holder.CanvasSize = UDim2.new(0,0,0,0)  -- จะอัปเดตให้เองด้านล่าง
-
-	-- ย้าย "ลูกทุกตัวที่เป็นของจริง" เข้าไปใน holder
-	-- (คง UICorner / UIStroke ของ container เอาไว้ที่เดิม เพื่อไม่ให้หน้าตาเปลี่ยน)
-	for _,ch in ipairs(container:GetChildren()) do
-		if ch ~= holder and ch:IsA("GuiObject") then
-			-- ข้ามของตกแต่งขอบ/มุมของกรอบนอก
-			if not ch:IsA("UICorner") and not ch:IsA("UIStroke") and not ch:IsA("UIGradient") then
-				ch.Parent = holder
-			end
-		end
-	end
-
-	-- ฟังก์ชันคำนวณความสูงเนื้อหาอัตโนมัติ (ไม่บังคับใช้ UIListLayout)
-	local function updateCanvas()
-		local minY, maxY = math.huge, -math.huge
-		local has = false
-		for _,ch in ipairs(holder:GetChildren()) do
-			if ch:IsA("GuiObject") then
-				has = true
-				local top = ch.AbsolutePosition.Y - holder.AbsolutePosition.Y
-				local bot = top + ch.AbsoluteSize.Y
-				if top < minY then minY = top end
-				if bot > maxY then maxY = bot end
-			end
-		end
-		if not has then
-			holder.CanvasSize = UDim2.new(0,0,0,0)
-			return
-		end
-		local contentH = math.max(0, maxY - math.min(minY, 0))
-		-- บวก padding เผื่อจบขอบสวยๆ
-		holder.CanvasSize = UDim2.new(0,0,0, math.max(contentH, holder.AbsoluteSize.Y))
-	end
-
-	-- อัปเดตอัตโนมัติเมื่อมีการเปลี่ยนแปลง
-	local function hook(obj)
-		obj:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateCanvas)
-		if obj:IsA("GuiObject") then
-			obj:GetPropertyChangedSignal("Position"):Connect(updateCanvas)
-			obj:GetPropertyChangedSignal("Size"):Connect(updateCanvas)
-			obj:GetPropertyChangedSignal("Visible"):Connect(updateCanvas)
-		end
-	end
-	hook(container); hook(holder)
-	holder.ChildAdded:Connect(function(c) if c:IsA("GuiObject") then hook(c); updateCanvas() end end)
-	holder.ChildRemoved:Connect(function() updateCanvas() end)
-	RunService.Heartbeat:Connect(updateCanvas)
-	updateCanvas()
-	return holder
+    local HText = Instance.new("TextLabel")
+    HText.Name = "Title"
+    HText.Parent = BigHeader
+    HText.BackgroundTransparency = 1
+    HText.AnchorPoint = Vector2.new(0, 0.5)
+    HText.Position = UDim2.new(0, 30, 0.5, 0)
+    HText.Size = UDim2.new(1, -34, 1, 0)
+    HText.Font = Enum.Font.GothamBold
+    HText.Text = "Player"
+    HText.TextSize = 18
+    HText.TextXAlignment = Enum.TextXAlignment.Left
+    HText.TextColor3 = Color3.fromRGB(255,255,255)
+else
+    -- ถ้ามีอยู่แล้ว ให้แน่ใจว่าเริ่มต้นซ่อนก่อน
+    BigHeader.Visible = false
 end
-
 ----------------------------------------------------------------
--- จุดที่ “เจาะจงไปที่ปุ่ม/กรอบ” ตามระบบเดิมของนาย
-----------------------------------------------------------------
--- 1) ฝั่งซ้าย (ลิสต์ปุ่ม) ให้เลื่อนขึ้นลงได้
---    เลือกกรอบด้านในของ Left ที่มีขอบเขียว (ถ้าโครงเดิมมี Frame ชื่อ 'Body' จะใช้ก่อน)
-local leftTarget = Left and (Left:FindFirstChild("Body") or Left)
-makeScrollInside(leftTarget, { pad = 6, thick = 5 })
-
--- 2) ฝั่งขวา (กรอบใหญ่) ให้เลื่อนขึ้นลงได้
---    เลือกกรอบด้านในของ Right ที่เป็น “ช่องคอนเทนต์ใหญ่” (ถ้ามี 'Body' ใช้อันนั้น)
-local rightTarget = Right and (Right:FindFirstChild("Body") or Right)
-makeScrollInside(rightTarget, { pad = 10, thick = 6 })
-
--- เสร็จ: ไม่กระทบตำแหน่ง/หน้าตาเดิม ปุ่มเดิมอยู่ที่เดิม แต่เลื่อนขึ้น-ลงได้ทุกอัน
+-- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
