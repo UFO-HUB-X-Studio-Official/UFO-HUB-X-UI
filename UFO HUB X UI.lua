@@ -371,15 +371,74 @@ do
     end
 end
 ----------------------------------------------------------------
--- UFO HUB X : Player Button + BigHeader (ADD-ON, DROP-IN ONLY)
--- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม
+-- UFO HUB X : Player Button + BigHeader + RightPanel Scroller
+-- วางต่อท้ายสคริปต์เดิมได้เลย ไม่ลบ/แก้อะไรของเดิม (ใช้ Left, Right, corner, stroke)
 ----------------------------------------------------------------
 local TS = game:GetService("TweenService")
 
 -- ไอคอนที่ใช้ทั้งปุ่มซ้าย และหัวข้อใหญ่ฝั่งขวา (เปลี่ยนได้)
 local PLAYER_ICON = "rbxassetid://116976545042904"
 
--- ===== ปุ่ม PLAYER (ฝั่งซ้าย) =====
+----------------------------------------------------------------
+-- 1) สร้าง/หา ScrollingFrame ให้ฝั่ง Right (สกรอลล์ได้ตลอด)
+----------------------------------------------------------------
+local function ensureRightScroller()
+    if not Right then return nil end
+
+    -- ถ้ามีอยู่แล้ว ใช้อันเดิม
+    local scroller = Right:FindFirstChild("UFO_RightScroller")
+    if scroller and scroller:IsA("ScrollingFrame") then
+        return scroller
+    end
+
+    -- สร้าง ScrollingFrame ครอบพื้นที่ Right ทั้งหมด
+    scroller = Instance.new("ScrollingFrame")
+    scroller.Name = "UFO_RightScroller"
+    scroller.Parent = Right
+    scroller.Active = true
+    scroller.ClipsDescendants = true
+    scroller.BackgroundTransparency = 1
+    scroller.BorderSizePixel = 0
+    scroller.Size = UDim2.fromScale(1,1)
+    scroller.Position = UDim2.fromScale(0,0)
+    scroller.ScrollBarThickness = 6
+    scroller.ScrollingDirection = Enum.ScrollingDirection.Y
+    scroller.CanvasSize = UDim2.new(0,0,0,0)
+    scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroller.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
+
+    -- คอนเทนต์จริงจะอยู่ใน Frame นี้ (AutoHeight)
+    local content = Instance.new("Frame")
+    content.Name = "Content"
+    content.Parent = scroller
+    content.BackgroundTransparency = 1
+    content.Size = UDim2.new(1, -8, 0, 0) -- เว้นขวาเล็กน้อยกันทับสกรอลบาร์
+    content.Position = UDim2.new(0, 0, 0, 0)
+    content.AutomaticSize = Enum.AutomaticSize.Y
+
+    local list = Instance.new("UIListLayout")
+    list.Name = "Layout"
+    list.Parent = content
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 12)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    -- ย้ายลูกๆ เดิมของ Right เข้าไปไว้ใน content (ยกเว้นตัวที่เพิ่งสร้าง)
+    for _,child in ipairs(Right:GetChildren()) do
+        if child ~= scroller and child:IsA("GuiObject") then
+            child.Parent = content
+        end
+    end
+
+    return scroller
+end
+
+-- เรียกครั้งแรกให้แน่ใจว่าพร้อมสกรอลล์
+local RightScroller = ensureRightScroller()
+
+----------------------------------------------------------------
+-- 2) ปุ่ม PLAYER (ฝั่งซ้าย)
+----------------------------------------------------------------
 local BtnPlayer = Left:FindFirstChild("BtnPlayer")
 if not BtnPlayer then
     BtnPlayer = Instance.new("Frame")
@@ -467,30 +526,41 @@ if not BtnPlayer then
     Click.MouseButton1Click:Connect(function()
         BtnPlayer:SetAttribute("active", true)
         tweenBG(COLOR_ACTIVE)
-        -- เอฟเฟกต์ขอบ
         stroke(BtnPlayer, 1.8, Color3.fromRGB(0,255,140), 1)
         task.delay(0.25, function()
             stroke(BtnPlayer, 1.2, Color3.fromRGB(0,255,140), 0.6)
         end)
 
-        -- โชว์หัวข้อใหญ่เฉพาะตอนกดปุ่ม
+        -- ให้สกรอลเลอร์พร้อมใช้งานเสมอ (เผื่อ Right ถูก recreate)
+        RightScroller = ensureRightScroller()
+
+        -- โชว์หัวข้อใหญ่
         local header = Right:FindFirstChild("BigHeader")
-        if header then
-            header.Visible = true
+        if header then header.Visible = true end
+
+        -- รีเซ็ตตำแหน่งเลื่อนกลับบนสุดเล็กน้อย (เอฟเฟกต์)
+        if RightScroller then
+            RightScroller.CanvasPosition = Vector2.new(0, math.max(0, RightScroller.CanvasPosition.Y - 24))
         end
     end)
 end
 
--- ===== หัวข้อใหญ่ฝั่งขวา (ชื่อ + รูป) เริ่มต้นซ่อน =====
+----------------------------------------------------------------
+-- 3) หัวข้อใหญ่ฝั่งขวา (ชื่อ + รูป) เริ่มต้นซ่อน
+----------------------------------------------------------------
 local BigHeader = Right:FindFirstChild("BigHeader")
 if not BigHeader then
     BigHeader = Instance.new("Frame")
     BigHeader.Name = "BigHeader"
-    BigHeader.Parent = Right
-    BigHeader.BackgroundTransparency = 1      -- ไม่มีกรอบเพิ่ม
-    BigHeader.Size = UDim2.new(0, 200, 0, 36)
-    BigHeader.Position = UDim2.new(0, 14, 0, 12) -- มุมซ้ายบนของ Right
-    BigHeader.Visible = false                  -- << สำคัญ: ซ่อนก่อน จนกว่าจะกดปุ่ม
+    -- วางไว้ใน Scroller ถ้ามี เพื่อให้เลื่อนรวมไปกับคอนเทนต์
+    local sc = ensureRightScroller()
+    local parentForHeader = sc and sc:FindFirstChild("Content") or Right
+    BigHeader.Parent = parentForHeader
+
+    BigHeader.BackgroundTransparency = 1
+    BigHeader.Size = UDim2.new(1, -20, 0, 36)
+    BigHeader.Position = UDim2.new(0, 10, 0, 12)
+    BigHeader.Visible = false
 
     local HIcon = Instance.new("ImageLabel")
     HIcon.Name = "Icon"
@@ -515,11 +585,17 @@ if not BigHeader then
     HText.TextXAlignment = Enum.TextXAlignment.Left
     HText.TextColor3 = Color3.fromRGB(255,255,255)
 else
-    -- ถ้ามีอยู่แล้ว ให้แน่ใจว่าเริ่มต้นซ่อนก่อน
+    -- ถ้ามีอยู่แล้ว: ย้ายเข้าไปใน Content ของ Scroller เพื่อให้เลื่อนด้วย
+    local sc = ensureRightScroller()
+    local content = sc and sc:FindFirstChild("Content")
+    if content and BigHeader.Parent ~= content then
+        BigHeader.Parent = content
+    end
     BigHeader.Visible = false
 end
+
 ----------------------------------------------------------------
--- END (จบส่วนเพิ่ม)
+-- END
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
