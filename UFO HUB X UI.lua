@@ -952,34 +952,109 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X – GamePad (RESURGE) : always shows first, then auto-link to Fly switch
-local CoreGui = game:GetService("CoreGui")
+-- 🛸 UFO HUB X – Fly Switch + Outside D-Pad (v5.1: add green stroke on D-Pad)
+local CoreGui    = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
--- ===== THEME =====
 local ACCENT   = Color3.fromRGB(0,255,140)
 local COL_BG   = Color3.fromRGB(0,0,0)
 local COL_TXT  = Color3.fromRGB(255,255,255)
 
--- ===== LAYOUT =====
+local GAP_Y, SW_W, SW_H = 12, 30, 14
+local DOT_SIZE = SW_H - 4
+
+local function findPlayerPage()
+	for _,ui in ipairs(CoreGui:GetDescendants()) do
+		if ui:IsA("Frame") and ui.Name=="PlayerPage" then return ui end
+	end
+end
+local function findSpeedRow(page)
+	for _,d in ipairs(page:GetDescendants()) do
+		if d:IsA("Frame") and (d.Name=="SpeedRow" or d.Name=="SpeedBox") then return d end
+	end
+	for _,d in ipairs(page:GetDescendants()) do
+		if d:IsA("TextLabel") and string.find(string.lower(d.Text),"speed") then
+			local f=d.Parent
+			while f and f.Parent~=page do
+				if f:FindFirstChild("Track") or f:FindFirstChild("Switch") then return f end
+				f=f.Parent
+			end
+		end
+	end
+end
+
+local function createFlyBox(parent)
+	local fb = Instance.new("Frame")
+	fb.Name = "FlyBox"; fb.Parent = parent
+	fb.BackgroundColor3 = COL_BG; fb.BorderSizePixel = 0; fb.Active = true
+	local st = Instance.new("UIStroke", fb); st.Color = ACCENT; st.Thickness = 1.3; st.Transparency = .35
+	local cr = Instance.new("UICorner", fb); cr.CornerRadius = UDim.new(0,10)
+
+	local title = Instance.new("TextLabel")
+	title.Name="Title"; title.Parent=fb; title.BackgroundTransparency=1
+	title.Font=Enum.Font.GothamBold; title.TextSize=14; title.Text="Fly ✈️"
+	title.TextColor3=COL_TXT; title.TextXAlignment=Enum.TextXAlignment.Left
+	title.AnchorPoint=Vector2.new(0,0.5); title.Position=UDim2.new(0,10,0.5,0); title.Size=UDim2.new(0.6,0,1,0)
+
+	local sw = Instance.new("Frame")
+	sw.Name="Switch"; sw.Parent=fb; sw.BackgroundColor3=COL_BG; sw.BorderSizePixel=0
+	sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0); sw.Size=UDim2.fromOffset(SW_W,SW_H); sw.Active=true
+	Instance.new("UICorner",sw).CornerRadius=UDim.new(0,999)
+	local ss=Instance.new("UIStroke",sw); ss.Color=ACCENT; ss.Thickness=1; ss.Transparency=.3
+
+	local dot=Instance.new("Frame")
+	dot.Name="Dot"; dot.Parent=sw; dot.BackgroundColor3=Color3.fromRGB(120,120,120)
+	dot.BorderSizePixel=0; dot.AnchorPoint=Vector2.new(0,0.5)
+	dot.Position=UDim2.new(0,2,0.5,0); dot.Size=UDim2.fromOffset(DOT_SIZE, DOT_SIZE)
+	Instance.new("UICorner",dot).CornerRadius=UDim.new(0,999)
+
+	local hit=Instance.new("TextButton")
+	hit.Name="Hit"; hit.Parent=sw; hit.BackgroundTransparency=1; hit.Text=""; hit.AutoButtonColor=false
+	hit.Size=UDim2.fromScale(1,1); hit.ZIndex=50
+
+	local enabled=Instance.new("BoolValue",fb); enabled.Name="Enabled"; enabled.Value=false
+	local function setState(on)
+		enabled.Value=on
+		if on then
+			dot:TweenPosition(UDim2.new(1,-(DOT_SIZE+2),0.5,0),"Out","Quad",0.12,true)
+			dot.BackgroundColor3=ACCENT
+		else
+			dot:TweenPosition(UDim2.new(0,2,0.5,0),"Out","Quad",0.12,true)
+			dot.BackgroundColor3=Color3.fromRGB(120,120,120)
+		end
+	end
+	hit.Activated:Connect(function() setState(not enabled.Value) end)
+	return fb
+end
+
+local function alignFlyBox()
+	local page=findPlayerPage(); if not page then return end
+	local speed=findSpeedRow(page); if not speed then return end
+	local fb=page:FindFirstChild("FlyBox") or createFlyBox(page)
+	local x = speed.AbsolutePosition.X - page.AbsolutePosition.X
+	local y = speed.AbsolutePosition.Y - page.AbsolutePosition.Y
+	local w = speed.AbsoluteSize.X; local h = speed.AbsoluteSize.Y
+	fb.AnchorPoint=Vector2.new(0,0); fb.Position=UDim2.new(0,x,0,y-h-GAP_Y); fb.Size=UDim2.fromOffset(w,h)
+end
+alignFlyBox()
+do local page=findPlayerPage(); if page then page:GetPropertyChangedSignal("AbsoluteSize"):Connect(alignFlyBox) end end
+
+-- ===== D-Pad =====
 local BTN_SIZE, GAP  = 54, 10
-local PAD_LEFT, PAD_BOT = 95, 170   -- ตำแหน่งจอยด้านซ้ายล่าง
+local PAD_LEFT, PAD_BOT = 95, 170
 
--- เคลียร์ของเก่า
-local old = CoreGui:FindFirstChild("UFO_FlyPadOverlay")
-if old then old:Destroy() end
+local function destroyOldOverlay()
+	local old = CoreGui:FindFirstChild("UFO_FlyPadOverlay"); if old then old:Destroy() end
+end
 
--- เอฟเฟกต์กด
 local function pressFx(btn, on)
 	local stroke = btn:FindFirstChildOfClass("UIStroke")
 	if on then
 		btn:TweenSize(UDim2.fromOffset(BTN_SIZE-6, BTN_SIZE-6),"Out","Quad",0.08,true)
-		btn.TextSize = 18
-		if stroke then stroke.Thickness = 2.8 end
+		if stroke then stroke.Thickness = 2.4 end
 	else
 		btn:TweenSize(UDim2.fromOffset(BTN_SIZE, BTN_SIZE),"Out","Quad",0.08,true)
-		btn.TextSize = 16
-		if stroke then stroke.Thickness = 1.8 end
+		if stroke then stroke.Thickness = 1.6 end
 	end
 end
 
@@ -987,106 +1062,74 @@ local function hookPressEvents(btn)
 	btn.MouseButton1Down:Connect(function() pressFx(btn,true) end)
 	btn.MouseButton1Up:Connect(function() pressFx(btn,false) end)
 	btn.TouchLongPress:Connect(function(_, state)
-		if state == Enum.LongPressState.Begin then pressFx(btn,true)
-		else pressFx(btn,false) end
+		if state == Enum.LongPressState.Begin then
+			pressFx(btn,true)
+		elseif state == Enum.LongPressState.End or state == Enum.LongPressState.Cancel then
+			pressFx(btn,false)
+		end
 	end)
 	btn.MouseLeave:Connect(function() pressFx(btn,false) end)
 end
 
-local function newButton(parent, name, glyph)
-	local b = Instance.new("TextButton")
-	b.Name = name
-	b.Parent = parent
-	b.AutoButtonColor = false
-	b.Size = UDim2.fromOffset(BTN_SIZE, BTN_SIZE)
-	b.Text = glyph
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 16
-	b.TextColor3 = COL_TXT
-	b.BackgroundColor3 = COL_BG
-	b.BorderSizePixel = 0
-
-	local c = Instance.new("UICorner", b)
-	c.CornerRadius = UDim.new(0, 8)
-
-	local s = Instance.new("UIStroke", b)
-	s.Color = ACCENT
-	s.Thickness = 1.8
-	s.Transparency = 0.15
-
-	local glow = Instance.new("UIGradient", b)
-	glow.Rotation = 90
-	glow.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,140)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0,100,60)),
-	}
-	glow.Transparency = NumberSequence.new{
-		NumberSequenceKeypoint.new(0, 0.25),
-		NumberSequenceKeypoint.new(1, 0.85),
-	}
-
+local function newSquareButton(parent, name, glyph)
+	local b=Instance.new("TextButton")
+	b.Name=name; b.Parent=parent; b.AutoButtonColor=false
+	b.Size=UDim2.fromOffset(BTN_SIZE, BTN_SIZE); b.Text=glyph
+	b.Font=Enum.Font.GothamBold; b.TextSize=18; b.TextColor3=COL_TXT
+	b.BackgroundColor3=COL_BG; b.BorderSizePixel=0
+	local c=Instance.new("UICorner",b); c.CornerRadius=UDim.new(0,8)
+	local s=Instance.new("UIStroke",b) -- เพิ่มขอบสีเขียว
+	s.Color=ACCENT; s.Thickness=2; s.Transparency=0.1
 	hookPressEvents(b)
 	return b
 end
 
--- ===== Overlay & Pad =====
-local overlay = Instance.new("ScreenGui")
-overlay.Name = "UFO_FlyPadOverlay"
-overlay.IgnoreGuiInset = true
-overlay.DisplayOrder = 2000
-overlay.ResetOnSpawn = false
-overlay.Parent = CoreGui
+local overlay, pad
+local function makeOverlay()
+	destroyOldOverlay()
+	overlay=Instance.new("ScreenGui")
+	overlay.Name="UFO_FlyPadOverlay"; overlay.IgnoreGuiInset=true
+	overlay.DisplayOrder=2000; overlay.ResetOnSpawn=false; overlay.Parent=CoreGui
 
-local pad = Instance.new("Frame")
-pad.Name = "Pad"
-pad.Parent = overlay
-pad.BackgroundTransparency = 1
-pad.AnchorPoint = Vector2.new(0, 1)
-pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
-pad.Size = UDim2.fromOffset(BTN_SIZE * 3 + GAP * 2, BTN_SIZE * 3 + GAP * 2)
+	pad=Instance.new("Frame")
+	pad.Name="Pad"; pad.Parent=overlay; pad.BackgroundTransparency=1
+	pad.AnchorPoint=Vector2.new(0,1)
+	pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
+	pad.Size=UDim2.fromOffset(BTN_SIZE*3 + GAP*2, BTN_SIZE*3 + GAP*2)
 
-local up    = newButton(pad, "UP", "▲")
-local left  = newButton(pad, "LEFT", "◀")
-local right = newButton(pad, "RIGHT", "▶")
-local down  = newButton(pad, "DOWN", "▼")
+	local up    = newSquareButton(pad,"UP","▲")
+	local left  = newSquareButton(pad,"LEFT","◀")
+	local right = newSquareButton(pad,"RIGHT","▶")
+	local down  = newSquareButton(pad,"DOWN","▼")
 
--- จัดตำแหน่งแบบ D-PAD
-up.Position    = UDim2.fromOffset(BTN_SIZE + GAP, 0)
-left.Position  = UDim2.fromOffset(0, BTN_SIZE + GAP)
-right.Position = UDim2.fromOffset(2 * (BTN_SIZE + GAP), BTN_SIZE + GAP)
-down.Position  = UDim2.fromOffset(BTN_SIZE + GAP, 2 * (BTN_SIZE + GAP))
+	up.Position    = UDim2.fromOffset(BTN_SIZE + GAP, 0)
+	left.Position  = UDim2.fromOffset(0, BTN_SIZE + GAP)
+	right.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP), BTN_SIZE + GAP)
+	down.Position  = UDim2.fromOffset(BTN_SIZE + GAP, 2*(BTN_SIZE+GAP))
+end
+makeOverlay()
 
--- คงตำแหน่งให้เป๊ะทุกเฟรม (กันเลื่อนตามสเกลจอ)
-RunService.RenderStepped:Connect(function()
-	pad.Position = UDim2.new(0, PAD_LEFT, 1, -PAD_BOT)
-end)
+local function getFlyEnabled()
+	local page=findPlayerPage(); if not page then return end
+	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
+	return fb:FindFirstChild("Enabled")
+end
 
--- ===== ผูกการแสดงผลกับสวิตช์ Fly แบบอัตโนมัติ =====
--- กลไก: ช่วงแรก "แสดงไว้ก่อน" เพื่อให้เห็นแน่ ๆ
-overlay.Enabled = true
-
-local function findFlyEnabled()
-	for _, ui in ipairs(CoreGui:GetDescendants()) do
-		if ui:IsA("BoolValue") and ui.Name == "Enabled" and ui.Parent and ui.Parent.Name == "FlyBox" then
-			return ui
-		end
+local function applyVisibility()
+	local en=getFlyEnabled()
+	if not en then overlay.Enabled=false return end
+	overlay.Enabled=en.Value
+	if overlay.Enabled then
+		pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
 	end
 end
 
--- ตัวเฝ้าดู: หา BoolValue ของ FlyBox เรื่อย ๆ จนเจอ แล้วค่อยผูกให้เปิด/ปิดตามจริง
-task.spawn(function()
-	local linked = false
-	while task.wait(0.5) do
-		if not linked then
-			local flag = findFlyEnabled()
-			if flag then
-				linked = true
-				local function apply()
-					overlay.Enabled = flag.Value
-				end
-				flag.Changed:Connect(apply)
-				apply()
-			end
+applyVisibility()
+do
+	local en=getFlyEnabled(); if en then en.Changed:Connect(applyVisibility) end
+	RunService.RenderStepped:Connect(function()
+		if overlay and overlay.Enabled then
+			pad.Position=UDim2.new(0,PAD_LEFT,1,-PAD_BOT)
 		end
-	end
-end)
+	end)
+end
