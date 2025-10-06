@@ -650,3 +650,438 @@ end)
 if not ok then
     warn("[UFOX][P2][Error]", err)
 end
+--[[
+  UFO HUB X Pro — PACK #3: Key UI & Download UI
+  Requirements:
+    - PACK #1 (Loader + Config)
+    - PACK #2 (Key System Integration)
+  What you get:
+    - Key UI: Get Key / Open / Copy / Paste / Verify
+    - TTL/Status indicator + Error bubble
+    - Download UI (success screen) -> Continue -> emit launch_main
+    - Hooks: listens to "show_key_ui", "show_download_ui", and calls __set_ui_root
+]]
+
+local ok, err = pcall(function()
+    if not (shared and shared.UFOX and shared.UFOX.API) then
+        warn("[UFOX][P3] Missing PACK #1/#2. Please load them first.")
+        return
+    end
+
+    local U           = shared.UFOX
+    local API         = shared.UFOX.API
+    local STATE       = shared.UFOX_STATE
+    local Bus         = U.Bus
+
+    -- Services
+    local CoreGui     = game:GetService("CoreGui")
+    local TweenService= game:GetService("TweenService")
+    local UIS         = game:GetService("UserInputService")
+    local StarterGui  = game:GetService("StarterGui")
+    local HttpService = game:GetService("HttpService")
+
+    local function notify(t, d)
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {Title="UFO HUB X Pro", Text=tostring(t), Duration=d or 2.5})
+        end)
+        if not (U.FLAGS and U.FLAGS.QUIET) then
+            print("[UFOX][P3]", t)
+        end
+    end
+
+    local function get_ui_parent()
+        local okGetHui, hui = pcall(function() if gethui then return gethui() end end)
+        if okGetHui and typeof(hui) == "Instance" then return hui end
+        return CoreGui
+    end
+    local function protect_gui(g)
+        pcall(function()
+            if syn and syn.protect_gui then syn.protect_gui(g) end
+        end)
+    end
+
+    -- Destroy old if exists
+    local old = CoreGui:FindFirstChild("UFOX_KeyUI")
+    if old then old:Destroy() end
+    local old2 = CoreGui:FindFirstChild("UFOX_DownloadUI")
+    if old2 then old2:Destroy() end
+
+    -- ========= Helpers (UI) =========
+    local function mk(obj, props, parent)
+        local o = Instance.new(obj)
+        for k,v in pairs(props or {}) do o[k]=v end
+        if parent then o.Parent = parent end
+        return o
+    end
+
+    local THEME = U.THEME
+    local FONT_TITLE = Enum.Font.GothamBold
+    local FONT_TEXT  = Enum.Font.Gotham
+
+    -- ========= Key UI =========
+    local keyGui = mk("ScreenGui", {
+        Name="UFOX_KeyUI", IgnoreGuiInset=true, ResetOnSpawn=false,
+        DisplayOrder=50010, Enabled=false
+    })
+    protect_gui(keyGui)
+    keyGui.Parent = get_ui_parent()
+    U.__set_ui_root(keyGui)  -- ให้ hotkey ทำงานกับชุดนี้
+
+    local root = mk("Frame", {
+        Name="Root", BackgroundColor3 = THEME.BG, BackgroundTransparency = 0.15,
+        Size = UDim2.fromScale(0.44, 0.5), AnchorPoint=Vector2.new(0.5,0.5),
+        Position = UDim2.fromScale(0.5,0.5)
+    }, keyGui)
+    mk("UICorner", {CornerRadius=UDim.new(0,16)}, root)
+    mk("UIStroke", {Color=THEME.GREEN, Thickness=1, Transparency=0.4}, root)
+    mk("UIGradient", {
+        Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(20,20,20)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(10,10,10))
+        },
+        Rotation = 90
+    }, root)
+    local pad = mk("UIPadding", {PaddingTop=UDim.new(0,14), PaddingLeft=UDim.new(0,14), PaddingRight=UDim.new(0,14), PaddingBottom=UDim.new(0,14)}, root)
+
+    local title = mk("TextLabel", {
+        Name="Title", BackgroundTransparency=1, Text="UFO HUB X Pro — Key",
+        Font=FONT_TITLE, TextSize=24, TextColor3=THEME.FG, TextXAlignment=Enum.TextXAlignment.Left,
+        Size=UDim2.new(1, -28, 0, 28), Position=UDim2.fromOffset(14, 10)
+    }, root)
+
+    local closeBtn = mk("TextButton", {
+        Name="Close", BackgroundColor3=Color3.fromRGB(32,32,32),
+        Size=UDim2.fromOffset(28,28), Position=UDim2.new(1, -42, 0, 10),
+        Text="×", Font=FONT_TITLE, TextSize=22, TextColor3=THEME.FG
+    }, root)
+    mk("UICorner", {CornerRadius=UDim.new(0,8)}, closeBtn)
+
+    local info = mk("TextLabel", {
+        Name="Info", BackgroundTransparency=1,
+        Text="ขั้นตอน: 1) กด Get Key  2) วางคีย์  3) กด Verify",
+        Font=FONT_TEXT, TextSize=16, TextColor3=THEME.FG, TextWrapped=true,
+        Size=UDim2.new(1, -20, 0, 40), Position=UDim2.fromOffset(14, 44),
+        TextXAlignment=Enum.TextXAlignment.Left
+    }, root)
+
+    -- Box & buttons
+    local keyBox = mk("TextBox", {
+        Name="KeyBox", PlaceholderText="วางคีย์ที่นี่", Text="", ClearTextOnFocus=false,
+        Font=FONT_TEXT, TextSize=16, TextColor3=THEME.FG,
+        BackgroundColor3=Color3.fromRGB(24,24,24), Size=UDim2.new(1, -28, 0, 36),
+        Position=UDim2.fromOffset(14, 94)
+    }, root)
+    mk("UICorner", {CornerRadius=UDim.new(0,10)}, keyBox)
+    mk("UIStroke", {Color=THEME.GREEN, Thickness=1, Transparency=0.5}, keyBox)
+
+    local row = mk("Frame", {
+        Name="Row", BackgroundTransparency=1, Size=UDim2.new(1, -28, 0, 40),
+        Position=UDim2.fromOffset(14, 140)
+    }, root)
+    local rowLayout = mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,8), VerticalAlignment=Enum.VerticalAlignment.Center}, row)
+
+    local function actionBtn(txt)
+        local b = mk("TextButton", {
+            BackgroundColor3=Color3.fromRGB(30,30,30), Size=UDim2.fromOffset(120,36),
+            Text=txt, Font=FONT_TEXT, TextSize=16, TextColor3=THEME.FG
+        }, row)
+        mk("UICorner", {CornerRadius=UDim.new(0,10)}, b)
+        mk("UIStroke", {Color=THEME.GREEN, Transparency=0.6}, b)
+        b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.1), {BackgroundColor3=Color3.fromRGB(38,38,38)}):Play() end)
+        b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.1), {BackgroundColor3=Color3.fromRGB(30,30,30)}):Play() end)
+        return b
+    end
+
+    local btnGet   = actionBtn("Get Key")
+    local btnOpen  = actionBtn("Open Link")
+    local btnCopy  = actionBtn("Copy Link")
+    local btnPaste = actionBtn("Paste")
+
+    local btnVerify = mk("TextButton", {
+        BackgroundColor3=THEME.GREEN, Size=UDim2.new(1, -28, 0, 40),
+        Position=UDim2.fromOffset(14, 190),
+        Text="Verify", Font=FONT_TITLE, TextSize=18, TextColor3=Color3.fromRGB(0,0,0)
+    }, root)
+    mk("UICorner", {CornerRadius=UDim.new(0,12)}, btnVerify)
+
+    local stat = mk("TextLabel", {
+        Name="Status", BackgroundTransparency=1, Text="Status: LOCKED", Font=FONT_TEXT,
+        TextSize=16, TextColor3=THEME.FG, TextXAlignment=Enum.TextXAlignment.Left,
+        Size=UDim2.new(1, -28, 0, 24), Position=UDim2.fromOffset(14, 236)
+    }, root)
+
+    local ttl = mk("TextLabel", {
+        Name="TTL", BackgroundTransparency=1, Text="TTL: —", Font=FONT_TEXT,
+        TextSize=16, TextColor3=THEME.FG, TextXAlignment=Enum.TextXAlignment.Left,
+        Size=UDim2.new(1, -28, 0, 24), Position=UDim2.fromOffset(14, 260)
+    }, root)
+
+    local errBubble = mk("TextLabel", {
+        Name="Error", BackgroundColor3=Color3.fromRGB(40,14,14), TextColor3=THEME.RED,
+        Font=FONT_TEXT, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true,
+        Visible=false, Text="", Size=UDim2.new(1,-28,0,40), Position=UDim2.fromOffset(14, 292)
+    }, root)
+    mk("UICorner", {CornerRadius=UDim.new(0,10)}, errBubble)
+    mk("UIStroke", {Color=THEME.RED, Transparency=0.3}, errBubble)
+
+    local logo = mk("ImageLabel", {
+        Name="Logo", BackgroundTransparency=1, Image=U.ASSETS.LOGO_ID,
+        Size=UDim2.fromOffset(64,64), Position=UDim2.new(1, -78, 1, -78)
+    }, root)
+
+    -- Draggable top area
+    local drag = mk("Frame", {BackgroundTransparency=1, Size=UDim2.new(1,-28,0,40), Position=UDim2.fromOffset(14,0)}, root)
+    local dragging, dragOff
+    drag.InputBegan:Connect(function(io)
+        if io.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragOff = Vector2.new(io.Position.X, io.Position.Y) - Vector2.new(root.AbsolutePosition.X, root.AbsolutePosition.Y)
+            io.Changed:Connect(function()
+                if io.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(io)
+        if dragging and io.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = io.Position
+            root.Position = UDim2.fromOffset(pos.X - dragOff.X + root.Size.X.Offset/2, pos.Y - dragOff.Y + root.Size.Y.Offset/2)
+        end
+    end)
+
+    -- ========= Download UI =========
+    local dlGui = mk("ScreenGui", {
+        Name="UFOX_DownloadUI", IgnoreGuiInset=true, ResetOnSpawn=false,
+        DisplayOrder=50009, Enabled=false
+    })
+    protect_gui(dlGui)
+    dlGui.Parent = get_ui_parent()
+
+    local dlRoot = mk("Frame", {
+        BackgroundColor3 = THEME.BG, BackgroundTransparency=0.1,
+        Size = UDim2.fromScale(0.36, 0.28), AnchorPoint=Vector2.new(0.5,0.5),
+        Position = UDim2.fromScale(0.5,0.5)
+    }, dlGui)
+    mk("UICorner", {CornerRadius=UDim.new(0,16)}, dlRoot)
+    mk("UIStroke", {Color=THEME.GREEN, Transparency=0.4}, dlRoot)
+    mk("UIGradient", {
+        Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(24,24,24)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(12,12,12))
+        }, Rotation=90
+    }, dlRoot)
+
+    local okIcon = mk("TextLabel", {
+        BackgroundTransparency=1, Text="✔", Font=FONT_TITLE, TextSize=48,
+        TextColor3=THEME.GREEN, Size=UDim2.fromOffset(64,64),
+        AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.35)
+    }, dlRoot)
+
+    local okMsg = mk("TextLabel", {
+        BackgroundTransparency=1, Text="Key Verified — Success",
+        Font=FONT_TITLE, TextSize=20, TextColor3=THEME.FG,
+        AnchorPoint=Vector2.new(0.5,0), Position=UDim2.fromScale(0.5,0.58),
+        Size=UDim2.new(1,-20,0,26)
+    }, dlRoot)
+
+    local btnContinue = mk("TextButton", {
+        BackgroundColor3=THEME.GREEN, Text="Continue", Font=FONT_TITLE,
+        TextSize=18, TextColor3=Color3.new(0,0,0),
+        AnchorPoint=Vector2.new(0.5,1), Position=UDim2.fromScale(0.5,0.92),
+        Size=UDim2.fromOffset(160,40)
+    }, dlRoot)
+    mk("UICorner", {CornerRadius=UDim.new(0,12)}, btnContinue)
+
+    -- ========= Logic =========
+    local function setError(msg)
+        if not msg or msg=="" then
+            errBubble.Visible=false
+            errBubble.Text=""
+        else
+            errBubble.Visible=true
+            errBubble.Text="  " .. tostring(msg)
+        end
+    end
+
+    local function refreshStatusLabels()
+        local s = API.Status()
+        stat.Text = "Status: " .. tostring(s.machine)
+        if s.machine=="VERIFIED" then
+            local left = math.max(0, s.ttl_left or 0)
+            local hh = math.floor(left/3600)
+            local mm = math.floor((left%3600)/60)
+            ttl.Text = ("TTL: %02dh %02dm"):format(hh, mm)
+        else
+            ttl.Text = "TTL: —"
+        end
+    end
+
+    -- periodic TTL refresh
+    task.spawn(function()
+        while keyGui and keyGui.Parent do
+            refreshStatusLabels()
+            task.wait(1)
+        end
+    end)
+
+    local getKeyLinkCache = nil
+    local function ensureKeyLink()
+        if not getKeyLinkCache then
+            getKeyLinkCache = API.GetKeyLink()
+        end
+        return getKeyLinkCache
+    end
+
+    -- Buttons wiring
+    closeBtn.MouseButton1Click:Connect(function()
+        keyGui.Enabled = false
+    end)
+
+    btnGet.MouseButton1Click:Connect(function()
+        setError("")
+        local url = ensureKeyLink()
+        if setclipboard then setclipboard(url) end
+        notify("คัดลอกลิงก์รับคีย์แล้ว ✓", 3)
+    end)
+
+    btnOpen.MouseButton1Click:Connect(function()
+        setError("")
+        local url = API.OpenGetKey() -- จะพยายาม open_url ถ้าไม่มีจะ copy ให้อัตโนมัติ
+        getKeyLinkCache = url
+    end)
+
+    btnCopy.MouseButton1Click:Connect(function()
+        setError("")
+        local url = ensureKeyLink()
+        if setclipboard then
+            setclipboard(url); notify("คัดลอกลิงก์เรียบร้อย ✓", 2)
+        else
+            notify("คลิปบอร์ดไม่รองรับ • ลิงก์: "..url, 4)
+        end
+    end)
+
+    btnPaste.MouseButton1Click:Connect(function()
+        setError("")
+        if getclipboard then
+            local txt = getclipboard()
+            if txt and #txt>0 then
+                keyBox.Text = txt
+                notify("วางข้อความจากคลิปบอร์ด ✓", 2)
+            else
+                setError("ไม่พบข้อความในคลิปบอร์ด")
+            end
+        else
+            setError("executor นี้ไม่รองรับ getclipboard — วางเองในกล่องข้อความได้")
+        end
+    end)
+
+    local verifying = false
+    local function doVerify()
+        if verifying then return end
+        verifying = true
+        setError("")
+        btnVerify.Text = "Verifying..."
+        btnVerify.Active = false
+        btnVerify.AutoButtonColor = false
+
+        local k = (keyBox.Text or ""):gsub("^%s+",""):gsub("%s+$","")
+        if k == "" then
+            setError("กรุณาวางคีย์ก่อน")
+            verifying=false
+            btnVerify.Text="Verify"
+            btnVerify.Active=true
+            btnVerify.AutoButtonColor=true
+            return
+        end
+
+        local okv, msg = API.Verify(k)
+        if not okv then
+            setError("ยืนยันคีย์ไม่สำเร็จ: "..tostring(msg))
+        else
+            -- success → show DownloadUI
+            keyGui.Enabled = false
+            dlGui.Enabled = true
+            TweenService:Create(okIcon, TweenInfo.new(0.2), {TextTransparency=0.1}):Play()
+            -- auto-continue (optional small delay)
+            task.delay(0.6, function()
+                -- can auto focus the button glow
+            end)
+        end
+
+        verifying=false
+        btnVerify.Text="Verify"
+        btnVerify.Active=true
+        btnVerify.AutoButtonColor=true
+        refreshStatusLabels()
+    end
+
+    btnVerify.MouseButton1Click:Connect(doVerify)
+    keyBox.FocusLost:Connect(function(enter)
+        if enter then doVerify() end
+    end)
+
+    btnContinue.MouseButton1Click:Connect(function()
+        -- fade out and emit launch_main
+        TweenService:Create(dlRoot, TweenInfo.new(0.25), {BackgroundTransparency=0.8}):Play()
+        task.delay(0.26, function()
+            dlGui.Enabled=false
+            -- ถ้ามี splash จากแพ็ก #1 ควรถูกปิดไปแล้ว; ตอนนี้ยิงไป MAIN
+            U.Emit("launch_main")
+        end)
+    end)
+
+    -- ========= Event wiring =========
+    U.On("state_changed", function(payload)
+        refreshStatusLabels()
+        if STATE.machine=="VERIFIED" then
+            -- ถ้ามีการยืนยันผ่านระหว่างที่ UI เปิดอยู่ → ไปหน้า Download UI
+            if keyGui.Enabled then
+                keyGui.Enabled=false
+                dlGui.Enabled=true
+            end
+        end
+    end)
+
+    U.On("verify_ok", function()
+        refreshStatusLabels()
+    end)
+
+    U.On("verify_fail", function(p)
+        setError(p and p.message or "Verify fail")
+    end)
+
+    U.On("network_error", function(p)
+        setError("Network: "..tostring(p and p.err or "error"))
+    end)
+
+    U.On("show_key_ui", function()
+        getKeyLinkCache = nil
+        setError("")
+        refreshStatusLabels()
+        keyGui.Enabled = true
+        -- นุ่มนวลหน่อย
+        root.BackgroundTransparency = 0.35
+        TweenService:Create(root, TweenInfo.new(0.2), {BackgroundTransparency=0.15}):Play()
+    end)
+
+    U.On("show_download_ui", function()
+        keyGui.Enabled=false
+        dlGui.Enabled=true
+    end)
+
+    -- ถ้าเปิดไฟล์นี้ตอนแรก และยังไม่ได้ verify → แสดง Key UI เลยให้
+    task.delay(0.05, function()
+        local s = API.Status()
+        if s.machine ~= "VERIFIED" then
+            keyGui.Enabled = true
+        else
+            -- เผื่อกรณีเรียกหลังจาก verify แล้ว
+            dlGui.Enabled = false
+        end
+    end)
+
+    notify("PACK #3 loaded (Key UI & Download UI) ✓", 2.5)
+end)
+
+if not ok then
+    warn("[UFOX][P3][Error]", err)
+end
