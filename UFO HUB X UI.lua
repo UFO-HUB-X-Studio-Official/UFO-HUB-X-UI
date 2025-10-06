@@ -952,14 +952,14 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 🛸 UFO HUB X — Fly v8 (UP/DOWN black buttons + smooth turn + faster fly + true hover + noclip)
+-- 🛸 UFO HUB X — Fly v9 (TH Up/Down + faster + correct facing + full noclip)
 local CoreGui    = game:GetService("CoreGui")
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInput  = game:GetService("UserInputService")
 local LP         = Players.LocalPlayer
 
--- 清ของเก่า
+-- ล้างของเก่า
 pcall(function()
 	for _,n in ipairs({"FlyBox","UFO_FlyPadOverlay"}) do
 		for _,d in ipairs(CoreGui:GetDescendants()) do if d.Name==n then d:Destroy() end end
@@ -972,12 +972,12 @@ local COL_BG   = Color3.fromRGB(0,0,0)
 local COL_TXT  = Color3.fromRGB(255,255,255)
 
 -- ===== Fly config =====
-local FLY_SPEED       = 110   -- ความเร็วแนวนอน
-local FLY_UPVEL       = 60    -- ความเร็วขึ้น/ลง
-local TURN_ACCEL      = 10    -- ค่าความ “สมูท” ในการหันหน้า (มาก = ตอบสนองไวแต่ยังนุ่ม)
-local HOVER_LIFT      = 2.5   -- ยกตัวขึ้นจากพื้นเล็กน้อยตอนเริ่มบิน
+local FLY_SPEED       = 200 -- เร็วขึ้น
+local FLY_UPVEL       = 90  -- เร็วขึ้นลง
+local TURN_ACCEL      = 12  -- ความสมูทในการหัน
+local HOVER_LIFT      = 2.5
 
--- ===== Layout (เหมือนเดิม) =====
+-- ===== Layout =====
 local BTN_SIZE, GAP  = 54, 10
 local PAD_LEFT, PAD_BOT = 95, 170
 
@@ -985,7 +985,7 @@ local RBTN_SIZE = 64
 local RBTN_GAP  = 24
 local RPAD_RIGHT, RPAD_BOT = 120, 210
 
--- ===== หา Anchor UI เดิม =====
+-- ===== หา Anchor UI =====
 local function findRight()
 	for _,ui in ipairs(CoreGui:GetDescendants()) do
 		if ui:IsA("Frame") and ui.Name=="RightPanel" then return ui end
@@ -1094,7 +1094,7 @@ local function newSquareButton(parent, label, sideSize)
 	local b=Instance.new("TextButton")
 	b.Parent=parent; b.Text=label; b.AutoButtonColor=false; b.BorderSizePixel=0
 	b.Size=UDim2.fromOffset(sideSize, sideSize); b:SetAttribute("baseSize", sideSize)
-	b.Font=Enum.Font.GothamBold; b.TextSize=16; b.TextColor3=COL_TXT
+	b.Font=Enum.Font.GothamBold; b.TextSize=18; b.TextColor3=COL_TXT
 	b.BackgroundColor3=COL_BG
 	local s=Instance.new("UIStroke",b); s.Color=ACCENT; s.Thickness=1.6; s.Transparency=.2
 	local c=Instance.new("UICorner",b); c.CornerRadius=UDim.new(0,8)
@@ -1123,14 +1123,14 @@ leftBtn.Position  = UDim2.fromOffset(0, BTN_SIZE+GAP)
 rightBtn.Position = UDim2.fromOffset(2*(BTN_SIZE+GAP), BTN_SIZE + GAP)
 downBtn.Position  = UDim2.fromOffset(BTN_SIZE+GAP, 2*(BTN_SIZE+GAP))
 
--- ขวา: UP/DOWN (สีดำ + ขอบเขียว + ตัวอักษร)
+-- ขวา: “ขึ้น / ลง” (ปุ่มดำ + ขอบเขียว + ตัวอักษรไทย)
 local rpad=Instance.new("Frame")
 rpad.Parent=overlay; rpad.BackgroundTransparency=1
 rpad.AnchorPoint=Vector2.new(1,1); rpad.Position=UDim2.new(1,-RPAD_RIGHT,1,-RPAD_BOT)
 rpad.Size=UDim2.fromOffset(RBTN_SIZE, RBTN_SIZE*2+RBTN_GAP)
 
-local riseBtn = newSquareButton(rpad,"UP",RBTN_SIZE)
-local fallBtn = newSquareButton(rpad,"DOWN",RBTN_SIZE)
+local riseBtn = newSquareButton(rpad,"ขึ้น",RBTN_SIZE)
+local fallBtn = newSquareButton(rpad,"ลง",RBTN_SIZE)
 riseBtn.Position = UDim2.fromOffset(0,0)
 fallBtn.Position = UDim2.fromOffset(0,RBTN_SIZE+RBTN_GAP)
 
@@ -1152,7 +1152,11 @@ local function ensureForce(root)
 end
 local function setNoClip(ch,on)
 	for _,p in ipairs(ch:GetDescendants()) do
-		if p:IsA("BasePart") then p.CanCollide = not on; p.CanTouch=false end
+		if p:IsA("BasePart") then
+			p.CanCollide = not on
+			p.CanTouch   = false
+			p.CustomPhysicalProperties = PhysicalProperties.new(0,0,0) -- reduce weird pushes
+		end
 	end
 end
 local function setAutoRotate(h,on) pcall(function() h.AutoRotate=on end) end
@@ -1171,20 +1175,7 @@ hookHold(rightBtn,"R")
 hookHold(riseBtn,"Up")
 hookHold(fallBtn,"Down")
 
--- ปัดจอ “เฉพาะซ้าย/ขวา” เพื่อหมุนหน้า (ไม่ใช้ขึ้น/ลงแล้ว)
-local touchStart=nil
-UserInput.TouchStarted:Connect(function(io) touchStart=io.Position end)
-UserInput.TouchEnded:Connect(function(io)
-	if not touchStart then return end
-	local d = io.Position - touchStart
-	if math.abs(d.X) > 60 then
-		if d.X < 0 then move.L=true  task.delay(0.2,function() move.L=false end)
-		else            move.R=true  task.delay(0.2,function() move.R=false end) end
-	end
-	touchStart=nil
-end)
-
--- แสดง/ซ่อน + ตั้งค่าตอนเริ่มบิน (hover lock)
+-- แสดง/ซ่อน + ตั้งค่าเริ่มบิน (ลอยค้าง + noclip)
 local function bindVisibility()
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
@@ -1214,7 +1205,7 @@ local function bindVisibility()
 end
 bindVisibility()
 
--- main
+-- main loop
 RunService.Heartbeat:Connect(function(dt)
 	local page=findPlayerPage(); if not page then return end
 	local fb=page:FindFirstChild("FlyBox"); if not fb then return end
@@ -1234,34 +1225,29 @@ RunService.Heartbeat:Connect(function(dt)
 	local flatR=(Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z))
 	if flatR.Magnitude>0 then flatR=flatR.Unit end
 
-	-- ความเร็ว
+	-- ทิศกด (แก้ซ้าย/ขวาให้ถูกด้าน)
 	local dir = Vector3.zero
 	if move.F then dir += flatF end
 	if move.B then dir -= flatF end
-	if move.L then dir -= flatR end
-	if move.R then dir += flatR end
+	if move.L then dir += flatR end   -- << พลิกด้านให้ถูก
+	if move.R then dir -= flatR end   -- << พลิกด้านให้ถูก
+
 	local horizVel = (dir.Magnitude>0 and dir.Unit or Vector3.zero) * FLY_SPEED
 	local vVel = Vector3.zero
-	if move.Up then vVel += Vector3.new(0,FLY_UPVEL,0) end
+	if move.Up   then vVel += Vector3.new(0,FLY_UPVEL,0) end
 	if move.Down then vVel += Vector3.new(0,-FLY_UPVEL,0) end
 
-	-- ถ้าไม่กดเดินใดๆ เลย → อยู่นิ่งที่จุดเดิม (เว้นแต่อัป/ดาวน์)
+	-- ไม่กดเดินแนวนอน → ลอยที่จุดเดิม (ให้คงที่ ยกเว้นขึ้น/ลง)
 	if dir.Magnitude==0 then
 		root.AssemblyLinearVelocity = Vector3.new(0, vVel.Y, 0)
 	else
 		root.AssemblyLinearVelocity = horizVel + vVel
 	end
 
-	-- หมุนหน้าแบบสมูท (อยู่กับที่ได้ถ้าไม่ได้กดเดินหน้า)
-	local wantLook = nil
-	if move.L then wantLook = -flatR end
-	if move.R then wantLook = flatR end
-	if move.F then wantLook = flatF end
-	if move.B and not (move.F or move.L or move.R) then wantLook = -flatF end
-
-	if wantLook and wantLook.Magnitude>0 then
+	-- หันหน้าแบบสมูทเข้าหาทิศที่ "ต้องการเดิน"
+	if dir.Magnitude>0 then
+		local wantLook = dir.Unit
 		local pos = root.Position
-		-- smooth factor แบบ exponential (นุ่มกว่า lerp ปกติ)
 		local alpha = 1 - math.exp(-TURN_ACCEL*dt)
 		local cur = root.CFrame.LookVector
 		local blended = (cur*(1-alpha) + wantLook*alpha).Unit
