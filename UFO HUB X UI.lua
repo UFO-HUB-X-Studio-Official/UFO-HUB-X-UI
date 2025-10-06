@@ -522,6 +522,58 @@ end
 -- END (จบส่วนเพิ่ม)
 ----------------------------------------------------------------
 ----------------------------------------------------------------
+-- PATCH: Stop Player background image from auto-zooming
+-- วางต่อท้ายสคริปต์เดิมได้เลย
+----------------------------------------------------------------
+local TS = game:GetService("TweenService")
+
+local function stopBGZoom()
+	-- ถ้าในโปรเจกต์ของเพื่อน รูปพื้นหลังตั้งชื่อว่า "BG" อยู่ใต้ Right/PlayerCard
+	-- จะเลือกอันนั้นก่อน; ถ้าไม่พบจะเลือก ImageLabel ที่ “ใหญ่สุด” ใต้ Right
+	local right = Right
+	if not right then return end
+
+	local bg = right:FindFirstChild("BG", true)
+	if not bg then
+		local biggest, area = nil, 0
+		for _,v in ipairs(right:GetDescendants()) do
+			if v:IsA("ImageLabel") then
+				local a = v.AbsoluteSize.X * v.AbsoluteSize.Y
+				if a > area then biggest, area = v, a end
+			end
+		end
+		bg = biggest
+	end
+	if not bg or not bg:IsA("ImageLabel") then return end
+
+	-- ล็อกขนาดเป็นพิกเซลคงที่ (ยึดจากขนาดปัจจุบันตอนเปิด)
+	bg.ScaleType   = Enum.ScaleType.Fit
+	bg.AnchorPoint = Vector2.new(0.5, 0.5)
+	bg.Position    = UDim2.new(0.5, 0, 0.5, 0)
+
+	local LOCK_W, LOCK_H = math.floor(bg.AbsoluteSize.X + 0.5), math.floor(bg.AbsoluteSize.Y + 0.5)
+	bg.Size = UDim2.fromOffset(LOCK_W, LOCK_H)
+	bg:SetAttribute("NoZoom", true)
+
+	-- กัน Tween อื่นๆ ที่อาจเผลอไปปรับ Size ภายหลัง
+	pcall(function()
+		local dummy = TS:Create(bg, TweenInfo.new(0.001), {Size = bg.Size})
+		dummy:Cancel()
+	end)
+
+	-- ถ้ากรอบข้างนอกถูกย่อ/ขยาย ให้รักษาขนาดพิกเซลเท่าเดิม (จะไม่ซูมตาม)
+	local container = bg.Parent
+	container:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		if bg:GetAttribute("NoZoom") then
+			bg.Size     = UDim2.fromOffset(LOCK_W, LOCK_H)
+			bg.Position = UDim2.new(0.5, 0, 0.5, 0)
+		end
+	end)
+end
+
+stopBGZoom()
+----------------------------------------------------------------
+----------------------------------------------------------------
 -- UFO HUB X : PLAYER PAGE (Perfect Align + MAX SYSTEM)
 -- • เวลาอยู่ใต้ชื่อในแท่งดำขอบเขียว (ตำแหน่งเดียวกับกรอบแดง)
 -- • เวลาเล็กลง ขาวในกรอบดำ
