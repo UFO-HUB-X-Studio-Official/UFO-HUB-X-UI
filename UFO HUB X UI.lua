@@ -416,11 +416,11 @@ do
     end
 end
 --========================
--- PLAYER BUTTONS: Left (แถบขาว) + Right (แถบแดง)
+-- PLAYER BUTTONS (Exact layout like screenshot #2)
 --========================
 
--- ถ้าเคยประกาศ ACCENT_ASSETS / setUFOAccent / AccentChanged แล้ว ข้ามบล็อกนี้ได้
-local ACCENT_ASSETS = ACCENT_ASSETS or {
+-- ไอดีรูปตามสี (ใช้ของ M)
+local ACCENT_ASSETS = {
     GREEN = "rbxassetid://112510739340023",
     RED   = "rbxassetid://131641206815699",
     GOLD  = "rbxassetid://127371066511941",
@@ -428,98 +428,112 @@ local ACCENT_ASSETS = ACCENT_ASSETS or {
 }
 getgenv().UFO_ACCENT = getgenv().UFO_ACCENT or "GREEN"
 local AccentChanged = AccentChanged or Instance.new("BindableEvent")
-function setUFOAccent(name)
+local function setUFOAccent(name)
     name = string.upper(name or "")
     if ACCENT_ASSETS[name] then
         getgenv().UFO_ACCENT = name
         AccentChanged:Fire(name)
-    else
-        warn("[UFO] Unknown accent:", name)
     end
 end
 
--- ยูทิล: ปุ่มมีไอคอน + ข้อความสีขาว
-local function MakePlayerButton(parent)
+-- ยูทิลทำปุ่ม (กำหนดสไตล์แตกต่างซ้าย/ขวา)
+local function MakeChip(parent; )
+end
+
+local function MakeLeftPlayerButton(parent)
     local btn = Instance.new("TextButton")
-    btn.Name = "PlayerButton"
+    btn.Name = "Player_Left"
     btn.AutoButtonColor = false
-    btn.BackgroundColor3 = Color3.fromRGB(26,26,26)
     btn.Text = ""
-    btn.ZIndex = 5
+    btn.BackgroundColor3 = Color3.fromRGB(245,245,245) -- แถบขาว
+    btn.BorderSizePixel = 0
     btn.Parent = parent
 
-    local corner = Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0,10)
-    local stroke = Instance.new("UIStroke", btn); stroke.Thickness = 2; stroke.Color = Color3.fromRGB(0,255,140); stroke.Transparency = 0.2
+    local corner = Instance.new("UICorner", btn) corner.CornerRadius = UDim.new(0,8)
+    local stroke = Instance.new("UIStroke", btn) stroke.Thickness = 2 stroke.Color = Color3.fromRGB(0,255,140) stroke.Transparency = 0
 
+    -- ไอคอน
     local icon = Instance.new("ImageLabel")
     icon.BackgroundTransparency = 1
-    icon.Size = UDim2.fromOffset(22,22)
-    icon.Position = UDim2.fromOffset(10,4)
-    icon.ZIndex = 6
+    icon.Size = UDim2.fromOffset(18,18)
     icon.Parent = btn
 
+    -- ชื่อ (อ่านบนพื้นขาว -> สีดำ)
     local title = Instance.new("TextLabel")
     title.BackgroundTransparency = 1
     title.Text = "Player"
     title.Font = Enum.Font.GothamBold
     title.TextSize = 14
-    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.TextColor3 = Color3.fromRGB(20,20,20)
     title.TextXAlignment = Enum.TextXAlignment.Left
-    title.ZIndex = 6
     title.Parent = btn
 
-    -- อัปเดตรูปตามโทน
     local function renderIcon()
         icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
     end
     renderIcon()
     AccentChanged.Event:Connect(renderIcon)
 
-    -- เอฟเฟกต์โฮเวอร์นิดหน่อย
-    btn.MouseEnter:Connect(function() stroke.Transparency = 0 end)
-    btn.MouseLeave:Connect(function() stroke.Transparency = 0.2 end)
-
-    return btn, icon, title, stroke
+    return btn, icon, title
 end
 
--- ========================
--- ซิงก์ตำแหน่ง/ขนาด "เป๊ะ ๆ"
--- ========================
--- ค่าจัดวางให้เหมือนในรูป (ปรับได้ถ้าจอแตกต่างมาก)
-local PADDING    = 10
-local LEFT_H     = 30      -- ความสูงแถบขาว
-local RIGHT_W    = 200     -- ความยาวแถบแดง
-local RIGHT_H    = 26      -- ความสูงแถบแดง
+local function MakeRightPlayerChip(parent)
+    local chip = Instance.new("Frame")
+    chip.Name = "Player_Right"
+    chip.BackgroundColor3 = Color3.fromRGB(28,28,28) -- ดำเข้าธีม (ไม่ใช่แดง)
+    chip.BorderSizePixel = 0
+    chip.Parent = parent
+    local corner = Instance.new("UICorner", chip) corner.CornerRadius = UDim.new(0,8)
+    local stroke = Instance.new("UIStroke", chip) stroke.Thickness = 2 stroke.Color = Color3.fromRGB(0,255,140) stroke.Transparency = 0
 
--- ปุ่มซ้าย: วางตรง "แถบขาว" ด้านบนซ้ายแบบเต็มความกว้างภายใน
-local LeftPlayerBtn, LIcon, LTitle = MakePlayerButton(LeftScroll)
+    local icon = Instance.new("ImageLabel")
+    icon.BackgroundTransparency = 1
+    icon.Size = UDim2.fromOffset(18,18)
+    icon.Parent = chip
 
--- ปุ่มขวา (แถบแดง) ใช้พื้นหลังแดง และความกว้างตายตัว
-local RightPlayerBtn, RIcon, RTitle, RStroke = MakePlayerButton(RightScroll)
-RightPlayerBtn.BackgroundColor3 = Color3.fromRGB(210,48,48)
-RStroke.Color = Color3.fromRGB(210,48,48) -- ให้เส้นเนียนกับแถบ
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Text = "Player"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.TextColor3 = Color3.fromRGB(255,255,255) -- ชื่อสีขาว
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = chip
 
--- จัดไอคอน + ข้อความภายในทั้งสองปุ่ม
-local function layoutInner(btn, icon, title, h, leftPadding)
-    icon.Position = UDim2.fromOffset(leftPadding or 10, math.floor((h-22)/2))
-    title.Position = UDim2.fromOffset((leftPadding or 10)+22+8, math.floor((h-18)/2))
-    title.Size = UDim2.new(1, -((leftPadding or 10)+22+8+10), 0, 18)
+    local function renderIcon()
+        icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
+    end
+    renderIcon()
+    AccentChanged.Event:Connect(renderIcon)
+
+    return chip, icon, title
 end
 
--- ฟังก์ชันจัดวางให้ “เป๊ะ ๆ” ทุกครั้งที่ขนาดเปลี่ยน
+-- ========= ขนาด/ตำแหน่ง “เป๊ะ” =========
+local PADDING   = 10
+local LEFT_H    = 26   -- ความสูงแถบขาว (ซ้าย) ตามรูป
+local RIGHT_W   = 210  -- ความยาวชิปบนขวา (แทนแถบแดงเดิม)
+local RIGHT_H   = 26   -- ความสูงชิปบนขวา
+
+local LBtn, LIcon, LTitle = MakeLeftPlayerButton(LeftScroll)
+local RChip, RIcon, RTitle = MakeRightPlayerChip(RightScroll)
+
 local function layoutExact()
-    -- ซ้าย: เต็มความกว้างของ LeftScroll - padding
-    LeftPlayerBtn.Position = UDim2.fromOffset(PADDING, PADDING)
-    LeftPlayerBtn.Size     = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
-    layoutInner(LeftPlayerBtn, LIcon, LTitle, LEFT_H, 10)
+    -- ซ้าย: เต็มกรอบภายใน LeftScroll
+    LBtn.Position = UDim2.fromOffset(PADDING, PADDING)
+    LBtn.Size     = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
+    LIcon.Position = UDim2.fromOffset(10, math.floor((LEFT_H-18)/2))
+    LTitle.Position= UDim2.fromOffset(10+18+8, math.floor((LEFT_H-18)/2))
+    LTitle.Size    = UDim2.new(1, -(10+18+8+10), 0, 18)
 
-    -- ขวา: ยึดมุมบนซ้ายของ RightScroll ด้วยขนาดตายตัวแบบแถบแดง
-    RightPlayerBtn.Position = UDim2.fromOffset(PADDING, PADDING)
-    RightPlayerBtn.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
-    layoutInner(RightPlayerBtn, RIcon, RTitle, RIGHT_H, 10)
+    -- ขวา: วางทับตำแหน่งแถบแดงเดิม (มุมซ้ายบนภายใน RightScroll)
+    RChip.Position = UDim2.fromOffset(PADDING, PADDING)
+    RChip.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+    RIcon.Position = UDim2.fromOffset(10, math.floor((RIGHT_H-18)/2))
+    RTitle.Position= UDim2.fromOffset(10+18+8, math.floor((RIGHT_H-18)/2))
+    RTitle.Size    = UDim2.fromOffset(RIGHT_W-(10+18+8+10), 18)
 end
 layoutExact()
 
--- รีเลย์เอาต์เมื่อแผงเปลี่ยนขนาด
 LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
 RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
