@@ -416,24 +416,18 @@ do
     end
 end
 --========================
--- ACCENT-READY BUTTON (Player)
+-- PLAYER BUTTONS: Left (แถบขาว) + Right (แถบแดง)
 --========================
 
--- ไอดีรูปตามสี (ที่ M ให้มา)
-local ACCENT_ASSETS = {
+-- ถ้าเคยประกาศ ACCENT_ASSETS / setUFOAccent / AccentChanged แล้ว ข้ามบล็อกนี้ได้
+local ACCENT_ASSETS = ACCENT_ASSETS or {
     GREEN = "rbxassetid://112510739340023",
     RED   = "rbxassetid://131641206815699",
     GOLD  = "rbxassetid://127371066511941",
     WHITE = "rbxassetid://106330577092636",
 }
-
--- ค่าโหมดสีปัจจุบัน (เดี๋ยวค่อยเชื่อมกับระบบเปลี่ยนสีจริง)
 getgenv().UFO_ACCENT = getgenv().UFO_ACCENT or "GREEN"
-
--- ช่องสัญญาณสำหรับแจ้งทุกคอมโพเนนต์ว่าโทนสีเปลี่ยน (เตรียมไว้ล่วงหน้า)
-local AccentChanged = Instance.new("BindableEvent")
-
--- ฟังก์ชันสาธารณะ: เปลี่ยนโทนสี (ระบบหลักค่อยเรียกฟังก์ชันนี้)
+local AccentChanged = AccentChanged or Instance.new("BindableEvent")
 function setUFOAccent(name)
     name = string.upper(name or "")
     if ACCENT_ASSETS[name] then
@@ -444,57 +438,88 @@ function setUFOAccent(name)
     end
 end
 
--- ยูทิล: ปุ่มภาพที่ “ผูก” กับสี
-local function AccentAwareImage(parent, size, onClick)
-    local btn = Instance.new("ImageButton")
-    btn.Name = "PlayerAccentButton"
-    btn.BackgroundTransparency = 1
-    btn.Size = size or UDim2.fromOffset(64,64)
+-- ยูทิล: ปุ่มมีไอคอน + ข้อความสีขาว
+local function MakePlayerButton(parent)
+    local btn = Instance.new("TextButton")
+    btn.Name = "PlayerButton"
     btn.AutoButtonColor = false
+    btn.BackgroundColor3 = Color3.fromRGB(26,26,26)
+    btn.Text = ""
+    btn.ZIndex = 5
     btn.Parent = parent
 
-    -- กรอบสวย ๆ ให้เข้าธีม
-    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 10)
-    local s = Instance.new("UIStroke", btn); s.Thickness = 2; s.Color = Color3.fromRGB(0,255,140); s.Transparency = 0.15
+    local corner = Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0,10)
+    local stroke = Instance.new("UIStroke", btn); stroke.Thickness = 2; stroke.Color = Color3.fromRGB(0,255,140); stroke.Transparency = 0.2
 
-    -- อัปเดตรูปตามโทนสีปัจจุบัน
-    local function render()
-        local key = getgenv().UFO_ACCENT
-        btn.Image = ACCENT_ASSETS[key] or ACCENT_ASSETS.GREEN
+    local icon = Instance.new("ImageLabel")
+    icon.BackgroundTransparency = 1
+    icon.Size = UDim2.fromOffset(22,22)
+    icon.Position = UDim2.fromOffset(10,4)
+    icon.ZIndex = 6
+    icon.Parent = btn
+
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Text = "Player"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 6
+    title.Parent = btn
+
+    -- อัปเดตรูปตามโทน
+    local function renderIcon()
+        icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
     end
-    render()
+    renderIcon()
+    AccentChanged.Event:Connect(renderIcon)
 
-    -- ฟังเมื่อโทนสีเปลี่ยน
-    AccentChanged.Event:Connect(render)
+    -- เอฟเฟกต์โฮเวอร์นิดหน่อย
+    btn.MouseEnter:Connect(function() stroke.Transparency = 0 end)
+    btn.MouseLeave:Connect(function() stroke.Transparency = 0.2 end)
 
-    if typeof(onClick) == "function" then
-        btn.MouseButton1Click:Connect(onClick)
-    end
-
-    -- เอฟเฟกต์โฮเวอร์เล็กน้อย
-    btn.MouseEnter:Connect(function() s.Transparency = 0 end)
-    btn.MouseLeave:Connect(function() s.Transparency = 0.15 end)
-
-    return btn
+    return btn, icon, title, stroke
 end
 
--- วางปุ่ม Player ลงในฝั่งซ้าย (หรือขวาก็ได้)
-local PlayerBtn = AccentAwareImage(LeftScroll, UDim2.fromOffset(72,72), function()
-    print("[UFO] Player button clicked")
-    -- เปิดหน้า Player ได้ในอนาคต
-end)
+-- ========================
+-- ซิงก์ตำแหน่ง/ขนาด "เป๊ะ ๆ"
+-- ========================
+-- ค่าจัดวางให้เหมือนในรูป (ปรับได้ถ้าจอแตกต่างมาก)
+local PADDING    = 10
+local LEFT_H     = 30      -- ความสูงแถบขาว
+local RIGHT_W    = 200     -- ความยาวแถบแดง
+local RIGHT_H    = 26      -- ความสูงแถบแดง
 
--- ตัวอย่างทดสอบ (ลบได้): กดคีย์ 1-4 เพื่อสลับสีแบบเร็ว
-do
-    local map = {
-        [Enum.KeyCode.One]   = "GREEN",
-        [Enum.KeyCode.Two]   = "RED",
-        [Enum.KeyCode.Three] = "GOLD",
-        [Enum.KeyCode.Four]  = "WHITE",
-    }
-    UIS.InputBegan:Connect(function(i,gp)
-        if gp then return end
-        local target = map[i.KeyCode]
-        if target then setUFOAccent(target) end
-    end)
+-- ปุ่มซ้าย: วางตรง "แถบขาว" ด้านบนซ้ายแบบเต็มความกว้างภายใน
+local LeftPlayerBtn, LIcon, LTitle = MakePlayerButton(LeftScroll)
+
+-- ปุ่มขวา (แถบแดง) ใช้พื้นหลังแดง และความกว้างตายตัว
+local RightPlayerBtn, RIcon, RTitle, RStroke = MakePlayerButton(RightScroll)
+RightPlayerBtn.BackgroundColor3 = Color3.fromRGB(210,48,48)
+RStroke.Color = Color3.fromRGB(210,48,48) -- ให้เส้นเนียนกับแถบ
+
+-- จัดไอคอน + ข้อความภายในทั้งสองปุ่ม
+local function layoutInner(btn, icon, title, h, leftPadding)
+    icon.Position = UDim2.fromOffset(leftPadding or 10, math.floor((h-22)/2))
+    title.Position = UDim2.fromOffset((leftPadding or 10)+22+8, math.floor((h-18)/2))
+    title.Size = UDim2.new(1, -((leftPadding or 10)+22+8+10), 0, 18)
 end
+
+-- ฟังก์ชันจัดวางให้ “เป๊ะ ๆ” ทุกครั้งที่ขนาดเปลี่ยน
+local function layoutExact()
+    -- ซ้าย: เต็มความกว้างของ LeftScroll - padding
+    LeftPlayerBtn.Position = UDim2.fromOffset(PADDING, PADDING)
+    LeftPlayerBtn.Size     = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
+    layoutInner(LeftPlayerBtn, LIcon, LTitle, LEFT_H, 10)
+
+    -- ขวา: ยึดมุมบนซ้ายของ RightScroll ด้วยขนาดตายตัวแบบแถบแดง
+    RightPlayerBtn.Position = UDim2.fromOffset(PADDING, PADDING)
+    RightPlayerBtn.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+    layoutInner(RightPlayerBtn, RIcon, RTitle, RIGHT_H, 10)
+end
+layoutExact()
+
+-- รีเลย์เอาต์เมื่อแผงเปลี่ยนขนาด
+LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
+RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
