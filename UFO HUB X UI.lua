@@ -415,3 +415,86 @@ do
         end)
     end
 end
+--========================
+-- ACCENT-READY BUTTON (Player)
+--========================
+
+-- ไอดีรูปตามสี (ที่ M ให้มา)
+local ACCENT_ASSETS = {
+    GREEN = "rbxassetid://112510739340023",
+    RED   = "rbxassetid://131641206815699",
+    GOLD  = "rbxassetid://127371066511941",
+    WHITE = "rbxassetid://106330577092636",
+}
+
+-- ค่าโหมดสีปัจจุบัน (เดี๋ยวค่อยเชื่อมกับระบบเปลี่ยนสีจริง)
+getgenv().UFO_ACCENT = getgenv().UFO_ACCENT or "GREEN"
+
+-- ช่องสัญญาณสำหรับแจ้งทุกคอมโพเนนต์ว่าโทนสีเปลี่ยน (เตรียมไว้ล่วงหน้า)
+local AccentChanged = Instance.new("BindableEvent")
+
+-- ฟังก์ชันสาธารณะ: เปลี่ยนโทนสี (ระบบหลักค่อยเรียกฟังก์ชันนี้)
+function setUFOAccent(name)
+    name = string.upper(name or "")
+    if ACCENT_ASSETS[name] then
+        getgenv().UFO_ACCENT = name
+        AccentChanged:Fire(name)
+    else
+        warn("[UFO] Unknown accent:", name)
+    end
+end
+
+-- ยูทิล: ปุ่มภาพที่ “ผูก” กับสี
+local function AccentAwareImage(parent, size, onClick)
+    local btn = Instance.new("ImageButton")
+    btn.Name = "PlayerAccentButton"
+    btn.BackgroundTransparency = 1
+    btn.Size = size or UDim2.fromOffset(64,64)
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+
+    -- กรอบสวย ๆ ให้เข้าธีม
+    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 10)
+    local s = Instance.new("UIStroke", btn); s.Thickness = 2; s.Color = Color3.fromRGB(0,255,140); s.Transparency = 0.15
+
+    -- อัปเดตรูปตามโทนสีปัจจุบัน
+    local function render()
+        local key = getgenv().UFO_ACCENT
+        btn.Image = ACCENT_ASSETS[key] or ACCENT_ASSETS.GREEN
+    end
+    render()
+
+    -- ฟังเมื่อโทนสีเปลี่ยน
+    AccentChanged.Event:Connect(render)
+
+    if typeof(onClick) == "function" then
+        btn.MouseButton1Click:Connect(onClick)
+    end
+
+    -- เอฟเฟกต์โฮเวอร์เล็กน้อย
+    btn.MouseEnter:Connect(function() s.Transparency = 0 end)
+    btn.MouseLeave:Connect(function() s.Transparency = 0.15 end)
+
+    return btn
+end
+
+-- วางปุ่ม Player ลงในฝั่งซ้าย (หรือขวาก็ได้)
+local PlayerBtn = AccentAwareImage(LeftScroll, UDim2.fromOffset(72,72), function()
+    print("[UFO] Player button clicked")
+    -- เปิดหน้า Player ได้ในอนาคต
+end)
+
+-- ตัวอย่างทดสอบ (ลบได้): กดคีย์ 1-4 เพื่อสลับสีแบบเร็ว
+do
+    local map = {
+        [Enum.KeyCode.One]   = "GREEN",
+        [Enum.KeyCode.Two]   = "RED",
+        [Enum.KeyCode.Three] = "GOLD",
+        [Enum.KeyCode.Four]  = "WHITE",
+    }
+    UIS.InputBegan:Connect(function(i,gp)
+        if gp then return end
+        local target = map[i.KeyCode]
+        if target then setUFOAccent(target) end
+    end)
+end
