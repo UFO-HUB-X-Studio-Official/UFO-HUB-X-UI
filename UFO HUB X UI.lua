@@ -416,47 +416,45 @@ do
     end
 end
 --========================
--- UFO HUB X : Player Buttons (Full-size + clean right)
+-- Player Button (Left) + Show-on-Click (Right)
 --========================
 
--- ใช้แผงเดิม
+-- ใช้ ScrollingFrame เดิม
 local LeftScroll  = LeftScroll
 local RightScroll = RightScroll
 
 -- ไอคอนตามสี
 local ACCENT_ASSETS = {
-	GREEN = "rbxassetid://112510739340023",
-	RED   = "rbxassetid://131641206815699",
-	GOLD  = "rbxassetid://127371066511941",
-	WHITE = "rbxassetid://106330577092636",
+    GREEN = "rbxassetid://112510739340023",
+    RED   = "rbxassetid://131641206815699",
+    GOLD  = "rbxassetid://127371066511941",
+    WHITE = "rbxassetid://106330577092636",
 }
-local CURRENT = (getgenv().UFO_ACCENT or "GREEN")
-local function currentIcon()
-	return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN
-end
+local CURRENT = getgenv().UFO_ACCENT or "GREEN"
+local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
 
------------------------------------
--- 🟩 ปุ่มด้านซ้าย (เต็มกรอบ สีดำ เส้นขอบเขียว)
------------------------------------
-for _,old in ipairs(LeftScroll:GetChildren()) do
-	if old.Name == "Player_Left" then old:Destroy() end
-end
+-- ลบของเก่าชื่อซ้ำ
+for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left" then o:Destroy() end end
+for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
 
+-- ========== ปุ่มซ้าย: ดำ + เส้นเขียว ==========
 local LBtn = Instance.new("TextButton")
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
 LBtn.Text = ""
-LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15) -- สีดำพื้นหลัง
+LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
 LBtn.BorderSizePixel = 0
 LBtn.ZIndex = 60
 LBtn.Parent = LeftScroll
 
-local LCorner = Instance.new("UICorner", LBtn)
-LCorner.CornerRadius = UDim.new(0,8)
+local LCorner = Instance.new("UICorner", LBtn); LCorner.CornerRadius = UDim.new(0,8)
 
 local LStroke = Instance.new("UIStroke", LBtn)
-LStroke.Thickness = 2
-LStroke.Color = Color3.fromRGB(0,255,140)
+LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+LStroke.LineJoinMode   = Enum.LineJoinMode.Round
+LStroke.Thickness      = 3
+LStroke.Color          = Color3.fromRGB(0,255,140)
+LStroke.Transparency   = 0
 
 local LIcon = Instance.new("ImageLabel")
 LIcon.BackgroundTransparency = 1
@@ -475,20 +473,13 @@ LTitle.TextXAlignment = Enum.TextXAlignment.Left
 LTitle.ZIndex = 61
 LTitle.Parent = LBtn
 
------------------------------------
--- 🛸 ด้านขวา (เฉพาะรูป + ชื่อ ไม่มีกรอบ/พื้น)
------------------------------------
-for _,old in ipairs(RightScroll:GetChildren()) do
-	if old.Name == "Player_Right" then old:Destroy() end
-end
-
+-- ========== กรอบขวา: แสดงเมื่อกด (ไม่มีพื้น/ไม่มีกรอบ) ==========
 local RFrame = Instance.new("Frame")
 RFrame.Name = "Player_Right"
-RFrame.BackgroundTransparency = 1 -- ไม่มีพื้น
+RFrame.BackgroundTransparency = 1
 RFrame.BorderSizePixel = 0
-RFrame.Size = UDim2.new(0,210,0,26)
-RFrame.Position = UDim2.fromOffset(10,10)
 RFrame.ZIndex = 60
+RFrame.Visible = false -- เริ่มต้นยังไม่โชว์
 RFrame.Parent = RightScroll
 
 local RIcon = Instance.new("ImageLabel")
@@ -508,25 +499,28 @@ RTitle.TextXAlignment = Enum.TextXAlignment.Left
 RTitle.ZIndex = 61
 RTitle.Parent = RFrame
 
------------------------------------
--- 🔧 Layout
------------------------------------
-local PADDING = 10
-local LEFT_H = 30
-
+-- Layout เป๊ะ
+local PADDING, LEFT_H, RIGHT_W, RIGHT_H = 10, 30, 210, 26
 local function layout()
-	LBtn.Position = UDim2.fromOffset(PADDING, PADDING)
-	LBtn.Size = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
+    -- Left full-width
+    LBtn.Position = UDim2.fromOffset(PADDING, PADDING)
+    LBtn.Size     = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
+    LIcon.Position = UDim2.fromOffset(12, (LEFT_H-20)/2)
+    LTitle.Position= UDim2.fromOffset(12+20+8, (LEFT_H-18)/2)
+    LTitle.Size    = UDim2.new(1, -(12+20+8+10), 0, 18)
 
-	LIcon.Position = UDim2.fromOffset(12, (LEFT_H - 20) / 2)
-	LTitle.Position = UDim2.fromOffset(12 + 20 + 8, (LEFT_H - 18) / 2)
-	LTitle.Size = UDim2.new(1, -(12 + 20 + 8 + 10), 0, 18)
-
-	RIcon.Position = UDim2.fromOffset(0, 2)
-	RTitle.Position = UDim2.fromOffset(24 + 8, 2)
-	RTitle.Size = UDim2.new(1, -32, 1, -4)
+    -- Right (ตำแหน่งเดิมแถบแดง)
+    RFrame.Position = UDim2.fromOffset(PADDING, PADDING)
+    RFrame.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+    RIcon.Position  = UDim2.fromOffset(0, 2)
+    RTitle.Position = UDim2.fromOffset(24+8, 2)
+    RTitle.Size     = UDim2.new(1, -32, 1, -4)
 end
-
 layout()
 LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+
+-- กดปุ่มซ้าย -> ค่อยแสดงชื่อ+รูปด้านขวา
+LBtn.MouseButton1Click:Connect(function()
+    RFrame.Visible = true
+end)
