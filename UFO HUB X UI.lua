@@ -219,6 +219,27 @@ local function createScroll(host)
     list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
     return sc
 end
+--========================
+-- Hide Scrollbar Tracks (Left & Right)
+--========================
+do
+    local CoreGui = game:GetService("CoreGui")
+    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then return end
+
+    for _, sc in ipairs(GUI:GetDescendants()) do
+        if sc:IsA("ScrollingFrame") then
+            -- ทำให้แถบเลื่อนหายไป แต่ยังเลื่อนได้ตามปกติ
+            sc.ScrollBarThickness = 0
+            sc.ScrollBarImageTransparency = 1
+            sc.VerticalScrollBarInset = Enum.ScrollBarInset.None
+            -- กันค่าจากสคริปต์อื่นย้อนกลับ
+            pcall(function() sc.TopImage   = "" end)
+            pcall(function() sc.MidImage   = "" end)
+            pcall(function() sc.BottomImage= "" end)
+        end
+    end
+end
 
 local LeftScroll  = createScroll(Left)
 local RightScroll = createScroll(Right)
