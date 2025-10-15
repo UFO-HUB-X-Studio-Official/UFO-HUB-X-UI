@@ -312,6 +312,163 @@ for i = 1, 30 do
     b.Parent = RightScroll
 end
 ]]
+--========================
+-- UFO: Player Buttons (Safe Drop-in)
+--========================
+do
+    local CoreGui = game:GetService("CoreGui")
+
+    -- 1) หาแผง Left/Right
+    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then
+        warn("[UFO] GUI not found. Make sure main UI is created before this block.")
+        return
+    end
+    local Window = GUI:FindFirstChild("Window") or GUI:FindFirstChildWhichIsA("Frame")
+    local Columns = Window and Window:FindFirstChild("Body") or Window
+    if Window and Window:FindFirstChild("Body") then
+        local Body = Window.Body
+        local Content = Body:FindFirstChild("Frame") or Body:FindFirstChild("Content")
+        Columns = (Content and Content:FindFirstChild("Frame")) or Content or Columns
+    end
+    -- fallback: brute find
+    local Left = GUI:FindFirstChild("Left", true)
+    local Right = GUI:FindFirstChild("Right", true)
+    if not Left or not Right then
+        -- ถ้ายังหาไม่ได้ ลองเดา
+        for _,f in ipairs(GUI:GetDescendants()) do
+            if f:IsA("Frame") and f.Name=="Left" then Left=f end
+            if f:IsA("Frame") and f.Name=="Right" then Right=f end
+        end
+    end
+    if not Left or not Right then
+        warn("[UFO] Left/Right panels not found."); return
+    end
+
+    -- 2) ให้แน่ใจว่ามี ScrollingFrame ชื่อ "Scroll"
+    local function ensureScroll(panel)
+        local sc = panel:FindFirstChild("Scroll")
+        if sc and sc:IsA("ScrollingFrame") then return sc end
+
+        sc = Instance.new("ScrollingFrame")
+        sc.Name = "Scroll"
+        sc.BackgroundTransparency = 1
+        sc.BorderSizePixel = 0
+        sc.ClipsDescendants = true
+        sc.ScrollingDirection = Enum.ScrollingDirection.Y
+        sc.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+        sc.ScrollBarThickness = 6
+        sc.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
+        sc.ScrollBarImageTransparency = 0.1
+        sc.Position = UDim2.new(0,8,0,8)
+        sc.Size     = UDim2.new(1,-16,1,-16)
+        sc.CanvasSize = UDim2.new(0,0,0,0)
+        sc.Parent = panel
+
+        local pad = Instance.new("UIPadding", sc)
+        pad.PaddingLeft = UDim.new(0,4); pad.PaddingRight = UDim.new(0,4)
+        pad.PaddingTop  = UDim.new(0,4); pad.PaddingBottom= UDim.new(0,8)
+
+        local list = Instance.new("UIListLayout", sc)
+        list.Padding = UDim.new(0,8); list.SortOrder = Enum.SortOrder.LayoutOrder
+        local function refresh() sc.CanvasSize = UDim2.fromOffset(0, list.AbsoluteContentSize.Y + 8) end
+        list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refresh)
+        panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
+        task.defer(refresh)
+        return sc
+    end
+
+    local LeftScroll  = ensureScroll(Left)
+    local RightScroll = ensureScroll(Right)
+
+    -- 3) Accent assets + event (แชร์ข้ามบล็อกได้)
+    getgenv().UFO_ACCENT = getgenv().UFO_ACCENT or "GREEN"
+    getgenv().UFO_AccentEvent = getgenv().UFO_AccentEvent or Instance.new("BindableEvent")
+    local AccentChanged = getgenv().UFO_AccentEvent
+
+    local ACCENT_ASSETS = getgenv().UFO_ACCENT_ASSETS or {
+        GREEN = "rbxassetid://112510739340023",
+        RED   = "rbxassetid://131641206815699",
+        GOLD  = "rbxassetid://127371066511941",
+        WHITE = "rbxassetid://106330577092636",
+    }
+    getgenv().UFO_ACCENT_ASSETS = ACCENT_ASSETS
+
+    function setUFOAccent(name)
+        name = string.upper(name or "")
+        if ACCENT_ASSETS[name] then
+            getgenv().UFO_ACCENT = name
+            AccentChanged:Fire(name)
+        else
+            warn("[UFO] Unknown accent:", name)
+        end
+    end
+
+    -- 4) ตัวช่วยทำปุ่ม (ไอคอน + ข้อความ)
+    local function makeButtonLike(parent, bgColor, textColor)
+        local btn = Instance.new("TextButton")
+        btn.AutoButtonColor = false
+        btn.Text = ""
+        btn.BackgroundColor3 = bgColor
+        btn.BorderSizePixel = 0
+        btn.Parent = parent
+        local corner = Instance.new("UICorner", btn) corner.CornerRadius = UDim.new(0,8)
+        local stroke = Instance.new("UIStroke", btn) stroke.Thickness = 2 stroke.Color = Color3.fromRGB(0,255,140) stroke.Transparency = 0
+
+        local icon = Instance.new("ImageLabel")
+        icon.BackgroundTransparency = 1
+        icon.Size = UDim2.fromOffset(18,18)
+        icon.Parent = btn
+
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Text = "Player"
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 14
+        title.TextColor3 = textColor
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = btn
+
+        local function render()
+            icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
+        end
+        render()
+        AccentChanged.Event:Connect(render)
+
+        return btn, icon, title
+    end
+
+    -- 5) สร้างปุ่มซ้าย (เต็มแถบขาว) + ชิปขวา (แทนแถบแดง แต่ไม่มีแดงแล้ว)
+    local LEFT_H    = 26    -- สูงแถบขาว
+    local RIGHT_W   = 210   -- ความยาวชิปขวา
+    local RIGHT_H   = 26
+    local PAD       = 10
+
+    -- ซ้าย: พื้นขาว, ขอบเขียว, ตัวหนังสือดำ
+    local LBtn, LIcon, LTitle = makeButtonLike(LeftScroll, Color3.fromRGB(245,245,245), Color3.fromRGB(20,20,20))
+    -- ขวา: พื้นดำเข้าธีม, ขอบเขียว, ตัวหนังสือขาว
+    local RBtn, RIcon, RTitle = makeButtonLike(RightScroll, Color3.fromRGB(28,28,28), Color3.fromRGB(255,255,255))
+
+    local function layout()
+        -- ซ้าย = เต็มความกว้างภายใน
+        LBtn.Position = UDim2.fromOffset(PAD, PAD)
+        LBtn.Size     = UDim2.new(1, -(PAD*2), 0, LEFT_H)
+        LIcon.Position = UDim2.fromOffset(10, math.floor((LEFT_H-18)/2))
+        LTitle.Position= UDim2.fromOffset(10+18+8, math.floor((LEFT_H-18)/2))
+        LTitle.Size    = UDim2.new(1, -(10+18+8+10), 0, 18)
+
+        -- ขวา = ขนาดตายตัว วางมุมซ้ายบน
+        RBtn.Position = UDim2.fromOffset(PAD, PAD)
+        RBtn.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+        RIcon.Position = UDim2.fromOffset(10, math.floor((RIGHT_H-18)/2))
+        RTitle.Position= UDim2.fromOffset(10+18+8, math.floor((RIGHT_H-18)/2))
+        RTitle.Size    = UDim2.fromOffset(RIGHT_W-(10+18+8+10), 18)
+    end
+    layout()
+    LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+    RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+end
+
 --==========================================================
 -- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
@@ -415,125 +572,3 @@ do
         end)
     end
 end
---========================
--- PLAYER BUTTONS (Exact layout like screenshot #2)
---========================
-
--- ไอดีรูปตามสี (ใช้ของ M)
-local ACCENT_ASSETS = {
-    GREEN = "rbxassetid://112510739340023",
-    RED   = "rbxassetid://131641206815699",
-    GOLD  = "rbxassetid://127371066511941",
-    WHITE = "rbxassetid://106330577092636",
-}
-getgenv().UFO_ACCENT = getgenv().UFO_ACCENT or "GREEN"
-local AccentChanged = AccentChanged or Instance.new("BindableEvent")
-local function setUFOAccent(name)
-    name = string.upper(name or "")
-    if ACCENT_ASSETS[name] then
-        getgenv().UFO_ACCENT = name
-        AccentChanged:Fire(name)
-    end
-end
-
--- ยูทิลทำปุ่ม (กำหนดสไตล์แตกต่างซ้าย/ขวา)
-local function MakeChip(parent; )
-end
-
-local function MakeLeftPlayerButton(parent)
-    local btn = Instance.new("TextButton")
-    btn.Name = "Player_Left"
-    btn.AutoButtonColor = false
-    btn.Text = ""
-    btn.BackgroundColor3 = Color3.fromRGB(245,245,245) -- แถบขาว
-    btn.BorderSizePixel = 0
-    btn.Parent = parent
-
-    local corner = Instance.new("UICorner", btn) corner.CornerRadius = UDim.new(0,8)
-    local stroke = Instance.new("UIStroke", btn) stroke.Thickness = 2 stroke.Color = Color3.fromRGB(0,255,140) stroke.Transparency = 0
-
-    -- ไอคอน
-    local icon = Instance.new("ImageLabel")
-    icon.BackgroundTransparency = 1
-    icon.Size = UDim2.fromOffset(18,18)
-    icon.Parent = btn
-
-    -- ชื่อ (อ่านบนพื้นขาว -> สีดำ)
-    local title = Instance.new("TextLabel")
-    title.BackgroundTransparency = 1
-    title.Text = "Player"
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 14
-    title.TextColor3 = Color3.fromRGB(20,20,20)
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = btn
-
-    local function renderIcon()
-        icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
-    end
-    renderIcon()
-    AccentChanged.Event:Connect(renderIcon)
-
-    return btn, icon, title
-end
-
-local function MakeRightPlayerChip(parent)
-    local chip = Instance.new("Frame")
-    chip.Name = "Player_Right"
-    chip.BackgroundColor3 = Color3.fromRGB(28,28,28) -- ดำเข้าธีม (ไม่ใช่แดง)
-    chip.BorderSizePixel = 0
-    chip.Parent = parent
-    local corner = Instance.new("UICorner", chip) corner.CornerRadius = UDim.new(0,8)
-    local stroke = Instance.new("UIStroke", chip) stroke.Thickness = 2 stroke.Color = Color3.fromRGB(0,255,140) stroke.Transparency = 0
-
-    local icon = Instance.new("ImageLabel")
-    icon.BackgroundTransparency = 1
-    icon.Size = UDim2.fromOffset(18,18)
-    icon.Parent = chip
-
-    local title = Instance.new("TextLabel")
-    title.BackgroundTransparency = 1
-    title.Text = "Player"
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 14
-    title.TextColor3 = Color3.fromRGB(255,255,255) -- ชื่อสีขาว
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = chip
-
-    local function renderIcon()
-        icon.Image = ACCENT_ASSETS[getgenv().UFO_ACCENT] or ACCENT_ASSETS.GREEN
-    end
-    renderIcon()
-    AccentChanged.Event:Connect(renderIcon)
-
-    return chip, icon, title
-end
-
--- ========= ขนาด/ตำแหน่ง “เป๊ะ” =========
-local PADDING   = 10
-local LEFT_H    = 26   -- ความสูงแถบขาว (ซ้าย) ตามรูป
-local RIGHT_W   = 210  -- ความยาวชิปบนขวา (แทนแถบแดงเดิม)
-local RIGHT_H   = 26   -- ความสูงชิปบนขวา
-
-local LBtn, LIcon, LTitle = MakeLeftPlayerButton(LeftScroll)
-local RChip, RIcon, RTitle = MakeRightPlayerChip(RightScroll)
-
-local function layoutExact()
-    -- ซ้าย: เต็มกรอบภายใน LeftScroll
-    LBtn.Position = UDim2.fromOffset(PADDING, PADDING)
-    LBtn.Size     = UDim2.new(1, -(PADDING*2), 0, LEFT_H)
-    LIcon.Position = UDim2.fromOffset(10, math.floor((LEFT_H-18)/2))
-    LTitle.Position= UDim2.fromOffset(10+18+8, math.floor((LEFT_H-18)/2))
-    LTitle.Size    = UDim2.new(1, -(10+18+8+10), 0, 18)
-
-    -- ขวา: วางทับตำแหน่งแถบแดงเดิม (มุมซ้ายบนภายใน RightScroll)
-    RChip.Position = UDim2.fromOffset(PADDING, PADDING)
-    RChip.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
-    RIcon.Position = UDim2.fromOffset(10, math.floor((RIGHT_H-18)/2))
-    RTitle.Position= UDim2.fromOffset(10+18+8, math.floor((RIGHT_H-18)/2))
-    RTitle.Size    = UDim2.fromOffset(RIGHT_W-(10+18+8+10), 18)
-end
-layoutExact()
-
-LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
-RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutExact)
