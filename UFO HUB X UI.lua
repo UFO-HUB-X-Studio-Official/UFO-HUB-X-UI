@@ -219,27 +219,6 @@ local function createScroll(host)
     list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
     return sc
 end
---========================
--- Hide Scrollbar Tracks (Left & Right)
---========================
-do
-    local CoreGui = game:GetService("CoreGui")
-    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-    if not GUI then return end
-
-    for _, sc in ipairs(GUI:GetDescendants()) do
-        if sc:IsA("ScrollingFrame") then
-            -- ทำให้แถบเลื่อนหายไป แต่ยังเลื่อนได้ตามปกติ
-            sc.ScrollBarThickness = 0
-            sc.ScrollBarImageTransparency = 1
-            sc.VerticalScrollBarInset = Enum.ScrollBarInset.None
-            -- กันค่าจากสคริปต์อื่นย้อนกลับ
-            pcall(function() sc.TopImage   = "" end)
-            pcall(function() sc.MidImage   = "" end)
-            pcall(function() sc.BottomImage= "" end)
-        end
-    end
-end
 
 local LeftScroll  = createScroll(Left)
 local RightScroll = createScroll(Right)
@@ -454,5 +433,67 @@ do
     RHead.Visible = false
     LBtn.MouseButton1Click:Connect(function()
         RHead.Visible = true
+    end)
+end
+--========================================
+-- UFO HUB X : Force-hide all scrollbars
+--========================================
+do
+    local CoreGui = game:GetService("CoreGui")
+    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+    if not GUI then return end
+
+    -- สีเขียวธีมที่ใช้ (ไว้ตรวจจับกรอบแท่ง custom ถ้ามี)
+    local GREEN = Color3.fromRGB(0,255,140)
+
+    -- ซ่อนแถบเลื่อนของ ScrollingFrame มาตรฐาน Roblox
+    local function hideNativeScrollBar(sc: ScrollingFrame)
+        sc.ScrollBarThickness = 0
+        sc.ScrollBarImageTransparency = 1
+        sc.VerticalScrollBarInset = Enum.ScrollBarInset.None
+        sc.TopImage, sc.MidImage, sc.BottomImage = "", "", ""
+    end
+
+    -- ถ้ามีคนทำแท่งสกอร์ลเองเป็น Frame บาง ๆ สีเขียว ให้ปิดทิ้ง
+    local function tryHideCustomBar(obj: Instance)
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("TextButton") then
+            local s = obj.AbsoluteSize
+            -- นิยาม "แท่งแนวตั้ง" ทั่วไป: กว้างไม่เกิน 10px และสูงยาวกว่า 40px
+            local looksLikeBar = (s.X <= 10 and s.Y >= 40)
+            local col = (obj:IsA("ImageLabel") and obj.ImageColor3) or (obj.BackgroundColor3)
+            local isGreenish = false
+            if col then
+                -- เทียบใกล้เคียงสีเขียวธีม
+                local dx = math.abs(col.R - GREEN.R)
+                local dy = math.abs(col.G - GREEN.G)
+                local dz = math.abs(col.B - GREEN.B)
+                isGreenish = (dx + dy + dz) < 0.25
+            end
+            if looksLikeBar and isGreenish then
+                obj.Visible = false
+                if obj:FindFirstChildOfClass("UIStroke") then
+                    obj:FindFirstChildOfClass("UIStroke").Transparency = 1
+                end
+            end
+        end
+    end
+
+    -- ใช้กับของที่มีอยู่แล้ว
+    for _, d in ipairs(GUI:GetDescendants()) do
+        if d:IsA("ScrollingFrame") then
+            hideNativeScrollBar(d)
+        else
+            tryHideCustomBar(d)
+        end
+    end
+
+    -- เฝ้าดูของที่ถูกเพิ่มใหม่ภายหลัง
+    GUI.DescendantAdded:Connect(function(d)
+        if d:IsA("ScrollingFrame") then
+            hideNativeScrollBar(d)
+        else
+            -- รอสัก 1 เฟรมให้มันวางตัวเสร็จก่อนค่อยเช็คขนาด
+            task.defer(function() tryHideCustomBar(d) end)
+        end
     end)
 end
