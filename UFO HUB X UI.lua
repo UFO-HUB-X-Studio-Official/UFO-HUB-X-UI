@@ -439,3 +439,140 @@ RTitle.ZIndex = 61
 LBtn.MouseButton1Click:Connect(function()
 	RFrame.Visible = true
 end)
+----------------------------------------------------------------
+-- FULL-FIT FIX: Left Scroll + Player Button (no margins)
+----------------------------------------------------------------
+
+-- ลบสกรอลเก่าแล้วสร้างใหม่แบบไม่มีช่องว่างเลย
+local old = Left:FindFirstChildOfClass("ScrollingFrame")
+if old then old:Destroy() end
+
+local LeftScroll = Instance.new("ScrollingFrame", Left)
+LeftScroll.Name = "Scroll"
+LeftScroll.BackgroundTransparency = 1
+LeftScroll.BorderSizePixel = 0
+LeftScroll.ClipsDescendants = true
+LeftScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+LeftScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+LeftScroll.ScrollBarThickness = 6
+LeftScroll.ScrollBarImageColor3 = GREEN
+LeftScroll.ScrollBarImageTransparency = 0.1
+LeftScroll.Position = UDim2.new(0,0,0,0)     -- ❗ชิดขอบจริง ๆ
+LeftScroll.Size     = UDim2.new(1,0,1,0)     -- ❗กว้าง/สูงเต็มกรอบ
+LeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LeftScroll.CanvasSize = UDim2.new(0,0,0,0)
+LeftScroll.ZIndex = 50
+
+-- ไม่ใช้ UIPadding เลย และตั้ง UIListLayout แบบไม่เว้นระยะ
+local list = Instance.new("UIListLayout", LeftScroll)
+list.Padding = UDim.new(0,0)                 -- ❗ไม่มีช่องว่าง
+list.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- เคลียร์ปุ่มเดิม
+for _,o in ipairs(LeftScroll:GetChildren()) do
+    if o.Name == "Player_Left" then o:Destroy() end
+end
+
+-- ========== ปุ่ม Player แบบเต็มกรอบ ==========
+local LEFT_H = 40
+local LBtn = Instance.new("TextButton", LeftScroll)
+LBtn.Name = "Player_Left"
+LBtn.AutoButtonColor = false
+LBtn.Text = ""
+LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+LBtn.BorderSizePixel = 0
+LBtn.Size = UDim2.new(1,0,0,LEFT_H)          -- ❗เต็มความกว้างจริง ๆ
+LBtn.ZIndex = 60
+local LCorner = Instance.new("UICorner", LBtn); LCorner.CornerRadius = UDim.new(0,8)
+
+-- เส้นขอบเขียว (บางลง)
+local LStroke = Instance.new("UIStroke", LBtn)
+LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+LStroke.LineJoinMode = Enum.LineJoinMode.Round
+LStroke.Thickness = 1.0
+LStroke.Color = GREEN
+LStroke.Transparency = 0
+
+-- ไอคอน + ข้อความ (ไอคอนใหญ่ขึ้น)
+local ICON = 28
+local ACCENT_ASSETS = {
+    GREEN = "rbxassetid://112510739340023",
+    RED   = "rbxassetid://131641206815699",
+    GOLD  = "rbxassetid://127371066511941",
+    WHITE = "rbxassetid://106330577092636",
+}
+local CURRENT = getgenv().UFO_ACCENT or "GREEN"
+local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
+
+local LIcon = Instance.new("ImageLabel", LBtn)
+LIcon.BackgroundTransparency = 1
+LIcon.Size = UDim2.fromOffset(ICON, ICON)
+LIcon.Position = UDim2.fromOffset(10, (LEFT_H-ICON)/2)
+LIcon.Image = currentIcon()
+LIcon.ZIndex = 61
+
+local LTitle = Instance.new("TextLabel", LBtn)
+LTitle.BackgroundTransparency = 1
+LTitle.Text = "Player"
+LTitle.Font = Enum.Font.GothamBold
+LTitle.TextSize = 16
+LTitle.TextColor3 = Color3.fromRGB(255,255,255)
+LTitle.TextXAlignment = Enum.TextXAlignment.Left
+LTitle.Position = UDim2.fromOffset(10 + ICON + 8, (LEFT_H-18)/2)
+LTitle.Size = UDim2.new(1, -(10 + ICON + 8 + 10), 0, 18)
+LTitle.ZIndex = 61
+
+-- ========== ฝั่งขวา: แสดงรูป+ชื่อเมื่อกด ==========
+-- ลองหา RightScroll ถ้ายังไม่มีให้สร้างสั้น ๆ
+local RightScroll = Right:FindFirstChildOfClass("ScrollingFrame")
+if not RightScroll then
+    RightScroll = Instance.new("ScrollingFrame", Right)
+    RightScroll.Name = "Scroll"
+    RightScroll.BackgroundTransparency = 1
+    RightScroll.BorderSizePixel = 0
+    RightScroll.ClipsDescendants = true
+    RightScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    RightScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+    RightScroll.ScrollBarThickness = 6
+    RightScroll.ScrollBarImageColor3 = GREEN
+    RightScroll.ScrollBarImageTransparency = 0.1
+    RightScroll.Position = UDim2.new(0,8,0,8)
+    RightScroll.Size     = UDim2.new(1,-16,1,-16)
+    RightScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local rl = Instance.new("UIListLayout", RightScroll); rl.Padding = UDim.new(0,8)
+end
+
+-- ล้างของเก่าด้านขวา
+for _,o in ipairs(RightScroll:GetChildren()) do
+    if o.Name == "Player_Right" then o:Destroy() end
+end
+
+local RIGHT_W, RIGHT_H = 260, 34
+local RFrame = Instance.new("Frame", RightScroll)
+RFrame.Name = "Player_Right"
+RFrame.BackgroundTransparency = 1
+RFrame.Size = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+RFrame.Visible = false
+RFrame.ZIndex = 60
+
+local RIcon = Instance.new("ImageLabel", RFrame)
+RIcon.BackgroundTransparency = 1
+RIcon.Size = UDim2.fromOffset(ICON+4, ICON+4)
+RIcon.Position = UDim2.fromOffset(0, (RIGHT_H-(ICON+4))/2)
+RIcon.Image = currentIcon()
+RIcon.ZIndex = 61
+
+local RTitle = Instance.new("TextLabel", RFrame)
+RTitle.BackgroundTransparency = 1
+RTitle.Text = "Player"
+RTitle.Font = Enum.Font.GothamBold
+RTitle.TextSize = 16
+RTitle.TextColor3 = Color3.fromRGB(255,255,255)
+RTitle.TextXAlignment = Enum.TextXAlignment.Left
+RTitle.Position = UDim2.fromOffset(ICON+10, (RIGHT_H-18)/2)
+RTitle.Size = UDim2.new(1, -(ICON+14), 0, 18)
+RTitle.ZIndex = 61
+
+LBtn.MouseButton1Click:Connect(function()
+    RFrame.Visible = true
+end)
