@@ -341,7 +341,7 @@ local LeftScroll  = makeScroller(Left)
 local RightScroll = makeScroller(Right)
 
 ----------------------------------------------------------------
--- UFO HUB X — Player Button (Perfect Fit + Thinner Border)
+-- UFO HUB X — Player Button (Full Fit + Larger Icons)
 ----------------------------------------------------------------
 
 local ACCENT_ASSETS = {
@@ -353,21 +353,22 @@ local ACCENT_ASSETS = {
 local CURRENT = getgenv().UFO_ACCENT or "GREEN"
 local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
 
--- 🔧 Clear old
+-- 🔧 ล้างของเก่า
 for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left" or o.Name=="Player_Slot" then o:Destroy() end end
 for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
 
--- 🔹 SLOT & BUTTON (ขยายเต็มกรอบ)
-local LEFT_H = 34
+-- 🔹 SLOT เต็มกรอบ (ไม่มีขอบเหลือ)
+local LEFT_H = 38
 local Slot = Instance.new("Frame", LeftScroll)
 Slot.Name = "Player_Slot"
 Slot.BackgroundTransparency = 1
 Slot.BorderSizePixel = 0
 Slot.ClipsDescendants = false
-Slot.Position = UDim2.fromOffset(1, 1) -- ชิดขอบซ้าย-บนมากขึ้น
-Slot.Size = UDim2.new(1, -2, 0, LEFT_H + 1) -- เต็มกรอบซ้าย-ขวา
+Slot.Position = UDim2.fromOffset(0, 0) -- ชิดบนสุด
+Slot.Size = UDim2.new(1, 0, 0, LEFT_H)
 Slot.ZIndex = 120
 
+-- 🔹 ปุ่มซ้าย (เต็มช่อง)
 local LBtn = Instance.new("TextButton", Slot)
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
@@ -378,7 +379,6 @@ LBtn.Size = UDim2.new(1, 0, 1, 0)
 LBtn.ZIndex = 130
 corner(LBtn, 8)
 
--- 🟢 เส้นขอบสีเขียว (บางลง)
 local LStroke = Instance.new("UIStroke", LBtn)
 LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 LStroke.LineJoinMode = Enum.LineJoinMode.Round
@@ -386,11 +386,13 @@ LStroke.Thickness = 1.0
 LStroke.Color = GREEN
 LStroke.Transparency = 0
 
--- 🧩 Icon + Title
+-- 🛸 Icon / Title (ขยายขนาด)
+local ICON_SIZE = 28
+
 local LIcon = Instance.new("ImageLabel", LBtn)
 LIcon.BackgroundTransparency = 1
-LIcon.Size = UDim2.fromOffset(20,20)
-LIcon.Position = UDim2.fromOffset(10, (LEFT_H-20)/2)
+LIcon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
+LIcon.Position = UDim2.fromOffset(10, (LEFT_H-ICON_SIZE)/2)
 LIcon.Image = currentIcon()
 LIcon.ZIndex = 131
 
@@ -398,15 +400,15 @@ local LTitle = Instance.new("TextLabel", LBtn)
 LTitle.BackgroundTransparency = 1
 LTitle.Text = "Player"
 LTitle.Font = Enum.Font.GothamBold
-LTitle.TextSize = 15
+LTitle.TextSize = 16
 LTitle.TextColor3 = Color3.fromRGB(255,255,255)
 LTitle.TextXAlignment = Enum.TextXAlignment.Left
-LTitle.Position = UDim2.fromOffset(36, (LEFT_H-18)/2)
-LTitle.Size = UDim2.new(1, -46, 0, 18)
+LTitle.Position = UDim2.fromOffset(10 + ICON_SIZE + 8, (LEFT_H-18)/2)
+LTitle.Size = UDim2.new(1, -(ICON_SIZE + 20), 0, 20)
 LTitle.ZIndex = 131
 
--- 🔸 Right content (รูป + ข้อความ)
-local RIGHT_W, RIGHT_H = 210, 26
+-- 🔸 ฝั่งขวา (รูปใหญ่ขึ้นด้วย)
+local RIGHT_W, RIGHT_H = 240, 32
 local RFrame = Instance.new("Frame", RightScroll)
 RFrame.Name = "Player_Right"
 RFrame.BackgroundTransparency = 1
@@ -417,20 +419,20 @@ RFrame.Size = UDim2.fromOffset(RIGHT_W, RIGHT_H)
 
 local RIcon = Instance.new("ImageLabel", RFrame)
 RIcon.BackgroundTransparency = 1
-RIcon.Size = UDim2.fromOffset(22,22)
+RIcon.Size = UDim2.fromOffset(ICON_SIZE + 4, ICON_SIZE + 4)
+RIcon.Position = UDim2.fromOffset(0, (RIGHT_H - (ICON_SIZE + 4)) / 2)
 RIcon.Image = currentIcon()
-RIcon.Position = UDim2.fromOffset(0, 2)
 RIcon.ZIndex = 61
 
 local RTitle = Instance.new("TextLabel", RFrame)
 RTitle.BackgroundTransparency = 1
 RTitle.Text = "Player"
 RTitle.Font = Enum.Font.GothamBold
-RTitle.TextSize = 15
+RTitle.TextSize = 16
 RTitle.TextColor3 = Color3.fromRGB(255,255,255)
 RTitle.TextXAlignment = Enum.TextXAlignment.Left
-RTitle.Position = UDim2.fromOffset(30, 2)
-RTitle.Size = UDim2.new(1, -30, 1, -4)
+RTitle.Position = UDim2.fromOffset(ICON_SIZE + 10, (RIGHT_H-18)/2)
+RTitle.Size = UDim2.new(1, -ICON_SIZE - 16, 0, 20)
 RTitle.ZIndex = 61
 
 -- 🖱️ คลิกเพื่อโชว์ฝั่งขวา
