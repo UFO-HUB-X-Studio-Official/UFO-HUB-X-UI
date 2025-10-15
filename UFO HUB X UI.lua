@@ -423,7 +423,7 @@ do
     end
 end
 --========================
--- UFO HUB X — Player Button (Full width fix)
+-- UFO HUB X — Player Button (Full width fix + Green Border 1.5)
 --========================
 
 -- 🔧 Setup Scroll Frames (auto-create if missing)
@@ -471,7 +471,7 @@ local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREE
 for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left"  then o:Destroy() end end
 for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
 
--- 🔹 ปุ่มซ้าย (ดำ + เส้นขอบเขียว)
+-- 🔹 ปุ่มซ้าย (ดำ + เส้นขอบเขียว 1.5px)
 local LBtn = Instance.new("TextButton")
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
@@ -481,10 +481,13 @@ LBtn.BorderSizePixel = 0
 LBtn.ZIndex = 60
 LBtn.Parent = LeftScroll
 Instance.new("UICorner", LBtn).CornerRadius = UDim.new(0,8)
+
 local LStroke = Instance.new("UIStroke", LBtn)
-LStroke.Thickness = 3
-LStroke.Color = Color3.fromRGB(0,255,140)
-LStroke.Transparency = 0
+LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+LStroke.LineJoinMode   = Enum.LineJoinMode.Round
+LStroke.Thickness      = 1.5
+LStroke.Color          = Color3.fromRGB(0,255,140)
+LStroke.Transparency   = 0
 
 local LIcon = Instance.new("ImageLabel")
 LIcon.BackgroundTransparency = 1
@@ -528,13 +531,13 @@ RTitle.TextXAlignment = Enum.TextXAlignment.Left
 RTitle.ZIndex = 61
 RTitle.Parent = RFrame
 
--- 🔧 Layout
+-- 🔧 Layout (กันคลิปเส้นขอบด้วยระยะ 1px)
 local LEFT_H, RIGHT_W, RIGHT_H = 30, 210, 26
 local function layout()
-	LBtn.Position = UDim2.fromOffset(0, 0)
-	LBtn.Size = UDim2.new(1, 0, 0, LEFT_H)
-	LIcon.Position = UDim2.fromOffset(12, (LEFT_H-20)/2)
-	LTitle.Position = UDim2.fromOffset(12+20+8, (LEFT_H-18)/2)
+	LBtn.Position = UDim2.fromOffset(0, 1)
+	LBtn.Size = UDim2.new(1, 0, 0, LEFT_H - 2)
+	LIcon.Position = UDim2.fromOffset(12, math.floor((LEFT_H-2-20)/2))
+	LTitle.Position = UDim2.fromOffset(12+20+8, math.floor((LEFT_H-2-18)/2))
 	LTitle.Size = UDim2.new(1, -(12+20+8+10), 0, 18)
 
 	RFrame.Position = UDim2.fromOffset(0, 0)
