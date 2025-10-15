@@ -219,10 +219,6 @@ local function createScroll(host)
     list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
     return sc
 end
-
-local LeftScroll  = createScroll(Left)
-local RightScroll = createScroll(Right)
-
 -- =================== TOGGLER (ปุ่มลอย + RightShift) ===================
 do
     -- sync flag
@@ -269,6 +265,9 @@ do
         end
     end)
 end
+
+local LeftScroll  = createScroll(Left)
+local RightScroll = createScroll(Right)
 
 --========================
 -- UFO HUB X — Add "Player" button (Left full-width, show header on Right)
