@@ -234,6 +234,84 @@ local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0)
 imgR.Image = IMG_LARGE or ""; imgR.ScaleType = Enum.ScaleType.Crop; imgR.ZIndex = 0
 
+--========================
+-- SCROLL SYSTEM (Left & Right)
+--========================
+local function makeScroller(panel)
+    -- ให้ภาพพื้นหลังอยู่ชั้นล่างสุดเสมอ
+    local bg = panel:FindFirstChild("Background") or panel:FindFirstChildWhichIsA("ImageLabel")
+    if bg then bg.ZIndex = 0 end
+
+    -- สร้าง ScrollingFrame ครอบคอนเทนต์
+    local sc = Instance.new("ScrollingFrame")
+    sc.Name = "Scroll"
+    sc.BackgroundTransparency = 1
+    sc.BorderSizePixel = 0
+    sc.ClipsDescendants = true
+    sc.ScrollingDirection = Enum.ScrollingDirection.Y
+    sc.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+    sc.ScrollBarThickness = 6
+    sc.ScrollBarImageColor3 = GREEN
+    sc.ScrollBarImageTransparency = 0.1
+    sc.Position = UDim2.new(0,8,0,8)
+    sc.Size     = UDim2.new(1,-16,1,-16)
+    sc.CanvasSize = UDim2.new(0,0,0,0)
+    sc.ZIndex = 1
+    sc.Parent = panel
+
+    -- padding + list สำหรับวางชิ้นส่วนต่อ ๆ ไป
+    local pad = Instance.new("UIPadding", sc)
+    pad.PaddingLeft = UDim.new(0,4)
+    pad.PaddingRight = UDim.new(0,4)
+    pad.PaddingTop = UDim.new(0,4)
+    pad.PaddingBottom = UDim.new(0,8)
+
+    local list = Instance.new("UIListLayout", sc)
+    list.Padding = UDim.new(0,8)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- อัปเดตขนาดแคนวาสอัตโนมัติให้พอดีกับเนื้อหา
+    local function refreshCanvas()
+        sc.CanvasSize = UDim2.fromOffset(0, list.AbsoluteContentSize.Y + 8)
+    end
+    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvas)
+    panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refreshCanvas)
+    task.defer(refreshCanvas)
+
+    return sc
+end
+
+-- ครอบทั้งสองฝั่ง
+local LeftScroll  = makeScroller(Left)
+local RightScroll = makeScroller(Right)
+
+-- ตัวอย่าง (ลบได้): สร้างไอเท็มทดสอบให้เห็นการเลื่อนทันที
+--[[
+for i = 1, 20 do
+    local b = Instance.new("TextLabel")
+    b.Size = UDim2.new(1, -8, 0, 28)
+    b.BackgroundColor3 = Color3.fromRGB(28,28,28)
+    b.TextColor3 = TEXT_WHITE
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 14
+    b.Text = "Left item "..i
+    b.BorderSizePixel = 0
+    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,8)
+    b.Parent = LeftScroll
+end
+for i = 1, 30 do
+    local b = Instance.new("TextLabel")
+    b.Size = UDim2.new(1, -8, 0, 40)
+    b.BackgroundColor3 = Color3.fromRGB(24,24,24)
+    b.TextColor3 = TEXT_WHITE
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 16
+    b.Text = "Right content "..i
+    b.BorderSizePixel = 0
+    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,8)
+    b.Parent = RightScroll
+end
+]]
 --==========================================================
 -- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
