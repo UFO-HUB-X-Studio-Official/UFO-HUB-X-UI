@@ -220,6 +220,13 @@ local Left=Instance.new("Frame",Columns)
 Left.BackgroundColor3=Color3.fromRGB(16,16,16); Left.Size=UDim2.new(0.22,-6,1,0)
 Left.ClipsDescendants=true; corner(Left,10); stroke(Left,1.2,GREEN,0); stroke(Left,0.45,MINT,0.35)
 
+Left.ChildAdded:Connect(function(obj)
+    if obj:IsA("ScrollingFrame") then
+        local pad = obj:FindFirstChildOfClass("UIPadding")
+        if pad then pad.PaddingLeft, pad.PaddingRight = UDim.new(0,0), UDim.new(0,0) end
+    end
+end)
+
 local Right=Instance.new("Frame",Columns)
 Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(0.22,12,0,0); Right.Size=UDim2.new(0.78,-6,1,0)
