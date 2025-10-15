@@ -336,6 +336,10 @@ do
         end)
     end
 end
+
+local LeftScroll  = makeScroller(Left)
+local RightScroll = makeScroller(Right)
+
 -- =========================
 -- Player Button (UI BUILT-IN)
 -- =========================
