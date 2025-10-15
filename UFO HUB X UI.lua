@@ -340,53 +340,57 @@ end
 local LeftScroll  = makeScroller(Left)
 local RightScroll = makeScroller(Right)
 
--- =========================
--- Player Button (UI BUILT-IN)
--- =========================
--- ไอคอนตามธีม (รองรับระบบเปลี่ยนสีในอนาคต)
+----------------------------------------------------------------
+-- UFO HUB X — Player Button (Perfect Fit + Thinner Border)
+----------------------------------------------------------------
+
 local ACCENT_ASSETS = {
-    GREEN = "rbxassetid://112510739340023",
-    RED   = "rbxassetid://131641206815699",
-    GOLD  = "rbxassetid://127371066511941",
-    WHITE = "rbxassetid://106330577092636",
+	GREEN = "rbxassetid://112510739340023",
+	RED   = "rbxassetid://131641206815699",
+	GOLD  = "rbxassetid://127371066511941",
+	WHITE = "rbxassetid://106330577092636",
 }
 local CURRENT = getgenv().UFO_ACCENT or "GREEN"
 local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
 
--- สร้าง SLOT กันคลิป (เว้น 3px รอบ)
-local LEFT_H = 30
-local Slot = Instance.new("Frame")
+-- 🔧 Clear old
+for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left" or o.Name=="Player_Slot" then o:Destroy() end end
+for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
+
+-- 🔹 SLOT & BUTTON (ขยายเต็มกรอบ)
+local LEFT_H = 34
+local Slot = Instance.new("Frame", LeftScroll)
 Slot.Name = "Player_Slot"
 Slot.BackgroundTransparency = 1
 Slot.BorderSizePixel = 0
 Slot.ClipsDescendants = false
-Slot.Position = UDim2.fromOffset(3,3)
-Slot.Size     = UDim2.new(1,-6,0,LEFT_H)
-Slot.ZIndex   = 120
-Slot.Parent   = LeftScroll
+Slot.Position = UDim2.fromOffset(1, 1) -- ชิดขอบซ้าย-บนมากขึ้น
+Slot.Size = UDim2.new(1, -2, 0, LEFT_H + 1) -- เต็มกรอบซ้าย-ขวา
+Slot.ZIndex = 120
 
--- ปุ่มจริง
 local LBtn = Instance.new("TextButton", Slot)
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
 LBtn.Text = ""
 LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
 LBtn.BorderSizePixel = 0
-LBtn.Size = UDim2.fromScale(1,1)
+LBtn.Size = UDim2.new(1, 0, 1, 0)
 LBtn.ZIndex = 130
 corner(LBtn, 8)
 
+-- 🟢 เส้นขอบสีเขียว (บางลง)
 local LStroke = Instance.new("UIStroke", LBtn)
 LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-LStroke.LineJoinMode   = Enum.LineJoinMode.Round
-LStroke.Thickness      = 1.5
-LStroke.Color          = GREEN
-LStroke.Transparency   = 0
+LStroke.LineJoinMode = Enum.LineJoinMode.Round
+LStroke.Thickness = 1.0
+LStroke.Color = GREEN
+LStroke.Transparency = 0
 
+-- 🧩 Icon + Title
 local LIcon = Instance.new("ImageLabel", LBtn)
 LIcon.BackgroundTransparency = 1
 LIcon.Size = UDim2.fromOffset(20,20)
-LIcon.Position = UDim2.fromOffset(12, (LEFT_H-20)/2)
+LIcon.Position = UDim2.fromOffset(10, (LEFT_H-20)/2)
 LIcon.Image = currentIcon()
 LIcon.ZIndex = 131
 
@@ -397,26 +401,25 @@ LTitle.Font = Enum.Font.GothamBold
 LTitle.TextSize = 15
 LTitle.TextColor3 = Color3.fromRGB(255,255,255)
 LTitle.TextXAlignment = Enum.TextXAlignment.Left
-LTitle.Position = UDim2.fromOffset(12+20+8, (LEFT_H-18)/2)
-LTitle.Size = UDim2.new(1, -(12+20+8+10), 0, 18)
+LTitle.Position = UDim2.fromOffset(36, (LEFT_H-18)/2)
+LTitle.Size = UDim2.new(1, -46, 0, 18)
 LTitle.ZIndex = 131
 
--- ฝั่งขวา: ชื่อ + รูป (ไม่มีพื้น/กรอบ) เริ่มซ่อน
+-- 🔸 Right content (รูป + ข้อความ)
 local RIGHT_W, RIGHT_H = 210, 26
 local RFrame = Instance.new("Frame", RightScroll)
 RFrame.Name = "Player_Right"
 RFrame.BackgroundTransparency = 1
-RFrame.BorderSizePixel = 0
 RFrame.Visible = false
 RFrame.ZIndex = 60
 RFrame.Position = UDim2.fromOffset(8,8)
-RFrame.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+RFrame.Size = UDim2.fromOffset(RIGHT_W, RIGHT_H)
 
 local RIcon = Instance.new("ImageLabel", RFrame)
 RIcon.BackgroundTransparency = 1
 RIcon.Size = UDim2.fromOffset(22,22)
-RIcon.Position = UDim2.fromOffset(0,2)
 RIcon.Image = currentIcon()
+RIcon.Position = UDim2.fromOffset(0, 2)
 RIcon.ZIndex = 61
 
 local RTitle = Instance.new("TextLabel", RFrame)
@@ -426,11 +429,11 @@ RTitle.Font = Enum.Font.GothamBold
 RTitle.TextSize = 15
 RTitle.TextColor3 = Color3.fromRGB(255,255,255)
 RTitle.TextXAlignment = Enum.TextXAlignment.Left
-RTitle.Position = UDim2.fromOffset(24+8,2)
-RTitle.Size = UDim2.new(1,-32,1,-4)
+RTitle.Position = UDim2.fromOffset(30, 2)
+RTitle.Size = UDim2.new(1, -30, 1, -4)
 RTitle.ZIndex = 61
 
--- คลิกแล้วค่อยแสดงฝั่งขวา
+-- 🖱️ คลิกเพื่อโชว์ฝั่งขวา
 LBtn.MouseButton1Click:Connect(function()
-    RFrame.Visible = true
+	RFrame.Visible = true
 end)
