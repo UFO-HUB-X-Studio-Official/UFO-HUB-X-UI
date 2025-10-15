@@ -271,7 +271,7 @@ do
 end
 
 --========================
--- UFO HUB X — Safe Add "Player" Button (auto-detect panels)
+-- UFO HUB X — Fix Button Border + Down Offset (copy-paste once)
 --========================
 do
     local GREEN = Color3.fromRGB(0,255,140)
@@ -287,81 +287,64 @@ do
     local CURRENT = (getgenv and getgenv().UFO_ACCENT) or "GREEN"
     local ICON_ID = ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN
 
-    -- หา ScreenGui หลัก
-    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-    if not GUI then warn("UFO_HUB_X_UI not found"); return end
+    -- หา GUI/Window
+    local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI"); if not GUI then return end
 
-    -- หา Window (เลือก Frame ที่ใหญ่สุดภายใต้ GUI)
     local function findLargestFrame(root)
-        local largest, area = nil, 0
+        local best, area = nil, 0
         for _,d in ipairs(root:GetDescendants()) do
             if d:IsA("Frame") and d.Visible then
-                local a = d.AbsoluteSize.X * d.AbsoluteSize.Y
-                if a > area then largest, area = d, a end
+                local a = d.AbsoluteSize.X*d.AbsoluteSize.Y
+                if a>area then best,area=d,a end
             end
         end
-        return largest
+        return best
     end
-    local Window = findLargestFrame(GUI)
-    if not Window then warn("Window not found"); return end
+    local Window = findLargestFrame(GUI); if not Window then return end
 
-    -- เลือก “ผู้สมัครแผง” = Frame ที่มี ClipsDescendants และมี UIStroke (มักจะเป็นกรอบซ้าย/ขวา)
-    local candidates = {}
+    -- ระบุแผงซ้าย/ขวา (Frame ที่ ClipsDescendants และมี UIStroke)
+    local panels = {}
     for _,d in ipairs(Window:GetDescendants()) do
         if d:IsA("Frame") and d.Visible and d.ClipsDescendants then
-            local hasStroke = false
+            local hasStroke=false
             for _,c in ipairs(d:GetChildren()) do
-                if c:IsA("UIStroke") then hasStroke = true break end
+                if c:IsA("UIStroke") then hasStroke=true break end
             end
-            if hasStroke and d.AbsoluteSize.Y > 80 and d.AbsoluteSize.X > 80 then
-                table.insert(candidates, d)
+            if hasStroke and d.AbsoluteSize.X>100 and d.AbsoluteSize.Y>100 then
+                table.insert(panels,d)
             end
         end
     end
-    if #candidates < 2 then
-        warn("Not enough panel candidates found"); return
-    end
-    table.sort(candidates, function(a,b) return a.AbsolutePosition.X < b.AbsolutePosition.X end)
-    local LeftPanel, RightPanel = candidates[1], candidates[#candidates]
+    table.sort(panels,function(a,b) return a.AbsolutePosition.X<b.AbsolutePosition.X end)
+    if #panels<2 then return end
+    local LeftPanel, RightPanel = panels[1], panels[#panels]
 
-    -- สร้าง/หา ScrollingFrame ให้เต็มกรอบแน่ ๆ
+    -- สร้าง/หา ScrollingFrame ให้ "อยู่เหนือ" เส้นลายกรอบ (ZIndex สูงกว่า) และเต็มกรอบจริง
     local function ensureScroll(panel)
         local sc
-        -- หา ScrollingFrame ลูกโดยตรงก่อน
         for _,ch in ipairs(panel:GetChildren()) do
-            if ch:IsA("ScrollingFrame") then sc = ch break end
+            if ch:IsA("ScrollingFrame") then sc=ch break end
         end
-        -- หาแบบลึก ๆ เผื่อซ่อนอยู่ใน Frame ชั้นใน
         if not sc then
-            for _,d in ipairs(panel:GetDescendants()) do
-                if d:IsA("ScrollingFrame") then sc = d break end
-            end
+            sc = Instance.new("ScrollingFrame", panel)
+            sc.Name="Scroll"
+            sc.BackgroundTransparency=1
+            sc.BorderSizePixel=0
+            sc.ScrollingDirection=Enum.ScrollingDirection.Y
+            sc.VerticalScrollBarInset=Enum.ScrollBarInset.ScrollBar
+            sc.ScrollBarThickness=6
+            sc.ScrollBarImageColor3=GREEN
+            local list=Instance.new("UIListLayout",sc)
+            list.Padding=UDim.new(0,8)
+            list.SortOrder=Enum.SortOrder.LayoutOrder
         end
-        -- ไม่มีจริง ๆ ก็สร้างใหม่ “เต็มกรอบ”
-        if not sc then
-            sc = Instance.new("ScrollingFrame")
-            sc.Name = "Scroll"
-            sc.Parent = panel
-            sc.BackgroundTransparency = 1
-            sc.BorderSizePixel = 0
-            sc.ClipsDescendants = true
-            sc.ScrollingDirection = Enum.ScrollingDirection.Y
-            sc.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-            sc.ScrollBarThickness = 6
-            sc.ScrollBarImageColor3 = GREEN
-            sc.Position = UDim2.fromOffset(0,0)
-            sc.Size = UDim2.new(1,0,1,0)              -- << เต็มจริง
-            sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            local list = Instance.new("UIListLayout", sc)
-            list.Padding = UDim.new(0,8)
-            list.SortOrder = Enum.SortOrder.LayoutOrder
-        else
-            -- บังคับให้เต็มกรอบและไม่มี padding มาขวาง
-            sc.Position = UDim2.fromOffset(0,0)
-            sc.Size     = UDim2.new(1,0,1,0)
-            for _,ch in ipairs(sc:GetChildren()) do
-                if ch:IsA("UIPadding") then ch:Destroy() end
-            end
+        sc.Position = UDim2.fromOffset(0,0)
+        sc.Size     = UDim2.new(1,0,1,0)
+        sc.ZIndex   = 50 -- << สูงกว่าเส้นลายในกรอบ
+
+        -- เคลียร์ UIPadding ที่อาจดันปุ่มให้ไม่เต็ม
+        for _,ch in ipairs(sc:GetChildren()) do
+            if ch:IsA("UIPadding") then ch:Destroy() end
         end
         return sc
     end
@@ -369,66 +352,86 @@ do
     local LeftScroll  = ensureScroll(LeftPanel)
     local RightScroll = ensureScroll(RightPanel)
 
-    -- ล้างของเดิมกันซ้อน
-    for _,o in ipairs(LeftScroll:GetChildren())  do if o.Name=="Player_Left"  then o:Destroy() end end
-    for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
+    -- ล้างของเดิม
+    for _,o in ipairs(LeftScroll:GetChildren())  do if o.Name=="SpacerTop" or o.Name=="Player_Left" then o:Destroy() end end
+    for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="SpacerTop" or o.Name=="Player_Right" then o:Destroy() end end
 
-    -- ===== ปุ่มซ้าย (เต็มกรอบ, พื้นดำ, ขอบเขียว 1.5) =====
-    local LBtn = Instance.new("TextButton")
-    LBtn.Name = "Player_Left"
-    LBtn.Parent = LeftScroll
-    LBtn.AutoButtonColor = false
-    LBtn.Text = ""
-    LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-    LBtn.BorderSizePixel = 0
-    LBtn.Size = UDim2.new(1, 0, 0, 36)            -- << ความสูงปุ่ม
-    LBtn.LayoutOrder = 1
-    Instance.new("UICorner", LBtn).CornerRadius = UDim.new(0,8)
+    -- ===== ระยะเลื่อนลงมาอีกนิด (ทั้งซ้าย/ขวา) =====
+    local TOP_OFFSET = 10 -- px
+    local LSpacer = Instance.new("Frame", LeftScroll)
+    LSpacer.Name="SpacerTop"; LSpacer.BackgroundTransparency=1; LSpacer.Size=UDim2.new(1,0,0,TOP_OFFSET)
+    LSpacer.LayoutOrder = 0; LSpacer.ZIndex = 51
+
+    local RSpacer = Instance.new("Frame", RightScroll)
+    RSpacer.Name="SpacerTop"; RSpacer.BackgroundTransparency=1; RSpacer.Size=UDim2.new(1,0,0,TOP_OFFSET)
+    RSpacer.LayoutOrder = 0; RSpacer.ZIndex = 51
+
+    -- ===== ปุ่มซ้าย: ขอบเขียว 1.5 ชัดเจน =====
+    local LBtn = Instance.new("TextButton", LeftScroll)
+    LBtn.Name="Player_Left"
+    LBtn.AutoButtonColor=false
+    LBtn.Text=""
+    LBtn.BackgroundColor3=Color3.fromRGB(15,15,15)
+    LBtn.BorderSizePixel=0
+    LBtn.Size=UDim2.new(1,0,0,36) -- เต็มความกว้าง
+    LBtn.LayoutOrder=1
+    LBtn.ZIndex=51
+    Instance.new("UICorner", LBtn).CornerRadius=UDim.new(0,8)
+
     local LStroke = Instance.new("UIStroke", LBtn)
     LStroke.Thickness = 1.5
     LStroke.Color = GREEN
+    LStroke.Transparency = 0
+    LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    LStroke.LineJoinMode = Enum.LineJoinMode.Round
 
     local LIcon = Instance.new("ImageLabel", LBtn)
-    LIcon.BackgroundTransparency = 1
-    LIcon.Size = UDim2.fromOffset(20,20)
-    LIcon.Position = UDim2.fromOffset(12, (36-20)/2)
-    LIcon.Image = ICON_ID
+    LIcon.BackgroundTransparency=1
+    LIcon.Size=UDim2.fromOffset(20,20)
+    LIcon.Position=UDim2.fromOffset(12,(36-20)/2)
+    LIcon.Image=ICON_ID
+    LIcon.ZIndex=52
 
     local LTitle = Instance.new("TextLabel", LBtn)
-    LTitle.BackgroundTransparency = 1
-    LTitle.Text = "Player"
-    LTitle.Font = Enum.Font.GothamBold
-    LTitle.TextSize = 15
-    LTitle.TextColor3 = Color3.new(1,1,1)
-    LTitle.TextXAlignment = Enum.TextXAlignment.Left
-    LTitle.Position = UDim2.fromOffset(12+20+8, (36-18)/2)
-    LTitle.Size = UDim2.new(1, -(12+20+8+10), 0, 18)
+    LTitle.BackgroundTransparency=1
+    LTitle.Text="Player"
+    LTitle.Font=Enum.Font.GothamBold
+    LTitle.TextSize=15
+    LTitle.TextColor3=Color3.new(1,1,1)
+    LTitle.TextXAlignment=Enum.TextXAlignment.Left
+    LTitle.Position=UDim2.fromOffset(12+20+8,(36-18)/2)
+    LTitle.Size=UDim2.new(1,-(12+20+8+10),0,18)
+    LTitle.ZIndex=52
 
-    -- ===== ส่วนขวา (หัวข้ออย่างเดียว โชว์หลังคลิก) =====
-    local RFrame = Instance.new("Frame")
-    RFrame.Name = "Player_Right"
-    RFrame.Parent = RightScroll
-    RFrame.BackgroundTransparency = 1
-    RFrame.Visible = false
-    RFrame.Size = UDim2.new(1,0,0,26)
-    RFrame.LayoutOrder = 1
-    local RIcon = Instance.new("ImageLabel", RFrame)
-    RIcon.BackgroundTransparency = 1
-    RIcon.Size = UDim2.fromOffset(22,22)
-    RIcon.Position = UDim2.fromOffset(4,2)
-    RIcon.Image = ICON_ID
-    local RTitle = Instance.new("TextLabel", RFrame)
-    RTitle.BackgroundTransparency = 1
-    RTitle.Text = "Player"
-    RTitle.Font = Enum.Font.GothamBold
-    RTitle.TextSize = 16
-    RTitle.TextColor3 = Color3.new(1,1,1)
-    RTitle.TextXAlignment = Enum.TextXAlignment.Left
-    RTitle.Position = UDim2.fromOffset(4+22+8,2)
-    RTitle.Size = UDim2.new(1, -(4+22+8+4), 0, 22)
+    -- ===== หัวข้อด้านขวา (เลื่อนลงเหมือนเดิม) =====
+    local RHead = Instance.new("Frame", RightScroll)
+    RHead.Name="Player_Right"
+    RHead.BackgroundTransparency=1
+    RHead.Size=UDim2.new(1,0,0,26)
+    RHead.LayoutOrder=1
+    RHead.ZIndex=51
 
-    -- คลิกแล้วค่อยขึ้นที่ขวา
+    local RIcon = Instance.new("ImageLabel", RHead)
+    RIcon.BackgroundTransparency=1
+    RIcon.Size=UDim2.fromOffset(22,22)
+    RIcon.Position=UDim2.fromOffset(4,2)
+    RIcon.Image=ICON_ID
+    RIcon.ZIndex=52
+
+    local RTitle = Instance.new("TextLabel", RHead)
+    RTitle.BackgroundTransparency=1
+    RTitle.Text="Player"
+    RTitle.Font=Enum.Font.GothamBold
+    RTitle.TextSize=16
+    RTitle.TextColor3=Color3.new(1,1,1)
+    RTitle.TextXAlignment=Enum.TextXAlignment.Left
+    RTitle.Position=UDim2.fromOffset(4+22+8,2)
+    RTitle.Size=UDim2.new(1,-(4+22+8+4),0,22)
+    RTitle.ZIndex=52
+
+    -- คลิกปุ่มซ้ายแล้วค่อยแสดงหัวข้อขวา
+    RHead.Visible = false
     LBtn.MouseButton1Click:Connect(function()
-        RFrame.Visible = true
+        RHead.Visible = true
     end)
 end
