@@ -423,10 +423,10 @@ do
     end
 end
 --========================
--- UFO HUB X — Player Button (Full width fix + Green Border 1.5)
+-- UFO HUB X — Player Button (Fix Full Green Border Visible)
 --========================
 
--- 🔧 Setup Scroll Frames (auto-create if missing)
+-- 🔧 สร้าง ScrollFrame ถ้ายังไม่มี
 local function ensureScroll(panel)
     local sc = panel:FindFirstChildOfClass("ScrollingFrame")
     if not sc then
@@ -440,8 +440,8 @@ local function ensureScroll(panel)
         sc.ScrollBarThickness = 6
         sc.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
         sc.ScrollBarImageTransparency = 0.1
-        sc.Position = UDim2.new(0,0,0,0)
-        sc.Size = UDim2.new(1,0,1,0)
+        sc.Position = UDim2.new(0,2,0,2) -- ✅ ลดขอบ 2px
+        sc.Size = UDim2.new(1,-4,1,-4)   -- ✅ ให้เว้นขอบรอบๆไว้
         sc.CanvasSize = UDim2.new(0,0,0,0)
         sc.Parent = panel
         Instance.new("UIListLayout", sc).Padding = UDim.new(0,8)
@@ -452,12 +452,12 @@ end
 local LeftScroll  = ensureScroll(Left)
 local RightScroll = ensureScroll(Right)
 
--- 🚫 ลบ padding ทั้งหมด เพื่อให้ปุ่มเต็มกรอบเป๊ะ
+-- ลบ padding เดิม (ถ้ามี)
 for _, pad in ipairs(LeftScroll:GetChildren()) do
     if pad:IsA("UIPadding") then pad:Destroy() end
 end
 
--- 🧩 Assets
+-- 🎨 Assets สี
 local ACCENT_ASSETS = {
     GREEN = "rbxassetid://112510739340023",
     RED   = "rbxassetid://131641206815699",
@@ -467,18 +467,18 @@ local ACCENT_ASSETS = {
 local CURRENT = getgenv().UFO_ACCENT or "GREEN"
 local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
 
--- ลบของเก่า
+-- ล้างเก่า
 for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left"  then o:Destroy() end end
 for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
 
--- 🔹 ปุ่มซ้าย (ดำ + เส้นขอบเขียว 1.5px)
+-- 🔹 ปุ่มซ้าย (ดำ + ขอบเขียว)
 local LBtn = Instance.new("TextButton")
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
 LBtn.Text = ""
 LBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
 LBtn.BorderSizePixel = 0
-LBtn.ZIndex = 60
+LBtn.ZIndex = 100
 LBtn.Parent = LeftScroll
 Instance.new("UICorner", LBtn).CornerRadius = UDim.new(0,8)
 
@@ -493,7 +493,7 @@ local LIcon = Instance.new("ImageLabel")
 LIcon.BackgroundTransparency = 1
 LIcon.Size = UDim2.fromOffset(20,20)
 LIcon.Image = currentIcon()
-LIcon.ZIndex = 61
+LIcon.ZIndex = 101
 LIcon.Parent = LBtn
 
 local LTitle = Instance.new("TextLabel")
@@ -503,10 +503,10 @@ LTitle.Font = Enum.Font.GothamBold
 LTitle.TextSize = 15
 LTitle.TextColor3 = Color3.fromRGB(255,255,255)
 LTitle.TextXAlignment = Enum.TextXAlignment.Left
-LTitle.ZIndex = 61
+LTitle.ZIndex = 101
 LTitle.Parent = LBtn
 
--- 🔸 ด้านขวา (ชื่อ + รูป ไม่มีกรอบ)
+-- 🔸 ขวา (ชื่อ + รูป ไม่มีกรอบ)
 local RFrame = Instance.new("Frame")
 RFrame.Name = "Player_Right"
 RFrame.BackgroundTransparency = 1
@@ -531,13 +531,13 @@ RTitle.TextXAlignment = Enum.TextXAlignment.Left
 RTitle.ZIndex = 61
 RTitle.Parent = RFrame
 
--- 🔧 Layout (กันคลิปเส้นขอบด้วยระยะ 1px)
+-- 🔧 Layout
 local LEFT_H, RIGHT_W, RIGHT_H = 30, 210, 26
 local function layout()
-	LBtn.Position = UDim2.fromOffset(0, 1)
-	LBtn.Size = UDim2.new(1, 0, 0, LEFT_H - 2)
-	LIcon.Position = UDim2.fromOffset(12, math.floor((LEFT_H-2-20)/2))
-	LTitle.Position = UDim2.fromOffset(12+20+8, math.floor((LEFT_H-2-18)/2))
+	LBtn.Position = UDim2.fromOffset(0, 0)
+	LBtn.Size = UDim2.new(1, 0, 0, LEFT_H)
+	LIcon.Position = UDim2.fromOffset(12, (LEFT_H-20)/2)
+	LTitle.Position = UDim2.fromOffset(12+20+8, (LEFT_H-18)/2)
 	LTitle.Size = UDim2.new(1, -(12+20+8+10), 0, 18)
 
 	RFrame.Position = UDim2.fromOffset(0, 0)
@@ -550,7 +550,7 @@ layout()
 LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 
--- 🖱️ กดแล้วค่อยขึ้นด้านขวา
+-- 🖱️ คลิกเพื่อแสดงฝั่งขวา
 LBtn.MouseButton1Click:Connect(function()
 	RFrame.Visible = true
 end)
