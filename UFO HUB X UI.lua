@@ -1,8 +1,9 @@
+
 pcall(function()
-local g = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
-if g then g:Destroy() end
-local t = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_Toggle")
-if t then t:Destroy() end
+    local g = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
+    if g then g:Destroy() end
+    local t = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_Toggle")
+    if t then t:Destroy() end
 end)
 
 -- THEME
@@ -30,16 +31,16 @@ local IMG_UFO   = "rbxassetid://100650447103028"
 
 -- HELPERS
 local function corner(gui, r)
-local c = Instance.new("UICorner", gui); c.CornerRadius = UDim.new(0, r or 10); return c
+    local c = Instance.new("UICorner", gui); c.CornerRadius = UDim.new(0, r or 10); return c
 end
 local function stroke(gui, t, col, trans)
-local s = Instance.new("UIStroke", gui)
-s.Thickness, s.Color, s.Transparency = t or 1, col or MINT, trans or 0.35
-s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.LineJoinMode = Enum.LineJoinMode.Round
-return s
+    local s = Instance.new("UIStroke", gui)
+    s.Thickness, s.Color, s.Transparency = t or 1, col or MINT, trans or 0.35
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.LineJoinMode = Enum.LineJoinMode.Round
+    return s
 end
 local function gradient(gui, c1, c2, rot)
-local g = Instance.new("UIGradient", gui); g.Color = ColorSequence.new(c1, c2); g.Rotation = rot or 0; return g
+    local g = Instance.new("UIGradient", gui); g.Color = ColorSequence.new(c1, c2); g.Rotation = rot or 0; return g
 end
 
 -- ROOT
@@ -59,18 +60,18 @@ corner(Window, 12); stroke(Window, 3, GREEN, 0)
 
 -- glow
 do
-local Glow = Instance.new("ImageLabel", Window)
-Glow.BackgroundTransparency = 1; Glow.AnchorPoint = Vector2.new(0.5,0.5)
-Glow.Position = UDim2.new(0.5,0,0.5,0); Glow.Size = UDim2.new(1.07,0,1.09,0)
-Glow.Image = "rbxassetid://5028857084"; Glow.ImageColor3 = GREEN; Glow.ImageTransparency = 0.78
-Glow.ScaleType = Enum.ScaleType.Slice; Glow.SliceCenter = Rect.new(24,24,276,276); Glow.ZIndex = 0
+    local Glow = Instance.new("ImageLabel", Window)
+    Glow.BackgroundTransparency = 1; Glow.AnchorPoint = Vector2.new(0.5,0.5)
+    Glow.Position = UDim2.new(0.5,0,0.5,0); Glow.Size = UDim2.new(1.07,0,1.09,0)
+    Glow.Image = "rbxassetid://5028857084"; Glow.ImageColor3 = GREEN; Glow.ImageTransparency = 0.78
+    Glow.ScaleType = Enum.ScaleType.Slice; Glow.SliceCenter = Rect.new(24,24,276,276); Glow.ZIndex = 0
 end
 
 -- autoscale
 local UIScale = Instance.new("UIScale", Window)
 local function fit()
-local v = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
-UIScale.Scale = math.clamp(math.min(v.X/860, v.Y/540), 0.72, 1.0)
+    local v = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
+    UIScale.Scale = math.clamp(math.min(v.X/860, v.Y/540), 0.72, 1.0)
 end
 fit(); RunS.RenderStepped:Connect(fit)
 
@@ -96,97 +97,125 @@ corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
 
 -- ✅ ปุ่ม X ซ่อนเฉพาะ Window + sync flag
 BtnClose.MouseButton1Click:Connect(function()
-Window.Visible = false
-getgenv().UFO_ISOPEN = false
+    Window.Visible = false
+    getgenv().UFO_ISOPEN = false
 end)
 
 -- drag (fix: block camera input while dragging)
 do
-local dragging, start, startPos
-local CAS = game:GetService("ContextActionService")
+    local dragging, start, startPos
+    local CAS = game:GetService("ContextActionService")
 
-local function bindBlock(on)
-local name="UFO_BlockLook_Window"
-if on then
-local fn=function() return Enum.ContextActionResult.Sink end
-CAS:BindActionAtPriority(name, fn, false, 9000,
-Enum.UserInputType.MouseMovement,
-Enum.UserInputType.Touch,
-Enum.UserInputType.MouseButton1)
-else
-pcall(function() CAS:UnbindAction(name) end)
-end
-end
+    local function bindBlock(on)
+        local name="UFO_BlockLook_Window"
+        if on then
+            local fn=function() return Enum.ContextActionResult.Sink end
+            CAS:BindActionAtPriority(name, fn, false, 9000,
+                Enum.UserInputType.MouseMovement,
+                Enum.UserInputType.Touch,
+                Enum.UserInputType.MouseButton1)
+        else
+            pcall(function() CAS:UnbindAction(name) end)
+        end
+    end
 
-Header.InputBegan:Connect(function(i)
-if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-dragging=true; start=i.Position; startPos=Window.Position
-bindBlock(true)
-i.Changed:Connect(function()
-if i.UserInputState==Enum.UserInputState.End then
-dragging=false
-bindBlock(false)
-end
-end)
-end
-end)
+    Header.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            dragging=true; start=i.Position; startPos=Window.Position
+            bindBlock(true)
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then
+                    dragging=false
+                    bindBlock(false)
+                end
+            end)
+        end
+    end)
 
-UIS.InputChanged:Connect(function(i)
-if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-local d=i.Position-start
-Window.Position=UDim2.new(
-startPos.X.Scale,
-startPos.X.Offset+d.X,
-startPos.Y.Scale,
-startPos.Y.Offset+d.Y
-)
-end
-end)
-
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-start
+            Window.Position=UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset+d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset+d.Y
+            )
+        end
+    end)
 end
 
 -- ===== UFO + TITLE =====
 do
-local UFO_Y_OFFSET   = 84
-local TITLE_Y_OFFSET = 8
+    local UFO_Y_OFFSET   = 84
+    local TITLE_Y_OFFSET = 8
 
-local UFO = Instance.new("ImageLabel", Window)
-UFO.Name = "UFO_Top"; UFO.BackgroundTransparency = 1; UFO.Image = IMG_UFO
-UFO.Size = UDim2.new(0,168,0,168)
-UFO.AnchorPoint = Vector2.new(0.5,1)
-UFO.Position = UDim2.new(0.5, 0, 0, UFO_Y_OFFSET)
-UFO.ZIndex = 60
+    local UFO = Instance.new("ImageLabel", Window)
+    UFO.Name = "UFO_Top"; UFO.BackgroundTransparency = 1; UFO.Image = IMG_UFO
+    UFO.Size = UDim2.new(0,168,0,168)
+    UFO.AnchorPoint = Vector2.new(0.5,1)
+    UFO.Position = UDim2.new(0.5, 0, 0, UFO_Y_OFFSET)
+    UFO.ZIndex = 60
 
-local Halo = Instance.new("ImageLabel", Window)
-Halo.BackgroundTransparency = 1; Halo.AnchorPoint = Vector2.new(0.5,0)
-Halo.Position = UDim2.new(0.5,0,0,0); Halo.Size = UDim2.new(0, 200, 0, 60)
-Halo.Image = "rbxassetid://5028857084"; Halo.ImageColor3 = MINT_SOFT; Halo.ImageTransparency = 0.72
-Halo.ZIndex = 50
+    local Halo = Instance.new("ImageLabel", Window)
+    Halo.BackgroundTransparency = 1; Halo.AnchorPoint = Vector2.new(0.5,0)
+    Halo.Position = UDim2.new(0.5,0,0,0); Halo.Size = UDim2.new(0, 200, 0, 60)
+    Halo.Image = "rbxassetid://5028857084"; Halo.ImageColor3 = MINT_SOFT; Halo.ImageTransparency = 0.72
+    Halo.ZIndex = 50
 
-local TitleCenter = Instance.new("TextLabel", Header)
-TitleCenter.BackgroundTransparency = 1; TitleCenter.AnchorPoint = Vector2.new(0.5,0)
-TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET)
-TitleCenter.Size = UDim2.new(0.8, 0, 0, 36)
-TitleCenter.Font = Enum.Font.GothamBold; TitleCenter.RichText = true; TitleCenter.TextScaled = true
-TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
-TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
-
+    local TitleCenter = Instance.new("TextLabel", Header)
+    TitleCenter.BackgroundTransparency = 1; TitleCenter.AnchorPoint = Vector2.new(0.5,0)
+    TitleCenter.Position = UDim2.new(0.5, 0, 0, TITLE_Y_OFFSET)
+    TitleCenter.Size = UDim2.new(0.8, 0, 0, 36)
+    TitleCenter.Font = Enum.Font.GothamBold; TitleCenter.RichText = true; TitleCenter.TextScaled = true
+    TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
+    TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
 end
--- ===== BODY / PANES =====
-local Body=Instance.new("Frame",Window)
-Body.BackgroundTransparency=1; Body.Position=UDim2.new(0,0,0,46); Body.Size=UDim2.new(1,0,1,-46)
 
-local Inner=Instance.new("Frame",Body)
-Inner.BackgroundColor3=BG_INNER; Inner.BorderSizePixel=0
-Inner.Position=UDim2.new(0,8,0,8); Inner.Size=UDim2.new(1,-16,1,-16); corner(Inner,12)
+--========================
+-- BODY (ONE DROP-IN)
+--========================
+local Players   = game:GetService("Players")
+local RunS      = game:GetService("RunService")
+local TS        = game:GetService("TweenService")
+local UIS       = game:GetService("UserInputService")
+local LP        = Players.LocalPlayer
 
-local Content=Instance.new("Frame",Body)
-Content.Name="Content"; Content.BackgroundColor3=BG_PANEL; Content.Position=UDim2.new(0,14,0,14)
-Content.Size=UDim2.new(1,-28,1,-28); corner(Content,12); stroke(Content,0.5,MINT,0.35)
+-- ขนาด/ระยะ
+local GAP_OUTER   = 10
+local GAP_BETWEEN = 8
+local LEFT_RATIO  = 0.28
+local RIGHT_RATIO = 1 - LEFT_RATIO
 
-local Columns=Instance.new("Frame",Content) Columns.BackgroundTransparency=1
-Columns.Position=UDim2.new(0,8,0,8); Columns.Size=UDim2.new(1,-16,1,-16)
+--========================
+-- โครงหลัก
+--========================
+local Body = Instance.new("Frame", Window)
+Body.BackgroundTransparency = 1
+Body.Position = UDim2.new(0,0,0,46)
+Body.Size     = UDim2.new(1,0,1,-46)
 
+local Inner = Instance.new("Frame", Body)
+Inner.BackgroundColor3 = BG_INNER
+Inner.BorderSizePixel  = 0
+Inner.Position = UDim2.new(0,8,0,8)
+Inner.Size     = UDim2.new(1,-16,1,-16)
+corner(Inner, 12)
+
+local Content = Instance.new("Frame", Body)
+Content.BackgroundColor3 = BG_PANEL
+Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
+Content.Size     = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
+corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
+
+local Columns = Instance.new("Frame", Content)
+Columns.BackgroundTransparency = 1
+Columns.Position = UDim2.new(0,8,0,8)
+Columns.Size     = UDim2.new(1,-16,1,-16)
+
+--========================
+-- ซ้าย/ขวา (ขอให้มีไว้เสมอ)
+--========================
 local Left=Instance.new("Frame",Columns)
 Left.BackgroundColor3=Color3.fromRGB(16,16,16); Left.Size=UDim2.new(0.22,-6,1,0)
 Left.ClipsDescendants=true; corner(Left,10); stroke(Left,1.2,GREEN,0); stroke(Left,0.45,MINT,0.35)
@@ -196,20 +225,15 @@ Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(0.22,12,0,0); Right.Size=UDim2.new(0.78,-6,1,0)
 Right.ClipsDescendants=true; corner(Right,10); stroke(Right,1.2,GREEN,0); stroke(Right,0.45,MINT,0.35)
 
-local RightBG=Instance.new("ImageLabel",Right)
-RightBG.BackgroundTransparency=1; RightBG.Image=IMG_ALIEN_BG
-RightBG.Size=UDim2.fromScale(1,1); RightBG.ScaleType=Enum.ScaleType.Fit; RightBG.ZIndex=1
+-- พื้นหลัง (ซ้าย/ขวา) — ถ้าไม่อยากได้ ลบบรรทัดสองอันนี้ได้
+local imgL = Instance.new("ImageLabel", Left)
+imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0)
+imgL.Image = IMG_SMALL or ""; imgL.ScaleType = Enum.ScaleType.Crop; imgL.ZIndex = 0
 
--- scrolls
-local function attachScroll(host)
-local sf=Instance.new("ScrollingFrame",host)
-sf.Name="Scroll"; sf.Size=UDim2.fromScale(1,1); sf.BackgroundTransparency=1; sf.BorderSizePixel=0
-sf.ScrollingDirection=Enum.ScrollingDirection.Y; sf.AutomaticCanvasSize=Enum.AutomaticSize.Y; sf.CanvasSize=UDim2.new()
-sf.ScrollBarThickness=6; sf.ScrollBarImageTransparency=1
-local pad=Instance.new("UIPadding",sf); pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
-local list=Instance.new("UIListLayout",sf); list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
-return sf
-end
+local imgR = Instance.new("ImageLabel", Right)
+imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0)
+imgR.Image = IMG_LARGE or ""; imgR.ScaleType = Enum.ScaleType.Crop; imgR.ZIndex = 0
+
 --==========================================================
 -- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
