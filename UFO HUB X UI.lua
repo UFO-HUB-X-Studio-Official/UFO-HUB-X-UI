@@ -1,4 +1,3 @@
-
 pcall(function()
     local g = game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
     if g then g:Destroy() end
@@ -19,10 +18,6 @@ local DANGER_RED   = Color3.fromRGB(200,40,40)
 
 -- SIZE
 local WIN_W, WIN_H = 640, 360
-local GAP_OUTER    = 14
-local GAP_BETWEEN  = 12
-local LEFT_RATIO   = 0.22
-local RIGHT_RATIO  = 0.78
 
 -- IMAGES
 local IMG_SMALL = "rbxassetid://121069267171370"
@@ -85,9 +80,8 @@ HeadAccent.AnchorPoint = Vector2.new(0.5,1); HeadAccent.Position = UDim2.new(0.5
 HeadAccent.Size = UDim2.new(1,-20,0,1); HeadAccent.BackgroundColor3 = MINT; HeadAccent.BackgroundTransparency = 0.35
 HeadAccent.BorderSizePixel = 0
 
-local Dot = Instance.new("Frame", Header)
-Dot.BackgroundColor3 = MINT; Dot.Position = UDim2.new(0,14,0.5,-4); Dot.Size = UDim2.new(0,8,0,8)
-Dot.BorderSizePixel = 0; corner(Dot, 4)
+-- (ลบ Dot ออก)
+-- local Dot = Instance.new("Frame", Header) -- ❌ ไม่สร้างจุดกลม
 
 local BtnClose = Instance.new("TextButton", Header)
 BtnClose.Size = UDim2.new(0,24,0,24); BtnClose.Position = UDim2.new(1,-34,0.5,-12)
@@ -95,17 +89,15 @@ BtnClose.BackgroundColor3 = DANGER_RED; BtnClose.Text = "X"; BtnClose.Font = Enu
 BtnClose.TextSize = 13; BtnClose.TextColor3 = Color3.new(1,1,1); BtnClose.BorderSizePixel = 0
 corner(BtnClose, 6); stroke(BtnClose, 1, Color3.fromRGB(255,0,0), 0.1)
 
--- ✅ ปุ่ม X ซ่อนเฉพาะ Window + sync flag
 BtnClose.MouseButton1Click:Connect(function()
     Window.Visible = false
     getgenv().UFO_ISOPEN = false
 end)
 
--- drag (fix: block camera input while dragging)
+-- drag (block camera)
 do
     local dragging, start, startPos
     local CAS = game:GetService("ContextActionService")
-
     local function bindBlock(on)
         local name="UFO_BlockLook_Window"
         if on then
@@ -114,33 +106,18 @@ do
                 Enum.UserInputType.MouseMovement,
                 Enum.UserInputType.Touch,
                 Enum.UserInputType.MouseButton1)
-        else
-            pcall(function() CAS:UnbindAction(name) end)
-        end
+        else pcall(function() CAS:UnbindAction(name) end) end
     end
-
     Header.InputBegan:Connect(function(i)
         if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            dragging=true; start=i.Position; startPos=Window.Position
-            bindBlock(true)
-            i.Changed:Connect(function()
-                if i.UserInputState==Enum.UserInputState.End then
-                    dragging=false
-                    bindBlock(false)
-                end
-            end)
+            dragging=true; start=i.Position; startPos=Window.Position; bindBlock(true)
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false; bindBlock(false) end end)
         end
     end)
-
     UIS.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
             local d=i.Position-start
-            Window.Position=UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset+d.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset+d.Y
-            )
+            Window.Position=UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
         end
     end)
 end
@@ -173,22 +150,7 @@ do
 end
 
 --========================
--- BODY (ONE DROP-IN)
---========================
-local Players   = game:GetService("Players")
-local RunS      = game:GetService("RunService")
-local TS        = game:GetService("TweenService")
-local UIS       = game:GetService("UserInputService")
-local LP        = Players.LocalPlayer
-
--- ขนาด/ระยะ
-local GAP_OUTER   = 10
-local GAP_BETWEEN = 8
-local LEFT_RATIO  = 0.28
-local RIGHT_RATIO = 1 - LEFT_RATIO
-
---========================
--- โครงหลัก
+-- BODY
 --========================
 local Body = Instance.new("Frame", Window)
 Body.BackgroundTransparency = 1
@@ -204,8 +166,8 @@ corner(Inner, 12)
 
 local Content = Instance.new("Frame", Body)
 Content.BackgroundColor3 = BG_PANEL
-Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
-Content.Size     = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
+Content.Position = UDim2.new(0,10,0,10)
+Content.Size     = UDim2.new(1,-20,1,-20)
 corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
 
 local Columns = Instance.new("Frame", Content)
@@ -213,26 +175,17 @@ Columns.BackgroundTransparency = 1
 Columns.Position = UDim2.new(0,8,0,8)
 Columns.Size     = UDim2.new(1,-16,1,-16)
 
---========================
--- ซ้าย/ขวา (ขอให้มีไว้เสมอ)
---========================
+-- ซ้าย/ขวา
 local Left=Instance.new("Frame",Columns)
 Left.BackgroundColor3=Color3.fromRGB(16,16,16); Left.Size=UDim2.new(0.22,-6,1,0)
 Left.ClipsDescendants=true; corner(Left,10); stroke(Left,1.2,GREEN,0); stroke(Left,0.45,MINT,0.35)
-
-Left.ChildAdded:Connect(function(obj)
-    if obj:IsA("ScrollingFrame") then
-        local pad = obj:FindFirstChildOfClass("UIPadding")
-        if pad then pad.PaddingLeft, pad.PaddingRight = UDim.new(0,0), UDim.new(0,0) end
-    end
-end)
 
 local Right=Instance.new("Frame",Columns)
 Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(0.22,12,0,0); Right.Size=UDim2.new(0.78,-6,1,0)
 Right.ClipsDescendants=true; corner(Right,10); stroke(Right,1.2,GREEN,0); stroke(Right,0.45,MINT,0.35)
 
--- พื้นหลัง (ซ้าย/ขวา) — ถ้าไม่อยากได้ ลบบรรทัดสองอันนี้ได้
+-- พื้นหลัง
 local imgL = Instance.new("ImageLabel", Left)
 imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0)
 imgL.Image = IMG_SMALL or ""; imgL.ScaleType = Enum.ScaleType.Crop; imgL.ZIndex = 0
@@ -241,15 +194,8 @@ local imgR = Instance.new("ImageLabel", Right)
 imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0)
 imgR.Image = IMG_LARGE or ""; imgR.ScaleType = Enum.ScaleType.Crop; imgR.ZIndex = 0
 
---========================
--- SCROLL SYSTEM (Left & Right)
---========================
+-- สร้าง ScrollingFrame
 local function makeScroller(panel)
-    -- ให้ภาพพื้นหลังอยู่ชั้นล่างสุดเสมอ
-    local bg = panel:FindFirstChild("Background") or panel:FindFirstChildWhichIsA("ImageLabel")
-    if bg then bg.ZIndex = 0 end
-
-    -- สร้าง ScrollingFrame ครอบคอนเทนต์
     local sc = Instance.new("ScrollingFrame")
     sc.Name = "Scroll"
     sc.BackgroundTransparency = 1
@@ -263,10 +209,8 @@ local function makeScroller(panel)
     sc.Position = UDim2.new(0,8,0,8)
     sc.Size     = UDim2.new(1,-16,1,-16)
     sc.CanvasSize = UDim2.new(0,0,0,0)
-    sc.ZIndex = 1
     sc.Parent = panel
 
-    -- padding + list สำหรับวางชิ้นส่วนต่อ ๆ ไป
     local pad = Instance.new("UIPadding", sc)
     pad.PaddingLeft = UDim.new(0,4)
     pad.PaddingRight = UDim.new(0,4)
@@ -277,48 +221,18 @@ local function makeScroller(panel)
     list.Padding = UDim.new(0,8)
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- อัปเดตขนาดแคนวาสอัตโนมัติให้พอดีกับเนื้อหา
     local function refreshCanvas()
         sc.CanvasSize = UDim2.fromOffset(0, list.AbsoluteContentSize.Y + 8)
     end
     list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvas)
     panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refreshCanvas)
     task.defer(refreshCanvas)
-
     return sc
 end
 
--- ครอบทั้งสองฝั่ง
 local LeftScroll  = makeScroller(Left)
 local RightScroll = makeScroller(Right)
 
--- ตัวอย่าง (ลบได้): สร้างไอเท็มทดสอบให้เห็นการเลื่อนทันที
---[[
-for i = 1, 20 do
-    local b = Instance.new("TextLabel")
-    b.Size = UDim2.new(1, -8, 0, 28)
-    b.BackgroundColor3 = Color3.fromRGB(28,28,28)
-    b.TextColor3 = TEXT_WHITE
-    b.Font = Enum.Font.Gotham
-    b.TextSize = 14
-    b.Text = "Left item "..i
-    b.BorderSizePixel = 0
-    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,8)
-    b.Parent = LeftScroll
-end
-for i = 1, 30 do
-    local b = Instance.new("TextLabel")
-    b.Size = UDim2.new(1, -8, 0, 40)
-    b.BackgroundColor3 = Color3.fromRGB(24,24,24)
-    b.TextColor3 = TEXT_WHITE
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 16
-    b.Text = "Right content "..i
-    b.BorderSizePixel = 0
-    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,8)
-    b.Parent = RightScroll
-end
-]]
 --==========================================================
 -- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
 --==========================================================
