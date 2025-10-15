@@ -170,66 +170,41 @@ do
     TitleCenter.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
     TitleCenter.TextColor3 = TEXT_WHITE; TitleCenter.ZIndex = 61
 end
---========================
--- BODY (ONE DROP-IN)
---========================
-local Players   = game:GetService("Players")
-local RunS      = game:GetService("RunService")
-local TS        = game:GetService("TweenService")
-local UIS       = game:GetService("UserInputService")
-local LP        = Players.LocalPlayer
+-- ===== BODY / PANES =====
+local Body=Instance.new("Frame",Window)
+Body.BackgroundTransparency=1; Body.Position=UDim2.new(0,0,0,46); Body.Size=UDim2.new(1,0,1,-46)
 
--- ขนาด/ระยะ
-local GAP_OUTER   = 10
-local GAP_BETWEEN = 8
-local LEFT_RATIO  = 0.28
-local RIGHT_RATIO = 1 - LEFT_RATIO
+local Inner=Instance.new("Frame",Body)
+Inner.BackgroundColor3=BG_INNER; Inner.BorderSizePixel=0
+Inner.Position=UDim2.new(0,8,0,8); Inner.Size=UDim2.new(1,-16,1,-16); corner(Inner,12)
 
---========================
--- โครงหลัก
---========================
-local Body = Instance.new("Frame", Window)
-Body.BackgroundTransparency = 1
-Body.Position = UDim2.new(0,0,0,46)
-Body.Size     = UDim2.new(1,0,1,-46)
+local Content=Instance.new("Frame",Body)
+Content.Name="Content"; Content.BackgroundColor3=BG_PANEL; Content.Position=UDim2.new(0,14,0,14)
+Content.Size=UDim2.new(1,-28,1,-28); corner(Content,12); stroke(Content,0.5,MINT,0.35)
 
-local Inner = Instance.new("Frame", Body)
-Inner.BackgroundColor3 = BG_INNER
-Inner.BorderSizePixel  = 0
-Inner.Position = UDim2.new(0,8,0,8)
-Inner.Size     = UDim2.new(1,-16,1,-16)
-corner(Inner, 12)
+local Columns=Instance.new("Frame",Content) Columns.BackgroundTransparency=1
+Columns.Position=UDim2.new(0,8,0,8); Columns.Size=UDim2.new(1,-16,1,-16)
 
-local Content = Instance.new("Frame", Body)
-Content.BackgroundColor3 = BG_PANEL
-Content.Position = UDim2.new(0,GAP_OUTER,0,GAP_OUTER)
-Content.Size     = UDim2.new(1,-GAP_OUTER*2,1,-GAP_OUTER*2)
-corner(Content, 12); stroke(Content, 0.5, MINT, 0.35)
-
-local Columns = Instance.new("Frame", Content)
-Columns.BackgroundTransparency = 1
-Columns.Position = UDim2.new(0,8,0,8)
-Columns.Size     = UDim2.new(1,-16,1,-16)
-
---========================
--- ซ้าย/ขวา (ขอให้มีไว้เสมอ)
---========================
--- LEFT
 local Left=Instance.new("Frame",Columns)
 Left.BackgroundColor3=Color3.fromRGB(16,16,16); Left.Size=UDim2.new(0.22,-6,1,0)
 Left.ClipsDescendants=true; corner(Left,10); stroke(Left,1.2,GREEN,0); stroke(Left,0.45,MINT,0.35)
 
--- RIGHT
 local Right=Instance.new("Frame",Columns)
 Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(0.22,12,0,0); Right.Size=UDim2.new(0.78,-6,1,0)
 Right.ClipsDescendants=true; corner(Right,10); stroke(Right,1.2,GREEN,0); stroke(Right,0.45,MINT,0.35)
 
--- พื้นหลัง (ซ้าย/ขวา) — ถ้าไม่อยากได้ ลบบรรทัดสองอันนี้ได้
-local imgL = Instance.new("ImageLabel", Left)
-imgL.BackgroundTransparency = 1; imgL.Size = UDim2.new(1,0,1,0)
-imgL.Image = IMG_SMALL or ""; imgL.ScaleType = Enum.ScaleType.Crop; imgL.ZIndex = 0
+local RightBG=Instance.new("ImageLabel",Right)
+RightBG.BackgroundTransparency=1; RightBG.Image=IMG_ALIEN_BG
+RightBG.Size=UDim2.fromScale(1,1); RightBG.ScaleType=Enum.ScaleType.Fit; RightBG.ZIndex=1
 
-local imgR = Instance.new("ImageLabel", Right)
-imgR.BackgroundTransparency = 1; imgR.Size = UDim2.new(1,0,1,0)
-imgR.Image = IMG_LARGE or ""; imgR.ScaleType = Enum.ScaleType.Crop; imgR.ZIndex = 0
+-- scrolls
+local function attachScroll(host)
+  local sf=Instance.new("ScrollingFrame",host)
+  sf.Name="Scroll"; sf.Size=UDim2.fromScale(1,1); sf.BackgroundTransparency=1; sf.BorderSizePixel=0
+  sf.ScrollingDirection=Enum.ScrollingDirection.Y; sf.AutomaticCanvasSize=Enum.AutomaticSize.Y; sf.CanvasSize=UDim2.new()
+  sf.ScrollBarThickness=6; sf.ScrollBarImageTransparency=1
+  local pad=Instance.new("UIPadding",sf); pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
+  local list=Instance.new("UIListLayout",sf); list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
+  return sf
+end
