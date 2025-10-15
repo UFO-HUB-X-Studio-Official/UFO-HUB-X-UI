@@ -554,3 +554,45 @@ RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 LBtn.MouseButton1Click:Connect(function()
 	RFrame.Visible = true
 end)
+--========================
+-- FIX: show full green border on Player button (no clipping)
+--========================
+do
+    local sc = Left:FindFirstChild("Scroll")
+    local btn = sc and sc:FindFirstChild("Player_Left")
+    if not (sc and btn) then return end
+
+    -- กันถูกวัตถุอื่นทับ
+    sc.ZIndex  = math.max(sc.ZIndex, 150)
+    btn.ZIndex = 200
+    for _,d in ipairs(btn:GetDescendants()) do
+        if d:IsA("UIStroke") then
+            d.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            d.LineJoinMode    = Enum.LineJoinMode.Round
+            d.Thickness       = 1.5
+            d.Color           = Color3.fromRGB(0,255,140)
+            d.Transparency    = 0
+        end
+    end
+
+    -- จัดให้อยู่ห่างขอบทุกด้าน 2px เพื่อไม่ให้เส้นถูกคลิป
+    local LEFT_H = 30
+    local icon   = btn:FindFirstChildWhichIsA("ImageLabel")
+    local title  = btn:FindFirstChildWhichIsA("TextLabel")
+
+    local function layoutFix()
+        btn.Position = UDim2.fromOffset(2, 2)
+        btn.Size     = UDim2.new(1, -4, 0, LEFT_H - 4)
+
+        if icon then
+            icon.Position = UDim2.fromOffset(12, math.floor((LEFT_H-4-20)/2))
+        end
+        if title then
+            title.Position = UDim2.fromOffset(12+20+8, math.floor((LEFT_H-4-18)/2))
+            title.Size     = UDim2.new(1, -(12+20+8+10), 0, 18)
+        end
+    end
+
+    layoutFix()
+    sc:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutFix)
+end
