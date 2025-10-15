@@ -423,46 +423,41 @@ do
     end
 end
 --========================
--- UFO HUB X — Player Button (one-drop)
+-- UFO HUB X — Player Button (Full width fix)
 --========================
 
--- 0) Ensure ScrollingFrames (ใช้ของเดิม ถ้าไม่มีก็สร้างให้)
+-- 🔧 Setup Scroll Frames (auto-create if missing)
 local function ensureScroll(panel)
-    local sc = panel:FindFirstChild("Scroll")
-    if sc and sc:IsA("ScrollingFrame") then return sc end
-    sc = Instance.new("ScrollingFrame")
-    sc.Name = "Scroll"
-    sc.BackgroundTransparency = 1
-    sc.BorderSizePixel = 0
-    sc.ClipsDescendants = true
-    sc.ScrollingDirection = Enum.ScrollingDirection.Y
-    sc.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-    sc.ScrollBarThickness = 6
-    sc.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
-    sc.ScrollBarImageTransparency = 0.1
-    sc.Position = UDim2.new(0,8,0,8)
-    sc.Size     = UDim2.new(1,-16,1,-16)
-    sc.CanvasSize = UDim2.new(0,0,0,0)
-    sc.Parent = panel
-
-    local pad = Instance.new("UIPadding", sc)
-    pad.PaddingLeft = UDim.new(0,4)
-    pad.PaddingRight = UDim.new(0,4)
-    pad.PaddingTop = UDim.new(0,4)
-    pad.PaddingBottom = UDim.new(0,8)
-
-    local list = Instance.new("UIListLayout", sc)
-    list.Padding = UDim.new(0,8)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    local function refresh() sc.CanvasSize = UDim2.fromOffset(0, list.AbsoluteContentSize.Y + 8) end
-    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refresh); task.defer(refresh)
+    local sc = panel:FindFirstChildOfClass("ScrollingFrame")
+    if not sc then
+        sc = Instance.new("ScrollingFrame")
+        sc.Name = "Scroll"
+        sc.BackgroundTransparency = 1
+        sc.BorderSizePixel = 0
+        sc.ClipsDescendants = true
+        sc.ScrollingDirection = Enum.ScrollingDirection.Y
+        sc.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+        sc.ScrollBarThickness = 6
+        sc.ScrollBarImageColor3 = Color3.fromRGB(0,255,140)
+        sc.ScrollBarImageTransparency = 0.1
+        sc.Position = UDim2.new(0,0,0,0)
+        sc.Size = UDim2.new(1,0,1,0)
+        sc.CanvasSize = UDim2.new(0,0,0,0)
+        sc.Parent = panel
+        Instance.new("UIListLayout", sc).Padding = UDim.new(0,8)
+    end
     return sc
 end
 
-local LeftScroll  = LeftScroll  or ensureScroll(Left)
-local RightScroll = RightScroll or ensureScroll(Right)
+local LeftScroll  = ensureScroll(Left)
+local RightScroll = ensureScroll(Right)
 
--- 1) Icon assets (ตามสีที่ M ให้)
+-- 🚫 ลบ padding ทั้งหมด เพื่อให้ปุ่มเต็มกรอบเป๊ะ
+for _, pad in ipairs(LeftScroll:GetChildren()) do
+    if pad:IsA("UIPadding") then pad:Destroy() end
+end
+
+-- 🧩 Assets
 local ACCENT_ASSETS = {
     GREEN = "rbxassetid://112510739340023",
     RED   = "rbxassetid://131641206815699",
@@ -472,11 +467,11 @@ local ACCENT_ASSETS = {
 local CURRENT = getgenv().UFO_ACCENT or "GREEN"
 local function currentIcon() return ACCENT_ASSETS[CURRENT] or ACCENT_ASSETS.GREEN end
 
--- 2) Clean duplicates
+-- ลบของเก่า
 for _,o in ipairs(LeftScroll:GetChildren()) do if o.Name=="Player_Left"  then o:Destroy() end end
 for _,o in ipairs(RightScroll:GetChildren()) do if o.Name=="Player_Right" then o:Destroy() end end
 
--- 3) Left button: FULL-WIDTH, black bg, neon-green border
+-- 🔹 ปุ่มซ้าย (ดำ + เส้นขอบเขียว)
 local LBtn = Instance.new("TextButton")
 LBtn.Name = "Player_Left"
 LBtn.AutoButtonColor = false
@@ -487,11 +482,9 @@ LBtn.ZIndex = 60
 LBtn.Parent = LeftScroll
 Instance.new("UICorner", LBtn).CornerRadius = UDim.new(0,8)
 local LStroke = Instance.new("UIStroke", LBtn)
-LStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-LStroke.LineJoinMode   = Enum.LineJoinMode.Round
-LStroke.Thickness      = 3
-LStroke.Color          = Color3.fromRGB(0,255,140)
-LStroke.Transparency   = 0
+LStroke.Thickness = 3
+LStroke.Color = Color3.fromRGB(0,255,140)
+LStroke.Transparency = 0
 
 local LIcon = Instance.new("ImageLabel")
 LIcon.BackgroundTransparency = 1
@@ -510,11 +503,10 @@ LTitle.TextXAlignment = Enum.TextXAlignment.Left
 LTitle.ZIndex = 61
 LTitle.Parent = LBtn
 
--- 4) Right header: show AFTER click (no bg, no border — only icon + text)
+-- 🔸 ด้านขวา (ชื่อ + รูป ไม่มีกรอบ)
 local RFrame = Instance.new("Frame")
 RFrame.Name = "Player_Right"
 RFrame.BackgroundTransparency = 1
-RFrame.BorderSizePixel = 0
 RFrame.Visible = false
 RFrame.ZIndex = 60
 RFrame.Parent = RightScroll
@@ -536,41 +528,26 @@ RTitle.TextXAlignment = Enum.TextXAlignment.Left
 RTitle.ZIndex = 61
 RTitle.Parent = RFrame
 
--- 5) Exact layout (left = fill white bar perfectly, right = fixed chip pos)
-local LEFT_H = 30
-local RIGHT_W, RIGHT_H = 210, 26
-
-local function getPad(sc)
-    local p = sc:FindFirstChildOfClass("UIPadding")
-    return (p and p.PaddingLeft.Offset or 4),
-           (p and p.PaddingRight.Offset or 4),
-           (p and p.PaddingTop.Offset or 4),
-           (p and p.PaddingBottom.Offset or 8)
-end
-
+-- 🔧 Layout
+local LEFT_H, RIGHT_W, RIGHT_H = 30, 210, 26
 local function layout()
-    local LpL, LpR, LpT = getPad(LeftScroll)
-    local RpL, _, RpT   = getPad(RightScroll)
+	LBtn.Position = UDim2.fromOffset(0, 0)
+	LBtn.Size = UDim2.new(1, 0, 0, LEFT_H)
+	LIcon.Position = UDim2.fromOffset(12, (LEFT_H-20)/2)
+	LTitle.Position = UDim2.fromOffset(12+20+8, (LEFT_H-18)/2)
+	LTitle.Size = UDim2.new(1, -(12+20+8+10), 0, 18)
 
-    -- Left: full width inside the white strip
-    LBtn.Position = UDim2.fromOffset(LpL, LpT)
-    LBtn.Size     = UDim2.new(1, -(LpL + LpR), 0, LEFT_H)
-    LIcon.Position  = UDim2.fromOffset(12, math.floor((LEFT_H-20)/2))
-    LTitle.Position = UDim2.fromOffset(12+20+8, math.floor((LEFT_H-18)/2))
-    LTitle.Size     = UDim2.new(1, -(12+20+8+10), 0, 18)
-
-    -- Right: same spot as old red bar (top-left, fixed size)
-    RFrame.Position = UDim2.fromOffset(RpL, RpT)
-    RFrame.Size     = UDim2.fromOffset(RIGHT_W, RIGHT_H)
-    RIcon.Position  = UDim2.fromOffset(0, 2)
-    RTitle.Position = UDim2.fromOffset(24+8, 2)
-    RTitle.Size     = UDim2.new(1, -32, 1, -4)
+	RFrame.Position = UDim2.fromOffset(0, 0)
+	RFrame.Size = UDim2.fromOffset(RIGHT_W, RIGHT_H)
+	RIcon.Position = UDim2.fromOffset(0, 2)
+	RTitle.Position = UDim2.fromOffset(24+8, 2)
+	RTitle.Size = UDim2.new(1, -32, 1, -4)
 end
 layout()
 LeftScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 
--- 6) Click to show on right
+-- 🖱️ กดแล้วค่อยขึ้นด้านขวา
 LBtn.MouseButton1Click:Connect(function()
-    RFrame.Visible = true
+	RFrame.Visible = true
 end)
