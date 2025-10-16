@@ -277,29 +277,33 @@ function UFO:ShowRightHeader(text, iconId)
   RightTopIcon.Visible, RightTopText.Visible = true, true
 end
 
--- ปุ่มซ้ายเต็มกรอบ + เส้นขอบบางขึ้น (1 px)
+-- =====================================================
+-- buildButton : ปุ่มยาวเต็มกรอบ + ขอบสีเขียวเล็กลง
+-- =====================================================
 local function buildButton(parent, label, iconId, callback)
     local BTN_H = 44
     local b = Instance.new("TextButton", parent)
     b.Name = "Btn_" .. label:gsub("%s+", "")
     b.AutoButtonColor = false
-    b.Text = ""
     b.BackgroundColor3 = UI.BG_WINDOW
-    b.Size = UDim2.new(1, 8, 0, BTN_H) -- ✅ เพิ่มความยาวเต็มขอบซ้าย-ขวา
-    b.Position = UDim2.new(0, -4, 0, 0) -- ✅ ขยายขอบออกนิดนึงให้ดูเต็มพอดี
+    b.Size = UDim2.new(1, 0, 0, BTN_H)   -- กินพื้นที่เต็มแนวนอนของ Scroll
+    b.Text = ""
     corner(b, 8)
 
-    local st = stroke(b, 1, ACCENT.ACCENT, 0.25) -- ✅ ลดความหนาขอบจาก 1.5 → 1
+    -- ขอบสีเขียว (บางลง)
+    local st = stroke(b, 1, UI.ACCENT.ACCENT, 0.25)
 
+    -- ไอคอนทางซ้าย
     local ic = Instance.new("ImageLabel", b)
     ic.BackgroundTransparency = 1
     ic.Image = iconId or CFG.ICON_DEFAULT
     ic.Size = UDim2.fromOffset(BTN_H - 10, BTN_H - 10)
     ic.Position = UDim2.new(0, 8, 0.5, -(BTN_H - 10) / 2)
 
+    -- ข้อความ
     local tx = Instance.new("TextLabel", b)
     tx.BackgroundTransparency = 1
-    tx.Position = UDim2.new(0, BTN_H + 4, 0, 0)
+    tx.Position = UDim2.new(0, BTN_H + 6, 0, 0)
     tx.Size = UDim2.new(1, -(BTN_H + 12), 1, 0)
     tx.Font = Enum.Font.GothamMedium
     tx.TextSize = 16
@@ -307,14 +311,15 @@ local function buildButton(parent, label, iconId, callback)
     tx.TextColor3 = UI.TEXT
     tx.Text = tostring(label)
 
+    -- เอฟเฟกต์คลิก
     local isDown, downPos
     b.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
             isDown = true
             downPos = i.Position
             b.BackgroundColor3 = Color3.fromRGB(22, 30, 24)
-            st.Thickness = 1.5
-            st.Transparency = 0
+            st.Thickness = 2
+            st.Color = UI.GREEN
         end
     end)
 
@@ -323,13 +328,14 @@ local function buildButton(parent, label, iconId, callback)
             isDown = false
             b.BackgroundColor3 = UI.BG_WINDOW
             st.Thickness = 1
-            st.Transparency = 0.25
-            if (i.Position - downPos).magnitude < CFG.TAP_THRESHOLD then
-                if typeof(callback) == "function" then task.spawn(callback) end
+            st.Color = UI.ACCENT.ACCENT
+            if (i.Position - downPos).magnitude < (CFG.TAP_THRESHOLD or 8) then
+                if typeof(callback) == "function" then
+                    task.spawn(callback)
+                end
             end
         end
     end)
-
     return b
 end
 
