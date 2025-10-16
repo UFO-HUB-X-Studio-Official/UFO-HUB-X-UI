@@ -283,19 +283,23 @@ do
         end
     end)
 end
---== DEMO ปุ่มซ้าย (ตัวอย่างใช้งาน) ==--
+-- == DEMO ปุ่มซ้าย (สร้างปุ่มให้ขึ้นจริง) ==
 UFO:SetTitle("UFO","HUB X")
 
+local function show(name, icon)
+    UFO:ShowRightHeader(name, icon)
+end
+
 UFO:AddButton("Player","rbxassetid://112510739340023", function()
-    UFO:ShowRightHeader("Player","rbxassetid://112510739340023")
+    show("Player","rbxassetid://112510739340023")
 end)
 
 UFO:AddButton("Quest","rbxassetid://72473476254744", function()
-    UFO:ShowRightHeader("Quest","rbxassetid://72473476254744")
+    show("Quest","rbxassetid://72473476254744")
 end)
 
 UFO:AddButton("Shop","rbxassetid://139824330037901", function()
-    UFO:ShowRightHeader("Shop","rbxassetid://139824330037901")
+    show("Shop","rbxassetid://139824330037901")
 end)
 --[[ UFO HUB X • Left Button Active Highlight (drop-in)
      ทำให้ปุ่มฝั่งซ้ายที่ถูกเลือกอยู่ มีขอบเขียวหนา/สว่าง และยกเลิกปุ่มอื่นอัตโนมัติ
