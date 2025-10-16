@@ -283,6 +283,20 @@ do
         end
     end)
 end
+--== DEMO ปุ่มซ้าย (ตัวอย่างใช้งาน) ==--
+UFO:SetTitle("UFO","HUB X")
+
+UFO:AddButton("Player","rbxassetid://112510739340023", function()
+    UFO:ShowRightHeader("Player","rbxassetid://112510739340023")
+end)
+
+UFO:AddButton("Quest","rbxassetid://72473476254744", function()
+    UFO:ShowRightHeader("Quest","rbxassetid://72473476254744")
+end)
+
+UFO:AddButton("Shop","rbxassetid://139824330037901", function()
+    UFO:ShowRightHeader("Shop","rbxassetid://139824330037901")
+end)
 --[[ UFO HUB X • Left Button Active Highlight (drop-in)
      ทำให้ปุ่มฝั่งซ้ายที่ถูกเลือกอยู่ มีขอบเขียวหนา/สว่าง และยกเลิกปุ่มอื่นอัตโนมัติ
      ใช้กับ UI เวอร์ชันที่สร้าง ScreenGui ชื่อ "UFOX_UI" (ที่เราทำให้อยู่ก่อนหน้า)
@@ -357,18 +371,3 @@ LeftScroll.ChildAdded:Connect(hook)
 -- for _, c in ipairs(LeftScroll:GetChildren()) do if c:IsA("TextButton") then setActive(c) break end end
 
 print("✅ UFO HUB X: Button Active Highlight พร้อมใช้งาน")
-
---== DEMO ปุ่มซ้าย (ตัวอย่างใช้งาน) ==--
-UFO:SetTitle("UFO","HUB X")
-
-UFO:AddButton("Player","rbxassetid://112510739340023", function()
-    UFO:ShowRightHeader("Player","rbxassetid://112510739340023")
-end)
-
-UFO:AddButton("Quest","rbxassetid://72473476254744", function()
-    UFO:ShowRightHeader("Quest","rbxassetid://72473476254744")
-end)
-
-UFO:AddButton("Shop","rbxassetid://139824330037901", function()
-    UFO:ShowRightHeader("Shop","rbxassetid://139824330037901")
-end)
