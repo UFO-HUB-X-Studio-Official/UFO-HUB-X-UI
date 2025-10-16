@@ -301,87 +301,173 @@ end)
 UFO:AddButton("Shop","rbxassetid://139824330037901", function()
     show("Shop","rbxassetid://139824330037901")
 end)
---[[ UFO HUB X • Active Button Highlight v2 (fixed)
-     ✅ ปุ่มฝั่งซ้ายมีเอฟเฟกต์ขอบเขียวตอนกด + ค้างไว้เฉพาะปุ่มที่เลือก
-     ✅ ใช้ได้ทันที ไม่ต้องแก้ในไฟล์หลัก
-]]
-
-local GREEN = Color3.fromRGB(0,255,140)
-local MINT  = Color3.fromRGB(120,255,220)
-local BG    = Color3.fromRGB(16,16,16)
-local BG_ON = Color3.fromRGB(22,30,24)
+--// UFO HUB X — SAFE FIX (ไม่ทำลาย UI เดิม)
+-- แค่ปรับ: ความกว้างปุ่มซ้ายให้เหมือนรูปที่ 2, เอฟเฟกต์ปุ่ม Active (ขอบเขียวหนา),
+-- จัดหัวข้อขวาให้อยู่กลางจริง, และขยายรูปใหญ่ให้พอดีเฟรม
 
 local CoreGui = game:GetService("CoreGui")
-local GUI = CoreGui:WaitForChild("UFOX_UI", 5)
+
+local GUI = CoreGui:FindFirstChild("UFOX_UI")
 if not GUI then
-	warn("❌ UFO HUB X ยังไม่โหลด"); return
+    warn("⚠️ ไม่พบ UI หลัก (UFOX_UI) — ต้องรันสคริปต์หลักก่อนสคริปต์นี้")
+    return
 end
 
--- หา LeftScroll
-local LeftScroll
-for _, v in ipairs(GUI:GetDescendants()) do
-	if v:IsA("ScrollingFrame") and v.Parent and v.Parent.Name == "Inset" and v.Parent.Parent and v.Parent.Parent.Name == "Left" then
-		LeftScroll = v
-		break
-	end
-end
-if not LeftScroll then
-	warn("⚠️ ไม่พบ LeftScroll"); return
-end
+-- ====== CONFIG ปรับได้เล็กน้อย ======
+local BTN_H = 52
+local BTN_W_SCALE = 0.88 -- 0.86-0.90 ได้ตามชอบ
+local MINT = Color3.fromRGB(120,255,220)
+local GREEN = Color3.fromRGB(0,255,140)
 
--- ฟังก์ชันหรือติด stroke ให้ปุ่ม
-local function ensureStroke(btn)
-	local st = btn:FindFirstChildOfClass("UIStroke")
-	if not st then
-		st = Instance.new("UIStroke")
-		st.Parent = btn
-		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		st.LineJoinMode = Enum.LineJoinMode.Round
-	end
-	return st
+-- ====== ไปหาองค์ประกอบหลัก ======
+local Window = GUI:FindFirstChild("Window")
+local Content = Window and Window:FindFirstChildWhichIsA("Frame", true)
+local Columns = Content and Content:FindFirstChild("Frame")
+if not Columns then
+    -- เผื่อโครงสร้างใช้ชื่อเดียวตามที่ทำไว้ก่อนหน้า
+    for _,f in ipairs(GUI:GetDescendants()) do
+        if f:IsA("Frame") and f.Name=="Columns" then Columns=f break end
+    end
+end
+if not Columns then
+    warn("⚠️ ไม่พบ Columns ภายใน UI — โครงสร้างไม่ตรงกับที่คาดไว้")
+    return
 end
 
--- สไตล์ปุ่ม (เปิด/ปิด highlight)
-local function style(btn, active)
-	local st = ensureStroke(btn)
-	if active then
-		st.Color = GREEN
-		st.Thickness = 2
-		st.Transparency = 0
-		btn.BackgroundColor3 = BG_ON
-		btn:SetAttribute("UFO_Active", true)
-	else
-		st.Color = MINT
-		st.Thickness = 0.8
-		st.Transparency = 0.35
-		btn.BackgroundColor3 = BG
-		btn:SetAttribute("UFO_Active", false)
-	end
+local Left  = Columns:FindFirstChild("Left")
+local Right = Columns:FindFirstChild("Right")
+if not (Left and Right) then
+    warn("⚠️ ไม่พบ Left/Right panel")
+    return
 end
 
--- ปรับสถานะ Active
-local function setActive(target)
-	for _, c in ipairs(LeftScroll:GetChildren()) do
-		if c:IsA("TextButton") then
-			style(c, c == target)
-		end
-	end
+-- หา ScrollingFrame ของซ้าย/ขวา
+local function findScroll(host)
+    for _,v in ipairs(host:GetDescendants()) do
+        if v:IsA("ScrollingFrame") and v.Parent:IsA("Frame") and (v.Parent.Name=="Inset" or v.Parent.ClipsDescendants) then
+            return v
+        end
+    end
+end
+local LeftScroll  = findScroll(Left)
+local RightScroll = findScroll(Right)
+if not (LeftScroll and RightScroll) then
+    warn("⚠️ ไม่พบ ScrollingFrame ของ Left/Right")
+    return
 end
 
--- hook ปุ่มทั้งหมด
-local function hook(btn)
-	if not btn:IsA("TextButton") then return end
-	ensureStroke(btn)
-	style(btn, false)
-	btn.MouseButton1Click:Connect(function()
-		setActive(btn)
-	end)
+-- ให้ปุ่มใน Left อยู่กึ่งกลางแถว
+do
+    local list = LeftScroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", LeftScroll)
+    list.Padding = UDim.new(0, 8)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    -- เผื่อไม่ได้มี UIPadding
+    local pad = LeftScroll:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding", LeftScroll)
+    pad.PaddingTop    = UDim.new(0,8)
+    pad.PaddingBottom = UDim.new(0,8)
+    pad.PaddingLeft   = UDim.new(0,8)
+    pad.PaddingRight  = UDim.new(0,8)
 end
 
-for _, c in ipairs(LeftScroll:GetChildren()) do hook(c) end
-LeftScroll.ChildAdded:Connect(hook)
+-- ====== ทำเอฟเฟกต์ Active + ขนาดปุ่มให้เหมือนรูปที่ 2 ======
+local ActiveBtn
 
--- ถ้าอยากให้ “ปุ่มแรก” ถูกเลือกตั้งแต่เริ่ม ก็ปลดคอมเมนต์บรรทัดนี้ได้เลย
--- for _, c in ipairs(LeftScroll:GetChildren()) do if c:IsA("TextButton") then setActive(c) break end end
+local function setupButton(b)
+    if not b:IsA("TextButton") then return end
+    -- ขนาดปุ่ม
+    b.Size = UDim2.new(BTN_W_SCALE, 0, 0, BTN_H)
+    b.AutoButtonColor = false
 
-print("✅ UFO HUB X: เอฟเฟกต์ขอบเขียวปุ่มพร้อมใช้งานแล้ว!")
+    -- ขอบบาง (ปกติ)
+    local base = b:FindFirstChild("BaseStroke") or Instance.new("UIStroke", b)
+    base.Name="BaseStroke"
+    base.Thickness = 0.6
+    base.Color = MINT
+    base.Transparency = 0.35
+    base.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+    -- ขอบหนา (Active)
+    local act = b:FindFirstChild("ActiveStroke") or Instance.new("UIStroke", b)
+    act.Name="ActiveStroke"
+    act.Thickness = 2.4
+    act.Color = GREEN
+    act.Transparency = 0
+    act.Enabled = false
+
+    -- คลิกแล้วสลับ Active
+    if not b:GetAttribute("wired") then
+        b:SetAttribute("wired", true)
+        b.MouseButton1Click:Connect(function()
+            -- ปิดขอบหนาของตัวเก่า
+            if ActiveBtn and ActiveBtn ~= b then
+                local a = ActiveBtn:FindFirstChild("ActiveStroke")
+                local s = ActiveBtn:FindFirstChild("BaseStroke")
+                if a then a.Enabled = false end
+                if s then s.Enabled = true end
+            end
+            -- เปิดของปุ่มนี้
+            act.Enabled = true
+            base.Enabled = false
+            ActiveBtn = b
+        end)
+    end
+end
+
+-- ติดตั้งให้ปุ่มที่มีอยู่ และรองรับปุ่มที่ถูกเพิ่มในอนาคต
+for _,c in ipairs(LeftScroll:GetChildren()) do setupButton(c) end
+LeftScroll.ChildAdded:Connect(setupButton)
+
+-- ====== จัดหัวข้อฝั่งขวาให้อยู่กลางจริง ======
+-- เดิม: RH_Icon/RH_Text มักจะวางที่มุมซ้าย เราจะสร้างแถบ RHTitle กึ่งกลางแทน แล้วโยกค่าเดิมมาใช้
+local RH_Icon_old, RH_Text_old
+for _,v in ipairs(Right:GetChildren()) do
+    if v:IsA("ImageLabel") and (v.Name=="Icon" or v.Size.X.Offset==24) then RH_Icon_old=v end
+    if v:IsA("TextLabel") and (v.Name=="Text" or v.Text and #v.Text>0) then RH_Text_old=v end
+end
+
+local RHTitle = Right:FindFirstChild("RHTitle")
+if not RHTitle then
+    RHTitle = Instance.new("Frame", Right)
+    RHTitle.Name="RHTitle"
+    RHTitle.BackgroundTransparency=1
+    RHTitle.Size=UDim2.new(1,-28,0,34)
+    RHTitle.Position=UDim2.new(0.5,0,0,8)
+    RHTitle.AnchorPoint=Vector2.new(0.5,0)
+    local lay = Instance.new("UIListLayout", RHTitle)
+    lay.FillDirection = Enum.FillDirection.Horizontal
+    lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    lay.VerticalAlignment = Enum.VerticalAlignment.Center
+    lay.Padding = UDim.new(0,8)
+end
+
+local RH_Icon = RHTitle:FindFirstChild("Icon") or Instance.new("ImageLabel", RHTitle)
+RH_Icon.Name="Icon"; RH_Icon.BackgroundTransparency=1; RH_Icon.Size=UDim2.fromOffset(24,24)
+RH_Icon.Image = (RH_Icon_old and RH_Icon_old.Image) or "rbxassetid://112510739340023"
+
+local RH_Text = RHTitle:FindFirstChild("Text") or Instance.new("TextLabel", RHTitle)
+RH_Text.Name="Text"; RH_Text.BackgroundTransparency=1
+RH_Text.Font=Enum.Font.GothamBold; RH_Text.TextSize=18
+RH_Text.TextColor3=Color3.fromRGB(235,235,235)
+RH_Text.Text = (RH_Text_old and RH_Text_old.Text) or "Player"
+RH_Text.AutomaticSize = Enum.AutomaticSize.XY
+
+-- ซ่อนของเก่าถ้ายังมี
+if RH_Icon_old then RH_Icon_old.Visible=false end
+if RH_Text_old then RH_Text_old.Visible=false end
+
+-- ====== ขยายรูปใหญ่ให้พอดีเฟรม ======
+local function resizeBigImages()
+    for _,c in ipairs(RightScroll:GetChildren()) do
+        if c:IsA("ImageLabel") then
+            c.BackgroundTransparency=1
+            c.ScaleType=Enum.ScaleType.Fit
+            c.AnchorPoint=Vector2.new(0.5,0)
+            c.Position=UDim2.new(0.5,0,0,54)  -- เว้นจากหัวข้อ
+            c.Size=UDim2.new(1,-60,1,-120)   -- ใหญ่ขึ้นแต่ไม่ชนขอบ
+        end
+    end
+end
+resizeBigImages()
+RightScroll.ChildAdded:Connect(function(o) task.defer(resizeBigImages) end)
+
+print("✅ UFO HUB X SAFE FIX: ปรับปุ่ม/หัวข้อ/รูปใหญ่ เรียบร้อย")
