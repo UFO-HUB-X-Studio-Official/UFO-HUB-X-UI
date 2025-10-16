@@ -283,6 +283,80 @@ do
         end
     end)
 end
+--[[ UFO HUB X • Left Button Active Highlight (drop-in)
+     ทำให้ปุ่มฝั่งซ้ายที่ถูกเลือกอยู่ มีขอบเขียวหนา/สว่าง และยกเลิกปุ่มอื่นอัตโนมัติ
+     ใช้กับ UI เวอร์ชันที่สร้าง ScreenGui ชื่อ "UFOX_UI" (ที่เราทำให้อยู่ก่อนหน้า)
+]]
+
+local GREEN = Color3.fromRGB(0,255,140)
+local MINT  = Color3.fromRGB(120,255,220)
+local BG    = Color3.fromRGB(16,16,16) -- พื้นปุ่มตอนปกติ
+local BG_ON = Color3.fromRGB(22,30,24) -- พื้นปุ่มตอน Active
+
+local CoreGui = game:GetService("CoreGui")
+local GUI = CoreGui:WaitForChild("UFOX_UI", 5)
+if not GUI then return warn("❌ ไม่พบ UFOX_UI — รันสคริปต์หลักก่อน") end
+
+-- หา ScrollingFrame ของแผงซ้าย (Left)
+local LeftScroll
+for _, v in ipairs(GUI:GetDescendants()) do
+	if v:IsA("ScrollingFrame") and v.Parent and v.Parent.Name=="Inset" and v.Parent.Parent and v.Parent.Parent.Name=="Left" then
+		LeftScroll = v; break
+	end
+end
+if not LeftScroll then return warn("⚠️ ไม่พบ LeftScroll") end
+
+-- สร้าง/ดึง UIStroke ให้ปุ่ม
+local function ensureStroke(btn)
+	local st = btn:FindFirstChildOfClass("UIStroke")
+	if not st then
+		st = Instance.new("UIStroke"); st.Parent = btn
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		st.LineJoinMode = Enum.LineJoinMode.Round
+	end
+	return st
+end
+
+-- ใส่สไตล์ปุ่มตามสถานะ
+local function style(btn, active)
+	local st = ensureStroke(btn)
+	if active then
+		st.Color = GREEN; st.Thickness = 2;   st.Transparency = 0
+		btn.BackgroundColor3 = BG_ON
+		btn:SetAttribute("UFO_Active", true)
+	else
+		st.Color = MINT;  st.Thickness = 0.6; st.Transparency = 0.35
+		btn.BackgroundColor3 = BG
+		btn:SetAttribute("UFO_Active", false)
+	end
+end
+
+-- setActive: ทำให้ปุ่มเดียว Active ที่เหลือเป็นปกติ
+local function setActive(target)
+	for _, c in ipairs(LeftScroll:GetChildren()) do
+		if c:IsA("TextButton") then
+			style(c, c==target)
+		end
+	end
+end
+
+-- ผูกอีเวนต์ให้ทุกปุ่มปัจจุบัน + ปุ่มที่ถูกสร้างใหม่ในอนาคต
+local function hook(btn)
+	if not btn or not btn:IsA("TextButton") then return end
+	ensureStroke(btn)
+	-- สไตล์ตั้งต้น (ไม่ Active)
+	if btn:GetAttribute("UFO_Active")==nil then style(btn, false) end
+	-- คลิกแล้วกำหนด Active เฉพาะปุ่มนั้น
+	btn.MouseButton1Click:Connect(function() setActive(btn) end)
+end
+
+for _, c in ipairs(LeftScroll:GetChildren()) do hook(c) end
+LeftScroll.ChildAdded:Connect(hook)
+
+-- อยากให้ปุ่มแรก Active ตั้งแต่เริ่มใช้งาน ก็ปลดคอมเมนต์บรรทัดนี้:
+-- for _, c in ipairs(LeftScroll:GetChildren()) do if c:IsA("TextButton") then setActive(c) break end end
+
+print("✅ UFO HUB X: Button Active Highlight พร้อมใช้งาน")
 
 --== DEMO ปุ่มซ้าย (ตัวอย่างใช้งาน) ==--
 UFO:SetTitle("UFO","HUB X")
