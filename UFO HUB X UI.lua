@@ -1,21 +1,16 @@
---[[ UFO HUB X • Ultra (Fast / Stable / Simple)
-     • หน้าตา UFO HUB X เดิม แต่ระบบภายใน “ดีกว่าที่สุด”
-     • เลือกปลายทางได้: CoreGui / PlayerGui
-        - สำหรับแจกให้ใช้ในเกมอื่น -> แนะนำ "CoreGui"
-        - สำหรับเกมของเราเอง -> "PlayerGui"
-]]
+--[[ UFO HUB X • Ultra (Fixed / Full-width Buttons / Thin Borders) ]]
 
 -------------------- CONFIG --------------------
 local CFG = {
-  MOUNT = "CoreGui",  -- "CoreGui" หรือ "PlayerGui"
+  MOUNT = "CoreGui",
   WIN_W = 640, WIN_H = 360,
   SCALE_MIN = 0.72, SCALE_MAX = 1.0,
-  TAP_THRESHOLD = 6, -- px กันคลิกติดตอนลาก/สกรอล
+  TAP_THRESHOLD = 6,
   HOTKEY = Enum.KeyCode.RightShift,
   TOGGLE_IMAGE = "rbxassetid://117052960049460",
   UFO_IMG = "rbxassetid://100650447103028",
   GLOW_IMG = "rbxassetid://5028857084",
-  ICON_DEFAULT = "rbxassetid://112510739340023", -- ไอคอน fallback
+  ICON_DEFAULT = "rbxassetid://112510739340023",
 }
 
 local THEME = {
@@ -42,15 +37,15 @@ local LP = Players.LocalPlayer
 -------------------- MOUNT TARGET --------------------
 local function getMount()
   if CFG.MOUNT == "PlayerGui" then
-    local pg = LP and LP:FindFirstChildOfClass("PlayerGui") or LP:WaitForChild("PlayerGui")
-    return pg
+    local pg = LP and LP:FindFirstChildOfClass("PlayerGui") or (LP and LP:WaitForChild("PlayerGui"))
+    return pg or S.CoreGui
   else
     return S.CoreGui
   end
 end
 local MOUNT = getMount()
 
--------------------- PURGE (safe) --------------------
+-------------------- PURGE --------------------
 pcall(function()
   for _, n in ipairs({"UFOX_UI_ULTRA","UFOX_TOGGLE_ULTRA"}) do
     local g = MOUNT:FindFirstChild(n)
@@ -112,7 +107,7 @@ Title.BackgroundTransparency=1; Title.AnchorPoint=Vector2.new(0.5,0)
 Title.Position=UDim2.new(0.5,0,0,8); Title.Size=UDim2.new(0.8,0,0,36)
 Title.Font=Enum.Font.GothamBold; Title.RichText=true; Title.TextScaled=true
 Title.TextColor3=UI.TEXT; Title.ZIndex=61
-Title.Text='<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
+Title.Text = string.format('<font color="#FFFFFF">%s</font> <font color="#00FF8C">%s</font>', "UFO", "HUB X") -- ✅ FIX
 
 local BtnClose=Instance.new("TextButton",Header)
 BtnClose.Name="Close"; BtnClose.Size=UDim2.new(0,24,0,24); BtnClose.Position=UDim2.new(1,-34,0.5,-12)
@@ -165,7 +160,7 @@ Inner.Position=UDim2.new(0,8,0,8); Inner.Size=UDim2.new(1,-16,1,-16); corner(Inn
 
 local Content=Instance.new("Frame",Body)
 Content.BackgroundColor3=UI.BG_PANEL; Content.Position=UDim2.new(0,14,0,14); Content.Size=UDim2.new(1,-28,1,-28)
-corner(Content,12); stroke(Content,0.5,ACCENT.MINT,0.35)
+corner(Content,12); stroke(Content,0.35,ACCENT.MINT,0.35)
 
 local Columns=Instance.new("Frame",Content)
 Columns.BackgroundTransparency=1; Columns.Position=UDim2.new(0,8,0,8); Columns.Size=UDim2.new(1,-16,1,-16)
@@ -173,26 +168,31 @@ Columns.BackgroundTransparency=1; Columns.Position=UDim2.new(0,8,0,8); Columns.S
 local Left=Instance.new("Frame",Columns)
 Left.Name="Left"; Left.BackgroundColor3=Color3.fromRGB(16,16,16)
 Left.Size=UDim2.new(0.22,-6,1,0); Left.ClipsDescendants=true; corner(Left,10)
-stroke(Left,1.2,ACCENT.ACCENT,0); stroke(Left,0.45,ACCENT.MINT,0.35)
+stroke(Left,0.9,ACCENT.ACCENT,0); stroke(Left,0.35,ACCENT.MINT,0.35)
 
 local Right=Instance.new("Frame",Columns)
 Right.Name="Right"; Right.BackgroundColor3=Color3.fromRGB(16,16,16)
 Right.Position=UDim2.new(0.22,12,0,0); Right.Size=UDim2.new(0.78,-6,1,0)
 Right.ClipsDescendants=true; corner(Right,10)
-stroke(Right,1.2,ACCENT.ACCENT,0); stroke(Right,0.45,ACCENT.MINT,0.35)
+stroke(Right,0.9,ACCENT.ACCENT,0); stroke(Right,0.35,ACCENT.MINT,0.35)
 
--- Scrolls (hidden bars, minimal cost)
+-- Scrolls (full width; hidden bars)
 local function attachScroll(host)
   local inset=Instance.new("Frame",host)
   inset.Name="Inset"; inset.BackgroundTransparency=1; inset.BorderSizePixel=0; inset.ClipsDescendants=true
-  inset.Position=UDim2.fromOffset(2,2); inset.Size=UDim2.new(1,-4,1,-4); inset.ZIndex=1
+  inset.Position=UDim2.fromOffset(0,2); inset.Size=UDim2.new(1,0,1,-4); inset.ZIndex=1
 
   local sf=Instance.new("ScrollingFrame",inset)
   sf.Name="Scroll"; sf.Size=UDim2.fromScale(1,1); sf.BackgroundTransparency=1; sf.BorderSizePixel=0
   sf.ScrollingDirection=Enum.ScrollingDirection.Y; sf.AutomaticCanvasSize=Enum.AutomaticSize.Y; sf.CanvasSize=UDim2.new()
   sf.ScrollBarThickness=0; sf.ScrollBarImageTransparency=1; sf.VerticalScrollBarInset=Enum.ScrollBarInset.None
-  local pad=Instance.new("UIPadding",sf); pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
-  local list=Instance.new("UIListLayout",sf); list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
+
+  local pad=Instance.new("UIPadding",sf)
+  pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8)
+  pad.PaddingLeft=UDim.new(0,0); pad.PaddingRight=UDim.new(0,0)
+
+  local list=Instance.new("UIListLayout",sf)
+  list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
   return sf
 end
 local LeftScroll, RightScroll = attachScroll(Left), attachScroll(Right)
@@ -254,7 +254,6 @@ function UFO:SetAccent(name)
   ACCENT = t
   Border.Color = t.ACCENT
   HeadAccent.BackgroundColor3 = t.MINT
-  -- update toggle stroke
   local TG = MOUNT:FindFirstChild("UFOX_TOGGLE_ULTRA")
   if TG and TG:FindFirstChild("Toggle") then
     local st = TG.Toggle:FindFirstChildOfClass("UIStroke") or stroke(TG.Toggle,2,t.ACCENT,0)
@@ -262,7 +261,7 @@ function UFO:SetAccent(name)
   end
 end
 
-function UFO:SetTitle(txtLeft, txtRight) -- ปรับหัวให้ยืดหยุ่น
+function UFO:SetTitle(txtLeft, txtRight)
   Title.Text = string.format('<font color="#FFFFFF">%s</font> <font color="#00FF8C">%s</font>', txtLeft or "UFO", txtRight or "HUB X")
 end
 
@@ -277,49 +276,53 @@ function UFO:ShowRightHeader(text, iconId)
   RightTopIcon.Visible, RightTopText.Visible = true, true
 end
 
--- =====================================================
--- buildButton : ปุ่มยาวเต็มกรอบ + ขอบสีเขียวเล็กลง
--- =====================================================
+-- ================= buildButton (ขนาดเหมือนในรูปที่ 2) =================
 local function buildButton(parent, label, iconId, callback)
-    local BTN_H = 44
+    local BTN_H = 52               -- ความสูงเพิ่มขึ้น (ดูแน่นขึ้น)
+    local BTN_MARGIN_X = 12        -- ระยะซ้ายขวาให้ไม่ชิดเกินไป
+
     local b = Instance.new("TextButton", parent)
     b.Name = "Btn_" .. label:gsub("%s+", "")
     b.AutoButtonColor = false
     b.BackgroundColor3 = UI.BG_WINDOW
-    b.Size = UDim2.new(1, 0, 0, BTN_H)   -- กินพื้นที่เต็มแนวนอนของ Scroll
+    b.Position = UDim2.new(0, BTN_MARGIN_X, 0, 0)
+    b.Size = UDim2.new(1, -BTN_MARGIN_X * 2, 0, BTN_H)
     b.Text = ""
     corner(b, 8)
 
-    -- ขอบสีเขียว (บางลง)
-    local st = stroke(b, 1, UI.ACCENT.ACCENT, 0.25)
+    -- 🔹 ขอบเขียวบางและเนียนกว่า
+    local st = stroke(b, 0.8, ACCENT.ACCENT, 0.35)
 
-    -- ไอคอนทางซ้าย
+    -- 🔸 ไอคอน
     local ic = Instance.new("ImageLabel", b)
     ic.BackgroundTransparency = 1
     ic.Image = iconId or CFG.ICON_DEFAULT
-    ic.Size = UDim2.fromOffset(BTN_H - 10, BTN_H - 10)
-    ic.Position = UDim2.new(0, 8, 0.5, -(BTN_H - 10) / 2)
+    ic.Size = UDim2.fromOffset(BTN_H - 12, BTN_H - 12)
+    ic.Position = UDim2.new(0, 10, 0.5, -(BTN_H - 12) / 2)
+    ic.ZIndex = 2
 
-    -- ข้อความ
+    -- 🔸 ข้อความ
     local tx = Instance.new("TextLabel", b)
     tx.BackgroundTransparency = 1
-    tx.Position = UDim2.new(0, BTN_H + 6, 0, 0)
-    tx.Size = UDim2.new(1, -(BTN_H + 12), 1, 0)
+    tx.Position = UDim2.new(0, BTN_H + 8, 0, 0)
+    tx.Size = UDim2.new(1, -(BTN_H + 18), 1, 0)
     tx.Font = Enum.Font.GothamMedium
     tx.TextSize = 16
     tx.TextXAlignment = Enum.TextXAlignment.Left
     tx.TextColor3 = UI.TEXT
     tx.Text = tostring(label)
+    tx.ZIndex = 2
 
-    -- เอฟเฟกต์คลิก
+    -- 🔘 เอฟเฟกต์คลิก
     local isDown, downPos
     b.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
             isDown = true
             downPos = i.Position
             b.BackgroundColor3 = Color3.fromRGB(22, 30, 24)
-            st.Thickness = 2
-            st.Color = UI.GREEN
+            st.Thickness = 1.5
+            st.Color = ACCENT.ACCENT
+            st.Transparency = 0
         end
     end)
 
@@ -327,8 +330,9 @@ local function buildButton(parent, label, iconId, callback)
         if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and isDown then
             isDown = false
             b.BackgroundColor3 = UI.BG_WINDOW
-            st.Thickness = 1
-            st.Color = UI.ACCENT.ACCENT
+            st.Thickness = 0.8
+            st.Color = ACCENT.ACCENT
+            st.Transparency = 0.35
             if (i.Position - downPos).magnitude < (CFG.TAP_THRESHOLD or 8) then
                 if typeof(callback) == "function" then
                     task.spawn(callback)
@@ -336,6 +340,7 @@ local function buildButton(parent, label, iconId, callback)
             end
         end
     end)
+
     return b
 end
 
@@ -345,7 +350,7 @@ function UFO:AddButton(label, iconId, callback)
   end)
 end
 
-function UFO:Destroy() -- เคลียร์ทั้งหมดง่าย ๆ
+function UFO:Destroy()
   pcall(function()
     for _, n in ipairs({"UFOX_UI_ULTRA","UFOX_TOGGLE_ULTRA"}) do
       local g = MOUNT:FindFirstChild(n); if g then g:Destroy() end
@@ -356,17 +361,10 @@ end
 -- expose
 getgenv().UFO = UFO
 
--------------------- DEMO (ตัวอย่างสั้น ๆ) --------------------
+-------------------- DEMO --------------------
 UFO:SetAccent("GREEN")
 UFO:SetTitle("UFO","HUB X")
 
 UFO:AddButton("Player", "rbxassetid://112510739340023", function()
   UFO:ShowRightHeader("Player", "rbxassetid://112510739340023")
 end)
-
--- ตัวอย่างเพิ่มปุ่มอื่น (ปลดคอมเมนต์ได้):
--- UFO:AddButton("Main",   "rbxassetid://134323882016779", function() UFO:ShowRightHeader("Main",   "rbxassetid://134323882016779") end)
--- UFO:AddButton("Quest",  "rbxassetid://72473476254744",  function() UFO:ShowRightHeader("Quest",  "rbxassetid://72473476254744") end)
--- UFO:AddButton("Shop",   "rbxassetid://139824330037901", function() UFO:ShowRightHeader("Shop",   "rbxassetid://139824330037901") end)
--- UFO:AddButton("Server", "rbxassetid://77839913086023",  function() UFO:ShowRightHeader("Server", "rbxassetid://77839913086023") end)
--- UFO:AddButton("Update", "rbxassetid://134419329246667", function() UFO:ShowRightHeader("Update", "rbxassetid://134419329246667") end)
