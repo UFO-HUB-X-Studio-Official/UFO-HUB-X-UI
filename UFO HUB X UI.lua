@@ -277,38 +277,60 @@ function UFO:ShowRightHeader(text, iconId)
   RightTopIcon.Visible, RightTopText.Visible = true, true
 end
 
--- สร้างปุ่มซ้าย (เต็มความกว้าง) + กันคลิกตอนลาก
+-- ปุ่มซ้ายเต็มกรอบ + เส้นขอบบางขึ้น (1 px)
 local function buildButton(parent, label, iconId, callback)
-  local BTN_H=44
-  local b=Instance.new("TextButton",parent)
-  b.Name="Btn_"..label:gsub("%s+",""); b.AutoButtonColor=false; b.Text=""
-  b.BackgroundColor3=UI.BG_WINDOW; b.Size=UDim2.new(1,0,0,BTN_H); corner(b,8)
-  local st=stroke(b,1.5,ACCENT.ACCENT,0.15)
-  local ic=Instance.new("ImageLabel",b)
-  ic.BackgroundTransparency=1; ic.Image=iconId or CFG.ICON_DEFAULT
-  ic.Size=UDim2.fromOffset(BTN_H-10,BTN_H-10); ic.Position=UDim2.new(0,8,0.5,-(BTN_H-10)/2)
-  local tx=Instance.new("TextLabel",b)
-  tx.BackgroundTransparency=1; tx.Position=UDim2.new(0,BTN_H+4,0,0); tx.Size=UDim2.new(1,-(BTN_H+12),1,0)
-  tx.Font=Enum.Font.GothamMedium; tx.TextSize=16; tx.TextXAlignment=Enum.TextXAlignment.Left
-  tx.TextColor3=UI.TEXT; tx.Text=tostring(label)
+    local BTN_H = 44
+    local b = Instance.new("TextButton", parent)
+    b.Name = "Btn_" .. label:gsub("%s+", "")
+    b.AutoButtonColor = false
+    b.Text = ""
+    b.BackgroundColor3 = UI.BG_WINDOW
+    b.Size = UDim2.new(1, 8, 0, BTN_H) -- ✅ เพิ่มความยาวเต็มขอบซ้าย-ขวา
+    b.Position = UDim2.new(0, -4, 0, 0) -- ✅ ขยายขอบออกนิดนึงให้ดูเต็มพอดี
+    corner(b, 8)
 
-  local isDown, downPos
-  b.InputBegan:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-      isDown=true; downPos=i.Position
-      b.BackgroundColor3=Color3.fromRGB(22,30,24); st.Thickness=2; st.Transparency=0
-    end
-  end)
-  b.InputEnded:Connect(function(i)
-    if (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) and isDown then
-      isDown=false
-      b.BackgroundColor3=UI.BG_WINDOW; st.Thickness=1.5; st.Transparency=0.15
-      if (i.Position - downPos).magnitude < CFG.TAP_THRESHOLD then
-        if typeof(callback)=="function" then task.spawn(callback) end
-      end
-    end
-  end)
-  return b
+    local st = stroke(b, 1, ACCENT.ACCENT, 0.25) -- ✅ ลดความหนาขอบจาก 1.5 → 1
+
+    local ic = Instance.new("ImageLabel", b)
+    ic.BackgroundTransparency = 1
+    ic.Image = iconId or CFG.ICON_DEFAULT
+    ic.Size = UDim2.fromOffset(BTN_H - 10, BTN_H - 10)
+    ic.Position = UDim2.new(0, 8, 0.5, -(BTN_H - 10) / 2)
+
+    local tx = Instance.new("TextLabel", b)
+    tx.BackgroundTransparency = 1
+    tx.Position = UDim2.new(0, BTN_H + 4, 0, 0)
+    tx.Size = UDim2.new(1, -(BTN_H + 12), 1, 0)
+    tx.Font = Enum.Font.GothamMedium
+    tx.TextSize = 16
+    tx.TextXAlignment = Enum.TextXAlignment.Left
+    tx.TextColor3 = UI.TEXT
+    tx.Text = tostring(label)
+
+    local isDown, downPos
+    b.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            isDown = true
+            downPos = i.Position
+            b.BackgroundColor3 = Color3.fromRGB(22, 30, 24)
+            st.Thickness = 1.5
+            st.Transparency = 0
+        end
+    end)
+
+    b.InputEnded:Connect(function(i)
+        if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and isDown then
+            isDown = false
+            b.BackgroundColor3 = UI.BG_WINDOW
+            st.Thickness = 1
+            st.Transparency = 0.25
+            if (i.Position - downPos).magnitude < CFG.TAP_THRESHOLD then
+                if typeof(callback) == "function" then task.spawn(callback) end
+            end
+        end
+    end)
+
+    return b
 end
 
 function UFO:AddButton(label, iconId, callback)
