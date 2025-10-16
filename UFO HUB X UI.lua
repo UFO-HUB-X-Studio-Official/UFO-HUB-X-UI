@@ -269,16 +269,106 @@ do
         end
     end)
 end
+--=== UFO HUB X: Build real PLAYER button from guide rectangles ===
+local CoreGui = game:GetService("CoreGui")
+local GUI = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+if not GUI then return end
 
---====================================================
--- ✨ สร้างกรอบตัวช่วย + ปักปุ่มให้ตรง “กรอบสีขาว/แดง” เป๊ะ
---   ต้องมีตัวแปร Left และ Right จาก UI หลักอยู่แล้ว
---====================================================
-local leftSlot  = ensureSlot(Left,  "Slot_Left",  Color3.fromRGB(255,255,255), LEFT_SLOT_POS,  LEFT_SLOT_SIZE)
-local rightSlot = ensureSlot(Right, "Slot_Right", Color3.fromRGB(220,60,60),   RIGHT_SLOT_POS, RIGHT_SLOT_SIZE)
+local function findFrameByColor(root, col)
+    for _,v in ipairs(root:GetDescendants()) do
+        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency==0 then
+            local c=v.BackgroundColor3
+            if math.abs(c.R-col.R)<1e-3 and math.abs(c.G-col.G)<1e-3 and math.abs(c.B-col.B)<1e-3 then
+                return v
+            end
+        end
+    end
+end
 
-attachButtonToSlot(leftSlot,  buildLeftButton)
-attachButtonToSlot(rightSlot, buildRightHeader)
+local leftGuide=findFrameByColor(GUI,Color3.fromRGB(255,255,255))
+local rightGuide=findFrameByColor(GUI,Color3.fromRGB(255,0,0))
+if not(leftGuide and rightGuide)then return end
+local leftParent=leftGuide.Parent
+local rightParent=rightGuide.Parent
+
+local ICONS={
+    GREEN="rbxassetid://112510739340023",
+    RED="rbxassetid://131641206815699",
+    GOLD="rbxassetid://127371066511941",
+    WHITE="rbxassetid://106330577092636"
+}
+local current=getgenv().UFO_ACCENT or "GREEN"
+local iconId=ICONS[current] or ICONS.GREEN
+
+local LBtn=Instance.new("TextButton")
+LBtn.Name="Btn_Player_Left"
+LBtn.Parent=leftParent
+LBtn.AutoButtonColor=false
+LBtn.Text=""
+LBtn.BackgroundColor3=Color3.fromRGB(14,14,14)
+LBtn.BorderSizePixel=0
+LBtn.Position=leftGuide.Position
+LBtn.Size=leftGuide.Size
+LBtn.ZIndex=(leftGuide.ZIndex or 10)+1
+local LCorner=Instance.new("UICorner",LBtn)
+LCorner.CornerRadius=UDim.new(0,8)
+local LStroke=Instance.new("UIStroke",LBtn)
+LStroke.Thickness=1.5
+LStroke.Color=Color3.fromRGB(0,255,140)
+LStroke.Transparency=0
+LStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+LStroke.LineJoinMode=Enum.LineJoinMode.Round
+local LIcon=Instance.new("ImageLabel")
+LIcon.BackgroundTransparency=1
+LIcon.Image=iconId
+LIcon.Size=UDim2.fromOffset(20,20)
+LIcon.Position=UDim2.fromOffset(12,(leftGuide.AbsoluteSize.Y-20)/2)
+LIcon.ZIndex=LBtn.ZIndex+1
+LIcon.Parent=LBtn
+local LText=Instance.new("TextLabel")
+LText.BackgroundTransparency=1
+LText.Text="Player"
+LText.Font=Enum.Font.GothamBold
+LText.TextSize=16
+LText.TextColor3=Color3.fromRGB(255,255,255)
+LText.TextXAlignment=Enum.TextXAlignment.Left
+LText.Position=UDim2.fromOffset(12+20+8,(leftGuide.AbsoluteSize.Y-18)/2)
+LText.Size=UDim2.new(1,-(12+20+8+10),0,18)
+LText.ZIndex=LBtn.ZIndex+1
+LText.Parent=LBtn
+
+local RHeader=Instance.new("Frame")
+RHeader.Name="Player_Header_Right"
+RHeader.Parent=rightParent
+RHeader.BackgroundTransparency=1
+RHeader.BorderSizePixel=0
+RHeader.Position=rightGuide.Position
+RHeader.Size=rightGuide.Size
+RHeader.ZIndex=(rightGuide.ZIndex or 10)+1
+local RIcon=Instance.new("ImageLabel")
+RIcon.BackgroundTransparency=1
+RIcon.Image=iconId
+RIcon.Size=UDim2.fromOffset(22,22)
+RIcon.Position=UDim2.fromOffset(0,math.max(0,(rightGuide.AbsoluteSize.Y-22)/2))
+RIcon.ZIndex=RHeader.ZIndex+1
+RIcon.Parent=RHeader
+local RText=Instance.new("TextLabel")
+RText.BackgroundTransparency=1
+RText.Text="Player"
+RText.Font=Enum.Font.GothamBold
+RText.TextSize=18
+RText.TextColor3=Color3.fromRGB(255,255,255)
+RText.TextXAlignment=Enum.TextXAlignment.Left
+RText.Position=UDim2.fromOffset(22+8,math.max(0,(rightGuide.AbsoluteSize.Y-22)/2))
+RText.Size=UDim2.new(1,-(22+8),0,22)
+RText.ZIndex=RHeader.ZIndex+1
+RText.Parent=RHeader
+
+leftGuide:Destroy()
+rightGuide:Destroy()
+LBtn.MouseButton1Click:Connect(function()
+    RHeader.Visible=not RHeader.Visible
+end)
 
 --========================================
 -- UFO HUB X : Force-hide all scrollbars
