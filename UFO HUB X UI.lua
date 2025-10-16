@@ -270,65 +270,47 @@ do
     end)
 end
 
---// UFO HUB X — Fix "Label" Bug (เวอร์ชันก๊อปวางทีเดียว)
+--==== UFO HUB X : Anti-Label (ฆ่า Label ถาวร) ==============================
 local CoreGui = game:GetService("CoreGui")
-local GUI = CoreGui:FindFirstChild("UFOX_UI")
-if not GUI then
-    warn("❌ UFO HUB X ยังไม่ได้เปิด UI หลัก! รันสคริปต์หลักก่อนนะ")
-    return
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local roots = {}
+
+-- เก็บ root ที่เป็นไปได้ (ใส่ได้หลายอันเพื่อความชัวร์)
+local function safe(t)
+    for _,x in ipairs(t) do if x and x.Parent then table.insert(roots, x) end end
 end
 
--- หา RightScroll ที่ใช้ใน UI หลัก
-local RightScroll = nil
-for _, v in ipairs(GUI:GetDescendants()) do
-    if v:IsA("ScrollingFrame") and v.Parent.Name == "Inset" and v.Parent.Parent.Name == "Right" then
-        RightScroll = v
-        break
-    end
+-- ใส่ชื่อ ScreenGui/Frame หลักของนายตรงนี้ถ้ามี
+local g1 = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFOX_UI_ULTRA")
+local pg  = LP and LP:FindFirstChildOfClass("PlayerGui")
+local g2 = pg and (pg:FindFirstChild("UFO_HUB_X_UI") or pg:FindFirstChild("UFOX_UI_ULTRA"))
+safe({g1, g2, CoreGui, pg})
+
+-- ตัวช่วยเช็คว่าเป็น "Label กวนใจ" ไหม
+local function isBadLabel(obj)
+    if not obj or not obj:IsA("TextLabel") then return false end
+    local n = (obj.Name or ""):lower()
+    local t = (obj.Text or ""):lower()
+    -- โดนทั้งกรณีชื่อ Label หรือข้อความเขียนว่า Label
+    if n == "label" or t == "label" then return true end
+    -- กันกรณีมันเปลี่ยนชื่อ แต่ยังเป็น placeholder เดิม ๆ
+    if #t <= 6 and t:match("^%s*label%s*$") then return true end
+    return false
 end
 
-if RightScroll then
-    -- 🔥 ลบ "Label" ที่โผล่เองออกให้หมด
-    for _, d in ipairs(RightScroll:GetDescendants()) do
-        if d:IsA("TextLabel") and (d.Text == "Label" or d.Name == "Label") then
-            d:Destroy()
+-- ลบทิ้งทั้งหมดที่มีอยู่
+for _,root in ipairs(roots) do
+    if root then
+        for _,d in ipairs(root:GetDescendants()) do
+            if isBadLabel(d) then pcall(function() d:Destroy() end) end
         end
+        -- เฝ้าดูของใหม่ที่ถูกสร้างขึ้นมาในอนาคตแล้วลบทิ้งทันที
+        root.DescendantAdded:Connect(function(d)
+            if isBadLabel(d) then
+                task.defer(function() if d and d.Parent then pcall(function() d:Destroy() end) end)
+            end
+        end)
     end
-
-    -- 🔒 กันไม่ให้ “Label” เด้งกลับมาอีกในอนาคต
-    RightScroll.DescendantAdded:Connect(function(d)
-        if d:IsA("TextLabel") and (d.Text == "Label" or d.Name == "Label") then
-            task.defer(function()
-                if d then d:Destroy() end
-            end)
-        end
-    end)
-
-    -- รีเซ็ตหัวข้อขวาให้สะอาดด้วย
-    local Right = RightScroll:FindFirstAncestor("Right")
-    if Right then
-        local RH_Icon = Right:FindFirstChildWhichIsA("ImageLabel")
-        local RH_Text = Right:FindFirstChildWhichIsA("TextLabel")
-        if RH_Icon then RH_Icon.Visible = false end
-        if RH_Text then RH_Text.Visible = false; RH_Text.Text = "" end
-    end
-
-    print("✅ UFO HUB X: ลบ Label อัตโนมัติเรียบร้อยแล้ว!")
-else
-    warn("⚠️ ไม่พบ RightScroll ใน UI! ตรวจชื่อโครงสร้างอีกทีนะ")
 end
-
---== DEMO: ปุ่มซ้าย “ทรงเดิม” (เอาไว้เป็นตัวอย่างการใช้งาน) ==--
-UFO:SetTitle("UFO","HUB X")
-
-UFO:AddButton("Player","rbxassetid://112510739340023", function()
-    UFO:ShowRightHeader("Player","rbxassetid://112510739340023")
-end)
-
-UFO:AddButton("Quest","rbxassetid://72473476254744", function()
-    UFO:ShowRightHeader("Quest","rbxassetid://72473476254744")
-end)
-
-UFO:AddButton("Shop","rbxassetid://139824330037901", function()
-    UFO:ShowRightHeader("Shop","rbxassetid://139824330037901")
-end)
+--====================================================================
