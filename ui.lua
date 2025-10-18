@@ -253,111 +253,74 @@ end)
 
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
---==========================================================
--- UFO TOGGLE FIX v4 (independent, safe parent + drag + RightShift)
---==========================================================
+-- === UFO TOGGLE • Always shows (PlayerGui) + drag + RightShift ===
 do
     local Players = game:GetService("Players")
-    local CoreGui  = game:GetService("CoreGui")
-    local UIS      = game:GetService("UserInputService")
-    local CAS      = game:GetService("ContextActionService")
+    local UIS     = game:GetService("UserInputService")
 
-    local GREENC3  = Color3.fromRGB(0,255,140)
-    local TOGGLE_IMG = "rbxassetid://117052960049460"
-
-    local function safeParent()
-        local ok = pcall(function() Instance.new("Folder").Parent = CoreGui end)
-        if ok then return CoreGui end
-        return Players.LocalPlayer:WaitForChild("PlayerGui")
-    end
-
-    local function findMain()
-        local parent = CoreGui:FindFirstChild("UFO_HUB_X_UI") or
-                       (Players.LocalPlayer:FindFirstChild("PlayerGui") and Players.LocalPlayer.PlayerGui:FindFirstChild("UFO_HUB_X_UI"))
-        local win = parent and parent:FindFirstChildWhichIsA("Frame")
-        return parent, win
-    end
-
-    local function showUI()
-        local _, win = findMain()
-        if win then win.Visible = true end
-        getgenv().UFO_ISOPEN = true
-    end
-    local function hideUI()
-        local _, win = findMain()
-        if win then win.Visible = false end
-        getgenv().UFO_ISOPEN = false
-    end
-
-    -- sync flag ครั้งแรก
-    do
-        local _, win = findMain()
-        getgenv().UFO_ISOPEN = (win and win.Visible) and true or false
-    end
-
-    -- ล้างของเก่า
+    -- ลบของเก่า (ถ้ามี)
     pcall(function()
-        for _,pg in ipairs({CoreGui, Players.LocalPlayer:WaitForChild("PlayerGui")}) do
-            local old = pg:FindFirstChild("UFO_HUB_X_Toggle"); if old then old:Destroy() end
+        local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+        for _,n in ipairs({"UFO_TOGGLE_V4","UFO_HUB_X_Toggle"}) do
+            local g = pg:FindFirstChild(n); if g then g:Destroy() end
         end
     end)
 
-    -- สร้าง Toggle แยก GUI (+ fallback parent)
-    local parent = safeParent()
+    -- สร้างใน PlayerGui เสมอ (ไม่ใช้ CoreGui เพื่อเลี่ยงสิทธิ์)
+    local PG = Players.LocalPlayer:WaitForChild("PlayerGui")
     local ToggleGui = Instance.new("ScreenGui")
-    ToggleGui.Name = "UFO_HUB_X_Toggle"
+    ToggleGui.Name = "UFO_TOGGLE_V4"
     ToggleGui.IgnoreGuiInset = true
+    ToggleGui.ResetOnSpawn = false
     ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ToggleGui.DisplayOrder = 100001
-    ToggleGui.Parent = parent
+    ToggleGui.Parent = PG
 
-    local btn = Instance.new("ImageButton", ToggleGui)
-    btn.Name = "ToggleBtn"
+    local btn = Instance.new("ImageButton")
+    btn.Name = "Toggle"
     btn.Size = UDim2.fromOffset(64,64)
     btn.Position = UDim2.fromOffset(90,220)
     btn.BackgroundColor3 = Color3.fromRGB(0,0,0)
     btn.BorderSizePixel = 0
-    btn.Image = TOGGLE_IMG
+    btn.Image = "rbxassetid://117052960049460"
+    btn.Active = true
+    btn.AutoButtonColor = true
+    btn.Parent = ToggleGui
 
-    local uic = Instance.new("UICorner", btn); uic.CornerRadius = UDim.new(0,8)
-    local stroke = Instance.new("UIStroke", btn)
-    stroke.Thickness = 2; stroke.Color = GREENC3; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    do -- แต่งมุม/เส้น
+        local u = Instance.new("UICorner", btn); u.CornerRadius = UDim.new(0,8)
+        local s = Instance.new("UIStroke", btn); s.Thickness = 2; s.Color = Color3.fromRGB(0,255,140)
+    end
 
+    -- เปิด/ปิด หน้าต่างหลัก
     local function toggleUI()
-        if getgenv().UFO_ISOPEN then hideUI() else showUI() end
+        if not Win or not Win.Parent then return end
+        Win.Visible = not Win.Visible
+        getgenv().UFO_ISOPEN = Win.Visible
     end
     btn.MouseButton1Click:Connect(toggleUI)
 
-    UIS.InputBegan:Connect(function(i,gp)
+    -- ปุ่มคีย์ลัด
+    UIS.InputBegan:Connect(function(i, gp)
         if gp then return end
         if i.KeyCode == Enum.KeyCode.RightShift then toggleUI() end
     end)
 
-    -- ลากปุ่ม + บล็อกกล้องระหว่างลาก
+    -- ลากปุ่มได้
     do
-        local dragging = false; local start; local startPos
-        local function block(on)
-            local name="UFO_BlockLook_Toggle"
-            if on then
-                CAS:BindActionAtPriority(name, function() return Enum.ContextActionResult.Sink end,
-                    false, 9000, Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch, Enum.UserInputType.MouseButton1)
-            else
-                pcall(function() CAS:UnbindAction(name) end)
-            end
-        end
+        local dragging, start, startPos
         btn.InputBegan:Connect(function(i)
             if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-                dragging=true; start=i.Position
-                startPos=Vector2.new(btn.Position.X.Offset, btn.Position.Y.Offset)
-                block(true)
+                dragging = true; start = i.Position
+                startPos = Vector2.new(btn.Position.X.Offset, btn.Position.Y.Offset)
                 i.Changed:Connect(function()
-                    if i.UserInputState==Enum.UserInputState.End then dragging=false; block(false) end
+                    if i.UserInputState==Enum.UserInputState.End then dragging = false end
                 end)
             end
         end)
         UIS.InputChanged:Connect(function(i)
             if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-                local d=i.Position-start
+                local d = i.Position - start
                 btn.Position = UDim2.fromOffset(startPos.X + d.X, startPos.Y + d.Y)
             end
         end)
