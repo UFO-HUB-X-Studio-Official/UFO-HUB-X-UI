@@ -253,106 +253,133 @@ end)
 
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
---==========================================================
--- UFO RECOVERY PATCH (Final Fix v3: sync flag + block camera drag)
---==========================================================
+-- =============== UFO TOGGLE • Triple-Sure (PlayerGui + CoreGui + Dock) ===============
 do
-    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
     local UIS     = game:GetService("UserInputService")
-    local CAS     = game:GetService("ContextActionService")
+    local RunS    = game:GetService("RunService")
 
-    local function findMain()
-        local gui = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-        local win
-        if gui then win = gui:FindFirstChildWhichIsA("Frame") end
-        return gui, win
-    end
-
-    local function showUI()
-        local gui, win = findMain()
-        if gui then gui.Enabled = true end
-        if win then win.Visible = true end
-        getgenv().UFO_ISOPEN = true
-    end
-
-    local function hideUI()
-        local gui, win = findMain()
-        if win then win.Visible = false end
-        getgenv().UFO_ISOPEN = false
-    end
-
-    -- ตั้งค่า flag เริ่มตามสถานะจริงของหน้าต่าง (กันกดครั้งแรกไม่ขึ้น)
-    do
-        local _, win = findMain()
-        getgenv().UFO_ISOPEN = (win and win.Visible) and true or false
-    end
-
-    -- ปุ่ม X ทั้งระบบ -> ซ่อน + sync flag (กันกดเปิดต้องกดสองครั้ง)
-    for _,o in ipairs(CoreGui:GetDescendants()) do
-        if o:IsA("TextButton") and o.Text and o.Text:upper()=="X" then
-            o.MouseButton1Click:Connect(function() hideUI() end)
+    -- ฟังก์ชันสลับ
+    local function toggleWin()
+        if Win and Win.Parent then
+            Win.Visible = not Win.Visible
+            getgenv().UFO_ISOPEN = Win.Visible
         end
     end
 
-    -- ปุ่ม Toggle (ImageButton) + กรอบเขียว + ลากได้ + บล็อกกล้องขณะลาก
-    local toggleGui = CoreGui:FindFirstChild("UFO_HUB_X_Toggle")
-    if toggleGui then toggleGui:Destroy() end
-
-    local ToggleGui = Instance.new("ScreenGui", CoreGui)
-    ToggleGui.Name = "UFO_HUB_X_Toggle"; ToggleGui.IgnoreGuiInset = true
-
-    local ToggleBtn = Instance.new("ImageButton", ToggleGui)
-    ToggleBtn.Size = UDim2.fromOffset(64,64); ToggleBtn.Position = UDim2.fromOffset(80,200)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    ToggleBtn.BorderSizePixel = 0
-    ToggleBtn.Image = "rbxassetid://117052960049460"
-    local c = Instance.new("UICorner", ToggleBtn); c.CornerRadius = UDim.new(0,8)
-    local s = Instance.new("UIStroke", ToggleBtn); s.Thickness=2; s.Color=GREEN
-
-    local function toggleUI()
-        if getgenv().UFO_ISOPEN then hideUI() else showUI() end
-    end
-    ToggleBtn.MouseButton1Click:Connect(toggleUI)
-
-    UIS.InputBegan:Connect(function(i,gp)
-        if gp then return end
-        if i.KeyCode==Enum.KeyCode.RightShift then toggleUI() end
+    -- ล้างของเดิม
+    pcall(function()
+        local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+        for _,n in ipairs({"UFO_TOGGLE_FORCE","UFO_HUB_X_Toggle","UFO_DOCK_TOGGLE"}) do
+            local g = pg:FindFirstChild(n); if g then g:Destroy() end
+        end
+        local cg = game:GetService("CoreGui")
+        for _,n in ipairs({"UFO_TOGGLE_FORCE","UFO_HUB_X_Toggle"}) do
+            local g = cg:FindFirstChild(n); if g then g:Destroy() end
+        end
     end)
 
-    -- Drag ปุ่มสี่เหลี่ยม + block camera
+    -- ปุ่มลอยใน PlayerGui (แสดงชัวร์)
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    local PGToggle = Instance.new("ScreenGui")
+    PGToggle.Name="UFO_TOGGLE_FORCE"; PGToggle.IgnoreGuiInset=true
+    PGToggle.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; PGToggle.DisplayOrder = 9000000
+    PGToggle.ResetOnSpawn=false; PGToggle.Parent=pg
+
+    local BtnA = Instance.new("ImageButton", PGToggle)
+    BtnA.Size = UDim2.fromOffset(64,64)
+    BtnA.Position = UDim2.fromOffset(86, 220)
+    BtnA.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    BtnA.BorderSizePixel = 0
+    BtnA.Image = "rbxassetid://117052960049460"
+    local ca = Instance.new("UICorner", BtnA) ca.CornerRadius = UDim.new(0,8)
+    local sa = Instance.new("UIStroke", BtnA) sa.Thickness=2; sa.Color=Color3.fromRGB(0,255,140)
+    BtnA.MouseButton1Click:Connect(toggleWin)
+
+    -- ปุ่มลอยสำรองใน CoreGui (ถ้าสร้างได้)
+    pcall(function()
+        local CG = game:GetService("CoreGui")
+        local CGToggle = Instance.new("ScreenGui")
+        CGToggle.Name="UFO_TOGGLE_FORCE"; CGToggle.IgnoreGuiInset=true
+        CGToggle.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; CGToggle.DisplayOrder = 9000001
+        CGToggle.ResetOnSpawn=false; CGToggle.Parent=CG
+
+        local BtnB = Instance.new("ImageButton", CGToggle)
+        BtnB.Size = UDim2.fromOffset(64,64)
+        BtnB.Position = UDim2.fromOffset(156, 220) -- ขยับออกไปไม่ทับกับ BtnA
+        BtnB.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        BtnB.BorderSizePixel = 0
+        BtnB.Image = "rbxassetid://117052960049460"
+        local cb = Instance.new("UICorner", BtnB) cb.CornerRadius = UDim.new(0,8)
+        local sb = Instance.new("UIStroke", BtnB) sb.Thickness=2; sb.Color=Color3.fromRGB(0,255,140)
+        BtnB.MouseButton1Click:Connect(toggleWin)
+    end)
+
+    -- ปุ่ม Dock (อยู่ใน GUI เดียวกับ Win) — มุมซ้ายบน
     do
-        local dragging=false; local start; local startPos
-        local function bindBlock(on)
-            local name="UFO_BlockLook_Toggle"
-            if on then
-                local fn=function() return Enum.ContextActionResult.Sink end
-                CAS:BindActionAtPriority(name, fn, false, 9000,
-                    Enum.UserInputType.MouseMovement,
-                    Enum.UserInputType.Touch,
-                    Enum.UserInputType.MouseButton1)
-            else
-                pcall(function() CAS:UnbindAction(name) end)
-            end
-        end
+        local Dock = Instance.new("Frame")
+        Dock.Name = "UFO_DOCK_TOGGLE"
+        Dock.AnchorPoint = Vector2.new(0,0)
+        Dock.Position = UDim2.fromOffset(12, 12)
+        Dock.Size = UDim2.fromOffset(56, 24)
+        Dock.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        Dock.BorderSizePixel = 0
+        Dock.Parent = Win.Parent
+        local c = Instance.new("UICorner", Dock) c.CornerRadius = UDim.new(0,6)
+        local s = Instance.new("UIStroke", Dock) s.Thickness=1.6; s.Color=Color3.fromRGB(0,255,140); s.Transparency=0.1
 
-        ToggleBtn.InputBegan:Connect(function(i)
-            if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-                dragging=true; start=i.Position
-                startPos=Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
-                bindBlock(true)
-                i.Changed:Connect(function()
-                    if i.UserInputState==Enum.UserInputState.End then
-                        dragging=false; bindBlock(false)
-                    end
-                end)
-            end
-        end)
+        local ico = Instance.new("ImageLabel", Dock)
+        ico.BackgroundTransparency=1
+        ico.Image = "rbxassetid://117052960049460"
+        ico.Size = UDim2.fromOffset(20,20)
+        ico.Position = UDim2.fromOffset(4,2)
 
-        UIS.InputChanged:Connect(function(i)
-            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-                local d=i.Position-start
-                ToggleBtn.Position=UDim2.fromOffset(startPos.X+d.X,startPos.Y+d.Y)
-            end
-        end)
+        local tx = Instance.new("TextButton", Dock)
+        tx.BackgroundTransparency=1
+        tx.Size = UDim2.new(1,-24,1,0)
+        tx.Position = UDim2.fromOffset(24,0)
+        tx.Text = "UFO"
+        tx.Font = Enum.Font.GothamBold
+        tx.TextSize = 12
+        tx.TextColor3 = Color3.fromRGB(235,235,235)
+        tx.AutoButtonColor=false
+        tx.MouseButton1Click:Connect(toggleWin)
     end
+
+    -- คีย์ลัด + คำสั่งแชท (มือถือไม่มีคีย์บอร์ด)
+    UIS.InputBegan:Connect(function(i,gp)
+        if gp then return end
+        if i.KeyCode == Enum.KeyCode.RightShift then toggleWin() end
+        if i.KeyCode == Enum.KeyCode.F8 then toggleWin() end
+    end)
+    pcall(function()
+        Players.LocalPlayer.Chatted:Connect(function(msg)
+            msg = string.lower(msg or "")
+            if msg == "/ufo" or msg == ";ufo" or msg == "/toggleufo" then toggleWin() end
+        end)
+    end)
+
+    -- เฝ้าระวัง: ถ้าปุ่มใน PlayerGui โดนลบ จะสร้างกลับให้เอง
+    RunS.Heartbeat:Connect(function()
+        if not BtnA or not BtnA.Parent or not BtnA.Parent.Parent then
+            -- สร้างกลับ
+            pcall(function()
+                for _,n in ipairs({"UFO_TOGGLE_FORCE","UFO_HUB_X_Toggle"}) do
+                    local g = pg:FindFirstChild(n); if g then g:Destroy() end
+                end
+            end)
+            local New = Instance.new("ScreenGui", pg)
+            New.Name="UFO_TOGGLE_FORCE"; New.IgnoreGuiInset=true
+            New.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; New.DisplayOrder=9000000
+            local b = Instance.new("ImageButton", New)
+            b.Size=UDim2.fromOffset(64,64); b.Position=UDim2.fromOffset(86,220)
+            b.BackgroundColor3=Color3.fromRGB(0,0,0); b.BorderSizePixel=0
+            b.Image="rbxassetid://117052960049460"
+            local c = Instance.new("UICorner", b) c.CornerRadius=UDim.new(0,8)
+            local s = Instance.new("UIStroke", b) s.Thickness=2; s.Color=Color3.fromRGB(0,255,140)
+            b.MouseButton1Click:Connect(toggleWin)
+            BtnA = b
+        end
+    end)
 end
+-- ============================= END TOGGLE =============================
