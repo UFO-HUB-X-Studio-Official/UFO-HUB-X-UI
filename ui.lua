@@ -199,6 +199,61 @@ btnHome.MouseButton1Click:Connect(function() setPlayerActive(false); setHomeActi
 -- Default page
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
+--==================== Floating Toggle (in the same GUI) ====================--
+local Toggle = Instance.new("ImageButton", GUI)
+Toggle.Name="UFO_TOGGLE_FORCE"
+Toggle.Size=UDim2.fromOffset(64,64)
+Toggle.Position=UDim2.fromOffset(86,220)
+Toggle.BackgroundColor3=Color3.fromRGB(0,0,0)
+Toggle.BorderSizePixel=0
+Toggle.Image="rbxassetid://117052960049460"
+Toggle.ZIndex = 2^15
+corner(Toggle,8); stroke(Toggle,2,THEME.GREEN,0)
+
+local function toggleUI()
+	if Win and Win.Parent then
+		Win.Visible = not Win.Visible
+		getgenv().UFO_ISOPEN = Win.Visible
+	end
+end
+Toggle.MouseButton1Click:Connect(toggleUI)
+
+-- Drag toggle + block camera while dragging
+do
+	local dragging,start,startPos
+	local function block(on)
+		local name="UFO_BlockLook_Toggle"
+		if on then
+			CAS:BindActionAtPriority(name,function()return Enum.ContextActionResult.Sink end,false,9000,
+				Enum.UserInputType.MouseMovement,Enum.UserInputType.Touch,Enum.UserInputType.MouseButton1)
+		else pcall(function() CAS:UnbindAction(name) end) end
+	end
+	Toggle.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+			dragging=true; start=i.Position
+			startPos=Vector2.new(Toggle.Position.X.Offset,Toggle.Position.Y.Offset)
+			block(true)
+			i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false; block(false) end end)
+		end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+			local d=i.Position-start
+			Toggle.Position=UDim2.fromOffset(startPos.X+d.X,startPos.Y+d.Y)
+		end
+	end)
+end
+
+-- Hotkeys
+UIS.InputBegan:Connect(function(i,gp)
+	if gp then return end
+	if i.KeyCode==Enum.KeyCode.RightShift or i.KeyCode==Enum.KeyCode.F8 then toggleUI() end
+end)
+
+-- Safety: force show shortly after load
+task.delay(0.2, function()
+	if Win and Win.Parent then Win.Visible=true; getgenv().UFO_ISOPEN=true end
+end)
 --==========================================================
 -- UFO HUB X • ALWAYS-ON TOGGLE (PlayerGui only, self-heal)
 --  - สลับแสดง/ซ่อนหน้าต่าง UFO HUB X ไม่ว่า UI หลักจะอยู่ที่ไหน
