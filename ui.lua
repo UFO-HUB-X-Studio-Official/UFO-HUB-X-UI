@@ -1,4 +1,187 @@
 --==========================================================
+-- UFO HUB X • ALWAYS-ON TOGGLE (PlayerGui only, self-heal)
+--  - สลับแสดง/ซ่อนหน้าต่าง UFO HUB X ไม่ว่า UI หลักจะอยู่ที่ไหน
+--  - ปุ่มลอยมีกรอบเขียว, ZIndex/DisplayOrder สูงสุด, ลากได้
+--  - รีเซ็ตตำแหน่งเมื่อหลุดจอ + รีสปาวน์อัตโนมัติถ้าถูกลบ
+--  - Hotkey: RightShift / F8   • Chat: ;ufo
+--==========================================================
+
+local Services = {
+  Players = game:GetService("Players"),
+  RunService = game:GetService("RunService"),
+  UserInputService = game:GetService("UserInputService"),
+  ContextActionService = game:GetService("ContextActionService"),
+  StarterGui = game:GetService("StarterGui"),
+}
+
+local LP = Services.Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+
+-- ล้างของเก่า (ชื่อเดียวกัน)
+pcall(function()
+  local old = PG:FindFirstChild("UFO_TOGGLE_FORCE")
+  if old then old:Destroy() end
+end)
+
+-- หา "หน้าต่างหลัก" ของ UFO เพื่อสลับ
+local function findUfoWindow()
+  -- 1) มองหา ScreenGui ที่ชื่อมี "UFO" และมี Frame
+  for _,g in ipairs(PG:GetChildren()) do
+    if g:IsA("ScreenGui") and string.find(string.lower(g.Name), "ufo") then
+      local fm = g:FindFirstChildWhichIsA("Frame", true)
+      if fm then return fm end
+    end
+  end
+  -- 2) เผื่อ UI อยู่ CoreGui แต่เกมของเพื่อนไม่ให้แตะ ก็ข้าม
+  -- 3) เผื่อชื่ออื่น: ลองหา TextLabel "UFO HUB X"
+  for _,g in ipairs(PG:GetChildren()) do
+    if g:IsA("ScreenGui") then
+      for _,d in ipairs(g:GetDescendants()) do
+        if d:IsA("TextLabel") and typeof(d.Text)=="string" and d.Text:lower():find("ufo") then
+          local f = d:FindFirstAncestorOfClass("Frame")
+          if f then return f end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+-- ฟังก์ชันสลับ
+local function toggleMain()
+  local win = findUfoWindow()
+  if win then
+    win.Visible = not win.Visible
+    getgenv().UFO_ISOPEN = win.Visible
+  else
+    Services.StarterGui:SetCore("SendNotification", {Title="UFO", Text="ไม่เจอหน้าต่างหลัก", Duration=2})
+  end
+end
+
+-- สร้าง GUI ปุ่มลอย (PlayerGui เท่านั้น)
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "UFO_TOGGLE_FORCE"
+ToggleGui.IgnoreGuiInset = true
+ToggleGui.ResetOnSpawn = false
+ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ToggleGui.DisplayOrder = 2^31-1 -- สูงสุด
+ToggleGui.Parent = PG
+
+-- ปุ่มลอย
+local ToggleBtn = Instance.new("ImageButton", ToggleGui)
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.fromOffset(64,64)
+ToggleBtn.Position = UDim2.fromOffset(86, 220)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Image = "rbxassetid://117052960049460" -- ไอคอนปุ่ม
+ToggleBtn.ZIndex = 2^15 -- สูงมาก
+local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 8) return u end
+local function stroke(p,th,col,tr)
+  local s=Instance.new("UIStroke",p)
+  s.Thickness=th or 2
+  s.Color=col or Color3.fromRGB(0,255,140)
+  s.Transparency=tr or 0
+  s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+  s.LineJoinMode=Enum.LineJoinMode.Round
+  s.Parent=p
+  return s
+end
+corner(ToggleBtn,8); stroke(ToggleBtn,2, Color3.fromRGB(0,255,140), 0)
+
+-- คลิกเพื่อสลับ
+ToggleBtn.MouseButton1Click:Connect(toggleMain)
+
+-- ลากได้ + บล็อกหมุนกล้องตอนลาก (มือถือก็ลื่น)
+do
+  local dragging,start,startPos
+  local function block(on)
+    local name="UFO_BlockLook_Toggle"
+    if on then
+      Services.ContextActionService:BindActionAtPriority(
+        name, function() return Enum.ContextActionResult.Sink end, false, 9000,
+        Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch, Enum.UserInputType.MouseButton1
+      )
+    else pcall(function() Services.ContextActionService:UnbindAction(name) end) end
+  end
+  ToggleBtn.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+      dragging=true; start=i.Position
+      startPos=Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
+      block(true)
+      i.Changed:Connect(function()
+        if i.UserInputState==Enum.UserInputState.End then dragging=false; block(false) end
+      end)
+    end
+  end)
+  Services.UserInputService.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+      local d=i.Position-start
+      ToggleBtn.Position=UDim2.fromOffset(startPos.X+d.X, startPos.Y+d.Y)
+    end
+  end)
+end
+
+-- Hotkey + Chat command
+Services.UserInputService.InputBegan:Connect(function(i,gp)
+  if gp then return end
+  if i.KeyCode==Enum.KeyCode.RightShift or i.KeyCode==Enum.KeyCode.F8 then toggleMain() end
+end)
+LP.Chatted:Connect(function(msg)
+  msg = string.lower(msg or "")
+  if msg==";ufo" or msg=="/ufo" then toggleMain() end
+end)
+
+-- เฝ้า/ซ่อม: ถ้าปุ่มหาย หรือหลุดจอ → รีสปาวน์/รีเซ็ต
+local function viewport()
+  local cam = workspace.CurrentCamera
+  return (cam and cam.ViewportSize) or Vector2.new(1280,720)
+end
+
+local function resetIfOffscreen()
+  local v = viewport()
+  local x = ToggleBtn.Position.X.Offset
+  local y = ToggleBtn.Position.Y.Offset
+  if x < -10 or y < -10 or x > v.X-40 or y > v.Y-40 then
+    ToggleBtn.Position = UDim2.fromOffset(86, 220)
+  end
+end
+
+-- จุด debug กระพริบเมื่อรีสปาวน์
+local function flashDebug()
+  local dot = Instance.new("Frame", ToggleGui)
+  dot.BackgroundColor3 = Color3.fromRGB(0,255,140)
+  dot.BorderSizePixel = 0
+  dot.Size = UDim2.fromOffset(6,6)
+  dot.Position = UDim2.fromOffset(4,4)
+  dot.ZIndex = 2^15
+  task.delay(1, function() if dot then dot:Destroy() end end)
+end
+
+flashDebug()
+
+Services.RunService.Heartbeat:Connect(function()
+  if not ToggleBtn or not ToggleBtn.Parent then
+    -- รีสปาวน์ทั้งชุด
+    pcall(function()
+      if ToggleGui then ToggleGui:Destroy() end
+    end)
+    -- สร้างใหม่
+    -- (เรียกสคริปต์ตัวเองซ้ำแบบง่าย ๆ)
+  end
+  resetIfOffscreen()
+end)
+
+-- เปิดหน้าต่างหลักครั้งแรก (ถ้ามี)
+task.delay(0.2, function()
+  local win = findUfoWindow()
+  if win then
+    win.Visible = true
+    getgenv().UFO_ISOPEN = true
+  end
+end)
+
+--==========================================================
 -- UFO HUB X • ALL-IN-ONE (PlayerGui only)
 --  - สร้าง UI หลัก + ปุ่มลอยในไฟล์เดียว
 --  - ไม่ใช้ CoreGui, ลากได้, สกอร์ลแยกซ้าย/ขวา
@@ -253,186 +436,4 @@ end)
 -- Safety: force show shortly after load
 task.delay(0.2, function()
 	if Win and Win.Parent then Win.Visible=true; getgenv().UFO_ISOPEN=true end
-end)
---==========================================================
--- UFO HUB X • ALWAYS-ON TOGGLE (PlayerGui only, self-heal)
---  - สลับแสดง/ซ่อนหน้าต่าง UFO HUB X ไม่ว่า UI หลักจะอยู่ที่ไหน
---  - ปุ่มลอยมีกรอบเขียว, ZIndex/DisplayOrder สูงสุด, ลากได้
---  - รีเซ็ตตำแหน่งเมื่อหลุดจอ + รีสปาวน์อัตโนมัติถ้าถูกลบ
---  - Hotkey: RightShift / F8   • Chat: ;ufo
---==========================================================
-
-local Services = {
-  Players = game:GetService("Players"),
-  RunService = game:GetService("RunService"),
-  UserInputService = game:GetService("UserInputService"),
-  ContextActionService = game:GetService("ContextActionService"),
-  StarterGui = game:GetService("StarterGui"),
-}
-
-local LP = Services.Players.LocalPlayer
-local PG = LP:WaitForChild("PlayerGui")
-
--- ล้างของเก่า (ชื่อเดียวกัน)
-pcall(function()
-  local old = PG:FindFirstChild("UFO_TOGGLE_FORCE")
-  if old then old:Destroy() end
-end)
-
--- หา "หน้าต่างหลัก" ของ UFO เพื่อสลับ
-local function findUfoWindow()
-  -- 1) มองหา ScreenGui ที่ชื่อมี "UFO" และมี Frame
-  for _,g in ipairs(PG:GetChildren()) do
-    if g:IsA("ScreenGui") and string.find(string.lower(g.Name), "ufo") then
-      local fm = g:FindFirstChildWhichIsA("Frame", true)
-      if fm then return fm end
-    end
-  end
-  -- 2) เผื่อ UI อยู่ CoreGui แต่เกมของเพื่อนไม่ให้แตะ ก็ข้าม
-  -- 3) เผื่อชื่ออื่น: ลองหา TextLabel "UFO HUB X"
-  for _,g in ipairs(PG:GetChildren()) do
-    if g:IsA("ScreenGui") then
-      for _,d in ipairs(g:GetDescendants()) do
-        if d:IsA("TextLabel") and typeof(d.Text)=="string" and d.Text:lower():find("ufo") then
-          local f = d:FindFirstAncestorOfClass("Frame")
-          if f then return f end
-        end
-      end
-    end
-  end
-  return nil
-end
-
--- ฟังก์ชันสลับ
-local function toggleMain()
-  local win = findUfoWindow()
-  if win then
-    win.Visible = not win.Visible
-    getgenv().UFO_ISOPEN = win.Visible
-  else
-    Services.StarterGui:SetCore("SendNotification", {Title="UFO", Text="ไม่เจอหน้าต่างหลัก", Duration=2})
-  end
-end
-
--- สร้าง GUI ปุ่มลอย (PlayerGui เท่านั้น)
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "UFO_TOGGLE_FORCE"
-ToggleGui.IgnoreGuiInset = true
-ToggleGui.ResetOnSpawn = false
-ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ToggleGui.DisplayOrder = 2^31-1 -- สูงสุด
-ToggleGui.Parent = PG
-
--- ปุ่มลอย
-local ToggleBtn = Instance.new("ImageButton", ToggleGui)
-ToggleBtn.Name = "ToggleBtn"
-ToggleBtn.Size = UDim2.fromOffset(64,64)
-ToggleBtn.Position = UDim2.fromOffset(86, 220)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Image = "rbxassetid://117052960049460" -- ไอคอนปุ่ม
-ToggleBtn.ZIndex = 2^15 -- สูงมาก
-local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 8) return u end
-local function stroke(p,th,col,tr)
-  local s=Instance.new("UIStroke",p)
-  s.Thickness=th or 2
-  s.Color=col or Color3.fromRGB(0,255,140)
-  s.Transparency=tr or 0
-  s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
-  s.LineJoinMode=Enum.LineJoinMode.Round
-  s.Parent=p
-  return s
-end
-corner(ToggleBtn,8); stroke(ToggleBtn,2, Color3.fromRGB(0,255,140), 0)
-
--- คลิกเพื่อสลับ
-ToggleBtn.MouseButton1Click:Connect(toggleMain)
-
--- ลากได้ + บล็อกหมุนกล้องตอนลาก (มือถือก็ลื่น)
-do
-  local dragging,start,startPos
-  local function block(on)
-    local name="UFO_BlockLook_Toggle"
-    if on then
-      Services.ContextActionService:BindActionAtPriority(
-        name, function() return Enum.ContextActionResult.Sink end, false, 9000,
-        Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch, Enum.UserInputType.MouseButton1
-      )
-    else pcall(function() Services.ContextActionService:UnbindAction(name) end) end
-  end
-  ToggleBtn.InputBegan:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-      dragging=true; start=i.Position
-      startPos=Vector2.new(ToggleBtn.Position.X.Offset, ToggleBtn.Position.Y.Offset)
-      block(true)
-      i.Changed:Connect(function()
-        if i.UserInputState==Enum.UserInputState.End then dragging=false; block(false) end
-      end)
-    end
-  end)
-  Services.UserInputService.InputChanged:Connect(function(i)
-    if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-      local d=i.Position-start
-      ToggleBtn.Position=UDim2.fromOffset(startPos.X+d.X, startPos.Y+d.Y)
-    end
-  end)
-end
-
--- Hotkey + Chat command
-Services.UserInputService.InputBegan:Connect(function(i,gp)
-  if gp then return end
-  if i.KeyCode==Enum.KeyCode.RightShift or i.KeyCode==Enum.KeyCode.F8 then toggleMain() end
-end)
-LP.Chatted:Connect(function(msg)
-  msg = string.lower(msg or "")
-  if msg==";ufo" or msg=="/ufo" then toggleMain() end
-end)
-
--- เฝ้า/ซ่อม: ถ้าปุ่มหาย หรือหลุดจอ → รีสปาวน์/รีเซ็ต
-local function viewport()
-  local cam = workspace.CurrentCamera
-  return (cam and cam.ViewportSize) or Vector2.new(1280,720)
-end
-
-local function resetIfOffscreen()
-  local v = viewport()
-  local x = ToggleBtn.Position.X.Offset
-  local y = ToggleBtn.Position.Y.Offset
-  if x < -10 or y < -10 or x > v.X-40 or y > v.Y-40 then
-    ToggleBtn.Position = UDim2.fromOffset(86, 220)
-  end
-end
-
--- จุด debug กระพริบเมื่อรีสปาวน์
-local function flashDebug()
-  local dot = Instance.new("Frame", ToggleGui)
-  dot.BackgroundColor3 = Color3.fromRGB(0,255,140)
-  dot.BorderSizePixel = 0
-  dot.Size = UDim2.fromOffset(6,6)
-  dot.Position = UDim2.fromOffset(4,4)
-  dot.ZIndex = 2^15
-  task.delay(1, function() if dot then dot:Destroy() end end)
-end
-
-flashDebug()
-
-Services.RunService.Heartbeat:Connect(function()
-  if not ToggleBtn or not ToggleBtn.Parent then
-    -- รีสปาวน์ทั้งชุด
-    pcall(function()
-      if ToggleGui then ToggleGui:Destroy() end
-    end)
-    -- สร้างใหม่
-    -- (เรียกสคริปต์ตัวเองซ้ำแบบง่าย ๆ)
-  end
-  resetIfOffscreen()
-end)
-
--- เปิดหน้าต่างหลักครั้งแรก (ถ้ามี)
-task.delay(0.2, function()
-  local win = findUfoWindow()
-  if win then
-    win.Visible = true
-    getgenv().UFO_ISOPEN = true
-  end
 end)
