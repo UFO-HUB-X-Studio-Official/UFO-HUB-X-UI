@@ -253,76 +253,97 @@ end)
 
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
--- === UFO TOGGLE • Always shows (PlayerGui) + drag + RightShift ===
+-- === UFO TOGGLE • Force-Show (PlayerGui/CoreGui fallback) + Drag + RightShift ===
 do
     local Players = game:GetService("Players")
     local UIS     = game:GetService("UserInputService")
+    local RunS    = game:GetService("RunService")
 
-    -- ลบของเก่า (ถ้ามี)
+    local function makeToggle(parent, xpos)
+        if not parent then return nil end
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "UFO_TOGGLE_FORCE"
+        sg.IgnoreGuiInset = true
+        sg.ResetOnSpawn = false
+        sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        sg.DisplayOrder = 9e6         -- สูงมากๆ ให้อยู่บนสุด
+        sg.Parent = parent
+
+        local b = Instance.new("ImageButton")
+        b.Name = "Toggle"
+        b.Size = UDim2.fromOffset(64,64)
+        b.Position = UDim2.fromOffset(xpos or 90, 220)
+        b.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        b.BorderSizePixel = 0
+        b.Image = "rbxassetid://117052960049460"
+        b.Active = true
+        b.AutoButtonColor = true
+        b.Parent = sg
+
+        local c = Instance.new("UICorner", b)  c.CornerRadius = UDim.new(0,8)
+        local s = Instance.new("UIStroke", b)  s.Thickness = 2  s.Color = Color3.fromRGB(0,255,140)
+
+        -- เปิด/ปิด
+        local function toggleUI()
+            if Win and Win.Parent then
+                Win.Visible = not Win.Visible
+                getgenv().UFO_ISOPEN = Win.Visible
+            end
+        end
+        b.MouseButton1Click:Connect(toggleUI)
+        UIS.InputBegan:Connect(function(i,gp)
+            if gp then return end
+            if i.KeyCode == Enum.KeyCode.RightShift then toggleUI() end
+        end)
+
+        -- ลากปุ่ม
+        do
+            local dragging, start, startPos
+            b.InputBegan:Connect(function(i)
+                if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                    dragging=true; start=i.Position
+                    startPos=Vector2.new(b.Position.X.Offset, b.Position.Y.Offset)
+                    i.Changed:Connect(function()
+                        if i.UserInputState==Enum.UserInputState.End then dragging=false end
+                    end)
+                end
+            end)
+            UIS.InputChanged:Connect(function(i)
+                if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+                    local d=i.Position-start
+                    b.Position=UDim2.fromOffset(startPos.X+d.X, startPos.Y+d.Y)
+                end
+            end)
+        end
+
+        return sg
+    end
+
+    -- ลบของเก่าที่ชื่อซ้ำ
     pcall(function()
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
-        for _,n in ipairs({"UFO_TOGGLE_V4","UFO_HUB_X_Toggle"}) do
+        for _,n in ipairs({"UFO_TOGGLE_FORCE","UFO_HUB_X_Toggle"}) do
             local g = pg:FindFirstChild(n); if g then g:Destroy() end
+        end
+        local cg = game:GetService("CoreGui")
+        for _,n in ipairs({"UFO_TOGGLE_FORCE","UFO_HUB_X_Toggle"}) do
+            local g = cg:FindFirstChild(n); if g then g:Destroy() end
         end
     end)
 
-    -- สร้างใน PlayerGui เสมอ (ไม่ใช้ CoreGui เพื่อเลี่ยงสิทธิ์)
-    local PG = Players.LocalPlayer:WaitForChild("PlayerGui")
-    local ToggleGui = Instance.new("ScreenGui")
-    ToggleGui.Name = "UFO_TOGGLE_V4"
-    ToggleGui.IgnoreGuiInset = true
-    ToggleGui.ResetOnSpawn = false
-    ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ToggleGui.DisplayOrder = 100001
-    ToggleGui.Parent = PG
+    -- สร้างใน PlayerGui ก่อน (การันตีแสดง), แล้วพยายาม CoreGui เสริม (ถ้าทำได้)
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    local tg_pg = makeToggle(pg, 90)
 
-    local btn = Instance.new("ImageButton")
-    btn.Name = "Toggle"
-    btn.Size = UDim2.fromOffset(64,64)
-    btn.Position = UDim2.fromOffset(90,220)
-    btn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    btn.BorderSizePixel = 0
-    btn.Image = "rbxassetid://117052960049460"
-    btn.Active = true
-    btn.AutoButtonColor = true
-    btn.Parent = ToggleGui
-
-    do -- แต่งมุม/เส้น
-        local u = Instance.new("UICorner", btn); u.CornerRadius = UDim.new(0,8)
-        local s = Instance.new("UIStroke", btn); s.Thickness = 2; s.Color = Color3.fromRGB(0,255,140)
-    end
-
-    -- เปิด/ปิด หน้าต่างหลัก
-    local function toggleUI()
-        if not Win or not Win.Parent then return end
-        Win.Visible = not Win.Visible
-        getgenv().UFO_ISOPEN = Win.Visible
-    end
-    btn.MouseButton1Click:Connect(toggleUI)
-
-    -- ปุ่มคีย์ลัด
-    UIS.InputBegan:Connect(function(i, gp)
-        if gp then return end
-        if i.KeyCode == Enum.KeyCode.RightShift then toggleUI() end
+    local okCore, tg_cg = pcall(function()
+        return makeToggle(game:GetService("CoreGui"), 160) -- วางเลื่อนออกไปนิดกันทับ
     end)
+    if not okCore then tg_cg = nil end
 
-    -- ลากปุ่มได้
-    do
-        local dragging, start, startPos
-        btn.InputBegan:Connect(function(i)
-            if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-                dragging = true; start = i.Position
-                startPos = Vector2.new(btn.Position.X.Offset, btn.Position.Y.Offset)
-                i.Changed:Connect(function()
-                    if i.UserInputState==Enum.UserInputState.End then dragging = false end
-                end)
-            end
-        end)
-        UIS.InputChanged:Connect(function(i)
-            if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-                local d = i.Position - start
-                btn.Position = UDim2.fromOffset(startPos.X + d.X, startPos.Y + d.Y)
-            end
-        end)
-    end
+    -- เฝ้า/สร้างใหม่ถ้าถูกลบ
+    RunS.Heartbeat:Connect(function()
+        if not tg_pg or not tg_pg.Parent then
+            tg_pg = makeToggle(pg, 90)
+        end
+    end)
 end
