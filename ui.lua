@@ -229,66 +229,143 @@ Body.Position=UDim2.new(0,SIZE.GAP_OUT,0,SIZE.HEAD_H+SIZE.GAP_OUT)
 Body.Size=UDim2.new(1,-SIZE.GAP_OUT*2,1,-(SIZE.HEAD_H+SIZE.GAP_OUT*2))
 corner(Body,12); stroke(Body,0.5,THEME.MINT,0.35)
 
--- LEFT
-local LeftShell=Instance.new("Frame",Body)
-LeftShell.BackgroundColor3=THEME.BG_PANEL; LeftShell.BorderSizePixel=0
-LeftShell.Position=UDim2.new(0,SIZE.GAP_IN,0,SIZE.GAP_IN)
-LeftShell.Size=UDim2.new(SIZE.LEFT_RATIO,-(SIZE.BETWEEN/2),1,-SIZE.GAP_IN*2)
+-- === LEFT (แทนที่ทั้งหมด) ===============================================
+local LeftShell = Instance.new("Frame", Body)
+LeftShell.BackgroundColor3 = THEME.BG_PANEL
+LeftShell.BorderSizePixel  = 0
+LeftShell.Position         = UDim2.new(0, SIZE.GAP_IN, 0, SIZE.GAP_IN)
+LeftShell.Size             = UDim2.new(SIZE.LEFT_RATIO, -(SIZE.BETWEEN/2), 1, -SIZE.GAP_IN*2)
 LeftShell.ClipsDescendants = true
-corner(LeftShell,10); stroke(LeftShell,1.2,THEME.GREEN,0); stroke(LeftShell,0.45,THEME.MINT,0.35)
+corner(LeftShell, 10)
+stroke(LeftShell, 1.2, THEME.GREEN, 0)
+stroke(LeftShell, 0.45, THEME.MINT, 0.35)
 
-local LeftScroll=Instance.new("ScrollingFrame",LeftShell)
-LeftScroll.BackgroundTransparency=1
-LeftScroll.Size=UDim2.fromScale(1,1)
-LeftScroll.ScrollBarThickness=0
-LeftScroll.ScrollingDirection=Enum.ScrollingDirection.Y
-LeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.None -- เปลี่ยนจาก .Y เป็น .None
-LeftScroll.ScrollingEnabled = true
-LeftScroll.ClipsDescendants = true
+local LeftScroll = Instance.new("ScrollingFrame", LeftShell)
+LeftScroll.BackgroundTransparency = 1
+LeftScroll.Size                   = UDim2.fromScale(1,1)
+LeftScroll.ScrollBarThickness     = 0
+LeftScroll.ScrollingDirection     = Enum.ScrollingDirection.Y
+LeftScroll.AutomaticCanvasSize    = Enum.AutomaticSize.None   -- คุมเอง
+LeftScroll.ElasticBehavior        = Enum.ElasticBehavior.Never -- กันยางยืดเกินขอบ
+LeftScroll.ScrollingEnabled       = true
+LeftScroll.ClipsDescendants       = true
 
-local padL=Instance.new("UIPadding",LeftScroll)
-padL.PaddingTop=UDim.new(0,8)
-padL.PaddingLeft=UDim.new(0,8)
-padL.PaddingRight=UDim.new(0,8)
-padL.PaddingBottom=UDim.new(0,8)
+local padL = Instance.new("UIPadding", LeftScroll)
+padL.PaddingTop    = UDim.new(0, 8)
+padL.PaddingLeft   = UDim.new(0, 8)
+padL.PaddingRight  = UDim.new(0, 8)
+padL.PaddingBottom = UDim.new(0, 8)
 
-local LeftList=Instance.new("UIListLayout",LeftScroll)
-LeftList.Padding=UDim.new(0,8)
+local LeftList = Instance.new("UIListLayout", LeftScroll)
+LeftList.Padding   = UDim.new(0, 8)
 LeftList.SortOrder = Enum.SortOrder.LayoutOrder
 
-local function activateTab(target)
-    -- เปิดเฉพาะแท็บที่เลือก
-    for _,t in ipairs(tabs) do
-        t.set(t == target)
-    end
-    showRight(target.name, target.icon)
+-- ========== คุม Canvas + กันเด้งกลับตอนคลิกแท็บ ==========
+local function refreshLeftCanvas()
+    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
+    LeftScroll.CanvasSize = UDim2.new(0, 0, 0, contentH)
+end
 
-    -- === FIX SCROLL JUMP ===
-    -- เก็บตำแหน่งก่อนหน้ากันกระโดด
-    local yBefore = LeftScroll.CanvasPosition.Y
+local function clampAndRestore(yBefore)
+    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
+    local viewH    = LeftScroll.AbsoluteSize.Y
+    local maxY     = math.max(0, contentH - viewH)
+    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore or 0, 0, maxY))
+end
 
-    -- ทำหลังจาก layout อัปเดต (ป้องกัน AbsoluteCanvasSize เปลี่ยน)
+LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    refreshLeftCanvas()
+    clampAndRestore(LeftScroll.CanvasPosition.Y)
+end)
+
+task.defer(refreshLeftCanvas)
+
+-- ฟังก์ชันเรียกตอน “กดแท็บ” ใด ๆ
+-- name/icon = ชื่อ/ไอคอนฝั่งขวา, setFns = เซ็ตสถานะแท็บของคุณ, btn = ปุ่มที่ถูกกด (ไว้จัดให้อยู่ในวิว)
+local function onTabClick(name, icon, setFns, btn)
+    local yBefore = LeftScroll.CanvasPosition.Y -- จำตำแหน่งเลื่อนเดิม
+
+    setFns()               -- เซ็ต active/inactive ของแท็บ
+    showRight(name, icon)  -- สร้างเนื้อหาฝั่งขวา
+
     task.defer(function()
-        -- 1) คงตำแหน่งเลื่อนเดิม (clamp เผื่อ content หด/ขยาย)
-        local contentH = LeftScroll.AbsoluteCanvasSize.Y
-        local viewH    = LeftScroll.AbsoluteSize.Y
-        local maxY     = math.max(0, contentH - viewH)
-        LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore, 0, maxY))
+        refreshLeftCanvas()
+        clampAndRestore(yBefore)  -- คืนตำแหน่งเลื่อนเดิม
 
-        -- 2) ถ้าปุ่มที่กดอยู่นอกจอ ค่อยเลื่อนให้อยู่ในวิวนิดเดียว (ไม่เด้งไปบนสุด)
-        local btnTop   = target.btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
-        local btnBot   = btnTop + target.btn.AbsoluteSize.Y
-        local padding  = 8
-
-        if btnTop < 0 then
-            -- อยู่เหนือวิวดิสเพลย์: เลื่อนขึ้นเท่าที่พอดี
-            LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, btnTop - padding)
-        elseif btnBot > viewH then
-            -- อยู่ใต้วิวดิสเพลย์: เลื่อนลงเท่าที่พอดี
-            LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (btnBot - viewH) + padding)
+        -- ถ้าปุ่มอยู่นอกจอ ค่อยเลื่อนให้อยู่ในวิว “เท่าที่จำเป็น”
+        if btn and btn.Parent then
+            local viewH   = LeftScroll.AbsoluteSize.Y
+            local btnTop  = btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
+            local btnBot  = btnTop + btn.AbsoluteSize.Y
+            local pad     = 8
+            if btnTop < 0 then
+                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, btnTop - pad)
+            elseif btnBot > viewH then
+                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (btnBot - viewH) + pad)
+            end
         end
     end)
-    end
+end
+-- ===========================================================
+
+-- === ผูกคลิกแท็บทั้ง 7 ด้วย onTabClick (รันหลังจากคุณสร้างปุ่มเสร็จ) ===
+-- ถ้าปุ่ม (btnPlayer, btnHome, btnQuest, btnShop, btnUpdate, btnServer, btnSettings)
+-- ถูกประกาศ “ถัดจากบล็อกนี้” ให้หน่วงการผูกเล็กน้อยเพื่อให้ตัวแปรมีค่า
+task.defer(function()
+    -- รอจนปุ่มถูกสร้าง
+    repeat task.wait() until
+        btnPlayer and btnHome and btnQuest and btnShop and btnUpdate and btnServer and btnSettings
+
+    btnPlayer.MouseButton1Click:Connect(function()
+        onTabClick("Player", ICON_PLAYER, function()
+            setPlayerActive(true); setHomeActive(false); setQuestActive(false)
+            setShopActive(false); setUpdateActive(false); setServerActive(false); setSettingsActive(false)
+        end, btnPlayer)
+    end)
+
+    btnHome.MouseButton1Click:Connect(function()
+        onTabClick("Home", ICON_HOME, function()
+            setPlayerActive(false); setHomeActive(true); setQuestActive(false)
+            setShopActive(false); setUpdateActive(false); setServerActive(false); setSettingsActive(false)
+        end, btnHome)
+    end)
+
+    btnQuest.MouseButton1Click:Connect(function()
+        onTabClick("Quest", ICON_QUEST, function()
+            setPlayerActive(false); setHomeActive(false); setQuestActive(true)
+            setShopActive(false); setUpdateActive(false); setServerActive(false); setSettingsActive(false)
+        end, btnQuest)
+    end)
+
+    btnShop.MouseButton1Click:Connect(function()
+        onTabClick("Shop", ICON_SHOP, function()
+            setPlayerActive(false); setHomeActive(false); setQuestActive(false)
+            setShopActive(true); setUpdateActive(false); setServerActive(false); setSettingsActive(false)
+        end, btnShop)
+    end)
+
+    btnUpdate.MouseButton1Click:Connect(function()
+        onTabClick("Update", ICON_UPDATE, function()
+            setPlayerActive(false); setHomeActive(false); setQuestActive(false)
+            setShopActive(false); setUpdateActive(true); setServerActive(false); setSettingsActive(false)
+        end, btnUpdate)
+    end)
+
+    btnServer.MouseButton1Click:Connect(function()
+        onTabClick("Server", ICON_SERVER, function()
+            setPlayerActive(false); setHomeActive(false); setQuestActive(false)
+            setShopActive(false); setUpdateActive(false); setServerActive(true); setSettingsActive(false)
+        end, btnServer)
+    end)
+
+    btnSettings.MouseButton1Click:Connect(function()
+        onTabClick("Settings", ICON_SETTINGS, function()
+            setPlayerActive(false); setHomeActive(false); setQuestActive(false)
+            setShopActive(false); setUpdateActive(false); setServerActive(false); setSettingsActive(true)
+        end, btnSettings)
+    end)
+end)
+-- ========================================================================
 
 -- RIGHT
 local RightShell=Instance.new("Frame",Body)
