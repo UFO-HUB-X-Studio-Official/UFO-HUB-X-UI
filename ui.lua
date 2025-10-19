@@ -369,7 +369,7 @@ task.defer(function()
 end)
 -- ===================================================================
 
--- RIGHT
+-- RIGHT (DROP-IN REPLACEMENT • แยกสกอร์ลต่อแท็บ + กันเด้ง/กันเลื่อนตาม)
 local RightShell=Instance.new("Frame",Body)
 RightShell.BackgroundColor3=THEME.BG_PANEL; RightShell.BorderSizePixel=0
 RightShell.Position=UDim2.new(SIZE.LEFT_RATIO,SIZE.BETWEEN,0,SIZE.GAP_IN)
@@ -388,8 +388,9 @@ padR.PaddingTop=UDim.new(0,12); padR.PaddingLeft=UDim.new(0,12); padR.PaddingRig
 local RightList=Instance.new("UIListLayout",RightScroll)
 RightList.Padding=UDim.new(0,10)
 RightList.SortOrder = Enum.SortOrder.LayoutOrder
+RightList.VerticalAlignment = Enum.VerticalAlignment.Top
 
--- อัปเดต CanvasSize เอง
+-- อัปเดต CanvasSize เอง (รักษา Y เดิมไม่ให้เด้ง)
 local function refreshRightCanvas()
     local contentH = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
     RightScroll.CanvasSize = UDim2.new(0,0,0,contentH)
@@ -403,7 +404,7 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 task.defer(refreshRightCanvas)
 
--- จำสกอร์ลแยกตามแท็บ
+-- จำสกอร์ลแยกตามแท็บ (ไม่ให้เลื่อนตามกัน)
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
 RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
@@ -433,7 +434,7 @@ function showRight(titleText, iconId)
     local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
     local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
 
-    -- (วางคอนเทนต์ของแท็บนี้ต่อจากนี้ได้ตามเดิม)
+    -- (ถ้าจะใส่คอนเทนต์ของแท็บนี้ ให้สร้างต่อจากตรงนี้ได้เลย)
 
     -- คืนตำแหน่งของแท็บนี้
     RSTATE.currentTab = titleText
