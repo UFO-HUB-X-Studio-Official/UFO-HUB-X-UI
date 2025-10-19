@@ -401,7 +401,7 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
--- ===== REPLACE showRight (Player layout aligned to header & full width) =====
+-- ===== REPLACE showRight (perfect layout from original image) =====
 do
     if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
     local RSTATE = getgenv().UFO_RIGHT
@@ -442,34 +442,28 @@ do
 
     local function renderPlayerPane()
         local pad = 12
-        local AVA = 84           -- ขนาดกรอบรูป
-        local NAME_H = 26        -- สูงของบรรทัดชื่อ
-        local LEVEL_H = 26       -- สูงของกรอบเลเวล
-        local GAP = 8            -- ช่องว่างระหว่างบล็อก
-
-        -- กระดานหลัก: เต็มความกว้างด้านขวา
-        local board = Instance.new("Frame")
+        local board = Instance.new("Frame", RightScroll)
         board.Name = "PlayerBoard"
         board.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        board.BorderSizePixel  = 0
-        board.Position = UDim2.new(0, 0, 0, 36)     -- ใต้หัวข้อพอดี (เหมือน Home)
-        board.Size     = UDim2.new(1, 0, 0, 170)
-        board.Parent   = RightScroll
-        corner(board, 10); stroke(board, 1.6, THEME.GREEN, 0)
+        board.BorderSizePixel = 0
+        board.Position = UDim2.new(0, 12, 0, 36)
+        board.Size = UDim2.new(1, -24, 0, 220)
+        corner(board, 10)
+        stroke(board, 1.6, THEME.GREEN, 0)
 
-        -- รูปผู้เล่น (ซ้ายบน)
+        -- จุดที่ 1: กรอบรูปผู้เล่น (พื้นดำ ขอบเขียว)
         local avatarBox = Instance.new("Frame", board)
         avatarBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        avatarBox.BorderSizePixel  = 0
-        avatarBox.Position = UDim2.new(0, pad, 0, pad)
-        avatarBox.Size     = UDim2.fromOffset(AVA, AVA)
-        corner(avatarBox, 10); stroke(avatarBox, 1.4, THEME.GREEN, 0)
+        avatarBox.BorderSizePixel = 0
+        avatarBox.Position = UDim2.new(0, 70, 0, 20)
+        avatarBox.Size = UDim2.new(0, 110, 0, 110)
+        corner(avatarBox, 8)
+        stroke(avatarBox, 1.3, THEME.GREEN, 0)
 
         local avatar = Instance.new("ImageLabel", avatarBox)
         avatar.BackgroundTransparency = 1
-        avatar.Size      = UDim2.new(1, -8, 1, -8)
-        avatar.Position  = UDim2.new(0,4,0,4)
-        avatar.Image     = "rbxassetid://0"
+        avatar.Size = UDim2.new(1, -8, 1, -8)
+        avatar.Position = UDim2.new(0,4,0,4)
         pcall(function()
             local plr = Players.LocalPlayer
             local id  = plr and plr.UserId or 0
@@ -477,51 +471,56 @@ do
             if ready then avatar.Image = img end
         end)
 
-        -- ชื่อผู้เล่น (จัดให้ “กึ่งกลางแนวตั้ง” กับรูป)
-        local nameLbl = Instance.new("TextLabel", board)
+        -- จุดที่ 2: ชื่อผู้เล่น (พื้นดำ ขอบเขียว)
+        local nameBox = Instance.new("Frame", board)
+        nameBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        nameBox.BorderSizePixel = 0
+        nameBox.Position = UDim2.new(0, 70, 0, 140)
+        nameBox.Size = UDim2.new(0, 240, 0, 36)
+        corner(nameBox, 8)
+        stroke(nameBox, 1.3, THEME.GREEN, 0)
+
+        local nameLbl = Instance.new("TextLabel", nameBox)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Font = Enum.Font.GothamBold
         nameLbl.TextSize = 20
         nameLbl.TextColor3 = THEME.TEXT
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        nameLbl.Position = UDim2.new(0, pad + AVA + 12, 0, pad + math.floor((AVA - NAME_H)/2)) -- กลางรูป
-        nameLbl.Size     = UDim2.new(1, -(pad + AVA + 12 + pad), 0, NAME_H)
-        nameLbl.Text     = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+        nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
+        nameLbl.Size = UDim2.new(1, 0, 1, 0)
 
-        -- กรอบ Level (อยู่ “ใต้ชื่อ”)
+        -- จุดที่ 3: หลอด Level (ดำ ขอบเขียว)
         local levelBox = Instance.new("Frame", board)
         levelBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        levelBox.BorderSizePixel  = 0
-        levelBox.Position = UDim2.new(0, pad + AVA + 12, 0, pad + math.floor((AVA - NAME_H)/2) + NAME_H + 4)
-        levelBox.Size     = UDim2.new(1, -(pad + AVA + 12 + pad), 0, LEVEL_H)
-        corner(levelBox, 8); stroke(levelBox, 1.2, THEME.GREEN, 0)
+        levelBox.BorderSizePixel = 0
+        levelBox.Position = UDim2.new(0, 70, 0, 185)
+        levelBox.Size = UDim2.new(0, 240, 0, 22)
+        corner(levelBox, 8)
+        stroke(levelBox, 1.2, THEME.GREEN, 0)
 
         local levelLbl = Instance.new("TextLabel", levelBox)
         levelLbl.BackgroundTransparency = 1
-        levelLbl.Font = Enum.Font.GothamBold
+        levelLbl.Font = Enum.Font.Gotham
         levelLbl.TextSize = 16
         levelLbl.TextColor3 = THEME.TEXT
-        levelLbl.TextXAlignment = Enum.TextXAlignment.Left
-        levelLbl.Position = UDim2.new(0, 10, 0, 0)
-        levelLbl.Size     = UDim2.new(1, -20, 1, 0)
-        levelLbl.Text     = "Level 1"
+        levelLbl.TextXAlignment = Enum.TextXAlignment.Center
+        levelLbl.Text = "Level 1"
+        levelLbl.Size = UDim2.new(1, 0, 1, 0)
 
-        -- เวลา (สีขาว) — ใต้กรอบ Level
+        -- จุดที่ 4: ตัวเลขเวลา (สีขาว ไม่มีขอบ)
         local timerLbl = Instance.new("TextLabel", board)
         timerLbl.BackgroundTransparency = 1
-        timerLbl.Font       = Enum.Font.GothamBlack
-        timerLbl.TextSize   = 20
+        timerLbl.Font = Enum.Font.GothamBlack
+        timerLbl.TextSize = 20
         timerLbl.TextColor3 = Color3.fromRGB(255,255,255)
         timerLbl.TextXAlignment = Enum.TextXAlignment.Center
         timerLbl.Text = "00:00.00"
-        timerLbl.Position = UDim2.new(0, pad + AVA + 12, 0, pad + math.floor((AVA - NAME_H)/2) + NAME_H + 4 + LEVEL_H + GAP)
-        timerLbl.Size     = UDim2.new(1, -(pad + AVA + 12 + pad), 0, 26)
+        timerLbl.Position = UDim2.new(0, 70, 0, 212)
+        timerLbl.Size = UDim2.new(0, 240, 0, 26)
 
-        -- นับเวลาตามจริง
         local t0 = time()
         RSTATE.timerConn = RunS.Heartbeat:Connect(function()
             local elapsed = time() - t0
-            if elapsed < 0 then elapsed = 0 end
             local mins = math.floor(elapsed / 60)
             local secs = math.floor(elapsed % 60)
             local cs   = math.floor((elapsed - math.floor(elapsed)) * 100)
