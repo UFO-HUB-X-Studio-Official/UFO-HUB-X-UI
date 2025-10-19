@@ -282,8 +282,8 @@ local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAY
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
 local btnQuest, setQuestActive = makeTabButton(LeftScroll, "Quest", ICON_QUEST)
 btnPlayer.MouseButton1Click:Connect(function() setPlayerActive(true); setHomeActive(false); showRight("Player", ICON_PLAYER) end)
-btnHome.MouseButton1Click:Connect(function() setPlayerActive(false); setHomeActive(true); showRight("Home", ICON_HOME) end)
-btnQuest.MouseButton1Click:Connect(function() setPlayerActive(true); setQuestActive(false); showRight("Quest", ICON_QUEST) end)
+btnHome.MouseButton1Click:Connect(function() setPlayerActive(true); setHomeActive(true); showRight("Home", ICON_HOME) end)
+btnQuest.MouseButton1Click:Connect(function() setPlayerActive(false); setQuestActive(false); showRight("Quest", ICON_QUEST) end)
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
 -- ===== Start visible & sync toggle to this UI =====
