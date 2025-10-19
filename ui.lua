@@ -256,15 +256,39 @@ local LeftList=Instance.new("UIListLayout",LeftScroll)
 LeftList.Padding=UDim.new(0,8)
 LeftList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- คุม CanvasSize เองเพื่อไม่ให้เลื่อนเกินคอนเทนต์จริง
-local function refreshLeftCanvas()
-    local contentH = LeftList.AbsoluteContentSize.Y
-    local top = padL.PaddingTop.Offset
-    local bot = padL.PaddingBottom.Offset
-    LeftScroll.CanvasSize = UDim2.new(0,0,0, contentH + top + bot)
-end
-refreshLeftCanvas()
-LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshLeftCanvas)
+local function activateTab(target)
+    -- เปิดเฉพาะแท็บที่เลือก
+    for _,t in ipairs(tabs) do
+        t.set(t == target)
+    end
+    showRight(target.name, target.icon)
+
+    -- === FIX SCROLL JUMP ===
+    -- เก็บตำแหน่งก่อนหน้ากันกระโดด
+    local yBefore = LeftScroll.CanvasPosition.Y
+
+    -- ทำหลังจาก layout อัปเดต (ป้องกัน AbsoluteCanvasSize เปลี่ยน)
+    task.defer(function()
+        -- 1) คงตำแหน่งเลื่อนเดิม (clamp เผื่อ content หด/ขยาย)
+        local contentH = LeftScroll.AbsoluteCanvasSize.Y
+        local viewH    = LeftScroll.AbsoluteSize.Y
+        local maxY     = math.max(0, contentH - viewH)
+        LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore, 0, maxY))
+
+        -- 2) ถ้าปุ่มที่กดอยู่นอกจอ ค่อยเลื่อนให้อยู่ในวิวนิดเดียว (ไม่เด้งไปบนสุด)
+        local btnTop   = target.btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
+        local btnBot   = btnTop + target.btn.AbsoluteSize.Y
+        local padding  = 8
+
+        if btnTop < 0 then
+            -- อยู่เหนือวิวดิสเพลย์: เลื่อนขึ้นเท่าที่พอดี
+            LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, btnTop - padding)
+        elseif btnBot > viewH then
+            -- อยู่ใต้วิวดิสเพลย์: เลื่อนลงเท่าที่พอดี
+            LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (btnBot - viewH) + padding)
+        end
+    end)
+    end
 
 -- RIGHT
 local RightShell=Instance.new("Frame",Body)
