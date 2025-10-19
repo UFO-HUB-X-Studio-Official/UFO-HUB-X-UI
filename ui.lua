@@ -379,14 +379,17 @@ corner(RightShell,10); stroke(RightShell,1.2,THEME.GREEN,0); stroke(RightShell,0
 local RightScroll=Instance.new("ScrollingFrame",RightShell)
 RightScroll.BackgroundTransparency=1; RightScroll.Size=UDim2.fromScale(1,1)
 RightScroll.ScrollBarThickness=0; RightScroll.ScrollingDirection=Enum.ScrollingDirection.Y
-RightScroll.AutomaticCanvasSize=Enum.AutomaticSize.None   -- แก้จาก Y เป็น None เพื่อคุมเอง (กันเด้ง/จำ Y ได้)
+RightScroll.AutomaticCanvasSize=Enum.AutomaticSize.None   -- คุมเองเพื่อกันเด้ง/จำ Y ได้
+RightScroll.ElasticBehavior=Enum.ElasticBehavior.Never
 
 local padR=Instance.new("UIPadding",RightScroll)
 padR.PaddingTop=UDim.new(0,12); padR.PaddingLeft=UDim.new(0,12); padR.PaddingRight=UDim.new(0,12); padR.PaddingBottom=UDim.new(0,12)
 
-local RightList=Instance.new("UIListLayout",RightScroll); RightList.Padding=UDim.new(0,10)
+local RightList=Instance.new("UIListLayout",RightScroll)
+RightList.Padding=UDim.new(0,10)
+RightList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- ===== จัด CanvasSize เอง (ให้พอดีเนื้อหาและไม่เด้ง) =====
+-- อัปเดต CanvasSize เอง
 local function refreshRightCanvas()
     local contentH = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
     RightScroll.CanvasSize = UDim2.new(0,0,0,contentH)
@@ -400,7 +403,7 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 task.defer(refreshRightCanvas)
 
--- ===== จำสกอร์ลแยกตามแท็บ =====
+-- จำสกอร์ลแยกตามแท็บ
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
 RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
@@ -413,9 +416,9 @@ local function clampY(y)
     return math.clamp(y or 0, 0, maxY)
 end
 
--- ===== showRight เดิม + เก็บ/คืน Y ต่อแท็บ =====
+-- showRight: ล้างคอนเทนต์ + สร้างหัวเรื่อง + เก็บ/คืน Y ต่อแท็บ
 function showRight(titleText, iconId)
-    -- เก็บตำแหน่งของแท็บเดิมก่อนเปลี่ยน
+    -- เก็บตำแหน่งแท็บเดิม
     if RSTATE.currentTab then
         RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
     end
@@ -425,22 +428,21 @@ function showRight(titleText, iconId)
         if c:IsA("GuiObject") then c:Destroy() end
     end
 
-    -- สร้างหัวเรื่อง (เหมือนของเดิม)
+    -- หัวเรื่อง (เหมือนเดิม)
     local row=Instance.new("Frame",RightScroll) row.BackgroundTransparency=1 row.Size=UDim2.new(1,0,0,28)
     local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
     local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
 
-    -- (ถ้ามีคอนเทนต์ของแท็บ ให้สร้างต่อจากนี้ได้เลย)
+    -- (วางคอนเทนต์ของแท็บนี้ต่อจากนี้ได้ตามเดิม)
 
-    -- คืนตำแหน่งสกอร์ลของแท็บนี้
+    -- คืนตำแหน่งของแท็บนี้
     RSTATE.currentTab = titleText
     task.defer(function()
         refreshRightCanvas()
-        local savedY = RSTATE.scroll[titleText] or 0
-        RightScroll.CanvasPosition = Vector2.new(0, clampY(savedY))
+        RightScroll.CanvasPosition = Vector2.new(0, clampY(RSTATE.scroll[titleText] or 0))
     end)
 end
-
+    
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
 local btnQuest,  setQuestActive  = makeTabButton(LeftScroll, "Quest",  ICON_QUEST)
