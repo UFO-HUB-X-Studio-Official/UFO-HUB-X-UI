@@ -505,6 +505,90 @@ function showRight(titleText, iconId)
         RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
     end)
 end
+-- ===== [PATCH] ไม่ต้องลบของเดิม แปะต่อท้ายได้เลย =====
+do
+    -- ใช้ตัวแปรเดิมที่สร้างไว้แล้ว
+    if not (RightScroll and RightList and padR) then return end
+
+    -- state สำหรับจำตำแหน่งสกอร์ลของแต่ละแท็บ
+    if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
+    local RSTATE = getgenv().UFO_RIGHT
+    RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
+    RSTATE.currentTab = RSTATE.currentTab
+
+    -- คำนวณขอบเขตสกอร์ลขวา
+    local function clampRightY(y)
+        local contentH = RightList.AbsoluteContentSize.Y
+            + (padR.PaddingTop and padR.PaddingTop.Offset or 0)
+            + (padR.PaddingBottom and padR.PaddingBottom.Offset or 0)
+        local viewH    = RightScroll.AbsoluteSize.Y
+        local maxY     = math.max(0, contentH - viewH)
+        return math.clamp(y or 0, 0, maxY)
+    end
+
+    -- อัปเดต CanvasSize (ถ้าโปรเจ็กต์มี refreshRightCanvas อยู่แล้ว จะเรียกตัวนั้นก่อน)
+    local function ensureRightCanvas()
+        if typeof(refreshRightCanvas) == "function" then
+            refreshRightCanvas()
+        else
+            local h = RightList.AbsoluteContentSize.Y
+                + (padR.PaddingTop and padR.PaddingTop.Offset or 0)
+                + (padR.PaddingBottom and padR.PaddingBottom.Offset or 0)
+            RightScroll.CanvasSize = UDim2.new(0,0,0,h)
+        end
+    end
+
+    -- วาดหัวข้อแบบเดิม
+    local function drawHeader(titleText, iconId)
+        local row = Instance.new("Frame")
+        row.Name = "RightHeader"
+        row.BackgroundTransparency = 1
+        row.Size = UDim2.new(1,0,0,28)
+        row.Parent = RightScroll
+
+        local icon = Instance.new("ImageLabel")
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://"..tostring(iconId or "")
+        icon.Size = UDim2.fromOffset(20,20)
+        icon.Position = UDim2.new(0,0,0.5,-10)
+        icon.Parent = row
+
+        local head = Instance.new("TextLabel")
+        head.BackgroundTransparency = 1
+        head.Font = Enum.Font.GothamBold
+        head.TextSize = 18
+        head.TextXAlignment = Enum.TextXAlignment.Left
+        head.TextColor3 = THEME.TEXT
+        head.Position = UDim2.new(0,26,0,0)
+        head.Size = UDim2.new(1,-26,1,0)
+        head.Text = titleText
+        head.Parent = row
+    end
+
+    -- ✅ ฟังก์ชันใหม่: แทนที่ของเดิมโดยอัตโนมัติ (ไม่ต้องลบ)
+    function showRight(titleText, iconId)
+        -- เซฟตำแหน่งของแท็บก่อนหน้า
+        if RSTATE.currentTab then
+            RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
+        end
+
+        -- ล้างคอนเทนต์เดิม
+        for _,c in ipairs(RightScroll:GetChildren()) do
+            if c:IsA("GuiObject") then c:Destroy() end
+        end
+
+        -- วาดหัว
+        drawHeader(titleText, iconId)
+
+        -- คืนตำแหน่งสกอร์ลของแท็บนี้
+        RSTATE.currentTab = titleText
+        task.defer(function()
+            ensureRightCanvas()
+            RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
+        end)
+    end
+end
+-- ===== [END PATCH] =====
 
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
