@@ -419,81 +419,53 @@ do
     local track = Instance.new("Frame"); track.BackgroundColor3 = Color3.fromRGB(25,25,25); track.BorderSizePixel = 0
     track.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 12))
     track.Size = UDim2.fromOffset(barWidth, BAR_H); track.Parent = box1
-    Instance.new("UICorner", track).CornerRadius = UDim.new(0, BAR_H//2)
-    local fill = Instance.new("Frame")
-    fill.BackgroundColor3 = GREEN
-    fill.BorderSizePixel = 0
-    fill.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 12))
-    fill.Size = UDim2.fromOffset(0, BAR_H)
-    fill.Parent = box1
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, BAR_H//2)
+    Instance.new("UICorner", track).CornerRadius = UDim.new(0, BAR_H // 2)
 
-    -- เปอร์เซ็นต์ (ตัวเลข)
+    local fill = Instance.new("Frame"); fill.BackgroundColor3 = GREEN; fill.BorderSizePixel = 0
+    fill.Size = UDim2.fromOffset(0, BAR_H); fill.Parent = track
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, BAR_H // 2)
+
     local pct = Instance.new("TextLabel")
-    pct.BackgroundTransparency = 1
-    pct.Font = Enum.Font.GothamMedium
-    pct.Text = "0%"
-    pct.TextSize = 12
-    pct.TextColor3 = Color3.fromRGB(190,190,190)
-    pct.TextXAlignment = Enum.TextXAlignment.Right
-    pct.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 28))
-    pct.Size = UDim2.fromOffset(barWidth, 14)
-    pct.Parent = box1
+    pct.BackgroundTransparency = 1; pct.Font = Enum.Font.GothamBold; pct.TextSize = 12
+    pct.TextColor3 = Color3.new(1,1,1); pct.TextStrokeTransparency = 0.15; pct.TextStrokeColor3 = Color3.new(0,0,0)
+    pct.TextXAlignment = Enum.TextXAlignment.Center; pct.TextYAlignment = Enum.TextYAlignment.Center
+    pct.AnchorPoint = Vector2.new(0.5,0.5); pct.Position = UDim2.fromScale(0.5,0.5); pct.Size = UDim2.fromScale(1,1)
+    pct.Text = "0%"; pct.ZIndex = 20; pct.Parent = track
 
-    -- แอนิเมชันโหลด
-    local elapsed = 0
-    local hb
-    hb = RunS.Heartbeat:Connect(function(dt)
-        elapsed = math.min(LOAD_TIME, elapsed + dt)
-        local a = elapsed / LOAD_TIME
-        local w = math.floor(barWidth * a)
-        fill.Size = UDim2.fromOffset(w, BAR_H)
-        local p = math.floor(a * 100 + 0.5)
-        pct.Text = tostring(p) .. "%"
+    tween(box1, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out,
+        {Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -EDGE_BOTTOM_PAD)}):Play()
 
-        if elapsed >= LOAD_TIME then
-            hb:Disconnect()
-            -- จบ Step1 -> ลบ แล้วไป Step2 พร้อมเปิด UI หลัก
-            gui1:Destroy()
-
-            -- STEP 2 (เสร็จแล้ว + โชว์พร้อมกับ UI หลัก)
-            local gui2 = makeToastGui("UFO_Toast_Test_2")
-            local box2 = buildBox(gui2)
-            buildLogo(box2, LOGO_STEP2)
-            buildTitle(box2)
-            local msg2 = buildMsg(box2, "ดาวน์โหลดเสร็จ")
-
-            -- โชว์ UI หลัก "พร้อมกัน" ทันที
-            pcall(function()
-                if _G and _G.UFO_ShowMainUI then
-                    _G.UFO_ShowMainUI()
-                end
-            end)
-
-            -- เอฟเฟกต์โผล่ขึ้นเล็กน้อย
-            box2.Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -(EDGE_BOTTOM_PAD - 12))
-            tween(box2, 0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
-                Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -EDGE_BOTTOM_PAD)
-            }):Play()
-
-            -- รอแป๊บแล้วค่อยเฟดหายเอง
-            task.delay(1.25, function()
-                local t1 = tween(box2, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
-                    BackgroundTransparency = 1
-                })
-                local st = box2:FindFirstChildOfClass("UIStroke")
-                if st then
-                    tween(st, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 1 }):Play()
-                end
-                for _,v in ipairs(box2:GetChildren()) do
-                    if v:IsA("GuiObject") then
-                        tween(v, 0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 1 }):Play()
-                    end
-                end
-                t1.Completed:Wait()
-                gui2:Destroy()
-            end)
+    task.spawn(function()
+        local t0 = time()
+        local progress = 0
+        while progress < 100 do
+            progress = math.clamp(math.floor(((time() - t0)/LOAD_TIME)*100 + 0.5), 0, 100)
+            fill.Size = UDim2.fromOffset(math.floor(barWidth*(progress/100)), BAR_H)
+            pct.Text = progress .. "%"
+            RunS.Heartbeat:Wait()
         end
+        msg1.Text = "Loaded successfully."
+        task.wait(0.25)
+        local out1 = tween(box1, 0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut,
+            {Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -(EDGE_BOTTOM_PAD - 24))})
+        out1:Play(); out1.Completed:Wait(); gui1:Destroy()
+
+        -- Step 2 (no progress) + เปิด UI หลักพร้อมกัน
+        local gui2 = makeToastGui("UFO_Toast_Test_2")
+        local box2 = buildBox(gui2)
+        buildLogo(box2, LOGO_STEP2)
+        buildTitle(box2)
+        buildMsg(box2, "Download UI completed. ✅")
+        tween(box2, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out,
+            {Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -EDGE_BOTTOM_PAD)}):Play()
+
+        -- เปิด UI หลัก "พร้อมกัน" กับ Toast ขั้นที่ 2
+        if _G.UFO_ShowMainUI then pcall(_G.UFO_ShowMainUI) end
+
+        -- ให้ผู้ใช้เห็นข้อความครบ แล้วค่อยเลือนลง (ปรับเวลาได้ตามใจ)
+        task.wait(1.2)
+        local out2 = tween(box2, 0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut,
+            {Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -(EDGE_BOTTOM_PAD - 24))})
+        out2:Play(); out2.Completed:Wait(); gui2:Destroy()
     end)
 end
--- ====== END Toast chain ======
