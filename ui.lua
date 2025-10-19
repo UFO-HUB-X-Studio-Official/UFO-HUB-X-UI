@@ -589,6 +589,97 @@ do
     end
 end
 -- ===== [END PATCH] =====
+-- (ถ้าจะมีคอนเทนต์ของแท็บ ให้สร้างต่อจากนี้)
+    if titleText == "Player" then
+        local padTop = 46 -- ระยะห่างจากหัวข้อ
+        local centerX = function(w) return 0.5,-(w/2) end
+
+        -- 1) กรอบรูป (ขอบเขียว ไม่มีพื้นดำใหญ่ครอบทั้งหมด)
+        local AV_W, AV_H = 120, 120
+        local avatarBox = Instance.new("Frame", RightScroll)
+        avatarBox.BackgroundTransparency = 1
+        avatarBox.Size = UDim2.fromOffset(AV_W, AV_H)
+        avatarBox.Position = UDim2.new(centerX(AV_W), 0, 0, padTop)
+
+        local avatarBorder = Instance.new("Frame", avatarBox)
+        avatarBorder.Size = UDim2.fromScale(1,1)
+        avatarBorder.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        avatarBorder.BorderSizePixel = 0
+        local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 10) end
+        local function stroke(p,th,col,tr) local s=Instance.new("UIStroke",p) s.Thickness=th or 1 s.Color=THEME.GREEN s.Transparency=tr or 0 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border end
+        corner(avatarBorder,8); stroke(avatarBorder,1.4,THEME.GREEN,0)
+
+        local avatar = Instance.new("ImageLabel", avatarBorder)
+        avatar.BackgroundTransparency = 1
+        avatar.Size = UDim2.new(1,-10,1,-10)
+        avatar.Position = UDim2.fromOffset(5,5)
+
+        pcall(function()
+            local plr = Players.LocalPlayer
+            local id = plr and plr.UserId or 0
+            local img, ready = Players:GetUserThumbnailAsync(id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+            if ready then avatar.Image = img end
+        end)
+
+        -- 2) ชื่อ
+        local NAME_W, NAME_H = 320, 38
+        local nameBox = Instance.new("Frame", RightScroll)
+        nameBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        nameBox.BorderSizePixel = 0
+        nameBox.Size = UDim2.fromOffset(NAME_W, NAME_H)
+        nameBox.Position = UDim2.new(centerX(NAME_W), 0, 0, padTop + AV_H + 12)
+        corner(nameBox,8); stroke(nameBox,1.4,THEME.GREEN,0)
+
+        local nameLbl = Instance.new("TextLabel", nameBox)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Size = UDim2.new(1,0,1,0)
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 20
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+        nameLbl.TextColor3 = THEME.TEXT
+        nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
+
+        -- 3) Level
+        local LV_W, LV_H = 320, 26
+        local lvlBox = Instance.new("Frame", RightScroll)
+        lvlBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        lvlBox.BorderSizePixel = 0
+        lvlBox.Size = UDim2.fromOffset(LV_W, LV_H)
+        lvlBox.Position = UDim2.new(centerX(LV_W), 0, 0, padTop + AV_H + 12 + NAME_H + 8)
+        corner(lvlBox,8); stroke(lvlBox,1.2,THEME.GREEN,0)
+
+        local lvlLbl = Instance.new("TextLabel", lvlBox)
+        lvlLbl.BackgroundTransparency = 1
+        lvlLbl.Size = UDim2.new(1,0,1,0)
+        lvlLbl.Font = Enum.Font.Gotham
+        lvlLbl.TextSize = 16
+        lvlLbl.TextXAlignment = Enum.TextXAlignment.Center
+        lvlLbl.TextColor3 = THEME.TEXT
+        lvlLbl.Text = "Level 1"
+
+        -- 4) เวลา (ตัวเลขล้วน ไม่ต้องมีกรอบ)
+        local timerLbl = Instance.new("TextLabel", RightScroll)
+        timerLbl.BackgroundTransparency = 1
+        timerLbl.Font = Enum.Font.GothamBlack
+        timerLbl.TextSize = 20
+        timerLbl.TextColor3 = Color3.fromRGB(255,255,255)
+        timerLbl.TextXAlignment = Enum.TextXAlignment.Center
+        timerLbl.Size = UDim2.fromOffset(160, 26)
+        timerLbl.Position = UDim2.new(0.5,-80, 0, padTop + AV_H + 12 + NAME_H + 8 + LV_H + 8)
+        timerLbl.Text = "00:00.00"
+
+        -- อัปเดตเวลาแบบลื่น
+        local t0 = time()
+        if RSTATE and RSTATE.timerConn then pcall(function() RSTATE.timerConn:Disconnect() end) end
+        RSTATE.timerConn = RunS.Heartbeat:Connect(function()
+            local e = time() - t0
+            if e < 0 then e = 0 end
+            local m = math.floor(e/60)
+            local s = math.floor(e%60)
+            local cs = math.floor((e - math.floor(e))*100)
+            timerLbl.Text = string.format("%02d:%02d.%02d", m%60, s, cs)
+        end)
+    end
 
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
