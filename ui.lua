@@ -375,13 +375,32 @@ RightShell.BackgroundColor3=THEME.BG_PANEL; RightShell.BorderSizePixel=0
 RightShell.Position=UDim2.new(SIZE.LEFT_RATIO,SIZE.BETWEEN,0,SIZE.GAP_IN)
 RightShell.Size=UDim2.new(1-SIZE.LEFT_RATIO,-SIZE.GAP_IN-SIZE.BETWEEN,1,-SIZE.GAP_IN*2)
 corner(RightShell,10); stroke(RightShell,1.2,THEME.GREEN,0); stroke(RightShell,0.45,THEME.MINT,0.35)
+
 local RightScroll=Instance.new("ScrollingFrame",RightShell)
-RightScroll.BackgroundTransparency=1; RightScroll.Size=UDim2.fromScale(1,1)
-RightScroll.ScrollBarThickness=0; RightScroll.ScrollingDirection=Enum.ScrollingDirection.Y
-RightScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+RightScroll.BackgroundTransparency=1
+RightScroll.Size=UDim2.fromScale(1,1)
+RightScroll.ScrollBarThickness=0
+RightScroll.ScrollingDirection=Enum.ScrollingDirection.Y
+RightScroll.AutomaticCanvasSize = Enum.AutomaticSize.None  -- ★ คุมเอง (แก้บัคเด้ง/ล้น)
+
 local padR=Instance.new("UIPadding",RightScroll)
-padR.PaddingTop=UDim.new(0,12); padR.PaddingLeft=UDim.new(0,12); padR.PaddingRight=UDim.new(0,12); padR.PaddingBottom=UDim.new(0,12)
-local RightList=Instance.new("UIListLayout",RightScroll); RightList.Padding=UDim.new(0,10)
+padR.PaddingTop=UDim.new(0,12)
+padR.PaddingLeft=UDim.new(0,12)
+padR.PaddingRight=UDim.new(0,12)
+padR.PaddingBottom=UDim.new(0,12)
+
+local RightList=Instance.new("UIListLayout",RightScroll)
+RightList.Padding=UDim.new(0,10)
+RightList.SortOrder = Enum.SortOrder.LayoutOrder
+RightList.VerticalAlignment = Enum.VerticalAlignment.Top
+
+-- อัปเดต CanvasSize ให้พอดีกับเนื้อหา
+local function refreshRightCanvas()
+    local h = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
+    RightScroll.CanvasSize = UDim2.new(0,0,0,h)
+end
+RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshRightCanvas)
+task.defer(refreshRightCanvas)
 
 -- Tabs
 local function makeTabButton(parent, label, iconId)
@@ -536,14 +555,51 @@ do
         end)
     end
 
-    function showRight(titleText, iconId)
-        killRight()
-        rightHeader(titleText, iconId)
-        if titleText == "Player" then
-            renderPlayerPane()
-        end
-    end
+    -- เก็บสถานะสกอร์ลแยกตามแท็บ
+if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
+local RSTATE = getgenv().UFO_RIGHT
+RSTATE.scroll = RSTATE.scroll or {}   -- { [tabName] = y }
+RSTATE.currentTab = RSTATE.currentTab
+
+local function clampY(y)
+    local contentH = RightList.AbsoluteContentSize.Y + 24
+    local viewH    = RightScroll.AbsoluteSize.Y
+    local maxY     = math.max(0, contentH - viewH)
+    return math.clamp(y or 0, 0, maxY)
 end
+
+function showRight(titleText, iconId)
+    -- เก็บตำแหน่งของแท็บเดิมก่อนเปลี่ยน
+    if RSTATE.currentTab then
+        RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
+    end
+
+    -- ล้างคอนเทนต์เดิม
+    for _,c in ipairs(RightScroll:GetChildren()) do
+        if c:IsA("GuiObject") then c:Destroy() end
+    end
+
+    -- สร้างหัวเรื่อง (ของเดิมที่นายมี)
+    local row=Instance.new("Frame",RightScroll) row.BackgroundTransparency=1 row.Size=UDim2.new(1,0,0,28)
+    local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
+    local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
+
+    -- วางคอนเทนต์ของแท็บนี้ (เช่น Player/Home …)
+    if titleText == "Player" then
+        -- เรียกฟังก์ชันสร้าง UI ของ Player ที่นายทำไว้ เช่น renderPlayerPane()
+        if renderPlayerPane then renderPlayerPane() end
+    elseif titleText == "Home" then
+        -- ใส่ของ Home ตามเดิม
+    end
+
+    -- คืนตำแหน่งสกอร์ลของแท็บนี้
+    RSTATE.currentTab = titleText
+    task.defer(function()
+        refreshRightCanvas()
+        local savedY = RSTATE.scroll[titleText] or 0
+        RightScroll.CanvasPosition = Vector2.new(0, clampY(savedY))
+    end)
+        end
 -- ===== END REPLACE showRight =====
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
