@@ -39,6 +39,7 @@ local SIZE={WIN_W=640,WIN_H=360,RADIUS=12,BORDER=3,HEAD_H=46,GAP_OUT=14,GAP_IN=8
 local IMG_UFO="rbxassetid://100650447103028"
 local ICON_PLAYER = 116976545042904
 local ICON_HOME   = 134323882016779
+local ICON_QUEST   = 72473476254744
 local TOGGLE_ICON = "rbxassetid://117052960049460"
 
 local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 10) return u end
@@ -279,8 +280,10 @@ end
 
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
+local btnQuest, setQuestActive = makeTabButton(LeftScroll, "Quest", ICON_QUEST)
 btnPlayer.MouseButton1Click:Connect(function() setPlayerActive(true); setHomeActive(false); showRight("Player", ICON_PLAYER) end)
 btnHome.MouseButton1Click:Connect(function() setPlayerActive(false); setHomeActive(true); showRight("Home", ICON_HOME) end)
+btnQuest.MouseButton1Click:Connect(function() setPlayerActive(true); setQuestActive(false); showRight("Quest", ICON_QUEST) end)
 btnPlayer:Activate(); btnPlayer.MouseButton1Click:Fire()
 
 -- ===== Start visible & sync toggle to this UI =====
