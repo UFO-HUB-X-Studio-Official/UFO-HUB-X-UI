@@ -416,36 +416,77 @@ local btnUpdate,   setUpdateActive   = makeTabButton(LeftScroll, "Update",   ICO
 local btnServer,   setServerActive   = makeTabButton(LeftScroll, "Server",   ICON_SERVER)
 local btnSettings, setSettingsActive = makeTabButton(LeftScroll, "Settings", ICON_SETTINGS)
 
--- สร้างตารางรวมปุ่มทั้งหมดกับฟังก์ชัน setActive ที่ตรงกัน
+-- === Tabs: กดแล้ว "ไม่รีเซ็ตสกอร์ล", คงตำแหน่งเดิม และเลื่อนให้ปุ่มอยู่ในวิวเท่าที่จำเป็น ===
+
+-- ตารางปุ่ม + setter (ต้องสร้างหลังจาก btn*/set* ถูกประกาศแล้ว)
 local tabs = {
-    {btn = btnPlayer,  set = setPlayerActive,  name = "Player",  icon = ICON_PLAYER},
-    {btn = btnHome,    set = setHomeActive,    name = "Home",    icon = ICON_HOME},
-    {btn = btnQuest,   set = setQuestActive,   name = "Quest",   icon = ICON_QUEST},
-    {btn = btnShop,    set = setShopActive,    name = "Shop",    icon = ICON_SHOP},
-    {btn = btnUpdate,  set = setUpdateActive,  name = "Update",  icon = ICON_UPDATE},
-    {btn = btnServer,  set = setServerActive,  name = "Server",  icon = ICON_SERVER},
-    {btn = btnSettings,set = setSettingsActive,name = "Settings",icon = ICON_SETTINGS},
+    {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
+    {btn = btnHome,     set = setHomeActive,     name = "Home",     icon = ICON_HOME},
+    {btn = btnQuest,    set = setQuestActive,    name = "Quest",    icon = ICON_QUEST},
+    {btn = btnShop,     set = setShopActive,     name = "Shop",     icon = ICON_SHOP},
+    {btn = btnUpdate,   set = setUpdateActive,   name = "Update",   icon = ICON_UPDATE},
+    {btn = btnServer,   set = setServerActive,   name = "Server",   icon = ICON_SERVER},
+    {btn = btnSettings, set = setSettingsActive, name = "Settings", icon = ICON_SETTINGS},
 }
 
--- ฟังก์ชันจัดการการกดปุ่มแท็บ
-local function activateTab(target)
-    for _,t in ipairs(tabs) do
-        t.set(t == target)  -- เปิดเฉพาะแท็บที่เลือก
-    end
-    showRight(target.name, target.icon)
-    LeftScroll.CanvasPosition = Vector2.new(0, 0) -- รีเซ็ตตำแหน่งเลื่อนฝั่งซ้าย (กันหลุดขอบ)
+-- อัปเดต CanvasSize ตามความสูงจริงของคอนเทนต์
+local function refreshLeftCanvas()
+    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
+    LeftScroll.CanvasSize = UDim2.new(0, 0, 0, contentH)
 end
 
--- ผูกคลิกทั้งหมด
-for _,t in ipairs(tabs) do
-    t.btn.MouseButton1Click:Connect(function()
-        activateTab(t)
+-- คงตำแหน่งสกอร์ลเดิม (พร้อม clamp ไม่ให้เกินขอบ)
+local function clampAndRestore(yBefore)
+    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
+    local viewH    = LeftScroll.AbsoluteSize.Y
+    local maxY     = math.max(0, contentH - viewH)
+    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore or 0, 0, maxY))
+end
+
+-- หากคอนเทนต์สูงเปลี่ยน ให้คงตำแหน่งสกอร์ลปัจจุบันไว้
+LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    refreshLeftCanvas()
+    clampAndRestore(LeftScroll.CanvasPosition.Y)
+end)
+task.defer(refreshLeftCanvas)
+
+-- ฟังก์ชันกดแท็บ (ไม่รีเซ็ตสกอร์ล)
+local function activateTab(target)
+    local yBefore = LeftScroll.CanvasPosition.Y  -- จดตำแหน่งก่อน
+
+    -- เปิดเฉพาะแท็บที่เลือก
+    for _,t in ipairs(tabs) do t.set(t == target) end
+    showRight(target.name, target.icon)
+
+    -- รอ layout อัปเดตแล้วค่อยคืนตำแหน่ง + จัดให้ปุ่มอยู่ในวิวถ้าจำเป็น
+    task.defer(function()
+        refreshLeftCanvas()
+        clampAndRestore(yBefore)
+
+        -- ถ้าปุ่มอยู่นอกจอ ค่อยเลื่อนให้พอดี (ไม่เด้งขึ้นบนสุด)
+        local btn = target.btn
+        if btn and btn.Parent then
+            local viewH  = LeftScroll.AbsoluteSize.Y
+            local top    = btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
+            local bottom = top + btn.AbsoluteSize.Y
+            local pad    = 8
+            if top < 0 then
+                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, top - pad)
+            elseif bottom > viewH then
+                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (bottom - viewH) + pad)
+            end
+        end
     end)
 end
 
--- เริ่มต้นด้วย Player
-activateTab(tabs[1])
+-- ผูกคลิกทุกปุ่มเข้ากับ activateTab
+for _,t in ipairs(tabs) do
+    t.btn.MouseButton1Click:Connect(function() activateTab(t) end)
+end
 
+-- เริ่มต้นด้วยแท็บแรกโดยไม่กระชากสกอร์ล
+activateTab(tabs[1])
+    
 -- ===== Start visible & sync toggle to this UI =====
 setOpen(true)
 
