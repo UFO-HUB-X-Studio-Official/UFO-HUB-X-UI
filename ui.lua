@@ -401,7 +401,7 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
--- ===== REPLACE showRight (perfect layout from original image) =====
+-- ===== REPLACE showRight (centered, no black board) =====
 do
     if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
     local RSTATE = getgenv().UFO_RIGHT
@@ -441,44 +441,32 @@ do
     end
 
     local function renderPlayerPane()
-        local pad = 12
-        local board = Instance.new("Frame", RightScroll)
-        board.Name = "PlayerBoard"
-        board.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        board.BorderSizePixel = 0
-        board.Position = UDim2.new(0, 12, 0, 36)
-        board.Size = UDim2.new(1, -24, 0, 220)
-        corner(board, 10)
-        stroke(board, 1.6, THEME.GREEN, 0)
+        -- ขนาด “ตามภาพเดิม” (กึ่งกลางแนวนอน, ไล่ลงด้านล่าง)
+        local AV_SIZE   = 110
+        local NAME_W,  NAME_H  = 360, 36
+        local LEVEL_W, LEVEL_H = 360, 22
+        local TIMER_W, TIMER_H = 240, 26
 
-        -- จุดที่ 1: กรอบรูปผู้เล่น (พื้นดำ ขอบเขียว)
-        local avatarBox = Instance.new("Frame", board)
-        avatarBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        avatarBox.BorderSizePixel = 0
-        avatarBox.Position = UDim2.new(0, 70, 0, 20)
-        avatarBox.Size = UDim2.new(0, 110, 0, 110)
-        corner(avatarBox, 8)
-        stroke(avatarBox, 1.3, THEME.GREEN, 0)
+        local topY = 36  -- ระยะจากหัวข้อถึงรูป
 
-        local avatar = Instance.new("ImageLabel", avatarBox)
+        -- 1) รูปผู้เล่น (โปร่งพื้นหลัง, ไม่มีบอร์ดใหญ่)
+        local avatar = Instance.new("ImageLabel")
         avatar.BackgroundTransparency = 1
-        avatar.Size = UDim2.new(1, -8, 1, -8)
-        avatar.Position = UDim2.new(0,4,0,4)
+        avatar.Size = UDim2.fromOffset(AV_SIZE, AV_SIZE)
+        avatar.Parent = RightScroll
         pcall(function()
             local plr = Players.LocalPlayer
             local id  = plr and plr.UserId or 0
-            local img, ready = Players:GetUserThumbnailAsync(id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            local img, ready = Players:GetUserThumbnailAsync(id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size180x180)
             if ready then avatar.Image = img end
         end)
 
-        -- จุดที่ 2: ชื่อผู้เล่น (พื้นดำ ขอบเขียว)
-        local nameBox = Instance.new("Frame", board)
-        nameBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        nameBox.BorderSizePixel = 0
-        nameBox.Position = UDim2.new(0, 70, 0, 140)
-        nameBox.Size = UDim2.new(0, 240, 0, 36)
-        corner(nameBox, 8)
-        stroke(nameBox, 1.3, THEME.GREEN, 0)
+        -- 2) กล่องชื่อ “โปร่ง” + เส้นเขียว
+        local nameBox = Instance.new("Frame")
+        nameBox.BackgroundTransparency = 1
+        nameBox.Size = UDim2.fromOffset(NAME_W, NAME_H)
+        nameBox.Parent = RightScroll
+        corner(nameBox, 10); stroke(nameBox, 1.3, THEME.GREEN, 0)
 
         local nameLbl = Instance.new("TextLabel", nameBox)
         nameLbl.BackgroundTransparency = 1
@@ -486,41 +474,54 @@ do
         nameLbl.TextSize = 20
         nameLbl.TextColor3 = THEME.TEXT
         nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+        nameLbl.Size = UDim2.fromScale(1,1)
         nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
-        nameLbl.Size = UDim2.new(1, 0, 1, 0)
 
-        -- จุดที่ 3: หลอด Level (ดำ ขอบเขียว)
-        local levelBox = Instance.new("Frame", board)
-        levelBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        levelBox.BorderSizePixel = 0
-        levelBox.Position = UDim2.new(0, 70, 0, 185)
-        levelBox.Size = UDim2.new(0, 240, 0, 22)
-        corner(levelBox, 8)
-        stroke(levelBox, 1.2, THEME.GREEN, 0)
+        -- 3) กล่อง Level “โปร่ง” + เส้นเขียว
+        local lvlBox = Instance.new("Frame")
+        lvlBox.BackgroundTransparency = 1
+        lvlBox.Size = UDim2.fromOffset(LEVEL_W, LEVEL_H)
+        lvlBox.Parent = RightScroll
+        corner(lvlBox, 10); stroke(lvlBox, 1.2, THEME.GREEN, 0)
 
-        local levelLbl = Instance.new("TextLabel", levelBox)
-        levelLbl.BackgroundTransparency = 1
-        levelLbl.Font = Enum.Font.Gotham
-        levelLbl.TextSize = 16
-        levelLbl.TextColor3 = THEME.TEXT
-        levelLbl.TextXAlignment = Enum.TextXAlignment.Center
-        levelLbl.Text = "Level 1"
-        levelLbl.Size = UDim2.new(1, 0, 1, 0)
+        local lvlLbl = Instance.new("TextLabel", lvlBox)
+        lvlLbl.BackgroundTransparency = 1
+        lvlLbl.Font = Enum.Font.Gotham
+        lvlLbl.TextSize = 16
+        lvlLbl.TextColor3 = THEME.TEXT
+        lvlLbl.TextXAlignment = Enum.TextXAlignment.Center
+        lvlLbl.Size = UDim2.fromScale(1,1)
+        lvlLbl.Text = "Level 1"
 
-        -- จุดที่ 4: ตัวเลขเวลา (สีขาว ไม่มีขอบ)
-        local timerLbl = Instance.new("TextLabel", board)
+        -- 4) ตัวเลขเวลา “สีขาวล้วน”
+        local timerLbl = Instance.new("TextLabel")
         timerLbl.BackgroundTransparency = 1
         timerLbl.Font = Enum.Font.GothamBlack
         timerLbl.TextSize = 20
         timerLbl.TextColor3 = Color3.fromRGB(255,255,255)
         timerLbl.TextXAlignment = Enum.TextXAlignment.Center
+        timerLbl.Size = UDim2.fromOffset(TIMER_W, TIMER_H)
         timerLbl.Text = "00:00.00"
-        timerLbl.Position = UDim2.new(0, 70, 0, 212)
-        timerLbl.Size = UDim2.new(0, 240, 0, 26)
+        timerLbl.Parent = RightScroll
 
+        -- จัดกึ่งกลางแนวนอน + ไล่ตำแหน่งแนวตั้งให้ “เหมือนภาพเดิม”
+        local function relayout()
+            local W = RightScroll.AbsoluteSize.X
+            local centerX = math.floor(W/2)
+
+            avatar.Position   = UDim2.fromOffset(centerX - AV_SIZE/2, topY)
+            nameBox.Position  = UDim2.fromOffset(centerX - NAME_W/2,  topY + AV_SIZE + 10)
+            lvlBox.Position   = UDim2.fromOffset(centerX - LEVEL_W/2, topY + AV_SIZE + 10 + NAME_H + 10)
+            timerLbl.Position = UDim2.fromOffset(centerX - TIMER_W/2, topY + AV_SIZE + 10 + NAME_H + 10 + LEVEL_H + 10)
+        end
+        relayout()
+        RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
+
+        -- Timer แบบเวลาจริง
         local t0 = time()
         RSTATE.timerConn = RunS.Heartbeat:Connect(function()
             local elapsed = time() - t0
+            if elapsed < 0 then elapsed = 0 end
             local mins = math.floor(elapsed / 60)
             local secs = math.floor(elapsed % 60)
             local cs   = math.floor((elapsed - math.floor(elapsed)) * 100)
