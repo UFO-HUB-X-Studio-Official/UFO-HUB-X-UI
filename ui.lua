@@ -401,7 +401,7 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
--- ===== REPLACE showRight (drop-in, v2) =====
+-- ===== REPLACE showRight (drop-in, v3) =====
 do
     if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
     local RSTATE = getgenv().UFO_RIGHT
@@ -443,29 +443,29 @@ do
     local function renderPlayerPane()
         local pad = 12
 
-        -- กระดานหลัก (เดิม “กรอบขาว”) => สีดำ + เส้นขอบเขียว
+        -- กรอบเขียวหลัก (ลดลงมานิด ให้ "รูป+ชื่อ" ดูสูงกว่าเนื้อหาด้านล่างเล็กน้อย)
         local board = Instance.new("Frame")
         board.Name = "PlayerBoard"
         board.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        board.BorderSizePixel = 0
-        board.Position = UDim2.new(0, pad, 0, 36)              -- ใต้หัวข้อเล็กน้อย
-        board.Size     = UDim2.new(1, -pad*2, 0, 140)          -- ความสูงตามตัวอย่าง
+        board.BorderSizePixel  = 0
+        board.Position = UDim2.new(0, pad, 0, 44)            -- เดิม ~36 ย้ายลงนิด
+        board.Size     = UDim2.new(1, -pad*2, 0, 140)
         board.Parent   = RightScroll
         corner(board, 10); stroke(board, 1.6, THEME.GREEN, 0)
 
-        -- กล่องรูปผู้เล่น (พื้นดำ + ขอบเขียว)
+        -- รูปผู้เล่น (พื้นดำ + ขอบเขียว) — อยู่มุมซ้ายบนของกรอบ
         local avatarBox = Instance.new("Frame", board)
         avatarBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
         avatarBox.BorderSizePixel  = 0
-        avatarBox.Position = UDim2.new(0, pad, 0, pad)
+        avatarBox.Position = UDim2.new(0, pad, 0, pad-4)     -- ยกสูงขึ้นอีกเล็กน้อย
         avatarBox.Size     = UDim2.fromOffset(84,84)
         corner(avatarBox, 10); stroke(avatarBox, 1.4, THEME.GREEN, 0)
 
         local avatar = Instance.new("ImageLabel", avatarBox)
         avatar.BackgroundTransparency = 1
-        avatar.Size = UDim2.new(1, -8, 1, -8)
-        avatar.Position = UDim2.new(0,4,0,4)
-        avatar.Image = "rbxassetid://0"
+        avatar.Size      = UDim2.new(1, -8, 1, -8)
+        avatar.Position  = UDim2.new(0,4,0,4)
+        avatar.Image     = "rbxassetid://0"
         pcall(function()
             local plr = Players.LocalPlayer
             local id  = plr and plr.UserId or 0
@@ -473,30 +473,23 @@ do
             if ready then avatar.Image = img end
         end)
 
-        -- แถบชื่อ (สีแดง) อยู่ทางขวาของรูป
-        local nameBar = Instance.new("Frame", board)
-        nameBar.BackgroundColor3 = Color3.fromRGB(200,40,40)
-        nameBar.BorderSizePixel  = 0
-        nameBar.Position = UDim2.new(0, pad + 84 + 10, 0, pad)          -- ขวาถัดจากรูป
-        nameBar.Size     = UDim2.new(1, -(pad + 84 + 10 + pad), 0, 34)
-        corner(nameBar, 10)
-
-        local nameLbl = Instance.new("TextLabel", nameBar)
+        -- ชื่อผู้เล่น: ไม่มีพื้น/ไม่มีแถบแดง — ข้อความล้วน อยู่ขวาของรูป และสูงกว่านิด
+        local nameLbl = Instance.new("TextLabel", board)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Font = Enum.Font.GothamBold
         nameLbl.TextSize = 20
-        nameLbl.TextColor3 = Color3.fromRGB(255,255,255)
+        nameLbl.TextColor3 = THEME.TEXT
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        nameLbl.Position = UDim2.new(0, 10, 0, 0)
-        nameLbl.Size = UDim2.new(1, -20, 1, 0)
-        nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
+        nameLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad-6)       -- สูงกว่ากล่องด้านล่างเล็กน้อย
+        nameLbl.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 28)
+        nameLbl.Text     = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
 
-        -- กล่อง Level (ย้ายมาอยู่ตำแหน่ง “แถบยาวเดิม”, สีดำ + ขอบเขียว)
+        -- กล่อง Level (สีดำ + ขอบเขียว) — อยู่ตำแหน่งแถบยาวเดิม ใต้ “ชื่อ” นิดเดียว
         local levelBox = Instance.new("Frame", board)
         levelBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
         levelBox.BorderSizePixel  = 0
-        levelBox.Position = UDim2.new(0, pad + 84 + 10, 0, pad + 34 + 8)
-        levelBox.Size     = UDim2.new(1, -(pad + 84 + 10 + pad), 0, 24)
+        levelBox.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 24)   -- ใต้ชื่อเล็กน้อย
+        levelBox.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 24)
         corner(levelBox, 8); stroke(levelBox, 1.2, THEME.GREEN, 0)
 
         local levelLbl = Instance.new("TextLabel", levelBox)
@@ -506,28 +499,25 @@ do
         levelLbl.TextColor3 = THEME.TEXT
         levelLbl.TextXAlignment = Enum.TextXAlignment.Left
         levelLbl.Position = UDim2.new(0, 10, 0, 0)
-        levelLbl.Size = UDim2.new(1, -20, 1, 0)
-        levelLbl.Text = "Level 1"
+        levelLbl.Size     = UDim2.new(1, -20, 1, 0)
+        levelLbl.Text     = "Level 1"
 
-        -- พื้นที่ “แถบเหลือง” เดิม: ให้แสดง “เฉพาะตัวเลขเวลา” (ไม่มีกรอบ/พื้นหลัง)
+        -- ตัวเลขเวลา (ไม่มีกรอบ/พื้นหลัง) — ตำแหน่งเดิมของแถบเหลือง
         local timerLbl = Instance.new("TextLabel", board)
         timerLbl.BackgroundTransparency = 1
         timerLbl.Font       = Enum.Font.GothamBlack
         timerLbl.TextSize   = 20
-        timerLbl.TextColor3 = Color3.fromRGB(255,211,67)   -- ใช้โทนเหลืองเดิม แต่เป็นตัวเลขล้วน
+        timerLbl.TextColor3 = Color3.fromRGB(255,211,67) -- โทนเหลืองเดิม
         timerLbl.TextXAlignment = Enum.TextXAlignment.Center
         timerLbl.Text = "00:00.00"
-        -- วางตรงตำแหน่ง “แถบเหลือง” (กึ่งล่างของกระดาน)
-        timerLbl.Position = UDim2.new(0, pad + 84 + 10, 0, pad + 34 + 8 + 24 + 10)
-        timerLbl.Size     = UDim2.new(1, -(pad + 84 + 10 + pad), 0, 26)
+        timerLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 24 + 24 + 10)
+        timerLbl.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 26)
 
-        -- นับเวลาจริงตามนาฬิกา (ไม่เร็วเกิน): อ้างอิง time() ต่างเชิง
+        -- นับเวลาตามนาฬิกาจริง
         local t0 = time()
         RSTATE.timerConn = RunS.Heartbeat:Connect(function()
             local elapsed = time() - t0
             if elapsed < 0 then elapsed = 0 end
-
-            -- นาที/วินาที/เซ็นติวินาที
             local mins = math.floor(elapsed / 60)
             local secs = math.floor(elapsed % 60)
             local cs   = math.floor((elapsed - math.floor(elapsed)) * 100)
@@ -541,11 +531,9 @@ do
         if titleText == "Player" then
             renderPlayerPane()
         end
-        -- แท็บอื่น ๆ ยังขึ้นเฉพาะหัวเรื่องตามเดิม
     end
 end
 -- ===== END REPLACE showRight =====
-
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
 local btnQuest,  setQuestActive  = makeTabButton(LeftScroll, "Quest",  ICON_QUEST)
