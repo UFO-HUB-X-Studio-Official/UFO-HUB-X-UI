@@ -313,73 +313,35 @@ local btnUpdate,   setUpdateActive   = makeTabButton(LeftScroll, "Update",   ICO
 local btnServer,   setServerActive   = makeTabButton(LeftScroll, "Server",   ICON_SERVER)
 local btnSettings, setSettingsActive = makeTabButton(LeftScroll, "Settings", ICON_SETTINGS)
 
-btnPlayer.MouseButton1Click:Connect(function()
-    setPlayerActive(true)
-    setHomeActive(false)
-    setQuestActive(false)
-    showRight("Player", ICON_PLAYER)
-end)
+-- สร้างตารางรวมปุ่มทั้งหมดกับฟังก์ชัน setActive ที่ตรงกัน
+local tabs = {
+    {btn = btnPlayer,  set = setPlayerActive,  name = "Player",  icon = ICON_PLAYER},
+    {btn = btnHome,    set = setHomeActive,    name = "Home",    icon = ICON_HOME},
+    {btn = btnQuest,   set = setQuestActive,   name = "Quest",   icon = ICON_QUEST},
+    {btn = btnShop,    set = setShopActive,    name = "Shop",    icon = ICON_SHOP},
+    {btn = btnUpdate,  set = setUpdateActive,  name = "Update",  icon = ICON_UPDATE},
+    {btn = btnServer,  set = setServerActive,  name = "Server",  icon = ICON_SERVER},
+    {btn = btnSettings,set = setSettingsActive,name = "Settings",icon = ICON_SETTINGS},
+}
 
-btnHome.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(true)
-    setQuestActive(false)
-    showRight("Home", ICON_HOME)
-end)
+-- ฟังก์ชันจัดการการกดปุ่มแท็บ
+local function activateTab(target)
+    for _,t in ipairs(tabs) do
+        t.set(t == target)  -- เปิดเฉพาะแท็บที่เลือก
+    end
+    showRight(target.name, target.icon)
+    LeftScroll.CanvasPosition = Vector2.new(0, 0) -- รีเซ็ตตำแหน่งเลื่อนฝั่งซ้าย (กันหลุดขอบ)
+end
 
-btnQuest.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(false)
-    setQuestActive(true)
-    showRight("Quest", ICON_QUEST)
-end)
+-- ผูกคลิกทั้งหมด
+for _,t in ipairs(tabs) do
+    t.btn.MouseButton1Click:Connect(function()
+        activateTab(t)
+    end)
+end
 
-btnShop.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(false)
-    setQuestActive(false)
-    setUpdateActive(false)
-    setServerActive(false)
-    setSettingsActive(false)
-    setShopActive(true)
-    showRight("Shop", ICON_SHOP)
-end)
-
-btnUpdate.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(false)
-    setQuestActive(false)
-    setShopActive(false)
-    setServerActive(false)
-    setSettingsActive(false)
-    setUpdateActive(true)
-    showRight("Update", ICON_UPDATE)
-end)
-
-btnServer.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(false)
-    setQuestActive(false)
-    setShopActive(false)
-    setUpdateActive(false)
-    setSettingsActive(false)
-    setServerActive(true)
-    showRight("Server", ICON_SERVER)
-end)
-
-btnSettings.MouseButton1Click:Connect(function()
-    setPlayerActive(false)
-    setHomeActive(false)
-    setQuestActive(false)
-    setShopActive(false)
-    setUpdateActive(false)
-    setServerActive(false)
-    setSettingsActive(true)
-    showRight("Settings", ICON_SETTINGS)
-end)
-
-btnPlayer:Activate()
-btnPlayer.MouseButton1Click:Fire()
+-- เริ่มต้นด้วย Player
+activateTab(tabs[1])
 
 -- ===== Start visible & sync toggle to this UI =====
 setOpen(true)
