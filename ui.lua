@@ -401,12 +401,186 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
-local function showRight(titleText, iconId)
-    for _,c in ipairs(RightScroll:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
-    local row=Instance.new("Frame",RightScroll) row.BackgroundTransparency=1 row.Size=UDim2.new(1,0,0,28)
-    local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
-    local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
+-- ===== REPLACE showRight (drop-in) =====
+do
+    -- เก็บ state/connection ฝั่งขวาไว้ที่นี่ เพื่อเคลียร์ตอนเปลี่ยนแท็บ
+    if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
+    local RSTATE = getgenv().UFO_RIGHT
+
+    local function killRight()
+        -- ล้าง UI เก่าทั้งหมดใน RightScroll (เฉพาะ GuiObject)
+        for _,c in ipairs(RightScroll:GetChildren()) do
+            if c:IsA("GuiObject") then c:Destroy() end
+        end
+        -- ยกเลิก Heartbeat/loop เก่าที่อาจยังทำงานอยู่ (เช่น Timer)
+        if RSTATE.timerConn then pcall(function() RSTATE.timerConn:Disconnect() end) end
+        RSTATE.timerConn = nil
+    end
+
+    local function rightHeader(titleText, iconId)
+        local row = Instance.new("Frame")
+        row.Name = "RightHeader"
+        row.BackgroundTransparency = 1
+        row.Size = UDim2.new(1,0,0,28)
+        row.Parent = RightScroll
+
+        local icon = Instance.new("ImageLabel")
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://"..tostring(iconId or "")
+        icon.Size = UDim2.fromOffset(20,20)
+        icon.Position = UDim2.new(0,0,0.5,-10)
+        icon.Parent = row
+
+        local head = Instance.new("TextLabel")
+        head.BackgroundTransparency = 1
+        head.Font = Enum.Font.GothamBold
+        head.TextSize = 18
+        head.TextXAlignment = Enum.TextXAlignment.Left
+        head.TextColor3 = THEME.TEXT
+        head.Position = UDim2.new(0,26,0,0)
+        head.Size = UDim2.new(1,-26,1,0)
+        head.Text = titleText
+        head.Parent = row
+    end
+
+    -- ===== PLAYER PANE (4 จุดตามสเป็ก) =====
+    local function renderPlayerPane()
+        local pad = 12
+
+        -- กล่องใหญ่สำหรับวางเนื้อหา
+        local root = Instance.new("Frame")
+        root.Name = "PlayerPane"
+        root.BackgroundTransparency = 1
+        root.Size = UDim2.new(1, 0, 0, 240) -- ความสูงพอสำหรับ 4 บล็อก; ปรับได้ถ้าต้องการ
+        root.Parent = RightScroll
+
+        -- helper สร้างกรอบ
+        local function makeBox(parent, name, color, h)
+            local f = Instance.new("Frame")
+            f.Name = name
+            f.BackgroundColor3 = color
+            f.BorderSizePixel = 0
+            f.Size = UDim2.new(1, 0, 0, h)
+            f.Parent = parent
+            local u = Instance.new("UICorner", f)
+            u.CornerRadius = UDim.new(0, 10)
+            return f
+        end
+
+        -- Layout แนวตั้ง
+        local list = Instance.new("UIListLayout", root)
+        list.Padding = UDim.new(0, 10)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+
+        -- 1) กรอบขาว = รูปผู้เล่น (HeadShot)
+        local box1 = makeBox(root, "AvatarBox", Color3.fromRGB(255,255,255), 100)
+        box1.BackgroundTransparency = 0
+        local avatar = Instance.new("ImageLabel", box1)
+        avatar.BackgroundTransparency = 1
+        avatar.AnchorPoint = Vector2.new(0,0.5)
+        avatar.Position = UDim2.new(0, pad, 0.5, 0)
+        avatar.Size = UDim2.fromOffset(80,80)
+        avatar.Image = "rbxassetid://0"
+
+        -- โหลดรูปผู้เล่น
+        local plr = Players.LocalPlayer
+        pcall(function()
+            local id   = plr and plr.UserId or 0
+            local img, ready = Players:GetUserThumbnailAsync(id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            if ready then avatar.Image = img end
+        end)
+
+        -- 2) กรอบแดง = ชื่อเล่นผู้เล่น
+        local box2 = makeBox(root, "NameBox", Color3.fromRGB(200,40,40), 46)
+        local nameLbl = Instance.new("TextLabel", box2)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 20
+        nameLbl.TextColor3 = Color3.fromRGB(255,255,255)
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.Position = UDim2.new(0, pad, 0, 0)
+        nameLbl.Size = UDim2.new(1, -pad*2, 1, 0)
+        nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
+
+        -- 3) หลอด Level + Label "Level 1"
+        local box3 = makeBox(root, "LevelBox", Color3.fromRGB(22,30,24), 54)
+        local levelLbl = Instance.new("TextLabel", box3)
+        levelLbl.BackgroundTransparency = 1
+        levelLbl.Font = Enum.Font.GothamBold
+        levelLbl.TextSize = 16
+        levelLbl.TextXAlignment = Enum.TextXAlignment.Left
+        levelLbl.TextColor3 = THEME.TEXT
+        levelLbl.Position = UDim2.new(0, pad, 0, 6)
+        levelLbl.Size = UDim2.new(1, -pad*2, 0, 18)
+        levelLbl.Text = "Level 1"
+
+        local track = Instance.new("Frame", box3)
+        track.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        track.BorderSizePixel = 0
+        track.Position = UDim2.new(0, pad, 0, 28)
+        track.Size = UDim2.new(1, -pad*2, 0, 12)
+        local tc = Instance.new("UICorner", track)
+        tc.CornerRadius = UDim.new(0, 8)
+
+        local fill = Instance.new("Frame", track)
+        fill.BackgroundColor3 = THEME.GREEN
+        fill.BorderSizePixel = 0
+        fill.Size = UDim2.new(0, 0, 1, 0)  -- เริ่ม 0%
+        local fc = Instance.new("UICorner", fill)
+        fc.CornerRadius = UDim.new(0, 8)
+
+        -- (เริ่มต้น 0%; ถ้าต้องการขยับ progress ค่อยไปแก้ตรงนี้ภายหลัง)
+        -- TS:Create(fill, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Size = UDim2.new(0.35,0,1,0)}):Play() -- ตัวอย่าง 35%
+
+        -- 4) ตัวจับเวลา สีเหลือง (เริ่ม 00:00.00)
+        local box4 = makeBox(root, "TimerBox", Color3.fromRGB(255,211,67), 54)
+        local timerLbl = Instance.new("TextLabel", box4)
+        timerLbl.BackgroundTransparency = 1
+        timerLbl.Font = Enum.Font.GothamBlack
+        timerLbl.TextSize = 20
+        timerLbl.TextColor3 = Color3.fromRGB(0,0,0)
+        timerLbl.TextXAlignment = Enum.TextXAlignment.Center
+        timerLbl.Text = "00:00.00"
+        timerLbl.Size = UDim2.new(1, 0, 1, 0)
+
+        -- นับเวลาจากศูนย์ -> 59 นาที -> 1 ชม -> 24 ชม -> 1 วัน ... ต่อเนื่อง
+        -- รูปแบบ: mm:ss.cs (และเมื่อครบ 60 นาที เราจะคำนวณ h/d/mo/yr แยกไว้ในตัวแปร, แต่แสดง mm:ss.cs ตามที่สั่ง)
+        local t0 = tick()
+        RSTATE.timerConn = RunS.Heartbeat:Connect(function()
+            local dt = tick() - t0
+            -- นับเป็นวินาที
+            local totalSeconds = math.max(0, dt)
+
+            -- แยกวัน/ชั่วโมง/นาที/วินาที/เสี้ยววินาที (อนาคตจะเอาไปใช้ต่อได้)
+            local days   = math.floor(totalSeconds / 86400)
+            local rem1   = totalSeconds - days * 86400
+            local hours  = math.floor(rem1 / 3600)
+            local rem2   = rem1 - hours * 3600
+            local mins   = math.floor(rem2 / 60)
+            local secs   = math.floor(rem2 - mins * 60)
+            local cs     = math.floor((rem2 - mins * 60 - secs) * 100) -- centiseconds (0-99)
+
+            -- แสดงผลรูปแบบที่ต้องการ: mm:ss.cs 
+            -- (เมื่อข้ามชั่วโมง/วันไปแล้ว นาทีจะหมุนต่อ 00..59 ตาม requirement)
+            local mm = mins % 60
+            timerLbl.Text = string.format("%02d:%02d.%02d", mm, secs, cs)
+        end)
+    end
+
+    -- ===== Router: เลือกหน้าจอฝั่งขวาตามแท็บ =====
+    function showRight(titleText, iconId)
+        killRight()
+        rightHeader(titleText, iconId)
+
+        if titleText == "Player" then
+            renderPlayerPane()
+        else
+            -- แท็บอื่นยังคงขึ้นหัวเรื่องอย่างเดียวตามระบบเดิม
+            -- (ถ้าจะเพิ่มเนื้อหาแท็บอื่นในอนาคต ให้ทำฟังก์ชันแบบ renderXXX() แล้วเรียกที่นี่)
+        end
+    end
 end
+-- ===== END REPLACE showRight =====
 
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
