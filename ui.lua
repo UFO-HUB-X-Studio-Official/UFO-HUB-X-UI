@@ -154,6 +154,58 @@ UFO.BackgroundTransparency=1; UFO.Image=IMG_UFO
 UFO.Size=UDim2.fromOffset(168,168); UFO.AnchorPoint=Vector2.new(0.5,1)
 UFO.Position=UDim2.new(0.5,0,0,84); UFO.ZIndex=4
 
+-- === DRAG MAIN ONLY (ลากได้เฉพาะ UI หลักที่ Header; บล็อกกล้องระหว่างลาก) ===
+do
+    local dragging = false
+    local startInputPos: Vector2
+    local startWinOffset: Vector2
+    local blockDrag = false
+
+    -- กันเผลอลากตอนกดปุ่ม X
+    BtnClose.MouseButton1Down:Connect(function() blockDrag = true end)
+    BtnClose.MouseButton1Up:Connect(function() blockDrag = false end)
+
+    local function blockCamera(on: boolean)
+        local name = "UFO_BlockLook_MainDrag"
+        if on then
+            CAS:BindActionAtPriority(name, function()
+                return Enum.ContextActionResult.Sink
+            end, false, 9000,
+            Enum.UserInputType.MouseMovement,
+            Enum.UserInputType.Touch,
+            Enum.UserInputType.MouseButton1)
+        else
+            pcall(function() CAS:UnbindAction(name) end)
+        end
+    end
+
+    Header.InputBegan:Connect(function(input)
+        if blockDrag then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            startInputPos  = input.Position
+            startWinOffset = Vector2.new(Win.Position.X.Offset, Win.Position.Y.Offset)
+            blockCamera(true)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    blockCamera(false)
+                end
+            end)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local delta = input.Position - startInputPos
+        Win.Position = UDim2.new(0.5, startWinOffset.X + delta.X, 0.5, startWinOffset.Y + delta.Y)
+    end)
+end
+-- === END DRAG MAIN ONLY ===
+
 -- BODY
 local Body=Instance.new("Frame",Win)
 Body.BackgroundColor3=THEME.BG_INNER; Body.BorderSizePixel=0
