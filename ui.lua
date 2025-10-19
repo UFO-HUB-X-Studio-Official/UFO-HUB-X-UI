@@ -229,7 +229,7 @@ Body.Position=UDim2.new(0,SIZE.GAP_OUT,0,SIZE.HEAD_H+SIZE.GAP_OUT)
 Body.Size=UDim2.new(1,-SIZE.GAP_OUT*2,1,-(SIZE.HEAD_H+SIZE.GAP_OUT*2))
 corner(Body,12); stroke(Body,0.5,THEME.MINT,0.35)
 
--- === LEFT (แทนที่ทั้งหมด) ===============================================
+-- === LEFT (แทนที่บล็อกก่อนหน้าได้เลย) ================================
 local LeftShell = Instance.new("Frame", Body)
 LeftShell.BackgroundColor3 = THEME.BG_PANEL
 LeftShell.BorderSizePixel  = 0
@@ -245,8 +245,8 @@ LeftScroll.BackgroundTransparency = 1
 LeftScroll.Size                   = UDim2.fromScale(1,1)
 LeftScroll.ScrollBarThickness     = 0
 LeftScroll.ScrollingDirection     = Enum.ScrollingDirection.Y
-LeftScroll.AutomaticCanvasSize    = Enum.AutomaticSize.None   -- คุมเอง
-LeftScroll.ElasticBehavior        = Enum.ElasticBehavior.Never -- กันยางยืดเกินขอบ
+LeftScroll.AutomaticCanvasSize    = Enum.AutomaticSize.None
+LeftScroll.ElasticBehavior        = Enum.ElasticBehavior.Never
 LeftScroll.ScrollingEnabled       = true
 LeftScroll.ClipsDescendants       = true
 
@@ -260,59 +260,61 @@ local LeftList = Instance.new("UIListLayout", LeftScroll)
 LeftList.Padding   = UDim.new(0, 8)
 LeftList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- ========== คุม Canvas + กันเด้งกลับตอนคลิกแท็บ ==========
+-- ===== คุม Canvas + กันเด้งกลับตอนคลิกแท็บ =====
 local function refreshLeftCanvas()
     local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
     LeftScroll.CanvasSize = UDim2.new(0, 0, 0, contentH)
 end
 
-local function clampAndRestore(yBefore)
+local function clampTo(yTarget)
     local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
     local viewH    = LeftScroll.AbsoluteSize.Y
     local maxY     = math.max(0, contentH - viewH)
-    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore or 0, 0, maxY))
+    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yTarget or 0, 0, maxY))
 end
+
+-- ✨ จำตำแหน่งล่าสุดไว้ใช้ “ทุกครั้ง” ที่มีการจัดเลย์เอาต์ใหม่
+local lastY = 0
 
 LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     refreshLeftCanvas()
-    clampAndRestore(LeftScroll.CanvasPosition.Y)
+    clampTo(lastY) -- ใช้ค่าเดิมที่จำไว้ ไม่อ่านจาก CanvasPosition ที่อาจโดนรีเซ็ต
 end)
 
 task.defer(refreshLeftCanvas)
 
--- ฟังก์ชันเรียกตอน “กดแท็บ” ใด ๆ
--- name/icon = ชื่อ/ไอคอนฝั่งขวา, setFns = เซ็ตสถานะแท็บของคุณ, btn = ปุ่มที่ถูกกด (ไว้จัดให้อยู่ในวิว)
+-- name/icon = ชื่อ/ไอคอนฝั่งขวา, setFns = ฟังก์ชันเซ็ต active, btn = ปุ่มที่ถูกกด
 local function onTabClick(name, icon, setFns, btn)
-    local yBefore = LeftScroll.CanvasPosition.Y -- จำตำแหน่งเลื่อนเดิม
+    -- บันทึกตำแหน่งปัจจุบัน “ไว้ก่อน” ที่เลย์เอาต์จะขยับ
+    lastY = LeftScroll.CanvasPosition.Y
 
-    setFns()               -- เซ็ต active/inactive ของแท็บ
-    showRight(name, icon)  -- สร้างเนื้อหาฝั่งขวา
+    setFns()
+    showRight(name, icon)
 
     task.defer(function()
         refreshLeftCanvas()
-        clampAndRestore(yBefore)  -- คืนตำแหน่งเลื่อนเดิม
+        clampTo(lastY) -- คืนตำแหน่งเดิมเสมอ
 
-        -- ถ้าปุ่มอยู่นอกจอ ค่อยเลื่อนให้อยู่ในวิว “เท่าที่จำเป็น”
+        -- ถ้าปุ่มอยู่นอกจอ ค่อยเลื่อนเข้าเฟรมอย่างพอดี (จะปรับ lastY ด้วย)
         if btn and btn.Parent then
             local viewH   = LeftScroll.AbsoluteSize.Y
             local btnTop  = btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
             local btnBot  = btnTop + btn.AbsoluteSize.Y
             local pad     = 8
+            local y = LeftScroll.CanvasPosition.Y
             if btnTop < 0 then
-                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, btnTop - pad)
+                y = y + (btnTop - pad)
             elseif btnBot > viewH then
-                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (btnBot - viewH) + pad)
+                y = y + (btnBot - viewH) + pad
             end
+            lastY = y
+            clampTo(lastY)
         end
     end)
 end
--- ===========================================================
 
--- === ผูกคลิกแท็บทั้ง 7 ด้วย onTabClick (รันหลังจากคุณสร้างปุ่มเสร็จ) ===
--- ถ้าปุ่ม (btnPlayer, btnHome, btnQuest, btnShop, btnUpdate, btnServer, btnSettings)
--- ถูกประกาศ “ถัดจากบล็อกนี้” ให้หน่วงการผูกเล็กน้อยเพื่อให้ตัวแปรมีค่า
+-- === ผูกคลิกแท็บทั้ง 7 (เหมือนเดิม) ================================
 task.defer(function()
-    -- รอจนปุ่มถูกสร้าง
     repeat task.wait() until
         btnPlayer and btnHome and btnQuest and btnShop and btnUpdate and btnServer and btnSettings
 
@@ -365,7 +367,7 @@ task.defer(function()
         end, btnSettings)
     end)
 end)
--- ========================================================================
+-- ===================================================================
 
 -- RIGHT
 local RightShell=Instance.new("Frame",Body)
