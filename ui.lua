@@ -40,6 +40,10 @@ local IMG_UFO="rbxassetid://100650447103028"
 local ICON_PLAYER = 116976545042904
 local ICON_HOME   = 134323882016779
 local ICON_QUEST   = 72473476254744
+local ICON_SHOP     = 139824330037901
+local ICON_UPDATE   = 134419329246667
+local ICON_SERVER   = 77839913086023
+local ICON_SETTINGS = 72289858646360
 local TOGGLE_ICON = "rbxassetid://117052960049460"
 
 local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 10) return u end
@@ -281,6 +285,10 @@ end
 local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
 local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
 local btnQuest,  setQuestActive  = makeTabButton(LeftScroll, "Quest",  ICON_QUEST)
+local btnShop,     setShopActive     = makeTabButton(LeftScroll, "Shop",     ICON_SHOP)
+local btnUpdate,   setUpdateActive   = makeTabButton(LeftScroll, "Update",   ICON_UPDATE)
+local btnServer,   setServerActive   = makeTabButton(LeftScroll, "Server",   ICON_SERVER)
+local btnSettings, setSettingsActive = makeTabButton(LeftScroll, "Settings", ICON_SETTINGS)
 
 btnPlayer.MouseButton1Click:Connect(function()
     setPlayerActive(true)
@@ -301,6 +309,50 @@ btnQuest.MouseButton1Click:Connect(function()
     setHomeActive(false)
     setQuestActive(true)
     showRight("Quest", ICON_QUEST)
+end)
+
+btnShop.MouseButton1Click:Connect(function()
+    setPlayerActive(false)
+    setHomeActive(false)
+    setQuestActive(false)
+    setUpdateActive(false)
+    setServerActive(false)
+    setSettingsActive(false)
+    setShopActive(true)
+    showRight("Shop", ICON_SHOP)
+end)
+
+btnUpdate.MouseButton1Click:Connect(function()
+    setPlayerActive(false)
+    setHomeActive(false)
+    setQuestActive(false)
+    setShopActive(false)
+    setServerActive(false)
+    setSettingsActive(false)
+    setUpdateActive(true)
+    showRight("Update", ICON_UPDATE)
+end)
+
+btnServer.MouseButton1Click:Connect(function()
+    setPlayerActive(false)
+    setHomeActive(false)
+    setQuestActive(false)
+    setShopActive(false)
+    setUpdateActive(false)
+    setSettingsActive(false)
+    setServerActive(true)
+    showRight("Server", ICON_SERVER)
+end)
+
+btnSettings.MouseButton1Click:Connect(function()
+    setPlayerActive(false)
+    setHomeActive(false)
+    setQuestActive(false)
+    setShopActive(false)
+    setUpdateActive(false)
+    setServerActive(false)
+    setSettingsActive(true)
+    showRight("Settings", ICON_SETTINGS)
 end)
 
 btnPlayer:Activate()
