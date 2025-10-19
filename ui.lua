@@ -401,7 +401,7 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
--- ===== REPLACE showRight (centered, no black board) =====
+-- ===== REPLACE showRight (exact layout like original image reference) =====
 do
     if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
     local RSTATE = getgenv().UFO_RIGHT
@@ -441,19 +441,30 @@ do
     end
 
     local function renderPlayerPane()
-        -- ขนาด “ตามภาพเดิม” (กึ่งกลางแนวนอน, ไล่ลงด้านล่าง)
-        local AV_SIZE   = 110
-        local NAME_W,  NAME_H  = 360, 36
-        local LEVEL_W, LEVEL_H = 360, 22
-        local TIMER_W, TIMER_H = 240, 26
+        -- ขนาดและระยะตามภาพต้นฉบับ 100%
+        local AV_SIZE   = 160   -- ขนาดกรอบรูป
+        local NAME_W,  NAME_H  = 240, 40
+        local LEVEL_W, LEVEL_H = 200, 30
+        local TIMER_W, TIMER_H = 180, 26
+        local GAP_Y = 10        -- ระยะห่างระหว่างแต่ละบล็อก
 
-        local topY = 36  -- ระยะจากหัวข้อถึงรูป
+        -- ฟังก์ชันจัดกึ่งกลางเนื้อหา
+        local function centerX(objWidth)
+            local rightW = RightScroll.AbsoluteSize.X
+            return math.floor((rightW - objWidth)/2)
+        end
 
-        -- 1) รูปผู้เล่น (โปร่งพื้นหลัง, ไม่มีบอร์ดใหญ่)
-        local avatar = Instance.new("ImageLabel")
+        -- รูปผู้เล่น (มีขอบเขียว)
+        local avatarBox = Instance.new("Frame", RightScroll)
+        avatarBox.BackgroundTransparency = 1
+        avatarBox.Size = UDim2.fromOffset(AV_SIZE, AV_SIZE)
+        corner(avatarBox, 10)
+        stroke(avatarBox, 1.5, THEME.GREEN, 0)
+
+        local avatar = Instance.new("ImageLabel", avatarBox)
         avatar.BackgroundTransparency = 1
-        avatar.Size = UDim2.fromOffset(AV_SIZE, AV_SIZE)
-        avatar.Parent = RightScroll
+        avatar.Size = UDim2.new(1,-8,1,-8)
+        avatar.Position = UDim2.new(0,4,0,4)
         pcall(function()
             local plr = Players.LocalPlayer
             local id  = plr and plr.UserId or 0
@@ -461,13 +472,12 @@ do
             if ready then avatar.Image = img end
         end)
 
-        -- 2) กล่องชื่อ “โปร่ง” + เส้นเขียว
-        local nameBox = Instance.new("Frame")
+        -- ชื่อผู้เล่น (กรอบเขียว โปร่งพื้น)
+        local nameBox = Instance.new("Frame", RightScroll)
         nameBox.BackgroundTransparency = 1
         nameBox.Size = UDim2.fromOffset(NAME_W, NAME_H)
-        nameBox.Parent = RightScroll
-        corner(nameBox, 10); stroke(nameBox, 1.3, THEME.GREEN, 0)
-
+        corner(nameBox, 10)
+        stroke(nameBox, 1.3, THEME.GREEN, 0)
         local nameLbl = Instance.new("TextLabel", nameBox)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Font = Enum.Font.GothamBold
@@ -477,13 +487,12 @@ do
         nameLbl.Size = UDim2.fromScale(1,1)
         nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
 
-        -- 3) กล่อง Level “โปร่ง” + เส้นเขียว
-        local lvlBox = Instance.new("Frame")
+        -- Level (กรอบเขียว โปร่งพื้น)
+        local lvlBox = Instance.new("Frame", RightScroll)
         lvlBox.BackgroundTransparency = 1
         lvlBox.Size = UDim2.fromOffset(LEVEL_W, LEVEL_H)
-        lvlBox.Parent = RightScroll
-        corner(lvlBox, 10); stroke(lvlBox, 1.2, THEME.GREEN, 0)
-
+        corner(lvlBox, 10)
+        stroke(lvlBox, 1.2, THEME.GREEN, 0)
         local lvlLbl = Instance.new("TextLabel", lvlBox)
         lvlLbl.BackgroundTransparency = 1
         lvlLbl.Font = Enum.Font.Gotham
@@ -493,8 +502,8 @@ do
         lvlLbl.Size = UDim2.fromScale(1,1)
         lvlLbl.Text = "Level 1"
 
-        -- 4) ตัวเลขเวลา “สีขาวล้วน”
-        local timerLbl = Instance.new("TextLabel")
+        -- ตัวเลขเวลา (ไม่มีกรอบ ไม่มีพื้น)
+        local timerLbl = Instance.new("TextLabel", RightScroll)
         timerLbl.BackgroundTransparency = 1
         timerLbl.Font = Enum.Font.GothamBlack
         timerLbl.TextSize = 20
@@ -502,22 +511,20 @@ do
         timerLbl.TextXAlignment = Enum.TextXAlignment.Center
         timerLbl.Size = UDim2.fromOffset(TIMER_W, TIMER_H)
         timerLbl.Text = "00:00.00"
-        timerLbl.Parent = RightScroll
 
-        -- จัดกึ่งกลางแนวนอน + ไล่ตำแหน่งแนวตั้งให้ “เหมือนภาพเดิม”
+        -- ฟังก์ชันจัดตำแหน่งแนวตั้ง (ตามภาพต้นฉบับ)
         local function relayout()
-            local W = RightScroll.AbsoluteSize.X
-            local centerX = math.floor(W/2)
-
-            avatar.Position   = UDim2.fromOffset(centerX - AV_SIZE/2, topY)
-            nameBox.Position  = UDim2.fromOffset(centerX - NAME_W/2,  topY + AV_SIZE + 10)
-            lvlBox.Position   = UDim2.fromOffset(centerX - LEVEL_W/2, topY + AV_SIZE + 10 + NAME_H + 10)
-            timerLbl.Position = UDim2.fromOffset(centerX - TIMER_W/2, topY + AV_SIZE + 10 + NAME_H + 10 + LEVEL_H + 10)
+            local rightH = RightScroll.AbsoluteSize.Y
+            local baseY  = 46  -- ระยะจากบนสุดของกรอบขวา
+            avatarBox.Position = UDim2.fromOffset(centerX(AV_SIZE), baseY)
+            nameBox.Position   = UDim2.fromOffset(centerX(NAME_W),  baseY + AV_SIZE + GAP_Y)
+            lvlBox.Position    = UDim2.fromOffset(centerX(LEVEL_W), baseY + AV_SIZE + GAP_Y + NAME_H + GAP_Y)
+            timerLbl.Position  = UDim2.fromOffset(centerX(TIMER_W), baseY + AV_SIZE + GAP_Y + NAME_H + GAP_Y + LEVEL_H + GAP_Y)
         end
         relayout()
         RightScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
 
-        -- Timer แบบเวลาจริง
+        -- ตัวจับเวลาจริง
         local t0 = time()
         RSTATE.timerConn = RunS.Heartbeat:Connect(function()
             local elapsed = time() - t0
