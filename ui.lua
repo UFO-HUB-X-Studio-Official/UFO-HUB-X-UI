@@ -401,7 +401,7 @@ local function makeTabButton(parent, label, iconId)
     return b, setActive
 end
 
--- ===== REPLACE showRight (drop-in, v3) =====
+-- ===== REPLACE showRight (Player layout refined) =====
 do
     if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
     local RSTATE = getgenv().UFO_RIGHT
@@ -443,21 +443,21 @@ do
     local function renderPlayerPane()
         local pad = 12
 
-        -- กรอบเขียวหลัก (ลดลงมานิด ให้ "รูป+ชื่อ" ดูสูงกว่าเนื้อหาด้านล่างเล็กน้อย)
+        -- กรอบเขียวหลัก
         local board = Instance.new("Frame")
         board.Name = "PlayerBoard"
         board.BackgroundColor3 = Color3.fromRGB(10,10,10)
         board.BorderSizePixel  = 0
-        board.Position = UDim2.new(0, pad, 0, 44)            -- เดิม ~36 ย้ายลงนิด
-        board.Size     = UDim2.new(1, -pad*2, 0, 140)
+        board.Position = UDim2.new(0, pad, 0, 36)
+        board.Size     = UDim2.new(1, -pad*2, 0, 160)
         board.Parent   = RightScroll
         corner(board, 10); stroke(board, 1.6, THEME.GREEN, 0)
 
-        -- รูปผู้เล่น (พื้นดำ + ขอบเขียว) — อยู่มุมซ้ายบนของกรอบ
+        -- รูปผู้เล่น (พื้นดำ + ขอบเขียว) — อยู่บนสุดซ้าย
         local avatarBox = Instance.new("Frame", board)
         avatarBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
         avatarBox.BorderSizePixel  = 0
-        avatarBox.Position = UDim2.new(0, pad, 0, pad-4)     -- ยกสูงขึ้นอีกเล็กน้อย
+        avatarBox.Position = UDim2.new(0, pad, 0, pad)
         avatarBox.Size     = UDim2.fromOffset(84,84)
         corner(avatarBox, 10); stroke(avatarBox, 1.4, THEME.GREEN, 0)
 
@@ -473,23 +473,23 @@ do
             if ready then avatar.Image = img end
         end)
 
-        -- ชื่อผู้เล่น: ไม่มีพื้น/ไม่มีแถบแดง — ข้อความล้วน อยู่ขวาของรูป และสูงกว่านิด
+        -- ชื่อผู้เล่น (ไม่มีพื้นหลัง)
         local nameLbl = Instance.new("TextLabel", board)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Font = Enum.Font.GothamBold
         nameLbl.TextSize = 20
         nameLbl.TextColor3 = THEME.TEXT
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        nameLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad-6)       -- สูงกว่ากล่องด้านล่างเล็กน้อย
-        nameLbl.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 28)
+        nameLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 4)
+        nameLbl.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 26)
         nameLbl.Text     = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
 
-        -- กล่อง Level (สีดำ + ขอบเขียว) — อยู่ตำแหน่งแถบยาวเดิม ใต้ “ชื่อ” นิดเดียว
+        -- กล่อง Level (ดำ + เส้นเขียว) — อยู่ใต้ชื่อ
         local levelBox = Instance.new("Frame", board)
         levelBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
         levelBox.BorderSizePixel  = 0
-        levelBox.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 24)   -- ใต้ชื่อเล็กน้อย
-        levelBox.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 24)
+        levelBox.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 34)
+        levelBox.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 26)
         corner(levelBox, 8); stroke(levelBox, 1.2, THEME.GREEN, 0)
 
         local levelLbl = Instance.new("TextLabel", levelBox)
@@ -502,18 +502,18 @@ do
         levelLbl.Size     = UDim2.new(1, -20, 1, 0)
         levelLbl.Text     = "Level 1"
 
-        -- ตัวเลขเวลา (ไม่มีกรอบ/พื้นหลัง) — ตำแหน่งเดิมของแถบเหลือง
+        -- ตัวเลขเวลา (ไม่มีกรอบ พื้นใส) — อยู่ใต้ Level
         local timerLbl = Instance.new("TextLabel", board)
         timerLbl.BackgroundTransparency = 1
         timerLbl.Font       = Enum.Font.GothamBlack
         timerLbl.TextSize   = 20
-        timerLbl.TextColor3 = Color3.fromRGB(255,211,67) -- โทนเหลืองเดิม
+        timerLbl.TextColor3 = Color3.fromRGB(255,255,255)
         timerLbl.TextXAlignment = Enum.TextXAlignment.Center
         timerLbl.Text = "00:00.00"
-        timerLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 24 + 24 + 10)
+        timerLbl.Position = UDim2.new(0, pad + 84 + 12, 0, pad + 34 + 30)
         timerLbl.Size     = UDim2.new(1, -(pad + 84 + 12 + pad), 0, 26)
 
-        -- นับเวลาตามนาฬิกาจริง
+        -- นับเวลาจริง
         local t0 = time()
         RSTATE.timerConn = RunS.Heartbeat:Connect(function()
             local elapsed = time() - t0
