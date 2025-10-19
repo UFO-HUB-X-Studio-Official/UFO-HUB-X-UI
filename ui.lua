@@ -369,7 +369,76 @@ task.defer(function()
 end)
 -- ===================================================================
 
--- RIGHT (REPLACE THIS WHOLE BLOCK)
+----------------------------------------------------------------
+-- LEFT (ปุ่มแท็บ) + RIGHT (คอนเทนต์) — เวอร์ชันครบ + แก้บัคสกอร์ลแยกแท็บ
+----------------------------------------------------------------
+
+-- ========== LEFT ==========
+local LeftShell=Instance.new("Frame",Body)
+LeftShell.BackgroundColor3=THEME.BG_PANEL; LeftShell.BorderSizePixel=0
+LeftShell.Position=UDim2.new(0,SIZE.GAP_IN,0,SIZE.GAP_IN)
+LeftShell.Size=UDim2.new(SIZE.LEFT_RATIO,-(SIZE.BETWEEN/2),1,-SIZE.GAP_IN*2)
+LeftShell.ClipsDescendants=true
+corner(LeftShell,10); stroke(LeftShell,1.2,THEME.GREEN,0); stroke(LeftShell,0.45,THEME.MINT,0.35)
+
+local LeftScroll=Instance.new("ScrollingFrame",LeftShell)
+LeftScroll.BackgroundTransparency=1
+LeftScroll.Size=UDim2.fromScale(1,1)
+LeftScroll.ScrollBarThickness=0
+LeftScroll.ScrollingDirection=Enum.ScrollingDirection.Y
+LeftScroll.AutomaticCanvasSize=Enum.AutomaticSize.None
+LeftScroll.ElasticBehavior=Enum.ElasticBehavior.Never
+LeftScroll.ScrollingEnabled=true
+LeftScroll.ClipsDescendants=true
+
+local padL=Instance.new("UIPadding",LeftScroll)
+padL.PaddingTop=UDim.new(0,8); padL.PaddingLeft=UDim.new(0,8); padL.PaddingRight=UDim.new(0,8); padL.PaddingBottom=UDim.new(0,8)
+local LeftList=Instance.new("UIListLayout",LeftScroll); LeftList.Padding=UDim.new(0,8); LeftList.SortOrder=Enum.SortOrder.LayoutOrder
+
+local function refreshLeftCanvas()
+    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
+    LeftScroll.CanvasSize = UDim2.new(0,0,0,contentH)
+end
+local lastLeftY = 0
+LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    refreshLeftCanvas()
+    local viewH = LeftScroll.AbsoluteSize.Y
+    local maxY  = math.max(0, LeftScroll.CanvasSize.Y.Offset - viewH)
+    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(lastLeftY,0,maxY))
+end)
+task.defer(refreshLeftCanvas)
+
+-- สร้างปุ่มแท็บ
+local function makeTabButton(parent, label, iconId)
+    local holder = Instance.new("Frame", parent) holder.BackgroundTransparency=1 holder.Size = UDim2.new(1,0,0,38)
+    local b = Instance.new("TextButton", holder) b.AutoButtonColor=false b.Text="" b.Size=UDim2.new(1,0,1,0) b.BackgroundColor3=THEME.BG_INNER corner(b,8)
+    local st = stroke(b,1,THEME.MINT,0.35)
+    local ic = Instance.new("ImageLabel", b) ic.BackgroundTransparency=1 ic.Image="rbxassetid://"..tostring(iconId) ic.Size=UDim2.fromOffset(22,22) ic.Position=UDim2.new(0,10,0.5,-11)
+    local tx = Instance.new("TextLabel", b) tx.BackgroundTransparency=1 tx.TextColor3=THEME.TEXT tx.Font=Enum.Font.GothamMedium tx.TextSize=15 tx.TextXAlignment=Enum.TextXAlignment.Left tx.Position=UDim2.new(0,38,0,0) tx.Size=UDim2.new(1,-46,1,0) tx.Text = label
+    local flash=Instance.new("Frame",b) flash.BackgroundColor3=THEME.GREEN flash.BackgroundTransparency=1 flash.BorderSizePixel=0 flash.AnchorPoint=Vector2.new(0.5,0.5) flash.Position=UDim2.new(0.5,0,0.5,0) flash.Size=UDim2.new(0,0,0,0) corner(flash,12)
+    b.MouseButton1Down:Connect(function() TS:Create(b, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1,0,1,-2)}):Play() end)
+    b.MouseButton1Up:Connect(function() TS:Create(b, TweenInfo.new(0.10, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1,0,1,0)}):Play() end)
+    local function setActive(on)
+        if on then
+            b.BackgroundColor3=THEME.HILITE; st.Color=THEME.GREEN; st.Transparency=0; st.Thickness=2
+            flash.BackgroundTransparency=0.35; flash.Size=UDim2.new(0,0,0,0)
+            TS:Create(flash, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1}):Play()
+        else
+            b.BackgroundColor3=THEME.BG_INNER; st.Color=THEME.MINT; st.Transparency=0.35; st.Thickness=1
+        end
+    end
+    return b, setActive
+end
+
+local btnPlayer,  setPlayerActive   = makeTabButton(LeftScroll, "Player",  ICON_PLAYER)
+local btnHome,    setHomeActive     = makeTabButton(LeftScroll, "Home",    ICON_HOME)
+local btnQuest,   setQuestActive    = makeTabButton(LeftScroll, "Quest",   ICON_QUEST)
+local btnShop,    setShopActive     = makeTabButton(LeftScroll, "Shop",    ICON_SHOP)
+local btnUpdate,  setUpdateActive   = makeTabButton(LeftScroll, "Update",  ICON_UPDATE)
+local btnServer,  setServerActive   = makeTabButton(LeftScroll, "Server",  ICON_SERVER)
+local btnSettings,setSettingsActive = makeTabButton(LeftScroll, "Settings",ICON_SETTINGS)
+
+-- ========== RIGHT ==========
 local RightShell=Instance.new("Frame",Body)
 RightShell.BackgroundColor3=THEME.BG_PANEL; RightShell.BorderSizePixel=0
 RightShell.Position=UDim2.new(SIZE.LEFT_RATIO,SIZE.BETWEEN,0,SIZE.GAP_IN)
@@ -384,12 +453,8 @@ RightScroll.ElasticBehavior=Enum.ElasticBehavior.Never
 
 local padR=Instance.new("UIPadding",RightScroll)
 padR.PaddingTop=UDim.new(0,12); padR.PaddingLeft=UDim.new(0,12); padR.PaddingRight=UDim.new(0,12); padR.PaddingBottom=UDim.new(0,12)
+local RightList=Instance.new("UIListLayout",RightScroll); RightList.Padding=UDim.new(0,10); RightList.SortOrder = Enum.SortOrder.LayoutOrder
 
-local RightList=Instance.new("UIListLayout",RightScroll)
-RightList.Padding=UDim.new(0,10)
-RightList.SortOrder = Enum.SortOrder.LayoutOrder
-
--- อัปเดต CanvasSize เอง
 local function refreshRightCanvas()
     local contentH = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
     RightScroll.CanvasSize = UDim2.new(0,0,0,contentH)
@@ -403,57 +468,45 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 task.defer(refreshRightCanvas)
 
--- จำสกอร์ลแยกตามแท็บ
+-- จำสกอร์ลแยกตามแท็บ (ใช้ getgenv เพื่อให้คงอยู่ระหว่างสวิตช์ UI)
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
 RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
 RSTATE.currentTab = RSTATE.currentTab
 
-local function clampY(y)
+local function clampRightY(y)
     local contentH = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
     local viewH    = RightScroll.AbsoluteSize.Y
     local maxY     = math.max(0, contentH - viewH)
     return math.clamp(y or 0, 0, maxY)
 end
 
--- showRight: ล้างคอนเทนต์ + สร้างหัวเรื่อง + เก็บ/คืน Y ต่อแท็บ (หน้าตาเดิม)
+-- วาดหัว + คืนสกอร์ลต่อแท็บ
 function showRight(titleText, iconId)
-    -- เก็บตำแหน่งแท็บเดิม
+    -- เซฟตำแหน่งของแท็บก่อนหน้า
     if RSTATE.currentTab then
         RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
     end
-
-    -- ล้างคอนเทนต์เดิม
+    -- ล้าง
     for _,c in ipairs(RightScroll:GetChildren()) do
         if c:IsA("GuiObject") then c:Destroy() end
     end
-
-    -- หัวเรื่อง (เหมือนเดิมเป๊ะ)
+    -- Header (เหมือนเดิม)
     local row=Instance.new("Frame",RightScroll) row.BackgroundTransparency=1 row.Size=UDim2.new(1,0,0,28)
     local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
     local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
 
-    -- (จะเพิ่มคอนเทนต์ของแท็บนี้ก็สร้างต่อจากตรงนี้ได้ตามเดิม)
+    -- (ถ้าจะมีคอนเทนต์ของแท็บ ให้สร้างต่อจากนี้)
 
-    -- คืนตำแหน่งของแท็บนี้
+    -- คืนสกอร์ลของแท็บนี้
     RSTATE.currentTab = titleText
     task.defer(function()
         refreshRightCanvas()
-        RightScroll.CanvasPosition = Vector2.new(0, clampY(RSTATE.scroll[titleText] or 0))
+        RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
     end)
 end
 
-local btnPlayer, setPlayerActive = makeTabButton(LeftScroll, "Player", ICON_PLAYER)
-local btnHome,   setHomeActive   = makeTabButton(LeftScroll, "Home",   ICON_HOME)
-local btnQuest,  setQuestActive  = makeTabButton(LeftScroll, "Quest",  ICON_QUEST)
-local btnShop,     setShopActive     = makeTabButton(LeftScroll, "Shop",     ICON_SHOP)
-local btnUpdate,   setUpdateActive   = makeTabButton(LeftScroll, "Update",   ICON_UPDATE)
-local btnServer,   setServerActive   = makeTabButton(LeftScroll, "Server",   ICON_SERVER)
-local btnSettings, setSettingsActive = makeTabButton(LeftScroll, "Settings", ICON_SETTINGS)
-
--- === Tabs: กดแล้ว "ไม่รีเซ็ตสกอร์ล", คงตำแหน่งเดิม และเลื่อนให้ปุ่มอยู่ในวิวเท่าที่จำเป็น ===
-
--- ตารางปุ่ม + setter (ต้องสร้างหลังจาก btn*/set* ถูกประกาศแล้ว)
+-- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
     {btn = btnHome,     set = setHomeActive,     name = "Home",     icon = ICON_HOME},
@@ -464,62 +517,37 @@ local tabs = {
     {btn = btnSettings, set = setSettingsActive, name = "Settings", icon = ICON_SETTINGS},
 }
 
--- อัปเดต CanvasSize ตามความสูงจริงของคอนเทนต์
-local function refreshLeftCanvas()
-    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
-    LeftScroll.CanvasSize = UDim2.new(0, 0, 0, contentH)
-end
-
--- คงตำแหน่งสกอร์ลเดิม (พร้อม clamp ไม่ให้เกินขอบ)
-local function clampAndRestore(yBefore)
-    local contentH = LeftList.AbsoluteContentSize.Y + padL.PaddingTop.Offset + padL.PaddingBottom.Offset
-    local viewH    = LeftScroll.AbsoluteSize.Y
-    local maxY     = math.max(0, contentH - viewH)
-    LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore or 0, 0, maxY))
-end
-
--- หากคอนเทนต์สูงเปลี่ยน ให้คงตำแหน่งสกอร์ลปัจจุบันไว้
-LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    refreshLeftCanvas()
-    clampAndRestore(LeftScroll.CanvasPosition.Y)
-end)
-task.defer(refreshLeftCanvas)
-
--- ฟังก์ชันกดแท็บ (ไม่รีเซ็ตสกอร์ล)
-local function activateTab(target)
-    local yBefore = LeftScroll.CanvasPosition.Y  -- จดตำแหน่งก่อน
-
-    -- เปิดเฉพาะแท็บที่เลือก
-    for _,t in ipairs(tabs) do t.set(t == target) end
-    showRight(target.name, target.icon)
-
-    -- รอ layout อัปเดตแล้วค่อยคืนตำแหน่ง + จัดให้ปุ่มอยู่ในวิวถ้าจำเป็น
+local function activateTab(t)
+    -- จดตำแหน่งสกอร์ลซ้ายไว้ก่อน (กันเด้ง)
+    lastLeftY = LeftScroll.CanvasPosition.Y
+    for _,x in ipairs(tabs) do x.set(x == t) end
+    showRight(t.name, t.icon)
     task.defer(function()
         refreshLeftCanvas()
-        clampAndRestore(yBefore)
-
-        -- ถ้าปุ่มอยู่นอกจอ ค่อยเลื่อนให้พอดี (ไม่เด้งขึ้นบนสุด)
-        local btn = target.btn
+        local viewH = LeftScroll.AbsoluteSize.Y
+        local maxY  = math.max(0, LeftScroll.CanvasSize.Y.Offset - viewH)
+        LeftScroll.CanvasPosition = Vector2.new(0, math.clamp(lastLeftY,0,maxY))
+        -- ถ้าปุ่มอยู่นอกเฟรม ค่อยเลื่อนให้อยู่พอดี
+        local btn = t.btn
         if btn and btn.Parent then
-            local viewH  = LeftScroll.AbsoluteSize.Y
-            local top    = btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
-            local bottom = top + btn.AbsoluteSize.Y
-            local pad    = 8
+            local top = btn.AbsolutePosition.Y - LeftScroll.AbsolutePosition.Y
+            local bot = top + btn.AbsoluteSize.Y
+            local pad = 8
             if top < 0 then
                 LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, top - pad)
-            elseif bottom > viewH then
-                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (bottom - viewH) + pad)
+            elseif bot > viewH then
+                LeftScroll.CanvasPosition = LeftScroll.CanvasPosition + Vector2.new(0, (bot - viewH) + pad)
             end
+            lastLeftY = LeftScroll.CanvasPosition.Y
         end
     end)
 end
 
--- ผูกคลิกทุกปุ่มเข้ากับ activateTab
 for _,t in ipairs(tabs) do
     t.btn.MouseButton1Click:Connect(function() activateTab(t) end)
 end
 
--- เริ่มต้นด้วยแท็บแรกโดยไม่กระชากสกอร์ล
+-- เปิดด้วยแท็บแรก
 activateTab(tabs[1])
     
 -- ===== Start visible & sync toggle to this UI =====
