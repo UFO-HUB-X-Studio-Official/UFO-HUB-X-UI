@@ -1,4 +1,15 @@
 --[[
+UFO HUB X • One-shot = Toast(2-step) + Main UI (100%)
+- Step1: Toast โหลด + แถบเปอร์เซ็นต์
+- Step2: Toast "ดาวน์โหลดเสร็จ" โผล่ "พร้อมกับ" UI หลัก แล้วเลือนหายเอง
+]]
+
+------------------------------------------------------------
+-- 1) ห่อ "UI หลักของคุณ (เดิม 100%)" ไว้ในฟังก์ชัน _G.UFO_ShowMainUI()
+------------------------------------------------------------
+_G.UFO_ShowMainUI = function()
+
+--[[
 UFO HUB X • Main UI + Safe Toggle (one-shot paste)
 - ไม่ลบปุ่ม Toggle อีกต่อไป (ลบเฉพาะ UI หลัก)
 - Toggle อยู่ของตัวเอง, มีขอบเขียว, ลากได้, บล็อกกล้องตอนลาก
@@ -299,3 +310,190 @@ end
 hookContainer(CoreGui)
 local pg = Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui")
 hookContainer(pg)
+
+end -- <<== จบ _G.UFO_ShowMainUI() (โค้ด UI หลักของคุณแบบ 100%)
+
+------------------------------------------------------------
+-- 2) Toast chain (2-step) • โผล่ Step2 พร้อมกับ UI หลัก แล้วเลือนหาย
+------------------------------------------------------------
+do
+    -- ล้าง Toast เก่า (ถ้ามี)
+    pcall(function()
+        local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        for _,n in ipairs({"UFO_Toast_Test","UFO_Toast_Test_2"}) do
+            local g = pg:FindFirstChild(n); if g then g:Destroy() end
+        end
+    end)
+
+    -- CONFIG
+    local EDGE_RIGHT_PAD, EDGE_BOTTOM_PAD = 2, 2
+    local TOAST_W, TOAST_H = 320, 86
+    local RADIUS, STROKE_TH = 10, 2
+    local GREEN = Color3.fromRGB(0,255,140)
+    local BLACK = Color3.fromRGB(10,10,10)
+    local LOGO_STEP1 = "rbxassetid://89004973470552"
+    local LOGO_STEP2 = "rbxassetid://83753985156201"
+    local TITLE_TOP, MSG_TOP = 12, 34
+    local BAR_LEFT, BAR_RIGHT_PAD, BAR_H = 68, 12, 10
+    local LOAD_TIME = 2.0
+
+    local TS = game:GetService("TweenService")
+    local RunS = game:GetService("RunService")
+    local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+    local function tween(inst, ti, ease, dir, props)
+        return TS:Create(inst, TweenInfo.new(ti, ease or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+    end
+    local function makeToastGui(name)
+        local gui = Instance.new("ScreenGui")
+        gui.Name = name
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.DisplayOrder = 999999
+        gui.Parent = PG
+        return gui
+    end
+    local function buildBox(parent)
+        local box = Instance.new("Frame")
+        box.Name = "Toast"
+        box.AnchorPoint = Vector2.new(1,1)
+        box.Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -(EDGE_BOTTOM_PAD - 24))
+        box.Size = UDim2.fromOffset(TOAST_W, TOAST_H)
+        box.BackgroundColor3 = BLACK
+        box.BorderSizePixel = 0
+        box.Parent = parent
+        Instance.new("UICorner", box).CornerRadius = UDim.new(0, RADIUS)
+        local stroke = Instance.new("UIStroke", box)
+        stroke.Thickness = STROKE_TH
+        stroke.Color = GREEN
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.LineJoinMode = Enum.LineJoinMode.Round
+        return box
+    end
+    local function buildTitle(box)
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Font = Enum.Font.GothamBold
+        title.RichText = true
+        title.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF8C">HUB X</font>'
+        title.TextSize = 18
+        title.TextColor3 = Color3.fromRGB(235,235,235)
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Position = UDim2.fromOffset(68, TITLE_TOP)
+        title.Size = UDim2.fromOffset(TOAST_W - 78, 20)
+        title.Parent = box
+        return title
+    end
+    local function buildMsg(box, text)
+        local msg = Instance.new("TextLabel")
+        msg.BackgroundTransparency = 1
+        msg.Font = Enum.Font.Gotham
+        msg.Text = text
+        msg.TextSize = 13
+        msg.TextColor3 = Color3.fromRGB(200,200,200)
+        msg.TextXAlignment = Enum.TextXAlignment.Left
+        msg.Position = UDim2.fromOffset(68, MSG_TOP)
+        msg.Size = UDim2.fromOffset(TOAST_W - 78, 18)
+        msg.Parent = box
+        return msg
+    end
+    local function buildLogo(box, imageId)
+        local logo = Instance.new("ImageLabel")
+        logo.BackgroundTransparency = 1
+        logo.Image = imageId
+        logo.Size = UDim2.fromOffset(54, 54)
+        logo.AnchorPoint = Vector2.new(0, 0.5)
+        logo.Position = UDim2.new(0, 8, 0.5, -2)
+        logo.Parent = box
+        return logo
+    end
+
+    -- Step 1 (progress)
+    local gui1 = makeToastGui("UFO_Toast_Test")
+    local box1 = buildBox(gui1)
+    buildLogo(box1, LOGO_STEP1)
+    buildTitle(box1)
+    local msg1 = buildMsg(box1, "Initializing... please wait")
+
+    local barWidth = TOAST_W - BAR_LEFT - BAR_RIGHT_PAD
+    local track = Instance.new("Frame"); track.BackgroundColor3 = Color3.fromRGB(25,25,25); track.BorderSizePixel = 0
+    track.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 12))
+    track.Size = UDim2.fromOffset(barWidth, BAR_H); track.Parent = box1
+    Instance.new("UICorner", track).CornerRadius = UDim.new(0, BAR_H//2)
+    local fill = Instance.new("Frame")
+    fill.BackgroundColor3 = GREEN
+    fill.BorderSizePixel = 0
+    fill.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 12))
+    fill.Size = UDim2.fromOffset(0, BAR_H)
+    fill.Parent = box1
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, BAR_H//2)
+
+    -- เปอร์เซ็นต์ (ตัวเลข)
+    local pct = Instance.new("TextLabel")
+    pct.BackgroundTransparency = 1
+    pct.Font = Enum.Font.GothamMedium
+    pct.Text = "0%"
+    pct.TextSize = 12
+    pct.TextColor3 = Color3.fromRGB(190,190,190)
+    pct.TextXAlignment = Enum.TextXAlignment.Right
+    pct.Position = UDim2.fromOffset(BAR_LEFT, TOAST_H - (BAR_H + 28))
+    pct.Size = UDim2.fromOffset(barWidth, 14)
+    pct.Parent = box1
+
+    -- แอนิเมชันโหลด
+    local elapsed = 0
+    local hb
+    hb = RunS.Heartbeat:Connect(function(dt)
+        elapsed = math.min(LOAD_TIME, elapsed + dt)
+        local a = elapsed / LOAD_TIME
+        local w = math.floor(barWidth * a)
+        fill.Size = UDim2.fromOffset(w, BAR_H)
+        local p = math.floor(a * 100 + 0.5)
+        pct.Text = tostring(p) .. "%"
+
+        if elapsed >= LOAD_TIME then
+            hb:Disconnect()
+            -- จบ Step1 -> ลบ แล้วไป Step2 พร้อมเปิด UI หลัก
+            gui1:Destroy()
+
+            -- STEP 2 (เสร็จแล้ว + โชว์พร้อมกับ UI หลัก)
+            local gui2 = makeToastGui("UFO_Toast_Test_2")
+            local box2 = buildBox(gui2)
+            buildLogo(box2, LOGO_STEP2)
+            buildTitle(box2)
+            local msg2 = buildMsg(box2, "ดาวน์โหลดเสร็จ")
+
+            -- โชว์ UI หลัก "พร้อมกัน" ทันที
+            pcall(function()
+                if _G and _G.UFO_ShowMainUI then
+                    _G.UFO_ShowMainUI()
+                end
+            end)
+
+            -- เอฟเฟกต์โผล่ขึ้นเล็กน้อย
+            box2.Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -(EDGE_BOTTOM_PAD - 12))
+            tween(box2, 0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+                Position = UDim2.new(1, -EDGE_RIGHT_PAD, 1, -EDGE_BOTTOM_PAD)
+            }):Play()
+
+            -- รอแป๊บแล้วค่อยเฟดหายเอง
+            task.delay(1.25, function()
+                local t1 = tween(box2, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+                    BackgroundTransparency = 1
+                })
+                local st = box2:FindFirstChildOfClass("UIStroke")
+                if st then
+                    tween(st, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 1 }):Play()
+                end
+                for _,v in ipairs(box2:GetChildren()) do
+                    if v:IsA("GuiObject") then
+                        tween(v, 0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 1 }):Play()
+                    end
+                end
+                t1.Completed:Wait()
+                gui2:Destroy()
+            end)
+        end
+    end)
+end
+-- ====== END Toast chain ======
