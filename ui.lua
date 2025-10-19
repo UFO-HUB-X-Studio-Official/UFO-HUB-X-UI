@@ -234,14 +234,37 @@ local LeftShell=Instance.new("Frame",Body)
 LeftShell.BackgroundColor3=THEME.BG_PANEL; LeftShell.BorderSizePixel=0
 LeftShell.Position=UDim2.new(0,SIZE.GAP_IN,0,SIZE.GAP_IN)
 LeftShell.Size=UDim2.new(SIZE.LEFT_RATIO,-(SIZE.BETWEEN/2),1,-SIZE.GAP_IN*2)
+LeftShell.ClipsDescendants = true
 corner(LeftShell,10); stroke(LeftShell,1.2,THEME.GREEN,0); stroke(LeftShell,0.45,THEME.MINT,0.35)
+
 local LeftScroll=Instance.new("ScrollingFrame",LeftShell)
-LeftScroll.BackgroundTransparency=1; LeftScroll.Size=UDim2.fromScale(1,1)
-LeftScroll.ScrollBarThickness=0; LeftScroll.ScrollingDirection=Enum.ScrollingDirection.Y
-LeftScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+LeftScroll.BackgroundTransparency=1
+LeftScroll.Size=UDim2.fromScale(1,1)
+LeftScroll.ScrollBarThickness=0
+LeftScroll.ScrollingDirection=Enum.ScrollingDirection.Y
+LeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.None -- เปลี่ยนจาก .Y เป็น .None
+LeftScroll.ScrollingEnabled = true
+LeftScroll.ClipsDescendants = true
+
 local padL=Instance.new("UIPadding",LeftScroll)
-padL.PaddingTop=UDim.new(0,8); padL.PaddingLeft=UDim.new(0,8); padL.PaddingRight=UDim.new(0,8); padL.PaddingBottom=UDim.new(0,8)
-local LeftList=Instance.new("UIListLayout",LeftScroll); LeftList.Padding=UDim.new(0,8)
+padL.PaddingTop=UDim.new(0,8)
+padL.PaddingLeft=UDim.new(0,8)
+padL.PaddingRight=UDim.new(0,8)
+padL.PaddingBottom=UDim.new(0,8)
+
+local LeftList=Instance.new("UIListLayout",LeftScroll)
+LeftList.Padding=UDim.new(0,8)
+LeftList.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- คุม CanvasSize เองเพื่อไม่ให้เลื่อนเกินคอนเทนต์จริง
+local function refreshLeftCanvas()
+    local contentH = LeftList.AbsoluteContentSize.Y
+    local top = padL.PaddingTop.Offset
+    local bot = padL.PaddingBottom.Offset
+    LeftScroll.CanvasSize = UDim2.new(0,0,0, contentH + top + bot)
+end
+refreshLeftCanvas()
+LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshLeftCanvas)
 
 -- RIGHT
 local RightShell=Instance.new("Frame",Body)
