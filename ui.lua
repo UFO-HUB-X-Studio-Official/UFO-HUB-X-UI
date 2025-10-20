@@ -603,16 +603,16 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time, real-time leveling) =====
+-- ===== Player tab content (compact spacing) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
-    -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว
+    -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว (เวอร์ชันชิด)
     local function makeBar(parent, text, w, h, order)
-        w = w or 380; h = h or 26
+        w = w or 380; h = h or 24
         local holder = Instance.new("Frame", parent)
         holder.BackgroundTransparency = 1
         holder.Size = UDim2.fromOffset(w, h)
@@ -623,7 +623,8 @@ registerRight("Player", function(scroll)
         bar.BorderSizePixel  = 0
         bar.AnchorPoint      = Vector2.new(0.5, 0.5)
         bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
-        bar.Size             = UDim2.fromOffset(w-20, h-8)
+        -- ลดระยะขอบใน bar ให้ชิดขึ้น
+        bar.Size             = UDim2.fromOffset(w-12, h-6)
         corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
 
         local lbl = Instance.new("TextLabel", bar)
@@ -641,16 +642,16 @@ registerRight("Player", function(scroll)
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
     col.Size = UDim2.new(1, -24, 0, 340)
-    col.Position = UDim2.new(0, 0, 0, -20) -- ดันขึ้น 20px
+    col.Position = UDim2.new(0, 0, 0, -20)
     col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
-    list.Padding = UDim.new(0, 12)
+    list.Padding = UDim.new(0, 6) -- ★ ช่องไฟระหว่างบล็อกให้ชิดขึ้น
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- 1) รูปตัวละคร (บนสุด)
+    -- 1) รูปตัวละคร
     local avatarBox = Instance.new("ImageLabel", col)
     avatarBox.BackgroundColor3 = THEME.BG_INNER
     avatarBox.BorderSizePixel  = 0
@@ -672,68 +673,46 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- 2) ชื่อผู้เล่น
-    local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 26, 2)
+    -- 2) ชื่อผู้เล่น (ชิดรูป)
+    local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-    -- 3) เลเวล + หลอดความคืบหน้า
-    local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 28, 3)
+    -- 3) เลเวล + หลอดความคืบหน้า (ชิดชื่อ)
+    local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
     levelLbl.Text = "Level 1"
     local fill = Instance.new("Frame", levelBar)
     fill.BackgroundColor3 = THEME.MINT
     fill.BorderSizePixel  = 0
     fill.AnchorPoint      = Vector2.new(0,0.5)
     fill.Position         = UDim2.new(0,3,0.5,0)
-    fill.Size             = UDim2.new(0, 0, 1, -6) -- เริ่ม 0%
+    fill.Size             = UDim2.new(0, 0, 1, -6)
     corner(fill, 6)
 
-    -- 4) เวลา (แสดงผลตามช่วง)
-    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 26, 4)
+    -- 4) เวลา (ชิดเลเวล)
+    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
 
-    -- ===== Timer + Level mapping =====
-    -- นิยามเวลาอ้างอิง (เดือน=30 วัน, ปี=12 เดือน)
-    local SEC  = 1
-    local MIN  = 60*SEC
-    local HOUR = 60*MIN
+    -- ===== Timer + Level mapping (เหมือนเดิม) =====
+    local SEC, MIN, HOUR = 1, 60, 3600
     local DAY  = 24*HOUR
     local MONTH= 30*DAY
-    local YEAR = 12*MONTH   -- = 360 วัน (ประมาณ)
+    local YEAR = 12*MONTH
 
-    -- format เวลาแบบไล่ระดับหน่วย
     local function formatElapsed(s)
         if s < HOUR then
-            -- MM:SS
-            local m = math.floor(s / MIN)
-            local sec = math.floor(s % MIN)
+            local m = math.floor(s / MIN); local sec = math.floor(s % MIN)
             return string.format("%02d:%02d", m, sec)
         elseif s < DAY then
-            -- HH:MM:SS
-            local h = math.floor(s / HOUR)
-            local m = math.floor((s % HOUR) / MIN)
-            local sec = math.floor(s % MIN)
+            local h = math.floor(s / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
             return string.format("%02d:%02d:%02d", h, m, sec)
         elseif s < MONTH then
-            -- Dd HH:MM:SS
-            local d = math.floor(s / DAY)
-            local h = math.floor((s % DAY) / HOUR)
-            local m = math.floor((s % HOUR) / MIN)
-            local sec = math.floor(s % MIN)
+            local d = math.floor(s / DAY); local h = math.floor((s % DAY) / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
             return string.format("%dd %02d:%02d:%02d", d, h, m, sec)
         elseif s < YEAR then
-            -- Mm Dd HH:MM:SS
-            local mo = math.floor(s / MONTH)
-            local d  = math.floor((s % MONTH) / DAY)
-            local h  = math.floor((s % DAY) / HOUR)
-            local m  = math.floor((s % HOUR) / MIN)
-            local sec= math.floor(s % MIN)
+            local mo = math.floor(s / MONTH); local d  = math.floor((s % MONTH) / DAY)
+            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
             return string.format("%dm %dd %02d:%02d:%02d", mo, d, h, m, sec)
         else
-            -- Yy Mm Dd HH:MM:SS (ยังเดินต่อหลัง 1 ปี)
-            local y  = math.floor(s / YEAR)
-            local mo = math.floor((s % YEAR) / MONTH)
-            local d  = math.floor((s % MONTH) / DAY)
-            local h  = math.floor((s % DAY) / HOUR)
-            local m  = math.floor((s % HOUR) / MIN)
-            local sec= math.floor(s % MIN)
+            local y  = math.floor(s / YEAR); local mo = math.floor((s % YEAR) / MONTH); local d  = math.floor((s % MONTH) / DAY)
+            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
             return string.format("%dy %dm %dd %02d:%02d:%02d", y, mo, d, h, m, sec)
         end
     end
@@ -743,16 +722,11 @@ registerRight("Player", function(scroll)
     local root = scroll.Parent
 
     local function applyProgress(elapsed)
-        -- ความคืบหน้าเทียบกับ 1 ปี (cap 0..1)
         local p = math.clamp(elapsed / YEAR, 0, 1)
-        -- ปรับหลอด
         local innerW = levelBar.AbsoluteSize.X - 6
         fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
-        -- คำนวณเลเวล: 0% = Lv1, 100% = Lv100
-        local level = math.floor(p * 99) + 1
-        if level > 100 then level = 100 end
+        local level = math.min(100, math.floor(p * 99) + 1)
         levelLbl.Text = "Level " .. tostring(level)
-        -- เวลาที่แสดง
         timeLbl.Text = formatElapsed(elapsed)
     end
 
@@ -773,16 +747,14 @@ registerRight("Player", function(scroll)
             T.base = (T.base or 0) + (now - (T._lastStart or now))
         end
     end
-
     root:GetPropertyChangedSignal("Visible"):Connect(function()
         if root.Visible then startTimer() else stopTimer() end
     end)
     startTimer()
 
     -- public helpers
-    getgenv().UFO_RIGHT._setPlayerName   = function(text)  nameLbl.Text = text or nameLbl.Text end
-    -- set level โดยตรง (จะรีแมพ progress ด้วยตามสัดส่วน)
-    getgenv().UFO_RIGHT._setPlayerLevel  = function(num)
+    getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
+    getgenv().UFO_RIGHT._setPlayerLevel = function(num)
         num = math.clamp(tonumber(num) or 1, 1, 100)
         levelLbl.Text = ("Level %d"):format(num)
         local p = (num-1)/99
