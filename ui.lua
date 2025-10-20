@@ -466,45 +466,6 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     local maxY  = math.max(0, RightScroll.CanvasSize.Y.Offset - viewH)
     RightScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore,0,maxY))
 end)
-task.defer(refreshRightCanvas)
-
--- จำสกอร์ลแยกตามแท็บ (ใช้ getgenv เพื่อให้คงอยู่ระหว่างสวิตช์ UI)
-if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
-local RSTATE = getgenv().UFO_RIGHT
-RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
-RSTATE.currentTab = RSTATE.currentTab
-
-local function clampRightY(y)
-    local contentH = RightList.AbsoluteContentSize.Y + padR.PaddingTop.Offset + padR.PaddingBottom.Offset
-    local viewH    = RightScroll.AbsoluteSize.Y
-    local maxY     = math.max(0, contentH - viewH)
-    return math.clamp(y or 0, 0, maxY)
-end
-
--- วาดหัว + คืนสกอร์ลต่อแท็บ
-function showRight(titleText, iconId)
-    -- เซฟตำแหน่งของแท็บก่อนหน้า
-    if RSTATE.currentTab then
-        RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
-    end
-    -- ล้าง
-    for _,c in ipairs(RightScroll:GetChildren()) do
-        if c:IsA("GuiObject") then c:Destroy() end
-    end
-    -- Header (เหมือนเดิม)
-    local row=Instance.new("Frame",RightScroll) row.BackgroundTransparency=1 row.Size=UDim2.new(1,0,0,28)
-    local icon=Instance.new("ImageLabel",row) icon.BackgroundTransparency=1 icon.Image="rbxassetid://"..tostring(iconId or "") icon.Size=UDim2.fromOffset(20,20) icon.Position=UDim2.new(0,0,0.5,-10)
-    local head=Instance.new("TextLabel",row) head.BackgroundTransparency=1 head.Font=Enum.Font.GothamBold head.TextSize=18 head.TextXAlignment=Enum.TextXAlignment.Left head.TextColor3=THEME.TEXT head.Position=UDim2.new(0,26,0,0) head.Size=UDim2.new(1,-26,1,0) head.Text=titleText
-
-    -- (ถ้าจะมีคอนเทนต์ของแท็บ ให้สร้างต่อจากนี้)
-
-    -- คืนสกอร์ลของแท็บนี้
-    RSTATE.currentTab = titleText
-    task.defer(function()
-        refreshRightCanvas()
-        RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
-    end)
-end
 -- ================= RIGHT: Modular per-tab (drop-in) =================
 -- ใส่หลังจากสร้าง RightShell เสร็จ (และก่อนผูกปุ่มกด)
 
