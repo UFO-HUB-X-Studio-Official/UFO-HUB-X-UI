@@ -603,29 +603,26 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (DROP-IN REPLACEMENT) =====
--- ลบ/คอมเมนต์ registerRight("Player", function(scroll) end) อันเดิม แล้ววางอันนี้แทน
-
+-- ===== Player tab content (avatar → name → level → time) =====
 registerRight("Player", function(scroll)
-    local Players   = game:GetService("Players")
-    local RunS      = game:GetService("RunService")
-    local Content   = game:GetService("ContentProvider")
+    local Players = game:GetService("Players")
+    local RunS    = game:GetService("RunService")
+    local Content = game:GetService("ContentProvider")
+    local lp      = Players.LocalPlayer
 
-    local localPlayer = Players.LocalPlayer
-
-    -- ====== helper: สร้างแถบ (พื้นดำ ขอบเขียว ตัวหนังสือขาว) ======
-    local function makeBar(parent, barColor, text)
+    -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว
+    local function makeBar(parent, text)
         local holder = Instance.new("Frame", parent)
         holder.BackgroundTransparency = 1
-        holder.Size = UDim2.fromOffset(260, 22)
+        holder.Size = UDim2.fromOffset(380, 26)
 
         local bar = Instance.new("Frame", holder)
-        bar.BackgroundColor3 = barColor
-        bar.BorderSizePixel = 0
-        bar.AnchorPoint = Vector2.new(0.5, 0.5)
-        bar.Position = UDim2.new(0.5, 0, 0.5, 0)
-        bar.Size = UDim2.fromOffset(240, 16)
-        corner(bar, 6); stroke(bar, 1.2, THEME.GREEN, 0)
+        bar.BackgroundColor3 = THEME.BG_INNER
+        bar.BorderSizePixel  = 0
+        bar.AnchorPoint      = Vector2.new(0.5, 0.5)
+        bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
+        bar.Size             = UDim2.fromOffset(360, 18)
+        corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
 
         local lbl = Instance.new("TextLabel", bar)
         lbl.BackgroundTransparency = 1
@@ -638,38 +635,31 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- ====== layout base ======
-    local contentPad = Instance.new("Frame", scroll)
-    contentPad.BackgroundTransparency = 1
-    contentPad.Size = UDim2.new(1, -24, 0, 220)
-    contentPad.LayoutOrder = 1
-
-    -- จัดให้อยู่กึ่งกลางแนวนอนเหมือนในภาพ
-    local col = Instance.new("Frame", contentPad)
+    -- คอลัมน์กลาง (เรียงบนลงล่าง)
+    local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
-    col.Size = UDim2.fromScale(1,1)
+    col.Size = UDim2.new(1, -24, 0, 340)
+    col.LayoutOrder = 1
 
-    local uiList = Instance.new("UIListLayout", col)
-    uiList.Padding = UDim.new(0, 12)
-    uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    uiList.VerticalAlignment = Enum.VerticalAlignment.Top
+    local list = Instance.new("UIListLayout", col)
+    list.Padding = UDim.new(0, 12)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.VerticalAlignment   = Enum.VerticalAlignment.Top
 
-    -- ====== avatar box (พื้นขาว) ======
+    -- 1) รูปตัวละคร (พื้นดำ ขอบเขียว)
     local avatarBox = Instance.new("ImageLabel", col)
-    avatarBox.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    avatarBox.BorderSizePixel = 0
-    avatarBox.Size = UDim2.fromOffset(160, 160)
+    avatarBox.BackgroundColor3 = THEME.BG_INNER
+    avatarBox.BorderSizePixel  = 0
+    avatarBox.Size = UDim2.fromOffset(220, 220)
     avatarBox.ImageTransparency = 1
-    corner(avatarBox, 4); stroke(avatarBox, 1.2, THEME.GREEN, 0)
+    corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
 
-    -- ดึงรูปตัวละครผู้เล่นจริง
     task.spawn(function()
-        if localPlayer then
+        if lp then
             local ok, url = pcall(function()
-                return Players:GetUserThumbnailAsync(localPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
             end)
             if ok and url then
-                -- โหลดให้ครบก่อนเพื่อไม่ให้กระพริบ
                 pcall(function() Content:PreloadAsync({url}) end)
                 avatarBox.Image = url
                 avatarBox.ImageTransparency = 0
@@ -677,68 +667,57 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- ====== bars ======
-    -- แถบชื่อ (แดง)
-    local redHolder, redBar, redLbl = makeBar(col, Color3.fromRGB(220,40,40), (localPlayer and localPlayer.DisplayName) or "Player")
-    -- แถบเลเวล (ฟ้า)
-    local blueHolder, blueBar, blueLbl = makeBar(col, Color3.fromRGB(50,120,255), "Level 1")
-    -- แถบเวลา (เหลือง)
-    local yellowHolder, yellowBar, yellowLbl = makeBar(col, Color3.fromRGB(230,190,40), "00:00.00")
+    -- 2) ชื่อผู้เล่น
+    local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player")
 
-    -- สีพื้น/ขอบของ container ให้คุมธีมดำ-เขียว
-    for _,h in ipairs({redBar, blueBar, yellowBar}) do
-        h.Parent.Parent.BackgroundTransparency = 1
-    end
+    -- 3) เลเวล
+    local levelHolder, levelBar, levelLbl = makeBar(col, "Level 1")
 
-    -- ====== timer (เริ่ม/หยุดอัตโนมัติตามการมองเห็นแท็บ) ======
-    local root = scroll.Parent  -- RightTab_Player
-    if not RSTATE._playerTimer then RSTATE._playerTimer = {} end
-    local thisTimer = RSTATE._playerTimer
-    local t0 = os.clock()
+    -- 4) เวลา
+    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00.00")
 
+    -- ตัวจับเวลา
     local function setTimeText(elapsed)
         if elapsed < 0 then elapsed = 0 end
         local mins = math.floor(elapsed/60)
         local secs = math.floor(elapsed % 60)
         local cs   = math.floor((elapsed - math.floor(elapsed))*100)
-        yellowLbl.Text = string.format("%02d:%02d.%02d", mins, secs, cs)
+        timeLbl.Text = string.format("%02d:%02d.%02d", mins, secs, cs)
     end
 
+    if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
+    local T = getgenv().UFO_RIGHT._playerTimer
+    local root = scroll.Parent
+
     local function startTimer()
-        if thisTimer.conn then return end
+        if T.conn then return end
         local tStart = os.clock()
-        thisTimer.base = thisTimer.base or 0
-        thisTimer.conn = RunS.Heartbeat:Connect(function()
-            setTimeText(thisTimer.base + (os.clock()-tStart))
+        T.base = T.base or 0
+        T.conn = RunS.Heartbeat:Connect(function()
+            setTimeText(T.base + (os.clock() - tStart))
         end)
     end
     local function stopTimer()
-        if thisTimer.conn then
-            thisTimer.conn:Disconnect()
-            thisTimer.conn = nil
-            -- เก็บค้างไว้
+        if T.conn then
+            T.conn:Disconnect(); T.conn = nil
             local now = os.clock()
-            thisTimer.base = thisTimer.base or 0
-            thisTimer.base = thisTimer.base + (now - (t0 or now))
+            T.base = (T.base or 0) + (now - (T._lastStart or now))
         end
     end
 
-    -- เริ่ม timer เมื่อแท็บมองเห็น / หยุดเมื่อซ่อน
     root:GetPropertyChangedSignal("Visible"):Connect(function()
         if root.Visible then
-            t0 = os.clock()
+            T._lastStart = os.clock()
             startTimer()
         else
             stopTimer()
         end
     end)
-    -- เปิดครั้งแรกให้เดินเลย
-    t0 = os.clock(); startTimer()
+    T._lastStart = os.clock(); startTimer()
 
-    -- ====== public helpers (เลือกใช้ภายหลังได้) ======
-    -- อัพเดตชื่อและเลเวลภายหลังได้ง่าย ๆ:
-    RSTATE._setPlayerName = function(text) redLbl.Text = text or redLbl.Text end
-    RSTATE._setPlayerLevel = function(levelNumber) blueLbl.Text = ("Level %s"):format(tostring(levelNumber or "1")) end
+    -- helpers อัพเดตภายหลัง
+    getgenv().UFO_RIGHT._setPlayerName  = function(text)  nameLbl.Text  = text or nameLbl.Text  end
+    getgenv().UFO_RIGHT._setPlayerLevel = function(num)   levelLbl.Text = ("Level %s"):format(tostring(num or "1")) end
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
