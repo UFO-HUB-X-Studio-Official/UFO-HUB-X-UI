@@ -496,11 +496,11 @@ local function makeTabFrame(tabName)
     sf.Name = "Scroll"
     sf.BackgroundTransparency = 1
     sf.Size = UDim2.fromScale(1,1)
-    sf.ScrollBarThickness = 4  -- ให้เห็น scroll bar เพื่อทดสอบ (ถ้าอยากซ่อน เปลี่ยนเป็น 0)
+    sf.ScrollBarThickness = 0      -- ← ซ่อนสกรอลล์บาร์ (เดิม 4)
     sf.ScrollingDirection = Enum.ScrollingDirection.Y
     sf.AutomaticCanvasSize = Enum.AutomaticSize.None
     sf.ElasticBehavior = Enum.ElasticBehavior.Never
-    sf.CanvasSize = UDim2.new(0,0,0,600)  -- ★ เพิ่มบรรทัดนี้ให้เลื่อนได้ตั้งแต่เริ่มต้น
+    sf.CanvasSize = UDim2.new(0,0,0,600)  -- เลื่อนได้ตั้งแต่เริ่ม
 
     local pad = Instance.new("UIPadding", sf)
     pad.PaddingTop    = UDim.new(0,12)
@@ -515,8 +515,7 @@ local function makeTabFrame(tabName)
 
     local function refreshCanvas()
         local h = list.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset
-        -- ★ ใช้ค่ามากสุดระหว่างขนาดจริงกับค่าเริ่มต้น (600)
-        sf.CanvasSize = UDim2.new(0,0,0,math.max(h,600))
+        sf.CanvasSize = UDim2.new(0,0,0, math.max(h,600))
     end
 
     list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -591,17 +590,11 @@ function showRight(titleText, iconId)
     RSTATE.current = tab
 end
 
--- 7) ตัวอย่างแท็บ
+-- 7) ตัวอย่างแท็บ (ลบเดโมรายการออกแล้ว)
 registerRight("Player", function(scroll)
-    for i=1,20 do
-        local lbl = Instance.new("TextLabel", scroll)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = "Item #"..i
-        lbl.TextColor3 = Color3.fromRGB(255,255,255)
-        lbl.Size = UDim2.new(1,-10,0,26)
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-    end
+    -- วาง UI ของ Player ที่นี่ (ตอนนี้ปล่อยว่าง ไม่มี Item#)
 end)
+
 registerRight("Home", function(scroll) end)
 registerRight("Quest", function(scroll) end)
 registerRight("Shop", function(scroll) end)
