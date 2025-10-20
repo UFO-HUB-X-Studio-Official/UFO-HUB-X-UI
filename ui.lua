@@ -626,9 +626,9 @@ registerRight("Player", function(scroll)
         local s = Instance.new("UIStroke"); s.Thickness = th or 1.4; s.Color = col or THEME.GREEN; s.Parent = ui; return s
     end
 
-    -- ===== ขนาด/ตำแหน่งแผงด้านขวา (ให้สั้นลง + เลื่อนลงชัดเจน) =====
-    local PANEL_W, PANEL_H = 210, 300   -- สั้นลงกว่าเดิมอีก
-    local GAP_X, GAP_Y     = 14, 28     -- ระยะห่างจากกรอบหลัก + เลื่อนลงให้ตรงกลาง
+    -- ===== ขนาด/ตำแหน่งแผงด้านขวา (สั้นลง + เลื่อนลงเพิ่ม) =====
+    local PANEL_W, PANEL_H = 190, 290     -- สั้นลงทางขวาอีก
+    local GAP_X, GAP_Y     = 12, 40       -- ระยะจากกรอบหลัก + เลื่อนลงมากขึ้น
 
     -- ===== Layout Container =====
     local col = Instance.new("Frame", scroll)
@@ -684,7 +684,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextColor3 = THEME.WHITE
     nameLbl.Text = lp and lp.DisplayName or "Player"
 
-    -- ===== Level Bar + ปุ่มโปรไฟล์ (ดำ ขอบเขียว ไอคอน) =====
+    -- ===== Level Bar + ปุ่มโปรไฟล์ =====
     local levelBar = Instance.new("Frame", col)
     levelBar.BackgroundColor3 = THEME.BG_INNER
     levelBar.BorderSizePixel = 0
@@ -692,9 +692,9 @@ registerRight("Player", function(scroll)
     levelBar.LayoutOrder = 3
     corner(levelBar, 8); stroke(levelBar, 1.2, THEME.GREEN)
 
-    -- สร้าง “พื้นที่ข้อความ” แบบสมมาตรซ้าย=ขวา ให้ศูนย์กลางไม่เอียง
+    -- เว้นพื้นที่ซ้าย=ขวาให้กึ่งกลางเป๊ะ (ตามความกว้างปุ่ม)
     local BUTTON_W, GAP = 26, 6
-    local PAD = BUTTON_W + GAP                 -- กันพื้นที่ซ้าย/ขวาเท่ากัน 32px
+    local PAD = BUTTON_W + GAP
     local levelLbl = Instance.new("TextLabel", levelBar)
     levelLbl.BackgroundTransparency = 1
     levelLbl.Position = UDim2.new(0, PAD, 0, 0)
@@ -706,12 +706,12 @@ registerRight("Player", function(scroll)
     levelLbl.TextXAlignment = Enum.TextXAlignment.Center
     levelLbl.TextYAlignment = Enum.TextYAlignment.Center
 
-    -- ปุ่มโปรไฟล์: ชิดขวาสุดจริง ๆ
+    -- ปุ่มโปรไฟล์: ขยับไป “ขวาสุดกว่าเดิม” + ไอคอน 72289858646360
     local profileBtn = Instance.new("ImageButton", levelBar)
     profileBtn.AutoButtonColor = true
     profileBtn.Size = UDim2.fromOffset(BUTTON_W, 26)
     profileBtn.AnchorPoint = Vector2.new(1, 0.5)
-    profileBtn.Position = UDim2.new(1, -2, 0.5, 0)  -- ชิดขอบด้านใน
+    profileBtn.Position = UDim2.new(1, -1, 0.5, 0)   -- ชิดขอบในสุด
     profileBtn.BackgroundColor3 = THEME.BLACK
     profileBtn.Image = "rbxassetid://72289858646360"
     profileBtn.ScaleType = Enum.ScaleType.Fit
@@ -742,7 +742,7 @@ registerRight("Player", function(scroll)
         timeLbl.Text = string.format("%02d:%02d", m, s)
     end)
 
-    -- =============== PROFILE PANEL (เลื่อนลง + สั้นลง) ===============
+    -- =============== PROFILE PANEL (เลื่อนลง + สั้นลง + ขยับหัวข้อไปขวา) ===============
     local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local sidePanel = Instance.new("Frame")
     sidePanel.Name = "ProfileSidePanel"
@@ -754,9 +754,15 @@ registerRight("Player", function(scroll)
     sidePanel.ZIndex = 500
     corner(sidePanel, 10); stroke(sidePanel, 1.4, THEME.GREEN)
 
+    -- padding เพื่อดันหัวข้อไปทางขวา
+    local pad = Instance.new("UIPadding", sidePanel)
+    pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 8)
+    pad.PaddingTop  = UDim.new(0, 6)
+
     local hdr = Instance.new("TextLabel", sidePanel)
     hdr.BackgroundTransparency = 1
-    hdr.Size = UDim2.new(1, 0, 0, 24)
+    hdr.Position = UDim2.new(0, 12, 0, 0)         -- ขยับไปขวา
+    hdr.Size = UDim2.new(1, -24, 0, 24)           -- เว้นซ้ายขวาให้พอดี
     hdr.Font = Enum.Font.GothamBold
     hdr.Text = "Profile Selector"
     hdr.TextSize = 16
@@ -775,7 +781,7 @@ registerRight("Player", function(scroll)
     local listInside = Instance.new("UIListLayout", scrollBody)
     listInside.Padding = UDim.new(0, 8); listInside.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ===== ตำแหน่งให้พอดีกับด้านขวา (เลื่อนลง) =====
+    -- ===== วางตำแหน่งแผงให้ตรงขวา (เลื่อนลง) =====
     local root = scroll.Parent
     local function snapPanelToRight()
         local basePos  = root.AbsolutePosition
