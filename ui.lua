@@ -617,28 +617,21 @@ registerRight("Player", function(scroll)
         GREEN    = BASE_THEME.GREEN or BASE_THEME.ACCENT or Color3.fromRGB(25, 255, 125),
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
-        MUTED    = Color3.fromRGB(140, 255, 180),
+        MUTED    = Color3.fromRGB(140, 255, 180), -- placeholder เขียวอ่อน
     }
 
     local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 8)
-        c.Parent = ui
-        return c
+        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 8); c.Parent = ui; return c
     end
     local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.4
-        s.Color = col or THEME.GREEN
-        s.Parent = ui
-        return s
+        local s = Instance.new("UIStroke"); s.Thickness = th or 1.4; s.Color = col or THEME.GREEN; s.Parent = ui; return s
     end
 
-    -- ===== Config =====
-    local PANEL_W, PANEL_H       = 170, 280
+    -- ===== ขนาดและตำแหน่ง =====
+    local PANEL_W, PANEL_H = 170, 280
     local GAP_X, BASE_TOP_OFFSET = 10, 52
 
-    -- ===== Right content =====
+    -- ===== Layout Container =====
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
     col.Size = UDim2.new(1, -24, 0, 360)
@@ -656,7 +649,7 @@ registerRight("Player", function(scroll)
 
     local avatarBox = Instance.new("ImageLabel", avatarWrap)
     avatarBox.BackgroundTransparency = 1
-    avatarBox.Size = UDim2.fromScale(1,1)
+    avatarBox.Size = UDim2.fromScale(1, 1)
     task.spawn(function()
         if lp then
             local ok, url = pcall(function()
@@ -680,7 +673,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextColor3 = THEME.WHITE
     nameLbl.Text = lp and lp.DisplayName or "Player"
 
-    -- Level + button
+    -- Level + ปุ่มตั้งค่า
     local levelBar = Instance.new("Frame", col)
     levelBar.BackgroundColor3 = THEME.BG_INNER
     levelBar.Size = UDim2.fromOffset(380, 26)
@@ -724,26 +717,23 @@ registerRight("Player", function(scroll)
     local startTime = tick()
     RunS.Heartbeat:Connect(function()
         local t = tick() - startTime
-        timeLbl.Text = string.format("%02d:%02d", math.floor(t/60), math.floor(t%60))
+        local m, s = math.floor(t/60), math.floor(t%60)
+        timeLbl.Text = string.format("%02d:%02d", m, s)
     end)
 
-    -- ===== PROFILE PANEL (follow root but not clipped) =====
-    local root = scroll.Parent
-    local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll:FindFirstAncestorOfClass("LayerCollector") or root
-
-    -- เคลียร์ของเดิม (กันซ้อนแล้วไม่ขึ้น)
-    local old = screenGui:FindFirstChild("ProfileSidePanel")
-    if old then old:Destroy() end
+    -- ===== PROFILE PANEL (ตาม UI หลัก ไม่ล็อค) =====
+    local root      = scroll.Parent                -- กรอบหลัก
+    local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
+    local old = screenGui:FindFirstChild("ProfileSidePanel"); if old then old:Destroy() end
 
     local sidePanel = Instance.new("Frame")
     sidePanel.Name = "ProfileSidePanel"
-    sidePanel.Parent = screenGui         -- <<< อยู่นอกกรอบหลัก ปลอดภัยจากการถูกคลิป
+    sidePanel.Parent = screenGui                  -- อยู่ใน ScreenGui เพื่อไม่โดนคลิป
     sidePanel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
     sidePanel.BackgroundColor3 = THEME.BG_INNER
     sidePanel.BorderSizePixel = 0
     sidePanel.Visible = false
     sidePanel.ZIndex = 500
-    sidePanel.Active = true
     corner(sidePanel, 10); stroke(sidePanel, 1.4, THEME.GREEN)
 
     -- Header
@@ -762,7 +752,7 @@ registerRight("Player", function(scroll)
     body.Position = UDim2.new(0, 0, 0, 30)
     body.Size = UDim2.new(1, 0, 1, -30)
 
-    -- Picker buttons (black with green border)
+    -- ปุ่มเลือกกรอบรูป 2 อัน (พื้นดำ ขอบเขียว)
     local row = Instance.new("Frame", body)
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1, 0, 0, 60)
@@ -773,19 +763,18 @@ registerRight("Player", function(scroll)
     layout.Padding = UDim.new(0, 8)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    local function makeFrameButton()
-        local btn = Instance.new("TextButton", row)
-        btn.Text = ""
-        btn.Size = UDim2.fromOffset(60, 60)
-        btn.BackgroundColor3 = THEME.BLACK
-        btn.AutoButtonColor = true
-        corner(btn, 6); stroke(btn, 1.6, THEME.GREEN)
-        return btn
+    local function makePicker()
+        local b = Instance.new("TextButton", row)
+        b.Text = ""; b.Size = UDim2.fromOffset(60, 60)
+        b.BackgroundColor3 = THEME.BLACK
+        b.AutoButtonColor = true
+        corner(b, 6); stroke(b, 1.6, THEME.GREEN)
+        return b
     end
-    local frame1 = makeFrameButton()
-    local frame2 = makeFrameButton()
+    local frame1 = makePicker()
+    local frame2 = makePicker()
 
-    -- Code input
+    -- ช่องใส่โค้ด “ให้เหมือน input ชัดเจน”
     local codeWrap = Instance.new("Frame", body)
     codeWrap.Size = UDim2.new(1, -16, 0, 40)
     codeWrap.Position = UDim2.new(0, 8, 0, 80)
@@ -796,13 +785,12 @@ registerRight("Player", function(scroll)
     codeIcon.BackgroundTransparency = 1
     codeIcon.Size = UDim2.fromOffset(18, 18)
     codeIcon.Position = UDim2.new(0, 10, 0.5, -9)
-    codeIcon.Image = "rbxassetid://6031280882"
+    codeIcon.Image = "rbxassetid://6031280882"  -- ไอคอนกุญแจ
     codeIcon.ImageColor3 = THEME.GREEN
 
     local codeInput = Instance.new("TextBox", codeWrap)
     codeInput.BackgroundTransparency = 1
     codeInput.ClearTextOnFocus = false
-    codeInput.CursorPosition = -1
     codeInput.PlaceholderText = "Enter Code"
     codeInput.PlaceholderColor3 = THEME.MUTED
     codeInput.Text = ""
@@ -814,29 +802,28 @@ registerRight("Player", function(scroll)
     codeInput.Position = UDim2.new(0, 36, 0, 0)
     codeInput.Size     = UDim2.new(1, -44, 1, 0)
 
-    -- ตำแหน่งให้ตามขอบขวาของกรอบหลักเสมอ
+    -- ===== ตำแหน่ง: “ตาม” กรอบหลักเสมอ =====
     local function snapPanel()
-        local pos = root.AbsolutePosition
-        local size = root.AbsoluteSize
-        sidePanel.Position = UDim2.fromOffset(pos.X + size.X + GAP_X, pos.Y + BASE_TOP_OFFSET)
+        local p, s = root.AbsolutePosition, root.AbsoluteSize
+        sidePanel.Position = UDim2.fromOffset(p.X + s.X + GAP_X, p.Y + BASE_TOP_OFFSET)
     end
-    snapPanel()
 
-    -- อัปเดตตำแหน่งทุกครั้งที่กรอบหลักขยับ/เปลี่ยนขนาด
-    root:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-        if sidePanel.Visible then snapPanel() end
-    end)
-    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-        if sidePanel.Visible then snapPanel() end
-    end)
+    -- อัปเดตเมื่อเปิด และตามการเปลี่ยนแปลงของกรอบหลัก
+    local followConn
+    local function startFollow()
+        if followConn then followConn:Disconnect() end
+        followConn = RunS.RenderStepped:Connect(function()
+            if sidePanel.Visible then snapPanel() end
+        end)
+    end
 
-    -- Toggle
     profileBtn.MouseButton1Click:Connect(function()
         sidePanel.Visible = not sidePanel.Visible
-        if sidePanel.Visible then snapPanel() end
+        if sidePanel.Visible then snapPanel(); startFollow() end
     end)
 
-    -- ซ่อนเมื่อกรอบหลักถูกซ่อน
+    root:GetPropertyChangedSignal("AbsolutePosition"):Connect(function() if sidePanel.Visible then snapPanel() end end)
+    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() if sidePanel.Visible then snapPanel() end end)
     root:GetPropertyChangedSignal("Visible"):Connect(function()
         if not root.Visible then sidePanel.Visible = false end
     end)
