@@ -620,22 +620,15 @@ registerRight("Player", function(scroll)
     }
 
     local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 8)
-        c.Parent = ui
-        return c
+        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 8); c.Parent = ui; return c
     end
     local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.4
-        s.Color = col or THEME.GREEN
-        s.Parent = ui
-        return s
+        local s = Instance.new("UIStroke"); s.Thickness = th or 1.4; s.Color = col or THEME.GREEN; s.Parent = ui; return s
     end
 
-    -- ===== Config: ขนาด/ตำแหน่ง panel ด้านขวา (ให้สั้นลงและเลื่อนลงเล็กน้อย) =====
-    local PANEL_W, PANEL_H = 240, 320   -- สั้นลงกว่าเดิม
-    local GAP_X, GAP_Y     = 18, 16     -- ระยะชิดขวา + เลื่อนลง
+    -- ===== ขนาด/ตำแหน่งแผงด้านขวา (ให้สั้นลง + เลื่อนลงชัดเจน) =====
+    local PANEL_W, PANEL_H = 210, 300   -- สั้นลงกว่าเดิมอีก
+    local GAP_X, GAP_Y     = 14, 28     -- ระยะห่างจากกรอบหลัก + เลื่อนลงให้ตรงกลาง
 
     -- ===== Layout Container =====
     local col = Instance.new("Frame", scroll)
@@ -656,8 +649,7 @@ registerRight("Player", function(scroll)
     avatarWrap.BorderSizePixel  = 0
     avatarWrap.Size = UDim2.fromOffset(150, 150)
     avatarWrap.LayoutOrder = 1
-    corner(avatarWrap, 10)
-    stroke(avatarWrap, 1.4, THEME.GREEN)
+    corner(avatarWrap, 10); stroke(avatarWrap, 1.4, THEME.GREEN)
 
     local avatarBox = Instance.new("ImageLabel", avatarWrap)
     avatarBox.BackgroundTransparency = 1
@@ -671,8 +663,7 @@ registerRight("Player", function(scroll)
             end)
             if ok and url then
                 pcall(function() Content:PreloadAsync({url}) end)
-                avatarBox.Image = url
-                avatarBox.ImageTransparency = 0
+                avatarBox.Image = url; avatarBox.ImageTransparency = 0
             end
         end
     end)
@@ -683,8 +674,7 @@ registerRight("Player", function(scroll)
     nameBar.BorderSizePixel = 0
     nameBar.Size = UDim2.fromOffset(380, 30)
     nameBar.LayoutOrder = 2
-    corner(nameBar, 8)
-    stroke(nameBar, 1.2, THEME.GREEN)
+    corner(nameBar, 8); stroke(nameBar, 1.2, THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
     nameLbl.BackgroundTransparency = 1
@@ -694,20 +684,21 @@ registerRight("Player", function(scroll)
     nameLbl.TextColor3 = THEME.WHITE
     nameLbl.Text = lp and lp.DisplayName or "Player"
 
-    -- ===== Level Bar + ปุ่มโปรไฟล์ (ดำ, ขอบเขียว, มีไอคอน) =====
+    -- ===== Level Bar + ปุ่มโปรไฟล์ (ดำ ขอบเขียว ไอคอน) =====
     local levelBar = Instance.new("Frame", col)
     levelBar.BackgroundColor3 = THEME.BG_INNER
     levelBar.BorderSizePixel = 0
     levelBar.Size = UDim2.fromOffset(380, 26)
     levelBar.LayoutOrder = 3
-    corner(levelBar, 8)
-    stroke(levelBar, 1.2, THEME.GREEN)
+    corner(levelBar, 8); stroke(levelBar, 1.2, THEME.GREEN)
 
-    -- จัดกึ่งกลางจริง ๆ โดยหักพื้นที่ปุ่มด้านขวา ~56px และเว้นซ้าย 8px
+    -- สร้าง “พื้นที่ข้อความ” แบบสมมาตรซ้าย=ขวา ให้ศูนย์กลางไม่เอียง
+    local BUTTON_W, GAP = 26, 6
+    local PAD = BUTTON_W + GAP                 -- กันพื้นที่ซ้าย/ขวาเท่ากัน 32px
     local levelLbl = Instance.new("TextLabel", levelBar)
     levelLbl.BackgroundTransparency = 1
-    levelLbl.Size = UDim2.new(1, -56, 1, 0)
-    levelLbl.Position = UDim2.new(0, 8, 0, 0)
+    levelLbl.Position = UDim2.new(0, PAD, 0, 0)
+    levelLbl.Size     = UDim2.new(1, -(PAD*2), 1, 0)
     levelLbl.Font = Enum.Font.GothamBold
     levelLbl.TextSize = 14
     levelLbl.TextColor3 = THEME.WHITE
@@ -715,18 +706,16 @@ registerRight("Player", function(scroll)
     levelLbl.TextXAlignment = Enum.TextXAlignment.Center
     levelLbl.TextYAlignment = Enum.TextYAlignment.Center
 
-    -- ปุ่มโปรไฟล์: สีดำ, ขอบเขียว, ใช้รูป 72289858646360 และชิดขวาสุดในบาร์
+    -- ปุ่มโปรไฟล์: ชิดขวาสุดจริง ๆ
     local profileBtn = Instance.new("ImageButton", levelBar)
     profileBtn.AutoButtonColor = true
-    profileBtn.Size = UDim2.fromOffset(26, 26)
+    profileBtn.Size = UDim2.fromOffset(BUTTON_W, 26)
     profileBtn.AnchorPoint = Vector2.new(1, 0.5)
-    profileBtn.Position = UDim2.new(1, -2, 0.5, 0)  -- ชิดขวาภายในกรอบ
+    profileBtn.Position = UDim2.new(1, -2, 0.5, 0)  -- ชิดขอบด้านใน
     profileBtn.BackgroundColor3 = THEME.BLACK
     profileBtn.Image = "rbxassetid://72289858646360"
-    profileBtn.ImageTransparency = 0
     profileBtn.ScaleType = Enum.ScaleType.Fit
-    corner(profileBtn, 4)
-    stroke(profileBtn, 1.2, THEME.GREEN)
+    corner(profileBtn, 4); stroke(profileBtn, 1.2, THEME.GREEN)
 
     -- ===== Time Bar =====
     local timeBar = Instance.new("Frame", col)
@@ -734,8 +723,7 @@ registerRight("Player", function(scroll)
     timeBar.BorderSizePixel = 0
     timeBar.Size = UDim2.fromOffset(380, 26)
     timeBar.LayoutOrder = 4
-    corner(timeBar, 8)
-    stroke(timeBar, 1.2, THEME.GREEN)
+    corner(timeBar, 8); stroke(timeBar, 1.2, THEME.GREEN)
 
     local timeLbl = Instance.new("TextLabel", timeBar)
     timeLbl.BackgroundTransparency = 1
@@ -754,7 +742,7 @@ registerRight("Player", function(scroll)
         timeLbl.Text = string.format("%02d:%02d", m, s)
     end)
 
-    -- =============== PROFILE PANEL (สั้นลงและเลื่อนลง) ===============
+    -- =============== PROFILE PANEL (เลื่อนลง + สั้นลง) ===============
     local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local sidePanel = Instance.new("Frame")
     sidePanel.Name = "ProfileSidePanel"
@@ -764,8 +752,7 @@ registerRight("Player", function(scroll)
     sidePanel.BorderSizePixel = 0
     sidePanel.Visible = false
     sidePanel.ZIndex = 500
-    corner(sidePanel, 10)
-    stroke(sidePanel, 1.4, THEME.GREEN)
+    corner(sidePanel, 10); stroke(sidePanel, 1.4, THEME.GREEN)
 
     local hdr = Instance.new("TextLabel", sidePanel)
     hdr.BackgroundTransparency = 1
@@ -784,13 +771,11 @@ registerRight("Player", function(scroll)
     scrollBody.ScrollBarThickness = 4
     scrollBody.ScrollingDirection = Enum.ScrollingDirection.Y
     scrollBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollBody.CanvasSize = UDim2.new(0, 0, 0, 0)
 
     local listInside = Instance.new("UIListLayout", scrollBody)
-    listInside.Padding = UDim.new(0, 8)
-    listInside.SortOrder = Enum.SortOrder.LayoutOrder
+    listInside.Padding = UDim.new(0, 8); listInside.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ===== Position Logic (ให้พอดีกับพื้นที่ด้านขวา) =====
+    -- ===== ตำแหน่งให้พอดีกับด้านขวา (เลื่อนลง) =====
     local root = scroll.Parent
     local function snapPanelToRight()
         local basePos  = root.AbsolutePosition
