@@ -641,7 +641,7 @@ registerRight("Player", function(scroll)
 local col = Instance.new("Frame", scroll)
 col.BackgroundTransparency = 1
 col.Size = UDim2.new(1, -24, 0, 340)
-col.Position = UDim2.new(0, 0, 0, -30) -- ★ ขยับขึ้น 20 พิกเซล
+col.Position = UDim2.new(0, 0, 0, -40) -- ★ ขยับขึ้น 20 พิกเซล
 col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
