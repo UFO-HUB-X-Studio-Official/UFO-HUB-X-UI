@@ -603,7 +603,7 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time) =====
+-- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time, real-time leveling) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
@@ -637,24 +637,24 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- คอลัมน์กลาง (ขยับขึ้นนิดนึง)
-local col = Instance.new("Frame", scroll)
-col.BackgroundTransparency = 1
-col.Size = UDim2.new(1, -24, 0, 340)
-col.Position = UDim2.new(0, 0, 0, -40) -- ★ ขยับขึ้น 20 พิกเซล
-col.LayoutOrder = 1
+    -- คอลัมน์กลาง (ขยับขึ้นเล็กน้อย)
+    local col = Instance.new("Frame", scroll)
+    col.BackgroundTransparency = 1
+    col.Size = UDim2.new(1, -24, 0, 340)
+    col.Position = UDim2.new(0, 0, 0, -20) -- ดันขึ้น 20px
+    col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
     list.Padding = UDim.new(0, 12)
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
-    list.SortOrder = Enum.SortOrder.LayoutOrder  -- ล็อกลำดับตาม LayoutOrder
+    list.SortOrder = Enum.SortOrder.LayoutOrder
 
     -- 1) รูปตัวละคร (บนสุด)
     local avatarBox = Instance.new("ImageLabel", col)
     avatarBox.BackgroundColor3 = THEME.BG_INNER
     avatarBox.BorderSizePixel  = 0
-    avatarBox.Size = UDim2.fromOffset(150, 150)  -- ย่อให้เล็กลง
+    avatarBox.Size = UDim2.fromOffset(150, 150)
     avatarBox.ImageTransparency = 1
     avatarBox.LayoutOrder = 1
     corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
@@ -683,23 +683,77 @@ col.LayoutOrder = 1
     fill.BorderSizePixel  = 0
     fill.AnchorPoint      = Vector2.new(0,0.5)
     fill.Position         = UDim2.new(0,3,0.5,0)
-    fill.Size             = UDim2.new(0.3, -6, 1, -6)  -- เริ่มต้น 30%
+    fill.Size             = UDim2.new(0, 0, 1, -6) -- เริ่ม 0%
     corner(fill, 6)
 
-    -- 4) เวลา
-    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00.00", 380, 26, 4)
+    -- 4) เวลา (แสดงผลตามช่วง)
+    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 26, 4)
 
-    -- ===== Timer =====
+    -- ===== Timer + Level mapping =====
+    -- นิยามเวลาอ้างอิง (เดือน=30 วัน, ปี=12 เดือน)
+    local SEC  = 1
+    local MIN  = 60*SEC
+    local HOUR = 60*MIN
+    local DAY  = 24*HOUR
+    local MONTH= 30*DAY
+    local YEAR = 12*MONTH   -- = 360 วัน (ประมาณ)
+
+    -- format เวลาแบบไล่ระดับหน่วย
+    local function formatElapsed(s)
+        if s < HOUR then
+            -- MM:SS
+            local m = math.floor(s / MIN)
+            local sec = math.floor(s % MIN)
+            return string.format("%02d:%02d", m, sec)
+        elseif s < DAY then
+            -- HH:MM:SS
+            local h = math.floor(s / HOUR)
+            local m = math.floor((s % HOUR) / MIN)
+            local sec = math.floor(s % MIN)
+            return string.format("%02d:%02d:%02d", h, m, sec)
+        elseif s < MONTH then
+            -- Dd HH:MM:SS
+            local d = math.floor(s / DAY)
+            local h = math.floor((s % DAY) / HOUR)
+            local m = math.floor((s % HOUR) / MIN)
+            local sec = math.floor(s % MIN)
+            return string.format("%dd %02d:%02d:%02d", d, h, m, sec)
+        elseif s < YEAR then
+            -- Mm Dd HH:MM:SS
+            local mo = math.floor(s / MONTH)
+            local d  = math.floor((s % MONTH) / DAY)
+            local h  = math.floor((s % DAY) / HOUR)
+            local m  = math.floor((s % HOUR) / MIN)
+            local sec= math.floor(s % MIN)
+            return string.format("%dm %dd %02d:%02d:%02d", mo, d, h, m, sec)
+        else
+            -- Yy Mm Dd HH:MM:SS (ยังเดินต่อหลัง 1 ปี)
+            local y  = math.floor(s / YEAR)
+            local mo = math.floor((s % YEAR) / MONTH)
+            local d  = math.floor((s % MONTH) / DAY)
+            local h  = math.floor((s % DAY) / HOUR)
+            local m  = math.floor((s % HOUR) / MIN)
+            local sec= math.floor(s % MIN)
+            return string.format("%dy %dm %dd %02d:%02d:%02d", y, mo, d, h, m, sec)
+        end
+    end
+
     if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
     local T = getgenv().UFO_RIGHT._playerTimer
     local root = scroll.Parent
 
-    local function setTimeText(elapsed)
-        if elapsed < 0 then elapsed = 0 end
-        local mins = math.floor(elapsed/60)
-        local secs = math.floor(elapsed % 60)
-        local cs   = math.floor((elapsed - math.floor(elapsed))*100)
-        timeLbl.Text = string.format("%02d:%02d.%02d", mins, secs, cs)
+    local function applyProgress(elapsed)
+        -- ความคืบหน้าเทียบกับ 1 ปี (cap 0..1)
+        local p = math.clamp(elapsed / YEAR, 0, 1)
+        -- ปรับหลอด
+        local innerW = levelBar.AbsoluteSize.X - 6
+        fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
+        -- คำนวณเลเวล: 0% = Lv1, 100% = Lv100
+        local level = math.floor(p * 99) + 1
+        if level > 100 then level = 100 end
+        levelLbl.Text = "Level " .. tostring(level)
+        -- เวลาที่แสดง
+        timeLbl.Text = formatElapsed(elapsed)
     end
 
     local function startTimer()
@@ -707,7 +761,8 @@ col.LayoutOrder = 1
         local tStart = os.clock()
         T.base = T.base or 0
         T.conn = RunS.Heartbeat:Connect(function()
-            setTimeText(T.base + (os.clock() - tStart))
+            local elapsed = T.base + (os.clock() - tStart)
+            applyProgress(elapsed)
         end)
         T._lastStart = tStart
     end
@@ -724,11 +779,13 @@ col.LayoutOrder = 1
     end)
     startTimer()
 
-    -- helpers
+    -- public helpers
     getgenv().UFO_RIGHT._setPlayerName   = function(text)  nameLbl.Text = text or nameLbl.Text end
-    getgenv().UFO_RIGHT._setPlayerLevel  = function(num)   levelLbl.Text = ("Level %s"):format(tostring(num or "1")) end
-    getgenv().UFO_RIGHT._setLevelProgress = function(p)
-        p = math.clamp(tonumber(p) or 0, 0, 1)
+    -- set level โดยตรง (จะรีแมพ progress ด้วยตามสัดส่วน)
+    getgenv().UFO_RIGHT._setPlayerLevel  = function(num)
+        num = math.clamp(tonumber(num) or 1, 1, 100)
+        levelLbl.Text = ("Level %d"):format(num)
+        local p = (num-1)/99
         local innerW = levelBar.AbsoluteSize.X - 6
         fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
     end
