@@ -603,81 +603,30 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (UI + Settings panel + VIP code) =====
-registerRight("Player", function(scroll)
-	-- services
-	local Players = game:GetService("Players")
-	local RunS    = game:GetService("RunService")
-	local RepS    = game:GetService("ReplicatedStorage")
-	local Content = game:GetService("ContentProvider")
-	local lp      = Players.LocalPlayer
+-- ===========================
+-- Player Tab: SAFE DROP-IN
+-- ===========================
+local Players = game:GetService("Players")
+local RunS    = game:GetService("RunService")
+local Content = game:GetService("ContentProvider")
+local lp      = Players.LocalPlayer
 
-	-- remotes (สร้างจากฝั่ง Server ตามโค้ดด้านล่าง)
-	local Remotes = RepS:WaitForChild("UFO_Remotes")
-	local REDEEM  = Remotes:WaitForChild("UFO_Redeem")
-	local SAVE    = Remotes:WaitForChild("UFO_Save")
-	local LOAD    = Remotes:WaitForChild("UFO_Load")
+-- ===== Fallback THEME & helpers (ไม่พึ่งภายนอก) =====
+local THEME = rawget(_G, "THEME") or {
+	BG_INNER = Color3.fromRGB(20,20,20),
+	GREEN    = Color3.fromRGB(90,255,160),
+	MINT     = Color3.fromRGB(80,220,180),
+}
+local function corner(ui, r)
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 8); c.Parent = ui; return c
+end
+local function stroke(ui, th, col, tr)
+	local s = Instance.new("UIStroke"); s.Thickness = th or 1; s.Color = col or THEME.GREEN; s.Transparency = tr or 0; s.Parent = ui; return s
+end
 
-	-- ================== CONFIG: ขนาด/ตำแหน่งแผงด้านขวา ==================
-	local PANEL_W, PANEL_H = 300, 420
-	local GAP_X, Y_BIAS    = 12, 0
-	-- ======================================================================
-
-	-- ========== ASSET MAPS ==========
-	local LEVEL_FRAMES = {
-		[1]  = "rbxassetid://103578104124329",
-		[10] = "rbxassetid://85727597206473",
-		[20] = "rbxassetid://128573493281890",
-		[30] = "rbxassetid://115554607896817",
-		[40] = "rbxassetid://110581349302851",
-		[50] = "rbxassetid://89035382790955",
-		[60] = "rbxassetid://138637702392266",
-		[70] = "rbxassetid://113699652751616",
-		[80] = "rbxassetid://93319087274486",
-		[90] = "rbxassetid://120540216404741",
-		[100]= "rbxassetid://86619588493539",
-	}
-	local LEVEL_LIST = {
-		{label="Level 1",   need=1,   asset=LEVEL_FRAMES[1]},
-		{label="Level 10",  need=10,  asset=LEVEL_FRAMES[10]},
-		{label="Level 20",  need=20,  asset=LEVEL_FRAMES[20]},
-		{label="Level 30",  need=30,  asset=LEVEL_FRAMES[30]},
-		{label="Level 40",  need=40,  asset=LEVEL_FRAMES[40]},
-		{label="Level 50",  need=50,  asset=LEVEL_FRAMES[50]},
-		{label="Level 60",  need=60,  asset=LEVEL_FRAMES[60]},
-		{label="Level 70",  need=70,  asset=LEVEL_FRAMES[70]},
-		{label="Level 80",  need=80,  asset=LEVEL_FRAMES[80]},
-		{label="Level 90",  need=90,  asset=LEVEL_FRAMES[90]},
-		{label="Level 100", need=100, asset=LEVEL_FRAMES[100]},
-	}
-	local VIP_FRAMES = {
-		[1]  = "rbxassetid://73746401885472",
-		[2]  = "rbxassetid://90973074158239",
-		[3]  = "rbxassetid://83041899569224",
-		[4]  = "rbxassetid://127138243668916",
-		[5]  = "rbxassetid://122062636160118",
-		[6]  = "rbxassetid://100788335275741",
-		[7]  = "rbxassetid://133372694165125",
-		[8]  = "rbxassetid://135458055362474",
-		[9]  = "rbxassetid://94375480980263",
-		[10] = "rbxassetid://76631067738413",
-	}
-	local VIP_LIST = {
-		{label="VIP 1",  need=1,  asset=VIP_FRAMES[1]},
-		{label="VIP 2",  need=2,  asset=VIP_FRAMES[2]},
-		{label="VIP 3",  need=3,  asset=VIP_FRAMES[3]},
-		{label="VIP 4",  need=4,  asset=VIP_FRAMES[4]},
-		{label="VIP 5",  need=5,  asset=VIP_FRAMES[5]},
-		{label="VIP 6",  need=6,  asset=VIP_FRAMES[6]},
-		{label="VIP 7",  need=7,  asset=VIP_FRAMES[7]},
-		{label="VIP 8",  need=8,  asset=VIP_FRAMES[8]},
-		{label="VIP 9",  need=9,  asset=VIP_FRAMES[9]},
-		{label="VIP 10", need=10, asset=VIP_FRAMES[10]},
-	}
-	local GM_FRAME   = "rbxassetid://71695262317669"
-	local GM_NAME    = "UFO_Official888X"
-
-	-- ---------- helpers ----------
+-- ===== UI Builder =====
+local function buildPlayerTab(scroll)
+	-- ---------- makeBar ----------
 	local function makeBar(parent, text, w, h, order)
 		w = w or 380; h = h or 24
 		local holder = Instance.new("Frame", parent)
@@ -731,13 +680,6 @@ registerRight("Player", function(scroll)
 	avatarBox.ImageTransparency = 1
 	corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
 
-	local avatarImageFrame = Instance.new("ImageLabel", avatarWrap)
-	avatarImageFrame.Name = "AvatarImageFrame"
-	avatarImageFrame.BackgroundTransparency = 1
-	avatarImageFrame.Size = UDim2.fromScale(1,1)
-	avatarImageFrame.ZIndex = 6
-	avatarImageFrame.ImageTransparency = 1
-
 	local avatarFrameOverlay = Instance.new("Frame", avatarWrap)
 	avatarFrameOverlay.BackgroundTransparency = 1
 	avatarFrameOverlay.Size = UDim2.fromScale(1,1)
@@ -758,10 +700,10 @@ registerRight("Player", function(scroll)
 	end)
 
 	-- name
-	local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
+	local _, _, nameLbl = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-	-- level + fill + settings button
-	local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
+	-- level + fill + settings
+	local _, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
 	levelLbl.Text = "Level 1"
 
 	local settingsBtn = Instance.new("ImageButton", levelBar)
@@ -785,9 +727,9 @@ registerRight("Player", function(scroll)
 	corner(fill, 6)
 
 	-- time
-	local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
+	local _, _, timeLbl = makeBar(col, "00:00", 380, 24, 4)
 
-	-- ---------- time & level ----------
+	-- ---------- time & level (จำลองขึ้นหลอด) ----------
 	local HOUR, MIN = 3600, 60
 	local function formatElapsed(s)
 		if s < HOUR then
@@ -799,325 +741,173 @@ registerRight("Player", function(scroll)
 		end
 	end
 
-	if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
-	if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
-	local T = getgenv().UFO_RIGHT._playerTimer
-	local root = scroll.Parent
 	local currentLevel = 1
-	local vipLevel     = 0
-	local savedFrame   = "" -- assetId ที่เลือกอยู่
-
-	local function isGM()
-		if not lp then return false end
-		return (lp.Name == GM_NAME) or (lp.DisplayName == GM_NAME)
-	end
-
 	local function innerWidth()
 		return levelBar.AbsoluteSize.X - 6 - (settingsBtn.AbsoluteSize.X + 6)
 	end
-
 	local function applyProgress(elapsed)
 		local YEAR = 12*30*24*HOUR
 		local p = math.clamp(elapsed / YEAR, 0, 1)
 		fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
 		currentLevel = math.min(100, math.floor(p * 99) + 1)
-		levelLbl.Text = "Level " .. tostring(currentLevel)
+		levelLbl.Text = ("Level %d"):format(currentLevel)
 		timeLbl.Text = formatElapsed(elapsed)
 	end
 
+	local T = { base = 0 }
+	local tStart = os.clock()
+	RunS.Heartbeat:Connect(function()
+		applyProgress(T.base + (os.clock() - tStart))
+	end)
 	levelBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		local base = T.base or 0
-		applyProgress(base)
+		applyProgress(T.base + (os.clock() - tStart))
 	end)
 
-	-- load from server once
-	task.spawn(function()
-		local ok, data = pcall(function()
-			return LOAD:InvokeServer()
-		end)
-		if ok and type(data)=="table" then
-			vipLevel   = tonumber(data.vipLevel) or 0
-			savedFrame = data.selectedFrameAsset or ""
-			local savedLv = tonumber(data.savedLevel) or 1
-			getgenv().UFO_RIGHT._setPlayerLevel(savedLv)
-			if savedFrame ~= "" then
-				avatarImageFrame.Image = savedFrame
-				avatarImageFrame.ImageTransparency = 0
-			end
-		end
-	end)
-
-	local function startTimer()
-		if T.conn then return end
-		local tStart = os.clock()
-		T.base = T.base or 0
-		T.conn = RunS.Heartbeat:Connect(function()
-			applyProgress(T.base + (os.clock() - tStart))
-		end)
-		T._lastStart = tStart
-	end
-	local function stopTimer()
-		if T.conn then
-			T.conn:Disconnect(); T.conn = nil
-			local now = os.clock()
-			T.base = (T.base or 0) + (now - (T._lastStart or now))
-		end
-	end
-	root:GetPropertyChangedSignal("Visible"):Connect(function()
-		if root.Visible then startTimer() else stopTimer() end
-	end)
-	startTimer()
-
-	-- ใช้กรอบ + เซฟไป Server
-	local function applyAndSave(assetId)
-		if not assetId or assetId=="" then return end
-		avatarImageFrame.Image = assetId
-		avatarImageFrame.ImageTransparency = 0
-		savedFrame = assetId
-		SAVE:FireServer({
-			type = "SelectFrame",
-			selectedFrameAsset = assetId,
-			level = currentLevel,
-			vipLevel = vipLevel,
-		})
-	end
-
-	-- ================== SETTINGS PANEL ==================
+	-- ================== SETTINGS PANEL (ขึ้นชัวร์, ไม่โดนคลิป) ==================
 	local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
 	if not screenGui then
-		screenGui = scroll:FindFirstAncestorOfClass("LayerCollector") or root
+		screenGui = scroll:FindFirstAncestorOfClass("LayerCollector") or scroll
 	end
 
 	local sidePanel = screenGui:FindFirstChild("PlayerSidePanel")
-	if not sidePanel then
-		sidePanel = Instance.new("Frame")
-		sidePanel.Name = "PlayerSidePanel"
-		sidePanel.Parent = screenGui
-		sidePanel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
-		sidePanel.BackgroundColor3 = THEME.BG_INNER
-		sidePanel.BorderSizePixel = 0
-		sidePanel.Visible = false
-		sidePanel.ZIndex = 500
-		sidePanel.Active = true
-		corner(sidePanel, 10)
-		stroke(sidePanel, 1.6, THEME.GREEN, 0)
+	if sidePanel then sidePanel:Destroy() end -- กันซ้ำค้าง
+	sidePanel = Instance.new("Frame")
+	sidePanel.Name = "PlayerSidePanel"
+	sidePanel.Parent = screenGui
+	sidePanel.Size = UDim2.fromOffset(300, 420)
+	sidePanel.BackgroundColor3 = THEME.BG_INNER
+	sidePanel.BorderSizePixel = 0
+	sidePanel.Visible = false
+	sidePanel.ZIndex = 500
+	sidePanel.Active = true
+	corner(sidePanel, 10); stroke(sidePanel, 1.6, THEME.GREEN, 0)
 
-		local pad = Instance.new("UIPadding", sidePanel)
-		pad.PaddingTop    = UDim.new(0, 12)
-		pad.PaddingBottom = UDim.new(0, 12)
-		pad.PaddingLeft   = UDim.new(0, 12)
-		pad.PaddingRight  = UDim.new(0, 12)
+	local pad = Instance.new("UIPadding", sidePanel)
+	pad.PaddingTop    = UDim.new(0, 12)
+	pad.PaddingBottom = UDim.new(0, 12)
+	pad.PaddingLeft   = UDim.new(0, 12)
+	pad.PaddingRight  = UDim.new(0, 12)
 
-		-- Tabs: LEVEL / VIP / GM
-		local tabs = Instance.new("Frame", sidePanel)
-		tabs.BackgroundTransparency = 1
-		tabs.Size = UDim2.new(1, 0, 0, 32)
+	local hdr = Instance.new("TextLabel", sidePanel)
+	hdr.BackgroundTransparency = 1
+	hdr.Size = UDim2.new(1, 0, 0, 28)
+	hdr.Font = Enum.Font.GothamBold
+	hdr.Text = "เลือกกรอบรูป"
+	hdr.TextSize = 16
+	hdr.TextColor3 = Color3.fromRGB(255,255,255)
+	hdr.TextXAlignment = Enum.TextXAlignment.Left
 
-		local uiTabs = Instance.new("UIListLayout", tabs)
-		uiTabs.FillDirection = Enum.FillDirection.Horizontal
-		uiTabs.Padding = UDim.new(0, 8)
-		uiTabs.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	local gridHolder = Instance.new("ScrollingFrame", sidePanel)
+	gridHolder.BackgroundTransparency = 1
+	gridHolder.Size     = UDim2.new(1, 0, 1, -36)
+	gridHolder.Position = UDim2.new(0, 0, 0, 36)
+	gridHolder.ScrollBarThickness = 0
+	gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	gridHolder.ScrollingDirection  = Enum.ScrollingDirection.Y
+	gridHolder.ZIndex = sidePanel.ZIndex + 1
 
-		local function makeTab(title)
-			local b = Instance.new("TextButton", tabs)
-			b.AutoButtonColor = true
-			b.Text = title
-			b.Font = Enum.Font.GothamBold
-			b.TextSize = 14
-			b.TextColor3 = Color3.fromRGB(255,255,255)
-			b.BackgroundColor3 = THEME.BG_INNER
-			b.Size = UDim2.fromOffset(86, 28)
-			corner(b, 6); stroke(b, 1, THEME.GREEN, 0)
-			return b
-		end
-		local tabLevel = makeTab("LEVEL")
-		local tabVip   = makeTab("VIP")
-		local tabGM    = makeTab("GM")
+	local UIGrid = Instance.new("UIGridLayout", gridHolder)
+	UIGrid.CellPadding = UDim2.fromOffset(12, 12)
+	UIGrid.CellSize    = UDim2.fromOffset(124, 92)
+	UIGrid.FillDirectionMaxCells = 2
+	UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
 
-		-- ช่องกรอกโค้ด (เฉพาะแท็บ VIP)
-		local codeRow = Instance.new("Frame", sidePanel)
-		codeRow.BackgroundTransparency = 1
-		codeRow.Position = UDim2.new(0,0,0,36)
-		codeRow.Size = UDim2.new(1,0,0,30)
+	-- รายการตัวอย่าง 6 ปุ่ม (ขึ้นชัวร์)
+	local ITEMS = {
+		{label="Basic",  sub="Lv1+",   color=THEME.GREEN},
+		{label="Mint",   sub="Lv10+",  color=THEME.MINT},
+		{label="Pro",    sub="Lv25+",  color=THEME.GREEN},
+		{label="Elite",  sub="Lv50+",  color=THEME.MINT},
+		{label="Master", sub="Lv75+",  color=THEME.GREEN},
+		{label="Legend", sub="Lv100",  color=Color3.fromRGB(255,210,80)},
+	}
+	local function addCell(title, sub, col)
+		local cell = Instance.new("TextButton", gridHolder)
+		cell.AutoButtonColor = true
+		cell.Text = ""
+		cell.BackgroundColor3 = THEME.BG_INNER
+		cell.BorderSizePixel = 0
+		corner(cell, 8); stroke(cell, 1.2, col or THEME.GREEN, 0)
 
-		local codeBox = Instance.new("TextBox", codeRow)
-		codeBox.PlaceholderText = "ใส่โค้ด VIP ที่นี่"
-		codeBox.Font = Enum.Font.Gotham
-		codeBox.TextSize = 14
-		codeBox.TextColor3 = Color3.fromRGB(255,255,255)
-		codeBox.BackgroundColor3 = THEME.BG_INNER
-		codeBox.Size = UDim2.new(1, -100, 1, 0)
-		corner(codeBox, 6); stroke(codeBox, 1, THEME.GREEN, 0)
+		local t = Instance.new("TextLabel", cell)
+		t.BackgroundTransparency = 1
+		t.Position = UDim2.new(0, 8, 0, 8)
+		t.Size     = UDim2.new(1, -16, 0, 20)
+		t.Font = Enum.Font.GothamBold
+		t.TextSize = 14
+		t.TextColor3 = Color3.fromRGB(255,255,255)
+		t.TextXAlignment = Enum.TextXAlignment.Left
+		t.Text = title
 
-		local btnRedeem = Instance.new("TextButton", codeRow)
-		btnRedeem.Text = "Redeem"
-		btnRedeem.Font = Enum.Font.GothamBold
-		btnRedeem.TextSize = 14
-		btnRedeem.TextColor3 = Color3.fromRGB(255,255,255)
-		btnRedeem.BackgroundColor3 = THEME.BG_INNER
-		btnRedeem.Size = UDim2.new(0, 90, 1, 0)
-		btnRedeem.Position = UDim2.new(1, -90, 0, 0)
-		corner(btnRedeem, 6); stroke(btnRedeem, 1, THEME.GREEN, 0)
-
-		local gridHolder = Instance.new("ScrollingFrame", sidePanel)
-		gridHolder.Name = "Grid"
-		gridHolder.BackgroundTransparency = 1
-		gridHolder.Size     = UDim2.new(1, 0, 1, -76) -- เผื่อแถวโค้ด
-		gridHolder.Position = UDim2.new(0, 0, 0, 72)
-		gridHolder.ScrollBarThickness = 0
-		gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		gridHolder.ScrollingDirection  = Enum.ScrollingDirection.Y
-		gridHolder.ZIndex = sidePanel.ZIndex + 1
-
-		local UIGrid = Instance.new("UIGridLayout", gridHolder)
-		UIGrid.CellPadding = UDim2.fromOffset(12, 12)
-		UIGrid.CellSize    = UDim2.fromOffset(124, 92)
-		UIGrid.FillDirectionMaxCells = 2
-		UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
-
-		-- state
-		local currentMode = "LEVEL"
-
-		local function clearGrid()
-			for _, c in ipairs(gridHolder:GetChildren()) do
-				if c:IsA("GuiObject") then c:Destroy() end
-			end
-		end
-
-		local function addCell(title, sub, unlocked, assetId)
-			local cell = Instance.new("TextButton", gridHolder)
-			cell.AutoButtonColor = true
-			cell.Text = ""
-			cell.BackgroundColor3 = unlocked and THEME.BG_INNER or Color3.fromRGB(25,25,25)
-			cell.BorderSizePixel = 0
-			corner(cell, 8); stroke(cell, 1.2, THEME.GREEN, 0)
-
-			local t = Instance.new("TextLabel", cell)
-			t.BackgroundTransparency = 1
-			t.Position = UDim2.new(0, 8, 0, 8)
-			t.Size     = UDim2.new(1, -16, 0, 20)
-			t.Font = Enum.Font.GothamBold
-			t.TextSize = 14
-			t.TextColor3 = Color3.fromRGB(255,255,255)
-			t.TextXAlignment = Enum.TextXAlignment.Left
-			t.Text = title
-
-			local s = Instance.new("TextLabel", cell)
-			s.BackgroundTransparency = 1
-			s.Position = UDim2.new(0, 8, 1, -22)
-			s.Size     = UDim2.new(1, -16, 0, 18)
-			s.Font = Enum.Font.Gotham
-			s.TextSize = 12
-			s.TextXAlignment = Enum.TextXAlignment.Left
-			s.TextColor3 = unlocked and Color3.fromRGB(120,255,120) or Color3.fromRGB(255,120,120)
-			s.Text = sub
-
-			cell.MouseButton1Click:Connect(function()
-				if unlocked then applyAndSave(assetId) end
-			end)
-		end
-
-		local function rebuild()
-			clearGrid()
-			codeRow.Visible = (currentMode == "VIP")
-			if currentMode == "LEVEL" then
-				for _, it in ipairs(LEVEL_LIST) do
-					local unlock = isGM() or (currentLevel >= it.need)
-					local sub = unlock and "Unlocked" or ("Need Lv "..it.need)
-					addCell(it.label, sub, unlock, it.asset)
-				end
-			elseif currentMode == "VIP" then
-				for _, it in ipairs(VIP_LIST) do
-					local unlock = isGM() or (vipLevel >= it.need)
-					local sub = unlock and ("Unlocked (VIP "..it.need..")") or ("Need VIP "..it.need)
-					addCell(it.label, sub, unlock, it.asset)
-				end
-			else
-				local unlock = isGM()
-				local sub = unlock and "GM Only • Unlocked" or "GM Only"
-				addCell("GM Frame", sub, unlock, GM_FRAME)
-			end
-		end
-
-		tabLevel.MouseButton1Click:Connect(function() currentMode = "LEVEL"; rebuild() end)
-		tabVip.MouseButton1Click:Connect(function() currentMode = "VIP";   rebuild() end)
-		tabGM.MouseButton1Click:Connect(function() currentMode = "GM";    rebuild() end)
-
-		btnRedeem.MouseButton1Click:Connect(function()
-			local code = (codeBox.Text or ""):gsub("^%s+",""):gsub("%s+$","")
-			if code == "" then return end
-			codeBox.Text = ""
-			-- ส่งไปเซิร์ฟเวอร์ให้ตรวจ
-			local ok, result = pcall(function()
-				return REDEEM:InvokeServer(code)
-			end)
-			if ok and type(result)=="table" then
-				if result.ok then
-					vipLevel = math.max(vipLevel, result.vipLevel or 0)
-					rebuild()
-					SAVE:FireServer({type="VipLevel", vipLevel = vipLevel})
-				end
-			end
-		end)
-
-		-- ครั้งแรก
-		rebuild()
-
-		-- ทำให้ติดตามตำแหน่งกรอบหลัก
-		local function snapPanel()
-			local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
-			local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
-			local x = rx + rw + GAP_X
-			local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
-			sidePanel.Position = UDim2.fromOffset(x, y)
-		end
-		root:GetPropertyChangedSignal("AbsolutePosition"):Connect(snapPanel)
-		root:GetPropertyChangedSignal("AbsoluteSize"):Connect(snapPanel)
-
-		-- Toggle
-		local panelOpen = false
-		local function showPanel(on)
-			panelOpen = on
-			sidePanel.Visible = on
-			if on then snapPanel(); rebuild() end
-		end
-		settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
-		root:GetPropertyChangedSignal("Visible"):Connect(function()
-			if not root.Visible then showPanel(false) end
-		end)
-
-		-- public helpers
-		getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
-		getgenv().UFO_RIGHT._setPlayerLevel = function(num)
-			num = math.clamp(tonumber(num) or 1, 1, 100)
-			levelLbl.Text = ("Level %d"):format(num)
-			local p = (num-1)/99
-			fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
-			currentLevel = num
-			SAVE:FireServer({type="Level", level = currentLevel})
-		end
-		getgenv().UFO_RIGHT._setVipLevel = function(n)
-			vipLevel = math.clamp(tonumber(n) or 0, 0, 10)
-			SAVE:FireServer({type="VipLevel", vipLevel = vipLevel})
-		end
-	else
-		-- ถ้ามี panel อยู่แล้ว ให้ปุ่มทำงานกับตัวเดิม
-		local function snap()
-			local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
-			local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
-			local x = rx + rw + GAP_X
-			local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
-			sidePanel.Position = UDim2.fromOffset(x, y)
-		end
-		local open=false
-		settingsBtn.MouseButton1Click:Connect(function()
-			open = not open
-			sidePanel.Visible = open
-			if open then snap() end
-		end)
+		local s = Instance.new("TextLabel", cell)
+		s.BackgroundTransparency = 1
+		s.Position = UDim2.new(0, 8, 1, -22)
+		s.Size     = UDim2.new(1, -16, 0, 18)
+		s.Font = Enum.Font.Gotham
+		s.TextSize = 12
+		s.TextXAlignment = Enum.TextXAlignment.Left
+		s.TextColor3 = Color3.fromRGB(120,255,120)
+		s.Text = sub
 	end
-end)
+	for _, it in ipairs(ITEMS) do addCell(it.label, it.sub, it.color) end
+
+	-- จัดตำแหน่งแผงให้ชิดขวา
+	local function snapPanel()
+		local root = scroll.Parent
+		local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
+		local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
+		local x = rx + rw + 12
+		local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2)
+		sidePanel.Position = UDim2.fromOffset(x, y)
+	end
+	local function showPanel(on)
+		sidePanel.Visible = on
+		if on then snapPanel() end
+	end
+	settingsBtn.MouseButton1Click:Connect(function() showPanel(not sidePanel.Visible) end)
+	scroll.Parent:GetPropertyChangedSignal("AbsolutePosition"):Connect(snapPanel)
+	scroll.Parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(snapPanel)
+	scroll.Parent:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not scroll.Parent.Visible then showPanel(false) end
+	end)
+
+	-- mount column
+	col.Parent = scroll
+end
+
+-- ===== MOUNT =====
+local function ensureScroll(parent)
+	if parent:IsA("ScrollingFrame") then return parent end
+	local sf = Instance.new("ScrollingFrame")
+	sf.Size = UDim2.fromScale(1,1)
+	sf.BackgroundTransparency = 1
+	sf.ScrollBarThickness = 0
+	sf.Parent = parent
+	return sf
+end
+
+-- ใช้กับระบบเดิมถ้ามี registerRight
+if typeof(rawget(_G, "registerRight")) == "function" then
+	registerRight("Player", function(scroll) buildPlayerTab(ensureScroll(scroll)) end)
+else
+	-- โหมดสแตนด์อโลน (ไม่พึ่งระบบเดิม) เพื่อให้เห็นแน่นอน
+	local pg = lp:WaitForChild("PlayerGui")
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "UFO_PlayerDemo"
+	gui.ResetOnSpawn = false
+	gui.Parent = pg
+
+	local root = Instance.new("Frame", gui)
+	root.Size = UDim2.fromOffset(420, 420)
+	root.Position = UDim2.fromScale(0.5, 0.5)
+	root.AnchorPoint = Vector2.new(0.5, 0.5)
+	root.BackgroundColor3 = Color3.fromRGB(10,10,10)
+	corner(root, 10); stroke(root, 1.2, THEME.GREEN, 0)
+
+	local scroll = ensureScroll(root)
+	buildPlayerTab(scroll)
+end
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
