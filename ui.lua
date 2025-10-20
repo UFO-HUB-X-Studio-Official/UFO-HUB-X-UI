@@ -627,7 +627,7 @@ local function stroke(ui, th, col)
     local s = Instance.new("UIStroke"); s.Thickness = th or 1.4; s.Color = col or THEME.GREEN; s.Parent = ui; return s
 end
 
--- ===== ขนาดและตำแหน่ง =====
+-- ===== Config =====
 local PANEL_W, PANEL_H = 170, 280
 local GAP_X, BASE_TOP_OFFSET = 10, 52
 
@@ -636,7 +636,6 @@ local col = Instance.new("Frame", scroll)
 col.BackgroundTransparency = 1
 col.Size = UDim2.new(1, -24, 0, 360)
 col.Position = UDim2.new(0, 0, 0, -14)
-
 local list = Instance.new("UIListLayout", col)
 list.Padding = UDim.new(0, 8)
 list.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -646,7 +645,6 @@ local avatarWrap = Instance.new("Frame", col)
 avatarWrap.BackgroundColor3 = THEME.BG_INNER
 avatarWrap.Size = UDim2.fromOffset(150, 150)
 corner(avatarWrap, 10); stroke(avatarWrap, 1.4, THEME.GREEN)
-
 local avatarBox = Instance.new("ImageLabel", avatarWrap)
 avatarBox.BackgroundTransparency = 1
 avatarBox.Size = UDim2.fromScale(1, 1)
@@ -664,7 +662,6 @@ local nameBar = Instance.new("Frame", col)
 nameBar.BackgroundColor3 = THEME.BG_INNER
 nameBar.Size = UDim2.fromOffset(380, 30)
 corner(nameBar, 8); stroke(nameBar, 1.2, THEME.GREEN)
-
 local nameLbl = Instance.new("TextLabel", nameBar)
 nameLbl.BackgroundTransparency = 1
 nameLbl.Size = UDim2.fromScale(1, 1)
@@ -673,7 +670,7 @@ nameLbl.TextSize = 16
 nameLbl.TextColor3 = THEME.WHITE
 nameLbl.Text = lp and lp.DisplayName or "Player"
 
--- Level Bar + ปุ่มตั้งค่า
+-- Level + ปุ่มตั้งค่า
 local levelBar = Instance.new("Frame", col)
 levelBar.BackgroundColor3 = THEME.BG_INNER
 levelBar.Size = UDim2.fromOffset(380, 26)
@@ -707,7 +704,6 @@ local timeBar = Instance.new("Frame", col)
 timeBar.BackgroundColor3 = THEME.BG_INNER
 timeBar.Size = UDim2.fromOffset(380, 26)
 corner(timeBar, 8); stroke(timeBar, 1.2, THEME.GREEN)
-
 local timeLbl = Instance.new("TextLabel", timeBar)
 timeLbl.BackgroundTransparency = 1
 timeLbl.Size = UDim2.fromScale(1, 1)
@@ -720,19 +716,18 @@ RunS.Heartbeat:Connect(function()
     timeLbl.Text = string.format("%02d:%02d", math.floor(t/60), math.floor(t%60))
 end)
 
--- ===== PROFILE PANEL (ล็อคกับ UI หลัก ตำแหน่ง/ขนาดเดิมทางขวา) =====
-local root = scroll.Parent                   -- กรอบหลัก
+-- ===== PROFILE PANEL =====
+local root = scroll.Parent
 local sidePanel = Instance.new("Frame")
 sidePanel.Name = "ProfileSidePanel"
-sidePanel.Parent = root                      -- ล็อคเป็นลูกของกรอบหลัก
+sidePanel.Parent = root
 sidePanel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
 sidePanel.BackgroundColor3 = THEME.BG_INNER
 sidePanel.BorderSizePixel = 0
-sidePanel.AnchorPoint = Vector2.new(0, 0)
-sidePanel.Position = UDim2.new(1, GAP_X, 0, BASE_TOP_OFFSET)  -- ขวาสุดตำแหน่งเดิม
 corner(sidePanel, 10); stroke(sidePanel, 1.4, THEME.GREEN)
 sidePanel.Visible = false
 sidePanel.ZIndex = 500
+sidePanel.Position = UDim2.new(1, GAP_X, 0, BASE_TOP_OFFSET)
 
 -- Header
 local hdr = Instance.new("TextLabel", sidePanel)
@@ -755,7 +750,6 @@ local row = Instance.new("Frame", body)
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1, 0, 0, 60)
 row.Position = UDim2.new(0, 0, 0, 4)
-
 local layout = Instance.new("UIListLayout", row)
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.Padding = UDim.new(0, 8)
@@ -773,20 +767,18 @@ end
 local frame1 = makeFrameButton()
 local frame2 = makeFrameButton()
 
--- ช่องใส่โค้ด (ให้ดูเป็น input ชัดเจน)
+-- ช่องใส่โค้ด (ให้ดูเหมือน input ชัดเจน)
 local codeWrap = Instance.new("Frame", body)
 codeWrap.Size = UDim2.new(1, -16, 0, 40)
 codeWrap.Position = UDim2.new(0, 8, 0, 80)
 codeWrap.BackgroundColor3 = THEME.BLACK
 corner(codeWrap, 8); stroke(codeWrap, 2, THEME.GREEN)
-
 local codeIcon = Instance.new("ImageLabel", codeWrap)
 codeIcon.BackgroundTransparency = 1
 codeIcon.Size = UDim2.fromOffset(18, 18)
 codeIcon.Position = UDim2.new(0, 10, 0.5, -9)
-codeIcon.Image = "rbxassetid://6031280882" -- ไอคอนกุญแจ
+codeIcon.Image = "rbxassetid://6031280882"
 codeIcon.ImageColor3 = THEME.GREEN
-
 local codeInput = Instance.new("TextBox", codeWrap)
 codeInput.BackgroundTransparency = 1
 codeInput.ClearTextOnFocus = false
@@ -801,11 +793,28 @@ codeInput.TextXAlignment = Enum.TextXAlignment.Left
 codeInput.Position = UDim2.new(0, 36, 0, 0)
 codeInput.Size     = UDim2.new(1, -44, 1, 0)
 
--- Toggle / visibility (ล็อคกับ root จึงตามตำแหน่งเดิมอัตโนมัติ)
+-- Toggle visibility (เปิดแน่นอน ไม่ยึดขณะเปิด)
+local function snapPanelToRight()
+    local x = root.AbsolutePosition.X + root.AbsoluteSize.X + GAP_X
+    local y = root.AbsolutePosition.Y + BASE_TOP_OFFSET
+    sidePanel.Position = UDim2.fromOffset(x, y)
+end
+
 profileBtn.MouseButton1Click:Connect(function()
     sidePanel.Visible = not sidePanel.Visible
+    if sidePanel.Visible then
+        -- ขึ้นทันทีไม่รอ anchor
+        sidePanel.Position = UDim2.new(1, GAP_X, 0, BASE_TOP_OFFSET)
+    end
 end)
 
+-- เริ่มติดตามเฉพาะตอนที่ UI หลักมีการเคลื่อนไหว
+root:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+    if sidePanel.Visible then snapPanelToRight() end
+end)
+root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    if sidePanel.Visible then snapPanelToRight() end
+end)
 root:GetPropertyChangedSignal("Visible"):Connect(function()
     if not root.Visible then sidePanel.Visible = false end
 end)
