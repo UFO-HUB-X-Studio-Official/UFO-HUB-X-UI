@@ -505,182 +505,151 @@ function showRight(titleText, iconId)
         RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
     end)
 end
--- ===== [PATCH] ไม่ต้องลบของเดิม แปะต่อท้ายได้เลย =====
-do
-    -- ใช้ตัวแปรเดิมที่สร้างไว้แล้ว
-    if not (RightScroll and RightList and padR) then return end
+-- ================= RIGHT: Modular per-tab (drop-in) =================
+-- ใส่หลังจากสร้าง RightShell เสร็จ (และก่อนผูกปุ่มกด)
 
-    -- state สำหรับจำตำแหน่งสกอร์ลของแต่ละแท็บ
-    if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
-    local RSTATE = getgenv().UFO_RIGHT
-    RSTATE.scroll     = RSTATE.scroll or {}   -- { [tabName] = y }
-    RSTATE.currentTab = RSTATE.currentTab
+-- 1) เก็บ/ใช้ state กลาง
+if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
+local RSTATE = getgenv().UFO_RIGHT
+RSTATE.frames   = RSTATE.frames   or {}   -- [tabName] = {root=Frame, scroll=ScrollingFrame, list=UIListLayout, built=true/false}
+RSTATE.builders = RSTATE.builders or {}   -- [tabName] = function(rootFrame) ...end
+RSTATE.scrollY  = RSTATE.scrollY  or {}   -- [tabName] = number
+RSTATE.current  = RSTATE.current          -- string | nil
 
-    -- คำนวณขอบเขตสกอร์ลขวา
-    local function clampRightY(y)
-        local contentH = RightList.AbsoluteContentSize.Y
-            + (padR.PaddingTop and padR.PaddingTop.Offset or 0)
-            + (padR.PaddingBottom and padR.PaddingBottom.Offset or 0)
-        local viewH    = RightScroll.AbsoluteSize.Y
-        local maxY     = math.max(0, contentH - viewH)
-        return math.clamp(y or 0, 0, maxY)
+-- 2) ถ้ามี RightScroll เก่าอยู่ ให้ลบทิ้ง (กันซ้อน/บัค)
+pcall(function()
+    local old = RightShell:FindFirstChildWhichIsA("ScrollingFrame")
+    if old then old:Destroy() end
+end)
+
+-- 3) utility: ทำ ScrollingFrame ใหม่สำหรับแท็บนั้น ๆ
+local function makeTabFrame(tabName)
+    local root = Instance.new("Frame")
+    root.Name = "RightTab_"..tabName
+    root.BackgroundTransparency = 1
+    root.Size = UDim2.fromScale(1,1)
+    root.Visible = false
+    root.Parent = RightShell
+
+    local sf = Instance.new("ScrollingFrame", root)
+    sf.Name = "Scroll"
+    sf.BackgroundTransparency = 1
+    sf.Size = UDim2.fromScale(1,1)
+    sf.ScrollBarThickness = 0
+    sf.ScrollingDirection = Enum.ScrollingDirection.Y
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.None
+    sf.ElasticBehavior = Enum.ElasticBehavior.Never
+
+    local pad = Instance.new("UIPadding", sf)
+    pad.PaddingTop    = UDim.new(0,12)
+    pad.PaddingLeft   = UDim.new(0,12)
+    pad.PaddingRight  = UDim.new(0,12)
+    pad.PaddingBottom = UDim.new(0,12)
+
+    local list = Instance.new("UIListLayout", sf)
+    list.Padding = UDim.new(0,10)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.VerticalAlignment = Enum.VerticalAlignment.Top
+
+    local function refreshCanvas()
+        local h = list.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset
+        sf.CanvasSize = UDim2.new(0,0,0,h)
     end
 
-    -- อัปเดต CanvasSize (ถ้าโปรเจ็กต์มี refreshRightCanvas อยู่แล้ว จะเรียกตัวนั้นก่อน)
-    local function ensureRightCanvas()
-        if typeof(refreshRightCanvas) == "function" then
-            refreshRightCanvas()
-        else
-            local h = RightList.AbsoluteContentSize.Y
-                + (padR.PaddingTop and padR.PaddingTop.Offset or 0)
-                + (padR.PaddingBottom and padR.PaddingBottom.Offset or 0)
-            RightScroll.CanvasSize = UDim2.new(0,0,0,h)
-        end
-    end
+    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local yBefore = sf.CanvasPosition.Y
+        refreshCanvas()
+        local viewH = sf.AbsoluteSize.Y
+        local maxY  = math.max(0, sf.CanvasSize.Y.Offset - viewH)
+        sf.CanvasPosition = Vector2.new(0, math.clamp(yBefore, 0, maxY))
+    end)
 
-    -- วาดหัวข้อแบบเดิม
-    local function drawHeader(titleText, iconId)
-        local row = Instance.new("Frame")
-        row.Name = "RightHeader"
-        row.BackgroundTransparency = 1
-        row.Size = UDim2.new(1,0,0,28)
-        row.Parent = RightScroll
+    task.defer(refreshCanvas)
 
-        local icon = Instance.new("ImageLabel")
-        icon.BackgroundTransparency = 1
-        icon.Image = "rbxassetid://"..tostring(iconId or "")
-        icon.Size = UDim2.fromOffset(20,20)
-        icon.Position = UDim2.new(0,0,0.5,-10)
-        icon.Parent = row
-
-        local head = Instance.new("TextLabel")
-        head.BackgroundTransparency = 1
-        head.Font = Enum.Font.GothamBold
-        head.TextSize = 18
-        head.TextXAlignment = Enum.TextXAlignment.Left
-        head.TextColor3 = THEME.TEXT
-        head.Position = UDim2.new(0,26,0,0)
-        head.Size = UDim2.new(1,-26,1,0)
-        head.Text = titleText
-        head.Parent = row
-    end
-
-    -- ✅ ฟังก์ชันใหม่: แทนที่ของเดิมโดยอัตโนมัติ (ไม่ต้องลบ)
-    function showRight(titleText, iconId)
-        -- เซฟตำแหน่งของแท็บก่อนหน้า
-        if RSTATE.currentTab then
-            RSTATE.scroll[RSTATE.currentTab] = RightScroll.CanvasPosition.Y
-        end
-
-        -- ล้างคอนเทนต์เดิม
-        for _,c in ipairs(RightScroll:GetChildren()) do
-            if c:IsA("GuiObject") then c:Destroy() end
-        end
-
-        -- วาดหัว
-        drawHeader(titleText, iconId)
-
-        -- คืนตำแหน่งสกอร์ลของแท็บนี้
-        RSTATE.currentTab = titleText
-        task.defer(function()
-            ensureRightCanvas()
-            RightScroll.CanvasPosition = Vector2.new(0, clampRightY(RSTATE.scroll[titleText] or 0))
-        end)
-    end
+    RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
+    return RSTATE.frames[tabName]
 end
--- ===== [END PATCH] =====
--- (ถ้าจะมีคอนเทนต์ของแท็บ ให้สร้างต่อจากนี้)
-    if titleText == "Player" then
-        local padTop = 46 -- ระยะห่างจากหัวข้อ
-        local centerX = function(w) return 0.5,-(w/2) end
 
-        -- 1) กรอบรูป (ขอบเขียว ไม่มีพื้นดำใหญ่ครอบทั้งหมด)
-        local AV_W, AV_H = 120, 120
-        local avatarBox = Instance.new("Frame", RightScroll)
-        avatarBox.BackgroundTransparency = 1
-        avatarBox.Size = UDim2.fromOffset(AV_W, AV_H)
-        avatarBox.Position = UDim2.new(centerX(AV_W), 0, 0, padTop)
+-- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (เรียกครั้งเดียวตอนเปิดแท็บครั้งแรก)
+local function registerRight(tabName, builderFn)
+    RSTATE.builders[tabName] = builderFn
+end
 
-        local avatarBorder = Instance.new("Frame", avatarBox)
-        avatarBorder.Size = UDim2.fromScale(1,1)
-        avatarBorder.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        avatarBorder.BorderSizePixel = 0
-        local function corner(p,r) local u=Instance.new("UICorner",p) u.CornerRadius=UDim.new(0,r or 10) end
-        local function stroke(p,th,col,tr) local s=Instance.new("UIStroke",p) s.Thickness=th or 1 s.Color=THEME.GREEN s.Transparency=tr or 0 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border end
-        corner(avatarBorder,8); stroke(avatarBorder,1.4,THEME.GREEN,0)
+-- 5) สร้าง “หัวเรื่อง” แบบเดิมให้ทุกแท็บ (อัตโนมัติ)
+local function addHeader(parentScroll, titleText, iconId)
+    local row = Instance.new("Frame")
+    row.BackgroundTransparency = 1
+    row.Size = UDim2.new(1,0,0,28)
+    row.Parent = parentScroll
 
-        local avatar = Instance.new("ImageLabel", avatarBorder)
-        avatar.BackgroundTransparency = 1
-        avatar.Size = UDim2.new(1,-10,1,-10)
-        avatar.Position = UDim2.fromOffset(5,5)
+    local icon = Instance.new("ImageLabel", row)
+    icon.BackgroundTransparency = 1
+    icon.Image = "rbxassetid://"..tostring(iconId or "")
+    icon.Size = UDim2.fromOffset(20,20)
+    icon.Position = UDim2.new(0,0,0.5,-10)
 
-        pcall(function()
-            local plr = Players.LocalPlayer
-            local id = plr and plr.UserId or 0
-            local img, ready = Players:GetUserThumbnailAsync(id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-            if ready then avatar.Image = img end
-        end)
+    local head = Instance.new("TextLabel", row)
+    head.BackgroundTransparency = 1
+    head.Font = Enum.Font.GothamBold
+    head.TextSize = 18
+    head.TextXAlignment = Enum.TextXAlignment.Left
+    head.TextColor3 = THEME.TEXT
+    head.Position = UDim2.new(0,26,0,0)
+    head.Size = UDim2.new(1,-26,1,0)
+    head.Text = titleText
+end
 
-        -- 2) ชื่อ
-        local NAME_W, NAME_H = 320, 38
-        local nameBox = Instance.new("Frame", RightScroll)
-        nameBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        nameBox.BorderSizePixel = 0
-        nameBox.Size = UDim2.fromOffset(NAME_W, NAME_H)
-        nameBox.Position = UDim2.new(centerX(NAME_W), 0, 0, padTop + AV_H + 12)
-        corner(nameBox,8); stroke(nameBox,1.4,THEME.GREEN,0)
+-- 6) API หลัก: showRight (ไม่ล้างของแท็บอื่น, ซ่อน/แสดงอย่างเดียว + จำสกอร์ลแยก)
+function showRight(titleText, iconId)
+    local tab = titleText
 
-        local nameLbl = Instance.new("TextLabel", nameBox)
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Size = UDim2.new(1,0,1,0)
-        nameLbl.Font = Enum.Font.GothamBold
-        nameLbl.TextSize = 20
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-        nameLbl.TextColor3 = THEME.TEXT
-        nameLbl.Text = (Players.LocalPlayer and Players.LocalPlayer.DisplayName) or "Player"
-
-        -- 3) Level
-        local LV_W, LV_H = 320, 26
-        local lvlBox = Instance.new("Frame", RightScroll)
-        lvlBox.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        lvlBox.BorderSizePixel = 0
-        lvlBox.Size = UDim2.fromOffset(LV_W, LV_H)
-        lvlBox.Position = UDim2.new(centerX(LV_W), 0, 0, padTop + AV_H + 12 + NAME_H + 8)
-        corner(lvlBox,8); stroke(lvlBox,1.2,THEME.GREEN,0)
-
-        local lvlLbl = Instance.new("TextLabel", lvlBox)
-        lvlLbl.BackgroundTransparency = 1
-        lvlLbl.Size = UDim2.new(1,0,1,0)
-        lvlLbl.Font = Enum.Font.Gotham
-        lvlLbl.TextSize = 16
-        lvlLbl.TextXAlignment = Enum.TextXAlignment.Center
-        lvlLbl.TextColor3 = THEME.TEXT
-        lvlLbl.Text = "Level 1"
-
-        -- 4) เวลา (ตัวเลขล้วน ไม่ต้องมีกรอบ)
-        local timerLbl = Instance.new("TextLabel", RightScroll)
-        timerLbl.BackgroundTransparency = 1
-        timerLbl.Font = Enum.Font.GothamBlack
-        timerLbl.TextSize = 20
-        timerLbl.TextColor3 = Color3.fromRGB(255,255,255)
-        timerLbl.TextXAlignment = Enum.TextXAlignment.Center
-        timerLbl.Size = UDim2.fromOffset(160, 26)
-        timerLbl.Position = UDim2.new(0.5,-80, 0, padTop + AV_H + 12 + NAME_H + 8 + LV_H + 8)
-        timerLbl.Text = "00:00.00"
-
-        -- อัปเดตเวลาแบบลื่น
-        local t0 = time()
-        if RSTATE and RSTATE.timerConn then pcall(function() RSTATE.timerConn:Disconnect() end) end
-        RSTATE.timerConn = RunS.Heartbeat:Connect(function()
-            local e = time() - t0
-            if e < 0 then e = 0 end
-            local m = math.floor(e/60)
-            local s = math.floor(e%60)
-            local cs = math.floor((e - math.floor(e))*100)
-            timerLbl.Text = string.format("%02d:%02d.%02d", m%60, s, cs)
-        end)
+    -- เก็บ Y ของแท็บก่อนหน้า
+    if RSTATE.current and RSTATE.frames[RSTATE.current] then
+        RSTATE.scrollY[RSTATE.current] = RSTATE.frames[RSTATE.current].scroll.CanvasPosition.Y
+        RSTATE.frames[RSTATE.current].root.Visible = false
     end
 
+    -- เตรียมเฟรมของแท็บนี้
+    local f = RSTATE.frames[tab] or makeTabFrame(tab)
+    f.root.Visible = true
+
+    -- สร้างคอนเทนต์ครั้งแรก (lazy build)
+    if not f.built then
+        addHeader(f.scroll, titleText, iconId)
+        local builder = RSTATE.builders[tab]
+        if builder then
+            builder(f.scroll)  -- ส่ง ScrollingFrame ให้ไปวางของต่อได้เลย
+        end
+        f.built = true
+    end
+
+    -- คืนตำแหน่งสกอร์ลของแท็บนี้
+    task.defer(function()
+        local y = RSTATE.scrollY[tab] or 0
+        local viewH = f.scroll.AbsoluteSize.Y
+        local maxY  = math.max(0, f.scroll.CanvasSize.Y.Offset - viewH)
+        f.scroll.CanvasPosition = Vector2.new(0, math.clamp(y, 0, maxY))
+    end)
+
+    RSTATE.current = tab
+end
+
+-- 7) ตัวอย่างการ “เพิ่มระบบ” ให้แท็บ โดยไม่แตะ showRight อีก
+--    แค่ registerRight("ชื่อแท็บ", function(scroll) ...end)
+--    ด้านล่างนี้เป็นตัวอย่างเปล่า ๆ (ปล่อยได้ ถ้าอยากให้ขึ้นแค่หัวเรื่อง)
+registerRight("Player", function(scroll)
+    -- วาง UI ของ Player ที่นี่ (เพิ่มเมื่อพร้อม)
+    -- ตัวอย่าง: local lbl = Instance.new("TextLabel", scroll) ... (ข้ามได้)
+end)
+
+registerRight("Home", function(scroll) end)
+registerRight("Quest", function(scroll) end)
+registerRight("Shop", function(scroll) end)
+registerRight("Update", function(scroll) end)
+registerRight("Server", function(scroll) end)
+registerRight("Settings", function(scroll) end)
+
+-- ================= END RIGHT modular =================
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
