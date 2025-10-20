@@ -603,18 +603,18 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (avatar + name + level + time) =====
+-- ===== Player tab (avatar + name + level + time + profile settings panel) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
-    -- ===== Theme =====
-    local THEME = {
+    -- ===== Theme (ใช้ของเดิมถ้ามี เพื่อให้สีเขียวตรงกับ UI หลัก) =====
+    local THEME = rawget(_G, "THEME") or {
         BG_INNER = Color3.fromRGB(0, 0, 0),
-        GREEN = Color3.fromRGB(0, 255, 0),
-        WHITE = Color3.fromRGB(255, 255, 255),
+        GREEN    = Color3.fromRGB(0, 255, 0),
+        WHITE    = Color3.fromRGB(255, 255, 255),
     }
 
     local function corner(ui, r)
@@ -623,7 +623,6 @@ registerRight("Player", function(scroll)
         c.Parent = ui
         return c
     end
-
     local function stroke(ui, th, col)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 1
@@ -631,6 +630,11 @@ registerRight("Player", function(scroll)
         s.Parent = ui
         return s
     end
+
+    -- =============== ขนาด/ตำแหน่ง แผงด้านขวา (ให้ตรงกับสี่เหลี่ยมแดง) ===============
+    local PANEL_W, PANEL_H = 300, 420     -- กว้าง/สูง “เป๊ะๆ”
+    local GAP_X, GAP_Y     = 18, 0        -- ระยะชิดขวาจากกรอบหลัก + ขยับแนวตั้งเล็กน้อย
+    -- ================================================================================
 
     -- ===== Layout Container =====
     local col = Instance.new("Frame", scroll)
@@ -645,7 +649,7 @@ registerRight("Player", function(scroll)
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ===== Avatar =====
+    -- ===== Avatar (พื้นดำ ขอบเขียว) =====
     local avatarWrap = Instance.new("Frame", col)
     avatarWrap.BackgroundColor3 = THEME.BG_INNER
     avatarWrap.BorderSizePixel  = 0
@@ -672,7 +676,7 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- ===== Name Bar =====
+    -- ===== Name Bar (ตัวหนังสือสีขาว) =====
     local nameBar = Instance.new("Frame", col)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.BorderSizePixel = 0
@@ -690,7 +694,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = lp and lp.DisplayName or "Player"
     nameLbl.TextWrapped = true
 
-    -- ===== Level Bar =====
+    -- ===== Level Bar + ปุ่มตั้งค่าโปรไฟล์ (ปุ่มสีขาวตรงจุดในภาพ) =====
     local levelBar = Instance.new("Frame", col)
     levelBar.BackgroundColor3 = THEME.BG_INNER
     levelBar.BorderSizePixel = 0
@@ -701,11 +705,24 @@ registerRight("Player", function(scroll)
 
     local levelLbl = Instance.new("TextLabel", levelBar)
     levelLbl.BackgroundTransparency = 1
-    levelLbl.Size = UDim2.fromScale(1, 1)
+    levelLbl.Size = UDim2.new(1, -34, 1, 0)      -- เผื่อพื้นที่ปุ่มด้านขวา
+    levelLbl.Position = UDim2.new(0, 0, 0, 0)
     levelLbl.Font = Enum.Font.GothamBold
     levelLbl.TextSize = 14
     levelLbl.TextColor3 = THEME.WHITE
     levelLbl.Text = "Level 1"
+    levelLbl.TextXAlignment = Enum.TextXAlignment.Center
+
+    -- ปุ่มสี่เหลี่ยม “สีขาว” ขนาด ~26x26 ชิดขวา (จุดเดียวกับในภาพ)
+    local profileBtn = Instance.new("TextButton", levelBar)
+    profileBtn.AutoButtonColor = true
+    profileBtn.Text = ""
+    profileBtn.Size = UDim2.fromOffset(26, 26)
+    profileBtn.AnchorPoint = Vector2.new(1, 0.5)
+    profileBtn.Position = UDim2.new(1, -2, 0.5, 0)
+    profileBtn.BackgroundColor3 = THEME.WHITE
+    corner(profileBtn, 4)
+    stroke(profileBtn, 1.2, THEME.GREEN)
 
     -- ===== Time Bar =====
     local timeBar = Instance.new("Frame", col)
@@ -731,6 +748,83 @@ registerRight("Player", function(scroll)
         local m = math.floor(t / 60)
         local s = math.floor(t % 60)
         timeLbl.Text = string.format("%02d:%02d", m, s)
+    end)
+
+    -- =============== PROFILE SETTINGS PANEL ===============
+    -- แผงจะไปโผล่ “ตรงสี่เหลี่ยมแดงทางขวา” ขนาด 300x420 เป๊ะๆ
+    local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
+    if not screenGui then
+        screenGui = scroll:FindFirstAncestorOfClass("LayerCollector") or scroll
+    end
+
+    local sidePanel = Instance.new("Frame")
+    sidePanel.Name = "ProfileSidePanel"
+    sidePanel.Parent = screenGui
+    sidePanel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+    sidePanel.BackgroundColor3 = THEME.BG_INNER
+    sidePanel.BorderSizePixel = 0
+    sidePanel.Visible = false
+    sidePanel.ZIndex = 500
+    corner(sidePanel, 10)
+    stroke(sidePanel, 1.6, THEME.GREEN)
+
+    local pad = Instance.new("UIPadding", sidePanel)
+    pad.PaddingTop    = UDim.new(0, 12)
+    pad.PaddingBottom = UDim.new(0, 12)
+    pad.PaddingLeft   = UDim.new(0, 12)
+    pad.PaddingRight  = UDim.new(0, 12)
+
+    local hdr = Instance.new("TextLabel", sidePanel)
+    hdr.BackgroundTransparency = 1
+    hdr.Size = UDim2.new(1, 0, 0, 28)
+    hdr.Font = Enum.Font.GothamBold
+    hdr.Text = "ตั้งค่าโปรไฟล์"
+    hdr.TextSize = 16
+    hdr.TextColor3 = THEME.WHITE
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
+
+    local body = Instance.new("Frame", sidePanel)
+    body.BackgroundTransparency = 1
+    body.Position = UDim2.new(0, 0, 0, 36)
+    body.Size = UDim2.new(1, 0, 1, -36)
+
+    -- ตัวอย่างเนื้อหาภายใน (วางไว้ก่อน)
+    local hint = Instance.new("TextLabel", body)
+    hint.BackgroundTransparency = 1
+    hint.Size = UDim2.new(1, 0, 0, 20)
+    hint.Position = UDim2.new(0, 0, 0, 0)
+    hint.Font = Enum.Font.Gotham
+    hint.TextSize = 14
+    hint.TextColor3 = THEME.WHITE
+    hint.TextXAlignment = Enum.TextXAlignment.Left
+    hint.Text = "เลือก/ตั้งค่ากรอบรูป, ชื่อเล่น, อื่นๆ (ใส่ทีหลังได้)"
+
+    -- ฟังก์ชันวางแผงให้ “ตรงสี่เหลี่ยมแดง” ข้างขวา
+    local root = scroll.Parent
+    local function snapPanelToRight()
+        local basePos = root.AbsolutePosition
+        local baseSize = root.AbsoluteSize
+        local x = basePos.X + baseSize.X + GAP_X
+        local y = basePos.Y + math.floor((baseSize.Y - PANEL_H)/2) + GAP_Y
+        sidePanel.Position = UDim2.fromOffset(x, y)
+    end
+
+    -- Toggle แผงเมื่อกดปุ่มสี่เหลี่ยมขาว
+    local isOpen = false
+    local function togglePanel()
+        isOpen = not isOpen
+        if isOpen then
+            snapPanelToRight()
+        end
+        sidePanel.Visible = isOpen
+    end
+    profileBtn.MouseButton1Click:Connect(togglePanel)
+    -- ถ้ากรอบหลักถูกซ่อน ก็ซ่อนแผงด้วย
+    root:GetPropertyChangedSignal("Visible"):Connect(function()
+        if not root.Visible then
+            isOpen = false
+            sidePanel.Visible = false
+        end
     end)
 
     -- mount
