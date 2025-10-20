@@ -611,11 +611,12 @@ registerRight("Player", function(scroll)
     local lp      = Players.LocalPlayer
 
     -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว
-    local function makeBar(parent, text, w, h)
+    local function makeBar(parent, text, w, h, order)
         w = w or 380; h = h or 26
         local holder = Instance.new("Frame", parent)
         holder.BackgroundTransparency = 1
         holder.Size = UDim2.fromOffset(w, h)
+        holder.LayoutOrder = order or 0
 
         local bar = Instance.new("Frame", holder)
         bar.BackgroundColor3 = THEME.BG_INNER
@@ -636,23 +637,25 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- คอลัมน์กลาง (เรียงบนลงล่าง)
+    -- คอลัมน์กลาง
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
-    col.Size = UDim2.new(1, -24, 0, 360)
+    col.Size = UDim2.new(1, -24, 0, 340)
     col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
     list.Padding = UDim.new(0, 12)
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
+    list.SortOrder = Enum.SortOrder.LayoutOrder  -- ล็อกลำดับตาม LayoutOrder
 
-    -- 1) รูปตัวละคร (พื้นดำ ขอบเขียว) — ย่อขนาดลงและอยู่ "เหนือ" ชื่อ
+    -- 1) รูปตัวละคร (บนสุด)
     local avatarBox = Instance.new("ImageLabel", col)
     avatarBox.BackgroundColor3 = THEME.BG_INNER
     avatarBox.BorderSizePixel  = 0
-    avatarBox.Size = UDim2.fromOffset(180, 180)
+    avatarBox.Size = UDim2.fromOffset(150, 150)  -- ย่อให้เล็กลง
     avatarBox.ImageTransparency = 1
+    avatarBox.LayoutOrder = 1
     corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
 
     task.spawn(function()
@@ -668,13 +671,12 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- 2) ชื่อผู้เล่น (พื้นดำ ขอบเขียว)
-    local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player")
+    -- 2) ชื่อผู้เล่น
+    local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 26, 2)
 
-    -- 3) แถบ Level (มีหลอดเติมความคืบหน้า)
-    local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 28)
+    -- 3) เลเวล + หลอดความคืบหน้า
+    local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 28, 3)
     levelLbl.Text = "Level 1"
-    -- หลอดเติม (พื้นเติมเป็นมินต์บนพื้นดำ)
     local fill = Instance.new("Frame", levelBar)
     fill.BackgroundColor3 = THEME.MINT
     fill.BorderSizePixel  = 0
@@ -683,10 +685,10 @@ registerRight("Player", function(scroll)
     fill.Size             = UDim2.new(0.3, -6, 1, -6)  -- เริ่มต้น 30%
     corner(fill, 6)
 
-    -- 4) เวลา (พื้นดำ ขอบเขียว)
-    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00.00")
+    -- 4) เวลา
+    local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00.00", 380, 26, 4)
 
-    -- ===== ตัวจับเวลา (เริ่มเมื่อแท็บมองเห็น) =====
+    -- ===== Timer =====
     if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
     local T = getgenv().UFO_RIGHT._playerTimer
     local root = scroll.Parent
@@ -721,13 +723,11 @@ registerRight("Player", function(scroll)
     end)
     startTimer()
 
-    -- ===== public helpers (อัพเดตจากภายนอกได้) =====
+    -- helpers
     getgenv().UFO_RIGHT._setPlayerName   = function(text)  nameLbl.Text = text or nameLbl.Text end
     getgenv().UFO_RIGHT._setPlayerLevel  = function(num)   levelLbl.Text = ("Level %s"):format(tostring(num or "1")) end
-    -- p ∈ [0,1] กำหนดความยาวหลอดเลเวล
     getgenv().UFO_RIGHT._setLevelProgress = function(p)
         p = math.clamp(tonumber(p) or 0, 0, 1)
-        -- ความกว้างภายใน bar เหลือช่องว่างซ้าย/ขวา 3 พิกเซล
         local innerW = levelBar.AbsoluteSize.X - 6
         fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
     end
