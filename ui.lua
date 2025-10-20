@@ -614,8 +614,9 @@ registerRight("Player", function(scroll)
     local BASE_THEME = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE_THEME.BG_INNER or Color3.fromRGB(0, 0, 0),
-        GREEN    = BASE_THEME.GREEN or BASE_THEME.ACCENT or Color3.fromRGB(25, 255, 125), -- สีเขียวแบบใน UI หลัก
+        GREEN    = BASE_THEME.GREEN or BASE_THEME.ACCENT or Color3.fromRGB(25, 255, 125),
         WHITE    = Color3.fromRGB(255, 255, 255),
+        BLACK    = Color3.fromRGB(0, 0, 0),
     }
 
     local function corner(ui, r)
@@ -632,9 +633,9 @@ registerRight("Player", function(scroll)
         return s
     end
 
-    -- ===== Config (ตำแหน่งและขนาดแผงด้านขวา) =====
-    local PANEL_W, PANEL_H = 260, 340   -- ทำให้ “สั้นลง” ทางขวา
-    local GAP_X, GAP_Y     = 20, 10     -- ระยะจากกรอบหลัก + ขยับแนวตั้งให้ตรงกลางมากขึ้น
+    -- ===== Config: ขนาด/ตำแหน่ง panel ด้านขวา (ให้สั้นลงและเลื่อนลงเล็กน้อย) =====
+    local PANEL_W, PANEL_H = 240, 320   -- สั้นลงกว่าเดิม
+    local GAP_X, GAP_Y     = 18, 16     -- ระยะชิดขวา + เลื่อนลง
 
     -- ===== Layout Container =====
     local col = Instance.new("Frame", scroll)
@@ -693,7 +694,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextColor3 = THEME.WHITE
     nameLbl.Text = lp and lp.DisplayName or "Player"
 
-    -- ===== Level Bar + ปุ่มโปรไฟล์ =====
+    -- ===== Level Bar + ปุ่มโปรไฟล์ (ดำ, ขอบเขียว, มีไอคอน) =====
     local levelBar = Instance.new("Frame", col)
     levelBar.BackgroundColor3 = THEME.BG_INNER
     levelBar.BorderSizePixel = 0
@@ -702,24 +703,28 @@ registerRight("Player", function(scroll)
     corner(levelBar, 8)
     stroke(levelBar, 1.2, THEME.GREEN)
 
+    -- จัดกึ่งกลางจริง ๆ โดยหักพื้นที่ปุ่มด้านขวา ~56px และเว้นซ้าย 8px
     local levelLbl = Instance.new("TextLabel", levelBar)
     levelLbl.BackgroundTransparency = 1
-    levelLbl.Size = UDim2.new(1, -42, 1, 0)  -- ขยับเผื่อปุ่ม
+    levelLbl.Size = UDim2.new(1, -56, 1, 0)
+    levelLbl.Position = UDim2.new(0, 8, 0, 0)
     levelLbl.Font = Enum.Font.GothamBold
     levelLbl.TextSize = 14
     levelLbl.TextColor3 = THEME.WHITE
     levelLbl.Text = "Level 1"
     levelLbl.TextXAlignment = Enum.TextXAlignment.Center
-    levelLbl.TextYAlignment = Enum.TextYAlignment.Center -- ให้อยู่ตรงกลางแนวตั้งพอดี
+    levelLbl.TextYAlignment = Enum.TextYAlignment.Center
 
-    -- ปุ่มสี่เหลี่ยมขาว (ขยับมาทางขวาอีก)
-    local profileBtn = Instance.new("TextButton", levelBar)
+    -- ปุ่มโปรไฟล์: สีดำ, ขอบเขียว, ใช้รูป 72289858646360 และชิดขวาสุดในบาร์
+    local profileBtn = Instance.new("ImageButton", levelBar)
     profileBtn.AutoButtonColor = true
-    profileBtn.Text = ""
     profileBtn.Size = UDim2.fromOffset(26, 26)
     profileBtn.AnchorPoint = Vector2.new(1, 0.5)
-    profileBtn.Position = UDim2.new(1, 2, 0.5, 0) -- เลื่อนขวาเพิ่ม
-    profileBtn.BackgroundColor3 = THEME.WHITE
+    profileBtn.Position = UDim2.new(1, -2, 0.5, 0)  -- ชิดขวาภายในกรอบ
+    profileBtn.BackgroundColor3 = THEME.BLACK
+    profileBtn.Image = "rbxassetid://72289858646360"
+    profileBtn.ImageTransparency = 0
+    profileBtn.ScaleType = Enum.ScaleType.Fit
     corner(profileBtn, 4)
     stroke(profileBtn, 1.2, THEME.GREEN)
 
@@ -749,7 +754,7 @@ registerRight("Player", function(scroll)
         timeLbl.Text = string.format("%02d:%02d", m, s)
     end)
 
-    -- =============== PROFILE PANEL ===============
+    -- =============== PROFILE PANEL (สั้นลงและเลื่อนลง) ===============
     local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local sidePanel = Instance.new("Frame")
     sidePanel.Name = "ProfileSidePanel"
@@ -785,10 +790,10 @@ registerRight("Player", function(scroll)
     listInside.Padding = UDim.new(0, 8)
     listInside.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ===== Position Logic (ให้อยู่ตรงกลางด้านขวาแบบในภาพ) =====
+    -- ===== Position Logic (ให้พอดีกับพื้นที่ด้านขวา) =====
     local root = scroll.Parent
     local function snapPanelToRight()
-        local basePos = root.AbsolutePosition
+        local basePos  = root.AbsolutePosition
         local baseSize = root.AbsoluteSize
         local x = basePos.X + baseSize.X + GAP_X
         local y = basePos.Y + math.floor((baseSize.Y - PANEL_H)/2) + GAP_Y
@@ -804,7 +809,7 @@ registerRight("Player", function(scroll)
     profileBtn.MouseButton1Click:Connect(togglePanel)
 
     root:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not root.Visible then open = false sidePanel.Visible = false end
+        if not root.Visible then open = false; sidePanel.Visible = false end
     end)
 
     col.Parent = scroll
