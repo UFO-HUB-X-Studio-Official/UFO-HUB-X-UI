@@ -603,7 +603,7 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (avatar → name → level → time) =====
+-- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
@@ -611,17 +611,18 @@ registerRight("Player", function(scroll)
     local lp      = Players.LocalPlayer
 
     -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว
-    local function makeBar(parent, text)
+    local function makeBar(parent, text, w, h)
+        w = w or 380; h = h or 26
         local holder = Instance.new("Frame", parent)
         holder.BackgroundTransparency = 1
-        holder.Size = UDim2.fromOffset(380, 26)
+        holder.Size = UDim2.fromOffset(w, h)
 
         local bar = Instance.new("Frame", holder)
         bar.BackgroundColor3 = THEME.BG_INNER
         bar.BorderSizePixel  = 0
         bar.AnchorPoint      = Vector2.new(0.5, 0.5)
         bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
-        bar.Size             = UDim2.fromOffset(360, 18)
+        bar.Size             = UDim2.fromOffset(w-20, h-8)
         corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
 
         local lbl = Instance.new("TextLabel", bar)
@@ -638,7 +639,7 @@ registerRight("Player", function(scroll)
     -- คอลัมน์กลาง (เรียงบนลงล่าง)
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
-    col.Size = UDim2.new(1, -24, 0, 340)
+    col.Size = UDim2.new(1, -24, 0, 360)
     col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
@@ -646,11 +647,11 @@ registerRight("Player", function(scroll)
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
 
-    -- 1) รูปตัวละคร (พื้นดำ ขอบเขียว)
+    -- 1) รูปตัวละคร (พื้นดำ ขอบเขียว) — ย่อขนาดลงและอยู่ "เหนือ" ชื่อ
     local avatarBox = Instance.new("ImageLabel", col)
     avatarBox.BackgroundColor3 = THEME.BG_INNER
     avatarBox.BorderSizePixel  = 0
-    avatarBox.Size = UDim2.fromOffset(220, 220)
+    avatarBox.Size = UDim2.fromOffset(180, 180)
     avatarBox.ImageTransparency = 1
     corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
 
@@ -667,16 +668,29 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- 2) ชื่อผู้เล่น
+    -- 2) ชื่อผู้เล่น (พื้นดำ ขอบเขียว)
     local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player")
 
-    -- 3) เลเวล
-    local levelHolder, levelBar, levelLbl = makeBar(col, "Level 1")
+    -- 3) แถบ Level (มีหลอดเติมความคืบหน้า)
+    local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 28)
+    levelLbl.Text = "Level 1"
+    -- หลอดเติม (พื้นเติมเป็นมินต์บนพื้นดำ)
+    local fill = Instance.new("Frame", levelBar)
+    fill.BackgroundColor3 = THEME.MINT
+    fill.BorderSizePixel  = 0
+    fill.AnchorPoint      = Vector2.new(0,0.5)
+    fill.Position         = UDim2.new(0,3,0.5,0)
+    fill.Size             = UDim2.new(0.3, -6, 1, -6)  -- เริ่มต้น 30%
+    corner(fill, 6)
 
-    -- 4) เวลา
+    -- 4) เวลา (พื้นดำ ขอบเขียว)
     local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00.00")
 
-    -- ตัวจับเวลา
+    -- ===== ตัวจับเวลา (เริ่มเมื่อแท็บมองเห็น) =====
+    if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
+    local T = getgenv().UFO_RIGHT._playerTimer
+    local root = scroll.Parent
+
     local function setTimeText(elapsed)
         if elapsed < 0 then elapsed = 0 end
         local mins = math.floor(elapsed/60)
@@ -685,10 +699,6 @@ registerRight("Player", function(scroll)
         timeLbl.Text = string.format("%02d:%02d.%02d", mins, secs, cs)
     end
 
-    if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
-    local T = getgenv().UFO_RIGHT._playerTimer
-    local root = scroll.Parent
-
     local function startTimer()
         if T.conn then return end
         local tStart = os.clock()
@@ -696,6 +706,7 @@ registerRight("Player", function(scroll)
         T.conn = RunS.Heartbeat:Connect(function()
             setTimeText(T.base + (os.clock() - tStart))
         end)
+        T._lastStart = tStart
     end
     local function stopTimer()
         if T.conn then
@@ -706,18 +717,20 @@ registerRight("Player", function(scroll)
     end
 
     root:GetPropertyChangedSignal("Visible"):Connect(function()
-        if root.Visible then
-            T._lastStart = os.clock()
-            startTimer()
-        else
-            stopTimer()
-        end
+        if root.Visible then startTimer() else stopTimer() end
     end)
-    T._lastStart = os.clock(); startTimer()
+    startTimer()
 
-    -- helpers อัพเดตภายหลัง
-    getgenv().UFO_RIGHT._setPlayerName  = function(text)  nameLbl.Text  = text or nameLbl.Text  end
-    getgenv().UFO_RIGHT._setPlayerLevel = function(num)   levelLbl.Text = ("Level %s"):format(tostring(num or "1")) end
+    -- ===== public helpers (อัพเดตจากภายนอกได้) =====
+    getgenv().UFO_RIGHT._setPlayerName   = function(text)  nameLbl.Text = text or nameLbl.Text end
+    getgenv().UFO_RIGHT._setPlayerLevel  = function(num)   levelLbl.Text = ("Level %s"):format(tostring(num or "1")) end
+    -- p ∈ [0,1] กำหนดความยาวหลอดเลเวล
+    getgenv().UFO_RIGHT._setLevelProgress = function(p)
+        p = math.clamp(tonumber(p) or 0, 0, 1)
+        -- ความกว้างภายใน bar เหลือช่องว่างซ้าย/ขวา 3 พิกเซล
+        local innerW = levelBar.AbsoluteSize.X - 6
+        fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
+    end
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
