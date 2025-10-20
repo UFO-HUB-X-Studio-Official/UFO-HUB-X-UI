@@ -624,6 +624,7 @@ registerRight("Player", function(scroll)
         bar.AnchorPoint      = Vector2.new(0.5, 0.5)
         bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
         bar.Size             = UDim2.fromOffset(w-12, h-6)
+        bar.ClipsDescendants = false -- เผื่อปุ่มโผล่เลยขอบนิดหน่อย
         corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
 
         local lbl = Instance.new("TextLabel", bar)
@@ -685,7 +686,7 @@ registerRight("Player", function(scroll)
     -- name
     local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-    -- level + fill + settings button (flush right)
+    -- level + fill + settings button (จริงๆ ชิดขวาสุด)
     local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
     levelLbl.Text = "Level 1"
 
@@ -694,9 +695,10 @@ registerRight("Player", function(scroll)
     settingsBtn.AutoButtonColor = false
     settingsBtn.BackgroundColor3 = THEME.BG_INNER
     settingsBtn.BorderSizePixel = 0
-    settingsBtn.Size = UDim2.fromOffset(26, 26)                   -- โตขึ้นนิด ให้กลมกลืน
+    settingsBtn.Size = UDim2.fromOffset(26, 26)
     settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
-    settingsBtn.Position = UDim2.new(1, -3, 0.5, 0)               -- ★ ชิดขวาเป๊ะ
+    settingsBtn.Position = UDim2.new(1, 0, 0.5, 0)   -- ★ ชิดขวาแบบไม่มีระยะเหลือ
+    settingsBtn.ZIndex = 10
     settingsBtn.Image = "rbxassetid://72289858646360"
     corner(settingsBtn, 6)
     stroke(settingsBtn, 1.2, THEME.GREEN, 0)
@@ -709,7 +711,7 @@ registerRight("Player", function(scroll)
     fill.Size             = UDim2.new(0, 0, 1, -6)
     corner(fill, 6)
 
-    -- เวลาชิดเลเวล
+    -- time
     local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
 
     -- ---------- time & level ----------
@@ -744,7 +746,7 @@ registerRight("Player", function(scroll)
     local root = scroll.Parent
     local currentLevel = 1
 
-    -- ความกว้างหลอด โดยกันพื้นที่ปุ่มด้านขวาไว้เสมอ
+    -- ก กันพื้นที่ปุ่มขวาออกจากหลอด
     local function innerWidth()
         return levelBar.AbsoluteSize.X - 6 - (settingsBtn.AbsoluteSize.X + 6)
     end
@@ -757,9 +759,7 @@ registerRight("Player", function(scroll)
         timeLbl.Text = formatElapsed(elapsed)
         if RSTATE._frame_update then RSTATE._frame_update(currentLevel) end
     end
-
     levelBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-        -- รีคำนวณเมื่อขนาดบาร์เปลี่ยน
         applyProgress(T.base or 0)
     end)
 
@@ -784,20 +784,23 @@ registerRight("Player", function(scroll)
     end)
     startTimer()
 
-    -- ---------- Settings panel (เลื่อนไปขวา + ลงนิดนึง + padding) ----------
-    local sidePanel = Instance.new("Frame", RightShell)
+    -- ---------- Settings panel (ไม่ง้อ RightShell, โผล่จริงเมื่อกด) ----------
+    -- หา host ที่เป็นกรอบใหญ่อีกชั้น เพื่อให้วางแผง “ขวาของกล่องหลัก” ได้
+    local host = root.Parent
+    if not (host and host:IsA("GuiObject")) then host = root end
+
+    local sidePanel = Instance.new("Frame", host)
     sidePanel.Name = "PlayerSidePanel"
     sidePanel.BackgroundColor3 = THEME.BG_INNER
     sidePanel.BorderSizePixel = 0
     sidePanel.AnchorPoint = Vector2.new(0, 0.5)
-    sidePanel.Position    = UDim2.new(1, 40, 0.5, 8)   -- ★ ขวาอีก + ลง 8px
-    sidePanel.Size        = UDim2.fromOffset(264, 388) -- ★ เผื่อขอบ
-    sidePanel.Visible = false
-    sidePanel.ZIndex = 50
+    sidePanel.Position    = UDim2.new(1, 24, 0.5, 10) -- ★ ขวาออกไป + ลงนิดนึง
+    sidePanel.Size        = UDim2.fromOffset(264, 388)
+    sidePanel.Visible     = false
+    sidePanel.ZIndex      = 200
     corner(sidePanel, 10)
     stroke(sidePanel, 1.6, THEME.GREEN, 0)
 
-    -- padding รอบในกันขอบโดนกิน
     local pad = Instance.new("UIPadding", sidePanel)
     pad.PaddingTop    = UDim.new(0, 12)
     pad.PaddingBottom = UDim.new(0, 12)
@@ -807,7 +810,6 @@ registerRight("Player", function(scroll)
     local hdr = Instance.new("TextLabel", sidePanel)
     hdr.BackgroundTransparency = 1
     hdr.Size = UDim2.new(1, 0, 0, 28)
-    hdr.Position = UDim2.new(0, 0, 0, 0)
     hdr.Font = Enum.Font.GothamBold
     hdr.Text = "เลือกกรอบรูป"
     hdr.TextSize = 16
@@ -816,15 +818,16 @@ registerRight("Player", function(scroll)
 
     local gridHolder = Instance.new("ScrollingFrame", sidePanel)
     gridHolder.BackgroundTransparency = 1
-    gridHolder.Size     = UDim2.new(1, 0, 1, -44)     -- เว้นหัว 28 + ช่องไฟ
+    gridHolder.Size     = UDim2.new(1, 0, 1, -36)
     gridHolder.Position = UDim2.new(0, 0, 0, 36)
     gridHolder.ScrollBarThickness = 0
     gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    gridHolder.ScrollingDirection = Enum.ScrollingDirection.Y
+    gridHolder.ScrollingDirection  = Enum.ScrollingDirection.Y
+    gridHolder.ZIndex = sidePanel.ZIndex + 1
 
     local UIGrid = Instance.new("UIGridLayout", gridHolder)
-    UIGrid.CellPadding = UDim2.fromOffset(12, 12)     -- ★ ช่องไฟเท่ากัน
-    UIGrid.CellSize    = UDim2.fromOffset(112, 88)    -- ★ 2 คอลัมน์พอดี
+    UIGrid.CellPadding = UDim2.fromOffset(12, 12)
+    UIGrid.CellSize    = UDim2.fromOffset(112, 88)
     UIGrid.FillDirectionMaxCells = 2
     UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
     UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
@@ -867,6 +870,7 @@ registerRight("Player", function(scroll)
         cell.Text = ""
         cell.BackgroundColor3 = THEME.BG_INNER
         cell.BorderSizePixel = 0
+        cell.ZIndex = gridHolder.ZIndex
         corner(cell, 8); stroke(cell, 1.2, THEME.GREEN, 0)
 
         local nameLbl = Instance.new("TextLabel", cell)
@@ -878,6 +882,7 @@ registerRight("Player", function(scroll)
         nameLbl.TextColor3 = Color3.fromRGB(255,255,255)
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
         nameLbl.Text = info.name
+        nameLbl.ZIndex = cell.ZIndex
 
         local needLbl = Instance.new("TextLabel", cell)
         needLbl.BackgroundTransparency = 1
@@ -886,6 +891,7 @@ registerRight("Player", function(scroll)
         needLbl.Font = Enum.Font.Gotham
         needLbl.TextSize = 12
         needLbl.TextXAlignment = Enum.TextXAlignment.Left
+        needLbl.ZIndex = cell.ZIndex
 
         frameButtons[info] = {btn=cell, needLbl=needLbl}
         cell.MouseButton1Click:Connect(function()
@@ -907,7 +913,7 @@ registerRight("Player", function(scroll)
     end
     RSTATE._frame_update(currentLevel)
 
-    -- toggle
+    -- toggle panel
     local panelOpen = false
     local function showPanel(on) panelOpen = on; sidePanel.Visible = on end
     settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
