@@ -603,14 +603,14 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time + Settings panel & Frame-by-level) =====
+-- ===== Player tab (avatar ↑ name ↑ level-bar ↑ time + Settings panel) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
-    -- ---------- UI helpers ----------
+    -- ---------- helpers ----------
     local function makeBar(parent, text, w, h, order)
         w = w or 380; h = h or 24
         local holder = Instance.new("Frame", parent)
@@ -637,7 +637,7 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- ---------- คอลัมน์กลาง ----------
+    -- ---------- column ----------
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
     col.Size = UDim2.new(1, -24, 0, 360)
@@ -650,7 +650,7 @@ registerRight("Player", function(scroll)
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- 1) รูปตัวละคร (มีเลเยอร์กรอบ)
+    -- avatar
     local avatarWrap = Instance.new("Frame", col)
     avatarWrap.BackgroundTransparency = 1
     avatarWrap.Size = UDim2.fromOffset(150, 150)
@@ -682,12 +682,24 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- 2) ชื่อผู้เล่น
+    -- name
     local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-    -- 3) เลเวล + หลอดความคืบหน้า (+ ปุ่มตั้งค่า)
+    -- level + fill + settings button (flush right)
     local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
     levelLbl.Text = "Level 1"
+
+    local settingsBtn = Instance.new("ImageButton", levelBar)
+    settingsBtn.Name = "SettingsButton"
+    settingsBtn.AutoButtonColor = false
+    settingsBtn.BackgroundColor3 = THEME.BG_INNER
+    settingsBtn.BorderSizePixel = 0
+    settingsBtn.Size = UDim2.fromOffset(26, 26)                   -- โตขึ้นนิด ให้กลมกลืน
+    settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
+    settingsBtn.Position = UDim2.new(1, -3, 0.5, 0)               -- ★ ชิดขวาเป๊ะ
+    settingsBtn.Image = "rbxassetid://72289858646360"
+    corner(settingsBtn, 6)
+    stroke(settingsBtn, 1.2, THEME.GREEN, 0)
 
     local fill = Instance.new("Frame", levelBar)
     fill.BackgroundColor3 = THEME.MINT
@@ -697,22 +709,10 @@ registerRight("Player", function(scroll)
     fill.Size             = UDim2.new(0, 0, 1, -6)
     corner(fill, 6)
 
-    local settingsBtn = Instance.new("ImageButton", levelBar)
-    settingsBtn.Name = "SettingsButton"
-    settingsBtn.AutoButtonColor = false
-    settingsBtn.BackgroundColor3 = THEME.BG_INNER
-    settingsBtn.BorderSizePixel = 0
-    settingsBtn.Size = UDim2.fromOffset(24, 24)
-    settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
-    settingsBtn.Position = UDim2.new(1, -6, 0.5, 0)
-    settingsBtn.Image = "rbxassetid://72289858646360"
-    corner(settingsBtn, 6)
-    stroke(settingsBtn, 1.2, THEME.GREEN, 0)
-
-    -- 4) เวลา
+    -- เวลาชิดเลเวล
     local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
 
-    -- ---------- เวลา & เลเวล ----------
+    -- ---------- time & level ----------
     local SEC, MIN, HOUR = 1, 60, 3600
     local DAY  = 24*HOUR
     local MONTH= 30*DAY
@@ -730,11 +730,11 @@ registerRight("Player", function(scroll)
             return string.format("%dd %02d:%02d:%02d", d, h, m, sec)
         elseif s < YEAR then
             local mo = math.floor(s / MONTH); local d  = math.floor((s % MONTH) / DAY)
-            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
+            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
             return string.format("%dm %dd %02d:%02d:%02d", mo, d, h, m, sec)
         else
             local y  = math.floor(s / YEAR); local mo = math.floor((s % YEAR) / MONTH); local d  = math.floor((s % MONTH) / DAY)
-            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
+            local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
             return string.format("%dy %dm %dd %02d:%02d:%02d", y, mo, d, h, m, sec)
         end
     end
@@ -744,15 +744,24 @@ registerRight("Player", function(scroll)
     local root = scroll.Parent
     local currentLevel = 1
 
+    -- ความกว้างหลอด โดยกันพื้นที่ปุ่มด้านขวาไว้เสมอ
+    local function innerWidth()
+        return levelBar.AbsoluteSize.X - 6 - (settingsBtn.AbsoluteSize.X + 6)
+    end
+
     local function applyProgress(elapsed)
         local p = math.clamp(elapsed / YEAR, 0, 1)
-        local innerW = levelBar.AbsoluteSize.X - 6
-        fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
+        fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
         currentLevel = math.min(100, math.floor(p * 99) + 1)
         levelLbl.Text = "Level " .. tostring(currentLevel)
         timeLbl.Text = formatElapsed(elapsed)
         if RSTATE._frame_update then RSTATE._frame_update(currentLevel) end
     end
+
+    levelBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        -- รีคำนวณเมื่อขนาดบาร์เปลี่ยน
+        applyProgress(T.base or 0)
+    end)
 
     local function startTimer()
         if T.conn then return end
@@ -775,43 +784,50 @@ registerRight("Player", function(scroll)
     end)
     startTimer()
 
-    -- ---------- แผง “ตั้งค่ากรอบรูป” ด้านขวา (ขยับขวา + เลื่อนกริดลง) ----------
+    -- ---------- Settings panel (เลื่อนไปขวา + ลงนิดนึง + padding) ----------
     local sidePanel = Instance.new("Frame", RightShell)
     sidePanel.Name = "PlayerSidePanel"
     sidePanel.BackgroundColor3 = THEME.BG_INNER
     sidePanel.BorderSizePixel = 0
     sidePanel.AnchorPoint = Vector2.new(0, 0.5)
-    sidePanel.Position    = UDim2.new(1, 36, 0.5, 0)   -- ขยับออกไปทางขวาอีก
-    sidePanel.Size        = UDim2.fromOffset(250, 372) -- เผื่อขอบบน/ล่างเล็กน้อย
+    sidePanel.Position    = UDim2.new(1, 40, 0.5, 8)   -- ★ ขวาอีก + ลง 8px
+    sidePanel.Size        = UDim2.fromOffset(264, 388) -- ★ เผื่อขอบ
     sidePanel.Visible = false
     sidePanel.ZIndex = 50
     corner(sidePanel, 10)
     stroke(sidePanel, 1.6, THEME.GREEN, 0)
 
-    do
-        local hdr = Instance.new("TextLabel", sidePanel)
-        hdr.BackgroundTransparency = 1
-        hdr.Size = UDim2.new(1, -20, 0, 28)
-        hdr.Position = UDim2.new(0, 10, 0, 8)
-        hdr.Font = Enum.Font.GothamBold
-        hdr.Text = "เลือกกรอบรูป"
-        hdr.TextSize = 16
-        hdr.TextColor3 = Color3.fromRGB(255,255,255)
-        hdr.TextXAlignment = Enum.TextXAlignment.Left
-    end
+    -- padding รอบในกันขอบโดนกิน
+    local pad = Instance.new("UIPadding", sidePanel)
+    pad.PaddingTop    = UDim.new(0, 12)
+    pad.PaddingBottom = UDim.new(0, 12)
+    pad.PaddingLeft   = UDim.new(0, 12)
+    pad.PaddingRight  = UDim.new(0, 12)
+
+    local hdr = Instance.new("TextLabel", sidePanel)
+    hdr.BackgroundTransparency = 1
+    hdr.Size = UDim2.new(1, 0, 0, 28)
+    hdr.Position = UDim2.new(0, 0, 0, 0)
+    hdr.Font = Enum.Font.GothamBold
+    hdr.Text = "เลือกกรอบรูป"
+    hdr.TextSize = 16
+    hdr.TextColor3 = Color3.fromRGB(255,255,255)
+    hdr.TextXAlignment = Enum.TextXAlignment.Left
 
     local gridHolder = Instance.new("ScrollingFrame", sidePanel)
     gridHolder.BackgroundTransparency = 1
-    gridHolder.Size     = UDim2.new(1, -20, 1, -64) -- ดันลงเพิ่ม ไม่ชนหัว
-    gridHolder.Position = UDim2.new(0, 10, 0, 56)   -- เว้นหัว 56px
+    gridHolder.Size     = UDim2.new(1, 0, 1, -44)     -- เว้นหัว 28 + ช่องไฟ
+    gridHolder.Position = UDim2.new(0, 0, 0, 36)
     gridHolder.ScrollBarThickness = 0
     gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
     gridHolder.ScrollingDirection = Enum.ScrollingDirection.Y
 
     local UIGrid = Instance.new("UIGridLayout", gridHolder)
-    UIGrid.CellPadding = UDim2.fromOffset(10, 10)
-    UIGrid.CellSize    = UDim2.fromOffset(108, 84)
+    UIGrid.CellPadding = UDim2.fromOffset(12, 12)     -- ★ ช่องไฟเท่ากัน
+    UIGrid.CellSize    = UDim2.fromOffset(112, 88)    -- ★ 2 คอลัมน์พอดี
     UIGrid.FillDirectionMaxCells = 2
+    UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
 
     local FRAME_LIST = {
         {name="Basic",   need=1,   style="green"},
@@ -826,28 +842,21 @@ registerRight("Player", function(scroll)
         avatarFrameOverlay.BackgroundTransparency = 1
         avatarFrameStroke.Thickness = 2
         avatarFrameStroke.Color = THEME.GREEN
-        if style == "mint" then
-            avatarFrameStroke.Color = THEME.MINT
-        elseif style == "thick" then
-            avatarFrameStroke.Thickness = 3
-        elseif style == "glow" then
-            avatarFrameStroke.Thickness = 2
+        if style == "mint"   then avatarFrameStroke.Color = THEME.MINT
+        elseif style == "thick"  then avatarFrameStroke.Thickness = 3
+        elseif style == "glow"   then
             local glow = Instance.new("UIStroke")
             glow.Parent = avatarFrameOverlay
-            glow.Thickness = 6
-            glow.Transparency = 0.6
-            glow.Color = THEME.MINT
+            glow.Thickness = 6; glow.Transparency = 0.6; glow.Color = THEME.MINT
             task.delay(0.05, function() if glow then glow:Destroy() end end)
         elseif style == "double" then
             avatarFrameStroke.Thickness = 3
             local inner = Instance.new("UIStroke")
             inner.Parent = avatarFrameOverlay
-            inner.Thickness = 1
-            inner.Color = THEME.MINT
+            inner.Thickness = 1; inner.Color = THEME.MINT
             task.delay(0.05, function() if inner then inner:Destroy() end end)
-        elseif style == "gold" then
-            avatarFrameStroke.Thickness = 3
-            avatarFrameStroke.Color = Color3.fromRGB(255, 210, 80)
+        elseif style == "gold"   then
+            avatarFrameStroke.Thickness = 3; avatarFrameStroke.Color = Color3.fromRGB(255,210,80)
         end
     end
 
@@ -880,9 +889,7 @@ registerRight("Player", function(scroll)
 
         frameButtons[info] = {btn=cell, needLbl=needLbl}
         cell.MouseButton1Click:Connect(function()
-            if currentLevel >= info.need then
-                applyAvatarFrame(info.style)
-            end
+            if currentLevel >= info.need then applyAvatarFrame(info.style) end
         end)
     end
     for _,f in ipairs(FRAME_LIST) do makeFrameButton(f) end
@@ -892,37 +899,27 @@ registerRight("Player", function(scroll)
             if curLv >= info.need then
                 refs.needLbl.Text = "Unlocked"
                 refs.needLbl.TextColor3 = Color3.fromRGB(120,255,120)
-                refs.btn.BackgroundColor3 = THEME.BG_INNER
             else
                 refs.needLbl.Text = ("Need Lv %d"):format(info.need)
                 refs.needLbl.TextColor3 = Color3.fromRGB(255,120,120)
-                refs.btn.BackgroundColor3 = THEME.BG_INNER
             end
         end
     end
     RSTATE._frame_update(currentLevel)
 
+    -- toggle
     local panelOpen = false
-    local function showPanel(on)
-        panelOpen = on
-        sidePanel.Visible = on
-    end
-    settingsBtn.MouseButton1Click:Connect(function()
-        showPanel(not panelOpen)
-    end)
+    local function showPanel(on) panelOpen = on; sidePanel.Visible = on end
+    settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
+    root:GetPropertyChangedSignal("Visible"):Connect(function() if not root.Visible then showPanel(false) end end)
 
-    root:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not root.Visible then showPanel(false) end
-    end)
-
-    -- ---------- public helpers ----------
+    -- public helpers
     getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
     getgenv().UFO_RIGHT._setPlayerLevel = function(num)
         num = math.clamp(tonumber(num) or 1, 1, 100)
         levelLbl.Text = ("Level %d"):format(num)
         local p = (num-1)/99
-        local innerW = levelBar.AbsoluteSize.X - 6
-        fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
+        fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
         currentLevel = num
         if RSTATE._frame_update then RSTATE._frame_update(currentLevel) end
     end
