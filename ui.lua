@@ -637,11 +637,12 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- คอลัมน์กลาง
-    local col = Instance.new("Frame", scroll)
-    col.BackgroundTransparency = 1
-    col.Size = UDim2.new(1, -24, 0, 340)
-    col.LayoutOrder = 1
+    -- คอลัมน์กลาง (ขยับขึ้นนิดนึง)
+local col = Instance.new("Frame", scroll)
+col.BackgroundTransparency = 1
+col.Size = UDim2.new(1, -24, 0, 340)
+col.Position = UDim2.new(0, 0, 0, -20) -- ★ ขยับขึ้น 20 พิกเซล
+col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
     list.Padding = UDim.new(0, 12)
