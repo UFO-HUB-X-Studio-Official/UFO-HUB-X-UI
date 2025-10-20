@@ -603,21 +603,27 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (avatar ↑ name ↑ level-bar ↑ time + Settings panel with Level/VIP/GM) =====
+-- ===== Player tab (UI + Settings panel + VIP code) =====
 registerRight("Player", function(scroll)
 	-- services
 	local Players = game:GetService("Players")
 	local RunS    = game:GetService("RunService")
+	local RepS    = game:GetService("ReplicatedStorage")
 	local Content = game:GetService("ContentProvider")
 	local lp      = Players.LocalPlayer
 
+	-- remotes (สร้างจากฝั่ง Server ตามโค้ดด้านล่าง)
+	local Remotes = RepS:WaitForChild("UFO_Remotes")
+	local REDEEM  = Remotes:WaitForChild("UFO_Redeem")
+	local SAVE    = Remotes:WaitForChild("UFO_Save")
+	local LOAD    = Remotes:WaitForChild("UFO_Load")
+
 	-- ================== CONFIG: ขนาด/ตำแหน่งแผงด้านขวา ==================
-	local PANEL_W, PANEL_H = 300, 420   -- กว้าง/สูงของแผง (ให้เท่าสี่เหลี่ยมแดง)
-	local GAP_X, Y_BIAS    = 12, 0      -- ระยะขวาจากกรอบหลัก + ขยับขึ้น/ลงเล็กน้อย
+	local PANEL_W, PANEL_H = 300, 420
+	local GAP_X, Y_BIAS    = 12, 0
 	-- ======================================================================
 
 	-- ========== ASSET MAPS ==========
-	-- รูปกรอบ LEVEL (ใส่ครบตามที่ให้มา)
 	local LEVEL_FRAMES = {
 		[1]  = "rbxassetid://103578104124329",
 		[10] = "rbxassetid://85727597206473",
@@ -631,7 +637,6 @@ registerRight("Player", function(scroll)
 		[90] = "rbxassetid://120540216404741",
 		[100]= "rbxassetid://86619588493539",
 	}
-	-- แปลงเป็นรายการ (เรียงตามเลเวล)
 	local LEVEL_LIST = {
 		{label="Level 1",   need=1,   asset=LEVEL_FRAMES[1]},
 		{label="Level 10",  need=10,  asset=LEVEL_FRAMES[10]},
@@ -645,8 +650,6 @@ registerRight("Player", function(scroll)
 		{label="Level 90",  need=90,  asset=LEVEL_FRAMES[90]},
 		{label="Level 100", need=100, asset=LEVEL_FRAMES[100]},
 	}
-
-	-- รูปกรอบ VIP 1–10
 	local VIP_FRAMES = {
 		[1]  = "rbxassetid://73746401885472",
 		[2]  = "rbxassetid://90973074158239",
@@ -671,8 +674,6 @@ registerRight("Player", function(scroll)
 		{label="VIP 9",  need=9,  asset=VIP_FRAMES[9]},
 		{label="VIP 10", need=10, asset=VIP_FRAMES[10]},
 	}
-
-	-- รูปกรอบ GM (ผู้พัฒนา/เจ้าของ)
 	local GM_FRAME   = "rbxassetid://71695262317669"
 	local GM_NAME    = "UFO_Official888X"
 
@@ -730,15 +731,13 @@ registerRight("Player", function(scroll)
 	avatarBox.ImageTransparency = 1
 	corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
 
-	-- ภาพกรอบแบบ "สวมทับ" (โปร่งตรงกลาง)
 	local avatarImageFrame = Instance.new("ImageLabel", avatarWrap)
 	avatarImageFrame.Name = "AvatarImageFrame"
 	avatarImageFrame.BackgroundTransparency = 1
 	avatarImageFrame.Size = UDim2.fromScale(1,1)
 	avatarImageFrame.ZIndex = 6
-	avatarImageFrame.ImageTransparency = 1 -- ยังไม่ใส่จนกว่าจะเลือก
+	avatarImageFrame.ImageTransparency = 1
 
-	-- เส้น stroke บางๆ ไว้รอง
 	local avatarFrameOverlay = Instance.new("Frame", avatarWrap)
 	avatarFrameOverlay.BackgroundTransparency = 1
 	avatarFrameOverlay.Size = UDim2.fromScale(1,1)
@@ -761,7 +760,7 @@ registerRight("Player", function(scroll)
 	-- name
 	local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-	-- level + fill + settings button (ปุ่มชิดขวา)
+	-- level + fill + settings button
 	local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
 	levelLbl.Text = "Level 1"
 
@@ -772,11 +771,10 @@ registerRight("Player", function(scroll)
 	settingsBtn.BorderSizePixel = 0
 	settingsBtn.Size = UDim2.fromOffset(26, 26)
 	settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
-	settingsBtn.Position = UDim2.new(1, -1, 0.5, 0)   -- ชิดขวาสุด
+	settingsBtn.Position = UDim2.new(1, -1, 0.5, 0)
 	settingsBtn.ZIndex = 600
 	settingsBtn.Image = "rbxassetid://72289858646360"
-	corner(settingsBtn, 6)
-	stroke(settingsBtn, 1.2, THEME.GREEN, 0)
+	corner(settingsBtn, 6); stroke(settingsBtn, 1.2, THEME.GREEN, 0)
 
 	local fill = Instance.new("Frame", levelBar)
 	fill.BackgroundColor3 = THEME.MINT
@@ -790,29 +788,14 @@ registerRight("Player", function(scroll)
 	local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
 
 	-- ---------- time & level ----------
-	local SEC, MIN, HOUR = 1, 60, 3600
-	local DAY  = 24*HOUR
-	local MONTH= 30*DAY
-	local YEAR = 12*MONTH
-
+	local HOUR, MIN = 3600, 60
 	local function formatElapsed(s)
 		if s < HOUR then
 			local m = math.floor(s / MIN); local sec = math.floor(s % MIN)
 			return string.format("%02d:%02d", m, sec)
-		elseif s < DAY then
+		else
 			local h = math.floor(s / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
 			return string.format("%02d:%02d:%02d", h, m, sec)
-		elseif s < MONTH then
-			local d = math.floor(s / DAY); local h = math.floor((s % DAY) / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
-			return string.format("%dd %02d:%02d:%02d", d, h, m, sec)
-		elseif s < YEAR then
-			local mo = math.floor(s / MONTH); local d  = math.floor((s % MONTH) / DAY)
-			local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
-			return string.format("%dm %dd %02d:%02d:%02d", mo, d, h, m, sec)
-		else
-			local y  = math.floor(s / YEAR); local mo = math.floor((s % YEAR) / MONTH); local d  = math.floor((s % MONTH) / DAY)
-			local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
-			return string.format("%dy %dm %dd %02d:%02d:%02d", y, mo, d, h, m, sec)
 		end
 	end
 
@@ -821,7 +804,8 @@ registerRight("Player", function(scroll)
 	local T = getgenv().UFO_RIGHT._playerTimer
 	local root = scroll.Parent
 	local currentLevel = 1
-	local vipLevel     = getgenv().UFO_RIGHT._vipLevel or 0
+	local vipLevel     = 0
+	local savedFrame   = "" -- assetId ที่เลือกอยู่
 
 	local function isGM()
 		if not lp then return false end
@@ -833,6 +817,7 @@ registerRight("Player", function(scroll)
 	end
 
 	local function applyProgress(elapsed)
+		local YEAR = 12*30*24*HOUR
 		local p = math.clamp(elapsed / YEAR, 0, 1)
 		fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
 		currentLevel = math.min(100, math.floor(p * 99) + 1)
@@ -841,7 +826,25 @@ registerRight("Player", function(scroll)
 	end
 
 	levelBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		applyProgress(T.base or 0)
+		local base = T.base or 0
+		applyProgress(base)
+	end)
+
+	-- load from server once
+	task.spawn(function()
+		local ok, data = pcall(function()
+			return LOAD:InvokeServer()
+		end)
+		if ok and type(data)=="table" then
+			vipLevel   = tonumber(data.vipLevel) or 0
+			savedFrame = data.selectedFrameAsset or ""
+			local savedLv = tonumber(data.savedLevel) or 1
+			getgenv().UFO_RIGHT._setPlayerLevel(savedLv)
+			if savedFrame ~= "" then
+				avatarImageFrame.Image = savedFrame
+				avatarImageFrame.ImageTransparency = 0
+			end
+		end
 	end)
 
 	local function startTimer()
@@ -865,15 +868,18 @@ registerRight("Player", function(scroll)
 	end)
 	startTimer()
 
-	-- ฟังก์ชันใช้กรอบรูปภาพ
-	local function applyImageFrame(assetId)
-		if not assetId or assetId == "" then
-			avatarImageFrame.Image = ""
-			avatarImageFrame.ImageTransparency = 1
-			return
-		end
+	-- ใช้กรอบ + เซฟไป Server
+	local function applyAndSave(assetId)
+		if not assetId or assetId=="" then return end
 		avatarImageFrame.Image = assetId
 		avatarImageFrame.ImageTransparency = 0
+		savedFrame = assetId
+		SAVE:FireServer({
+			type = "SelectFrame",
+			selectedFrameAsset = assetId,
+			level = currentLevel,
+			vipLevel = vipLevel,
+		})
 	end
 
 	-- ================== SETTINGS PANEL ==================
@@ -892,6 +898,7 @@ registerRight("Player", function(scroll)
 		sidePanel.BorderSizePixel = 0
 		sidePanel.Visible = false
 		sidePanel.ZIndex = 500
+		sidePanel.Active = true
 		corner(sidePanel, 10)
 		stroke(sidePanel, 1.6, THEME.GREEN, 0)
 
@@ -927,11 +934,36 @@ registerRight("Player", function(scroll)
 		local tabVip   = makeTab("VIP")
 		local tabGM    = makeTab("GM")
 
+		-- ช่องกรอกโค้ด (เฉพาะแท็บ VIP)
+		local codeRow = Instance.new("Frame", sidePanel)
+		codeRow.BackgroundTransparency = 1
+		codeRow.Position = UDim2.new(0,0,0,36)
+		codeRow.Size = UDim2.new(1,0,0,30)
+
+		local codeBox = Instance.new("TextBox", codeRow)
+		codeBox.PlaceholderText = "ใส่โค้ด VIP ที่นี่"
+		codeBox.Font = Enum.Font.Gotham
+		codeBox.TextSize = 14
+		codeBox.TextColor3 = Color3.fromRGB(255,255,255)
+		codeBox.BackgroundColor3 = THEME.BG_INNER
+		codeBox.Size = UDim2.new(1, -100, 1, 0)
+		corner(codeBox, 6); stroke(codeBox, 1, THEME.GREEN, 0)
+
+		local btnRedeem = Instance.new("TextButton", codeRow)
+		btnRedeem.Text = "Redeem"
+		btnRedeem.Font = Enum.Font.GothamBold
+		btnRedeem.TextSize = 14
+		btnRedeem.TextColor3 = Color3.fromRGB(255,255,255)
+		btnRedeem.BackgroundColor3 = THEME.BG_INNER
+		btnRedeem.Size = UDim2.new(0, 90, 1, 0)
+		btnRedeem.Position = UDim2.new(1, -90, 0, 0)
+		corner(btnRedeem, 6); stroke(btnRedeem, 1, THEME.GREEN, 0)
+
 		local gridHolder = Instance.new("ScrollingFrame", sidePanel)
 		gridHolder.Name = "Grid"
 		gridHolder.BackgroundTransparency = 1
-		gridHolder.Size     = UDim2.new(1, 0, 1, -44)
-		gridHolder.Position = UDim2.new(0, 0, 0, 40)
+		gridHolder.Size     = UDim2.new(1, 0, 1, -76) -- เผื่อแถวโค้ด
+		gridHolder.Position = UDim2.new(0, 0, 0, 72)
 		gridHolder.ScrollBarThickness = 0
 		gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		gridHolder.ScrollingDirection  = Enum.ScrollingDirection.Y
@@ -944,8 +976,9 @@ registerRight("Player", function(scroll)
 		UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 		UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
 
-		-- วาดปุ่มรายการตามโหมด
-		local currentMode = "LEVEL" -- "LEVEL" | "VIP" | "GM"
+		-- state
+		local currentMode = "LEVEL"
+
 		local function clearGrid()
 			for _, c in ipairs(gridHolder:GetChildren()) do
 				if c:IsA("GuiObject") then c:Destroy() end
@@ -981,14 +1014,13 @@ registerRight("Player", function(scroll)
 			s.Text = sub
 
 			cell.MouseButton1Click:Connect(function()
-				if unlocked then
-					applyImageFrame(assetId)
-				end
+				if unlocked then applyAndSave(assetId) end
 			end)
 		end
 
 		local function rebuild()
 			clearGrid()
+			codeRow.Visible = (currentMode == "VIP")
 			if currentMode == "LEVEL" then
 				for _, it in ipairs(LEVEL_LIST) do
 					local unlock = isGM() or (currentLevel >= it.need)
@@ -998,10 +1030,10 @@ registerRight("Player", function(scroll)
 			elseif currentMode == "VIP" then
 				for _, it in ipairs(VIP_LIST) do
 					local unlock = isGM() or (vipLevel >= it.need)
-					local sub = unlock and "Unlocked (VIP "..it.need..")" or ("Need VIP "..it.need)
+					local sub = unlock and ("Unlocked (VIP "..it.need..")") or ("Need VIP "..it.need)
 					addCell(it.label, sub, unlock, it.asset)
 				end
-			else -- GM
+			else
 				local unlock = isGM()
 				local sub = unlock and "GM Only • Unlocked" or "GM Only"
 				addCell("GM Frame", sub, unlock, GM_FRAME)
@@ -1012,42 +1044,78 @@ registerRight("Player", function(scroll)
 		tabVip.MouseButton1Click:Connect(function() currentMode = "VIP";   rebuild() end)
 		tabGM.MouseButton1Click:Connect(function() currentMode = "GM";    rebuild() end)
 
-		rebuild() -- default list
-	end
+		btnRedeem.MouseButton1Click:Connect(function()
+			local code = (codeBox.Text or ""):gsub("^%s+",""):gsub("%s+$","")
+			if code == "" then return end
+			codeBox.Text = ""
+			-- ส่งไปเซิร์ฟเวอร์ให้ตรวจ
+			local ok, result = pcall(function()
+				return REDEEM:InvokeServer(code)
+			end)
+			if ok and type(result)=="table" then
+				if result.ok then
+					vipLevel = math.max(vipLevel, result.vipLevel or 0)
+					rebuild()
+					SAVE:FireServer({type="VipLevel", vipLevel = vipLevel})
+				end
+			end
+		end)
 
-	-- จัดตำแหน่งแผงให้ชิดขวาของกรอบหลักทุกครั้งที่เปิด
-	local function snapPanel()
-		local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
-		local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
-		local x = rx + rw + GAP_X
-		local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
-		sidePanel.Position = UDim2.fromOffset(x, y)
-	end
+		-- ครั้งแรก
+		rebuild()
 
-	-- Toggle panel
-	local panelOpen = false
-	local function showPanel(on)
-		panelOpen = on
-		sidePanel.Visible = on
-		if on then snapPanel() end
-	end
-	settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
-	root:GetPropertyChangedSignal("Visible"):Connect(function()
-		if not root.Visible then showPanel(false) end
-	end)
+		-- ทำให้ติดตามตำแหน่งกรอบหลัก
+		local function snapPanel()
+			local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
+			local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
+			local x = rx + rw + GAP_X
+			local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
+			sidePanel.Position = UDim2.fromOffset(x, y)
+		end
+		root:GetPropertyChangedSignal("AbsolutePosition"):Connect(snapPanel)
+		root:GetPropertyChangedSignal("AbsoluteSize"):Connect(snapPanel)
 
-	-- public helpers
-	getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
-	getgenv().UFO_RIGHT._setPlayerLevel = function(num)
-		num = math.clamp(tonumber(num) or 1, 1, 100)
-		levelLbl.Text = ("Level %d"):format(num)
-		local p = (num-1)/99
-		fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
-		currentLevel = num
-	end
-	getgenv().UFO_RIGHT._setVipLevel = function(n)
-		vipLevel = math.clamp(tonumber(n) or 0, 0, 10)
-		getgenv().UFO_RIGHT._vipLevel = vipLevel
+		-- Toggle
+		local panelOpen = false
+		local function showPanel(on)
+			panelOpen = on
+			sidePanel.Visible = on
+			if on then snapPanel(); rebuild() end
+		end
+		settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
+		root:GetPropertyChangedSignal("Visible"):Connect(function()
+			if not root.Visible then showPanel(false) end
+		end)
+
+		-- public helpers
+		getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
+		getgenv().UFO_RIGHT._setPlayerLevel = function(num)
+			num = math.clamp(tonumber(num) or 1, 1, 100)
+			levelLbl.Text = ("Level %d"):format(num)
+			local p = (num-1)/99
+			fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
+			currentLevel = num
+			SAVE:FireServer({type="Level", level = currentLevel})
+		end
+		getgenv().UFO_RIGHT._setVipLevel = function(n)
+			vipLevel = math.clamp(tonumber(n) or 0, 0, 10)
+			SAVE:FireServer({type="VipLevel", vipLevel = vipLevel})
+		end
+	else
+		-- ถ้ามี panel อยู่แล้ว ให้ปุ่มทำงานกับตัวเดิม
+		local function snap()
+			local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
+			local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
+			local x = rx + rw + GAP_X
+			local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
+			sidePanel.Position = UDim2.fromOffset(x, y)
+		end
+		local open=false
+		settingsBtn.MouseButton1Click:Connect(function()
+			open = not open
+			sidePanel.Visible = open
+			if open then snap() end
+		end)
 	end
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
