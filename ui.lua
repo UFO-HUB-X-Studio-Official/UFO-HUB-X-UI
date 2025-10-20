@@ -603,14 +603,14 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab content (compact spacing) =====
+-- ===== Player tab content (avatar ↑ name ↑ level-bar ↑ time + Settings panel & Frame-by-level) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunS    = game:GetService("RunService")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
-    -- helper: แถบพื้นดำ ขอบเขียว ตัวอักษรขาว (เวอร์ชันชิด)
+    -- ---------- UI helpers ----------
     local function makeBar(parent, text, w, h, order)
         w = w or 380; h = h or 24
         local holder = Instance.new("Frame", parent)
@@ -623,7 +623,6 @@ registerRight("Player", function(scroll)
         bar.BorderSizePixel  = 0
         bar.AnchorPoint      = Vector2.new(0.5, 0.5)
         bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
-        -- ลดระยะขอบใน bar ให้ชิดขึ้น
         bar.Size             = UDim2.fromOffset(w-12, h-6)
         corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
 
@@ -638,27 +637,39 @@ registerRight("Player", function(scroll)
         return holder, bar, lbl
     end
 
-    -- คอลัมน์กลาง (ขยับขึ้นเล็กน้อย)
+    -- ---------- คอลัมน์กลาง ----------
     local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
-    col.Size = UDim2.new(1, -24, 0, 340)
-    col.Position = UDim2.new(0, 0, 0, -20)
+    col.Size = UDim2.new(1, -24, 0, 360)
+    col.Position = UDim2.new(0, 0, 0, -14)
     col.LayoutOrder = 1
 
     local list = Instance.new("UIListLayout", col)
-    list.Padding = UDim.new(0, 6) -- ★ ช่องไฟระหว่างบล็อกให้ชิดขึ้น
+    list.Padding = UDim.new(0, 6)
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
     list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- 1) รูปตัวละคร
-    local avatarBox = Instance.new("ImageLabel", col)
+    -- 1) รูปตัวละคร (มีเลเยอร์กรอบ)
+    local avatarWrap = Instance.new("Frame", col)
+    avatarWrap.BackgroundTransparency = 1
+    avatarWrap.Size = UDim2.fromOffset(150, 150)
+    avatarWrap.LayoutOrder = 1
+
+    local avatarBox = Instance.new("ImageLabel", avatarWrap)
     avatarBox.BackgroundColor3 = THEME.BG_INNER
     avatarBox.BorderSizePixel  = 0
-    avatarBox.Size = UDim2.fromOffset(150, 150)
+    avatarBox.Size = UDim2.fromScale(1,1)
     avatarBox.ImageTransparency = 1
-    avatarBox.LayoutOrder = 1
     corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
+
+    -- เลเยอร์ "กรอบรูป" ซ้อนบน avatar
+    local avatarFrameOverlay = Instance.new("Frame", avatarWrap)
+    avatarFrameOverlay.BackgroundTransparency = 1
+    avatarFrameOverlay.Size = UDim2.fromScale(1,1)
+    avatarFrameOverlay.ZIndex = 5
+    -- เส้นกรอบดีฟอลต์ (เขียว)
+    local avatarFrameStroke = stroke(avatarFrameOverlay, 2, THEME.GREEN, 0)
 
     task.spawn(function()
         if lp then
@@ -673,12 +684,13 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- 2) ชื่อผู้เล่น (ชิดรูป)
+    -- 2) ชื่อผู้เล่น
     local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
 
-    -- 3) เลเวล + หลอดความคืบหน้า (ชิดชื่อ)
+    -- 3) เลเวล + หลอดความคืบหน้า (+ ปุ่มตั้งค่า)
     local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
     levelLbl.Text = "Level 1"
+
     local fill = Instance.new("Frame", levelBar)
     fill.BackgroundColor3 = THEME.MINT
     fill.BorderSizePixel  = 0
@@ -687,10 +699,23 @@ registerRight("Player", function(scroll)
     fill.Size             = UDim2.new(0, 0, 1, -6)
     corner(fill, 6)
 
-    -- 4) เวลา (ชิดเลเวล)
+    -- ปุ่มตั้งค่า (ไอคอนที่ให้มา) ติดขวาของกรอบเลเวล
+    local settingsBtn = Instance.new("ImageButton", levelBar)
+    settingsBtn.Name = "SettingsButton"
+    settingsBtn.AutoButtonColor = false
+    settingsBtn.BackgroundColor3 = THEME.BG_INNER
+    settingsBtn.BorderSizePixel = 0
+    settingsBtn.Size = UDim2.fromOffset(24, 24)
+    settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
+    settingsBtn.Position = UDim2.new(1, -6, 0.5, 0)
+    settingsBtn.Image = "rbxassetid://72289858646360"
+    corner(settingsBtn, 6)
+    stroke(settingsBtn, 1.2, THEME.GREEN, 0)
+
+    -- 4) เวลา
     local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
 
-    -- ===== Timer + Level mapping (เหมือนเดิม) =====
+    -- ---------- เวลา & เลเวล ----------
     local SEC, MIN, HOUR = 1, 60, 3600
     local DAY  = 24*HOUR
     local MONTH= 30*DAY
@@ -720,14 +745,17 @@ registerRight("Player", function(scroll)
     if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
     local T = getgenv().UFO_RIGHT._playerTimer
     local root = scroll.Parent
+    local currentLevel = 1
 
     local function applyProgress(elapsed)
         local p = math.clamp(elapsed / YEAR, 0, 1)
         local innerW = levelBar.AbsoluteSize.X - 6
         fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
-        local level = math.min(100, math.floor(p * 99) + 1)
-        levelLbl.Text = "Level " .. tostring(level)
+        currentLevel = math.min(100, math.floor(p * 99) + 1)
+        levelLbl.Text = "Level " .. tostring(currentLevel)
         timeLbl.Text = formatElapsed(elapsed)
+        -- อัปเดตสถานะปลดล็อกของกรอบในแผงตั้งค่า (ถ้าเปิดอยู่)
+        if RSTATE._frame_update then RSTATE._frame_update(currentLevel) end
     end
 
     local function startTimer()
@@ -735,8 +763,7 @@ registerRight("Player", function(scroll)
         local tStart = os.clock()
         T.base = T.base or 0
         T.conn = RunS.Heartbeat:Connect(function()
-            local elapsed = T.base + (os.clock() - tStart)
-            applyProgress(elapsed)
+            applyProgress(T.base + (os.clock() - tStart))
         end)
         T._lastStart = tStart
     end
@@ -752,7 +779,163 @@ registerRight("Player", function(scroll)
     end)
     startTimer()
 
-    -- public helpers
+    -- ---------- แผง “ตั้งค่ากรอบรูป” ด้านขวา ----------
+    -- ใช้ RightShell จากส่วน RIGHT เป็นพาเรนต์ เพื่อให้แผงไปโผล่ “ด้านขวาพอดี” ตามภาพ
+    local sidePanel = Instance.new("Frame", RightShell)
+    sidePanel.Name = "PlayerSidePanel"
+    sidePanel.BackgroundColor3 = THEME.BG_INNER
+    sidePanel.BorderSizePixel = 0
+    sidePanel.AnchorPoint = Vector2.new(0, 0.5)
+    sidePanel.Position = UDim2.new(1, 12, 0.5, 0)   -- ชิดขวากรอบใหญ่ เหมือนสี่เหลี่ยมแดง
+    sidePanel.Size = UDim2.fromOffset(240, 360)     -- ขนาดตัวอย่างตามภาพ
+    sidePanel.Visible = false
+    sidePanel.ZIndex = 50
+    corner(sidePanel, 10)
+    stroke(sidePanel, 1.6, THEME.GREEN, 0)
+
+    -- หัวแผง
+    do
+        local hdr = Instance.new("TextLabel", sidePanel)
+        hdr.BackgroundTransparency = 1
+        hdr.Size = UDim2.new(1, -20, 0, 28)
+        hdr.Position = UDim2.new(0, 10, 0, 8)
+        hdr.Font = Enum.Font.GothamBold
+        hdr.Text = "เลือกกรอบรูป"
+        hdr.TextSize = 16
+        hdr.TextColor3 = Color3.fromRGB(255,255,255)
+        hdr.TextXAlignment = Enum.TextXAlignment.Left
+    end
+
+    -- คอนเทนต์กริดของ “กรอบรูป” (placeholder ปลดล็อกตามเลเวล)
+    local gridHolder = Instance.new("ScrollingFrame", sidePanel)
+    gridHolder.BackgroundTransparency = 1
+    gridHolder.Size = UDim2.new(1, -20, 1, -48)
+    gridHolder.Position = UDim2.new(0, 10, 0, 40)
+    gridHolder.ScrollBarThickness = 0
+    gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    gridHolder.ScrollingDirection = Enum.ScrollingDirection.Y
+
+    local UIGrid = Instance.new("UIGridLayout", gridHolder)
+    UIGrid.CellPadding = UDim2.fromOffset(8, 8)
+    UIGrid.CellSize    = UDim2.fromOffset(100, 80)
+    UIGrid.FillDirectionMaxCells = 2
+
+    -- “รายการกรอบ” ตัวอย่าง (ชื่อ/เลเวลที่ต้องการ/สไตล์กรอบ)
+    local FRAME_LIST = {
+        {name="Basic",   need=1,   style="green"},     -- Lv1+
+        {name="Mint",    need=10,  style="mint"},      -- Lv10+
+        {name="Pro",     need=25,  style="thick"},     -- Lv25+
+        {name="Elite",   need=50,  style="glow"},      -- Lv50+
+        {name="Master",  need=75,  style="double"},    -- Lv75+
+        {name="Legend",  need=100, style="gold"},      -- Lv100
+    }
+
+    -- ฟังก์ชัน apply กรอบกับ avatar
+    local function applyAvatarFrame(style)
+        -- reset base
+        avatarFrameOverlay.BackgroundTransparency = 1
+        avatarFrameStroke.Thickness = 2
+        avatarFrameStroke.Color = THEME.GREEN
+
+        if style == "mint" then
+            avatarFrameStroke.Color = THEME.MINT
+        elseif style == "thick" then
+            avatarFrameStroke.Thickness = 3
+            avatarFrameStroke.Color = THEME.GREEN
+        elseif style == "glow" then
+            avatarFrameStroke.Thickness = 2
+            avatarFrameStroke.Color = THEME.GREEN
+            -- glow เบา ๆ ด้วยกรอบซ้อน
+            local glow = Instance.new("UIStroke")
+            glow.Parent = avatarFrameOverlay
+            glow.Thickness = 6
+            glow.Transparency = 0.6
+            glow.Color = THEME.MINT
+            task.delay(0.05, function() if glow then glow:Destroy() end end)
+        elseif style == "double" then
+            avatarFrameStroke.Thickness = 3
+            local inner = Instance.new("UIStroke")
+            inner.Parent = avatarFrameOverlay
+            inner.Thickness = 1
+            inner.Color = THEME.MINT
+            task.delay(0.05, function() if inner then inner:Destroy() end end)
+        elseif style == "gold" then
+            avatarFrameStroke.Thickness = 3
+            avatarFrameStroke.Color = Color3.fromRGB(255, 210, 80)
+        end
+    end
+
+    -- วาดปุ่มกรอบ + สถานะล็อก/ปลดล็อก
+    local frameButtons = {}
+    local function makeFrameButton(info)
+        local cell = Instance.new("TextButton", gridHolder)
+        cell.AutoButtonColor = false
+        cell.Text = ""
+        cell.BackgroundColor3 = THEME.BG_INNER
+        cell.BorderSizePixel = 0
+        corner(cell, 8); stroke(cell, 1.2, THEME.GREEN, 0)
+
+        local nameLbl = Instance.new("TextLabel", cell)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Size = UDim2.new(1, -12, 0, 22)
+        nameLbl.Position = UDim2.new(0, 6, 0, 6)
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 14
+        nameLbl.TextColor3 = Color3.fromRGB(255,255,255)
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.Text = info.name
+
+        local needLbl = Instance.new("TextLabel", cell)
+        needLbl.BackgroundTransparency = 1
+        needLbl.Size = UDim2.new(1, -12, 0, 18)
+        needLbl.Position = UDim2.new(0, 6, 1, -24)
+        needLbl.Font = Enum.Font.Gotham
+        needLbl.TextSize = 12
+        needLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+        frameButtons[info] = {btn=cell, needLbl=needLbl}
+
+        cell.MouseButton1Click:Connect(function()
+            if currentLevel >= info.need then
+                applyAvatarFrame(info.style)
+            end
+        end)
+    end
+
+    for _,f in ipairs(FRAME_LIST) do makeFrameButton(f) end
+
+    -- อัปเดตข้อความล็อก/ปลดล็อกตามเลเวลปัจจุบัน
+    RSTATE._frame_update = function(curLv)
+        for info, refs in pairs(frameButtons) do
+            if curLv >= info.need then
+                refs.needLbl.Text = "Unlocked"
+                refs.needLbl.TextColor3 = Color3.fromRGB(120,255,120)
+                refs.btn.BackgroundColor3 = THEME.BG_INNER
+            else
+                refs.needLbl.Text = ("Need Lv %d"):format(info.need)
+                refs.needLbl.TextColor3 = Color3.fromRGB(255,120,120)
+                refs.btn.BackgroundColor3 = THEME.BG_INNER
+            end
+        end
+    end
+    RSTATE._frame_update(currentLevel)
+
+    -- เปิด/ปิดแผงด้วย “ปุ่มตั้งค่า”
+    local panelOpen = false
+    local function showPanel(on)
+        panelOpen = on
+        sidePanel.Visible = on
+    end
+    settingsBtn.MouseButton1Click:Connect(function()
+        showPanel(not panelOpen)
+    end)
+
+    -- ปิดแผงเมื่อแท็บถูกซ่อน
+    root:GetPropertyChangedSignal("Visible"):Connect(function()
+        if not root.Visible then showPanel(false) end
+    end)
+
+    -- ---------- public helpers (คงไว้ใช้ต่อได้) ----------
     getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
     getgenv().UFO_RIGHT._setPlayerLevel = function(num)
         num = math.clamp(tonumber(num) or 1, 1, 100)
@@ -760,6 +943,8 @@ registerRight("Player", function(scroll)
         local p = (num-1)/99
         local innerW = levelBar.AbsoluteSize.X - 6
         fill.Size = UDim2.new(0, math.max(0, innerW * p), 1, -6)
+        currentLevel = num
+        if RSTATE._frame_update then RSTATE._frame_update(currentLevel) end
     end
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
