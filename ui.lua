@@ -472,18 +472,18 @@ end)
 -- 1) เก็บ/ใช้ state กลาง
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
-RSTATE.frames   = RSTATE.frames   or {}   -- [tabName] = {root=Frame, scroll=ScrollingFrame, list=UIListLayout, built=true/false}
-RSTATE.builders = RSTATE.builders or {}   -- [tabName] = function(rootFrame) ...end
-RSTATE.scrollY  = RSTATE.scrollY  or {}   -- [tabName] = number
-RSTATE.current  = RSTATE.current          -- string | nil
+RSTATE.frames   = RSTATE.frames   or {}
+RSTATE.builders = RSTATE.builders or {}
+RSTATE.scrollY  = RSTATE.scrollY  or {}
+RSTATE.current  = RSTATE.current
 
--- 2) ถ้ามี RightScroll เก่าอยู่ ให้ลบทิ้ง (กันซ้อน/บัค)
+-- 2) ถ้ามี RightScroll เก่าอยู่ ให้ลบทิ้ง
 pcall(function()
     local old = RightShell:FindFirstChildWhichIsA("ScrollingFrame")
     if old then old:Destroy() end
 end)
 
--- 3) utility: ทำ ScrollingFrame ใหม่สำหรับแท็บนั้น ๆ
+-- 3) สร้าง ScrollingFrame ต่อแท็บ
 local function makeTabFrame(tabName)
     local root = Instance.new("Frame")
     root.Name = "RightTab_"..tabName
@@ -496,10 +496,11 @@ local function makeTabFrame(tabName)
     sf.Name = "Scroll"
     sf.BackgroundTransparency = 1
     sf.Size = UDim2.fromScale(1,1)
-    sf.ScrollBarThickness = 0
+    sf.ScrollBarThickness = 4  -- ให้เห็น scroll bar เพื่อทดสอบ (ถ้าอยากซ่อน เปลี่ยนเป็น 0)
     sf.ScrollingDirection = Enum.ScrollingDirection.Y
     sf.AutomaticCanvasSize = Enum.AutomaticSize.None
     sf.ElasticBehavior = Enum.ElasticBehavior.Never
+    sf.CanvasSize = UDim2.new(0,0,0,600)  -- ★ เพิ่มบรรทัดนี้ให้เลื่อนได้ตั้งแต่เริ่มต้น
 
     local pad = Instance.new("UIPadding", sf)
     pad.PaddingTop    = UDim.new(0,12)
@@ -514,7 +515,8 @@ local function makeTabFrame(tabName)
 
     local function refreshCanvas()
         local h = list.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset
-        sf.CanvasSize = UDim2.new(0,0,0,h)
+        -- ★ ใช้ค่ามากสุดระหว่างขนาดจริงกับค่าเริ่มต้น (600)
+        sf.CanvasSize = UDim2.new(0,0,0,math.max(h,600))
     end
 
     list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -531,12 +533,12 @@ local function makeTabFrame(tabName)
     return RSTATE.frames[tabName]
 end
 
--- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (เรียกครั้งเดียวตอนเปิดแท็บครั้งแรก)
+-- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ
 local function registerRight(tabName, builderFn)
     RSTATE.builders[tabName] = builderFn
 end
 
--- 5) สร้าง “หัวเรื่อง” แบบเดิมให้ทุกแท็บ (อัตโนมัติ)
+-- 5) หัวเรื่อง
 local function addHeader(parentScroll, titleText, iconId)
     local row = Instance.new("Frame")
     row.BackgroundTransparency = 1
@@ -560,31 +562,25 @@ local function addHeader(parentScroll, titleText, iconId)
     head.Text = titleText
 end
 
--- 6) API หลัก: showRight (ไม่ล้างของแท็บอื่น, ซ่อน/แสดงอย่างเดียว + จำสกอร์ลแยก)
+-- 6) API หลัก
 function showRight(titleText, iconId)
     local tab = titleText
 
-    -- เก็บ Y ของแท็บก่อนหน้า
     if RSTATE.current and RSTATE.frames[RSTATE.current] then
         RSTATE.scrollY[RSTATE.current] = RSTATE.frames[RSTATE.current].scroll.CanvasPosition.Y
         RSTATE.frames[RSTATE.current].root.Visible = false
     end
 
-    -- เตรียมเฟรมของแท็บนี้
     local f = RSTATE.frames[tab] or makeTabFrame(tab)
     f.root.Visible = true
 
-    -- สร้างคอนเทนต์ครั้งแรก (lazy build)
     if not f.built then
         addHeader(f.scroll, titleText, iconId)
         local builder = RSTATE.builders[tab]
-        if builder then
-            builder(f.scroll)  -- ส่ง ScrollingFrame ให้ไปวางของต่อได้เลย
-        end
+        if builder then builder(f.scroll) end
         f.built = true
     end
 
-    -- คืนตำแหน่งสกอร์ลของแท็บนี้
     task.defer(function()
         local y = RSTATE.scrollY[tab] or 0
         local viewH = f.scroll.AbsoluteSize.Y
@@ -595,14 +591,17 @@ function showRight(titleText, iconId)
     RSTATE.current = tab
 end
 
--- 7) ตัวอย่างการ “เพิ่มระบบ” ให้แท็บ โดยไม่แตะ showRight อีก
---    แค่ registerRight("ชื่อแท็บ", function(scroll) ...end)
---    ด้านล่างนี้เป็นตัวอย่างเปล่า ๆ (ปล่อยได้ ถ้าอยากให้ขึ้นแค่หัวเรื่อง)
+-- 7) ตัวอย่างแท็บ
 registerRight("Player", function(scroll)
-    -- วาง UI ของ Player ที่นี่ (เพิ่มเมื่อพร้อม)
-    -- ตัวอย่าง: local lbl = Instance.new("TextLabel", scroll) ... (ข้ามได้)
+    for i=1,20 do
+        local lbl = Instance.new("TextLabel", scroll)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "Item #"..i
+        lbl.TextColor3 = Color3.fromRGB(255,255,255)
+        lbl.Size = UDim2.new(1,-10,0,26)
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+    end
 end)
-
 registerRight("Home", function(scroll) end)
 registerRight("Quest", function(scroll) end)
 registerRight("Shop", function(scroll) end)
