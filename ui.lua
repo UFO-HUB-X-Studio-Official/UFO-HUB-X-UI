@@ -603,6 +603,453 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
+-- ===== Player tab (avatar ↑ name ↑ level-bar ↑ time + Settings panel with Level/VIP/GM) =====
+registerRight("Player", function(scroll)
+	-- services
+	local Players = game:GetService("Players")
+	local RunS    = game:GetService("RunService")
+	local Content = game:GetService("ContentProvider")
+	local lp      = Players.LocalPlayer
+
+	-- ================== CONFIG: ขนาด/ตำแหน่งแผงด้านขวา ==================
+	local PANEL_W, PANEL_H = 300, 420   -- กว้าง/สูงของแผง (ให้เท่าสี่เหลี่ยมแดง)
+	local GAP_X, Y_BIAS    = 12, 0      -- ระยะขวาจากกรอบหลัก + ขยับขึ้น/ลงเล็กน้อย
+	-- ======================================================================
+
+	-- ========== ASSET MAPS ==========
+	-- รูปกรอบ LEVEL (ใส่ครบตามที่ให้มา)
+	local LEVEL_FRAMES = {
+		[1]  = "rbxassetid://103578104124329",
+		[10] = "rbxassetid://85727597206473",
+		[20] = "rbxassetid://128573493281890",
+		[30] = "rbxassetid://115554607896817",
+		[40] = "rbxassetid://110581349302851",
+		[50] = "rbxassetid://89035382790955",
+		[60] = "rbxassetid://138637702392266",
+		[70] = "rbxassetid://113699652751616",
+		[80] = "rbxassetid://93319087274486",
+		[90] = "rbxassetid://120540216404741",
+		[100]= "rbxassetid://86619588493539",
+	}
+	-- แปลงเป็นรายการ (เรียงตามเลเวล)
+	local LEVEL_LIST = {
+		{label="Level 1",   need=1,   asset=LEVEL_FRAMES[1]},
+		{label="Level 10",  need=10,  asset=LEVEL_FRAMES[10]},
+		{label="Level 20",  need=20,  asset=LEVEL_FRAMES[20]},
+		{label="Level 30",  need=30,  asset=LEVEL_FRAMES[30]},
+		{label="Level 40",  need=40,  asset=LEVEL_FRAMES[40]},
+		{label="Level 50",  need=50,  asset=LEVEL_FRAMES[50]},
+		{label="Level 60",  need=60,  asset=LEVEL_FRAMES[60]},
+		{label="Level 70",  need=70,  asset=LEVEL_FRAMES[70]},
+		{label="Level 80",  need=80,  asset=LEVEL_FRAMES[80]},
+		{label="Level 90",  need=90,  asset=LEVEL_FRAMES[90]},
+		{label="Level 100", need=100, asset=LEVEL_FRAMES[100]},
+	}
+
+	-- รูปกรอบ VIP 1–10
+	local VIP_FRAMES = {
+		[1]  = "rbxassetid://73746401885472",
+		[2]  = "rbxassetid://90973074158239",
+		[3]  = "rbxassetid://83041899569224",
+		[4]  = "rbxassetid://127138243668916",
+		[5]  = "rbxassetid://122062636160118",
+		[6]  = "rbxassetid://100788335275741",
+		[7]  = "rbxassetid://133372694165125",
+		[8]  = "rbxassetid://135458055362474",
+		[9]  = "rbxassetid://94375480980263",
+		[10] = "rbxassetid://76631067738413",
+	}
+	local VIP_LIST = {
+		{label="VIP 1",  need=1,  asset=VIP_FRAMES[1]},
+		{label="VIP 2",  need=2,  asset=VIP_FRAMES[2]},
+		{label="VIP 3",  need=3,  asset=VIP_FRAMES[3]},
+		{label="VIP 4",  need=4,  asset=VIP_FRAMES[4]},
+		{label="VIP 5",  need=5,  asset=VIP_FRAMES[5]},
+		{label="VIP 6",  need=6,  asset=VIP_FRAMES[6]},
+		{label="VIP 7",  need=7,  asset=VIP_FRAMES[7]},
+		{label="VIP 8",  need=8,  asset=VIP_FRAMES[8]},
+		{label="VIP 9",  need=9,  asset=VIP_FRAMES[9]},
+		{label="VIP 10", need=10, asset=VIP_FRAMES[10]},
+	}
+
+	-- รูปกรอบ GM (ผู้พัฒนา/เจ้าของ)
+	local GM_FRAME   = "rbxassetid://71695262317669"
+	local GM_NAME    = "UFO_Official888X"
+
+	-- ---------- helpers ----------
+	local function makeBar(parent, text, w, h, order)
+		w = w or 380; h = h or 24
+		local holder = Instance.new("Frame", parent)
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.fromOffset(w, h)
+		holder.LayoutOrder = order or 0
+
+		local bar = Instance.new("Frame", holder)
+		bar.BackgroundColor3 = THEME.BG_INNER
+		bar.BorderSizePixel  = 0
+		bar.AnchorPoint      = Vector2.new(0.5, 0.5)
+		bar.Position         = UDim2.new(0.5, 0, 0.5, 0)
+		bar.Size             = UDim2.fromOffset(w-12, h-6)
+		bar.ClipsDescendants = false
+		corner(bar, 8); stroke(bar, 1.2, THEME.GREEN, 0)
+
+		local lbl = Instance.new("TextLabel", bar)
+		lbl.BackgroundTransparency = 1
+		lbl.Size = UDim2.fromScale(1,1)
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextSize = 14
+		lbl.TextColor3 = Color3.fromRGB(255,255,255)
+		lbl.Text = text or ""
+		lbl.TextWrapped = true
+		return holder, bar, lbl
+	end
+
+	-- ---------- column ----------
+	local col = Instance.new("Frame", scroll)
+	col.BackgroundTransparency = 1
+	col.Size = UDim2.new(1, -24, 0, 360)
+	col.Position = UDim2.new(0, 0, 0, -14)
+	col.LayoutOrder = 1
+
+	local list = Instance.new("UIListLayout", col)
+	list.Padding = UDim.new(0, 6)
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.VerticalAlignment   = Enum.VerticalAlignment.Top
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+
+	-- avatar
+	local avatarWrap = Instance.new("Frame", col)
+	avatarWrap.BackgroundTransparency = 1
+	avatarWrap.Size = UDim2.fromOffset(150, 150)
+	avatarWrap.LayoutOrder = 1
+
+	local avatarBox = Instance.new("ImageLabel", avatarWrap)
+	avatarBox.BackgroundColor3 = THEME.BG_INNER
+	avatarBox.BorderSizePixel  = 0
+	avatarBox.Size = UDim2.fromScale(1,1)
+	avatarBox.ImageTransparency = 1
+	corner(avatarBox, 10); stroke(avatarBox, 1.2, THEME.GREEN, 0)
+
+	-- ภาพกรอบแบบ "สวมทับ" (โปร่งตรงกลาง)
+	local avatarImageFrame = Instance.new("ImageLabel", avatarWrap)
+	avatarImageFrame.Name = "AvatarImageFrame"
+	avatarImageFrame.BackgroundTransparency = 1
+	avatarImageFrame.Size = UDim2.fromScale(1,1)
+	avatarImageFrame.ZIndex = 6
+	avatarImageFrame.ImageTransparency = 1 -- ยังไม่ใส่จนกว่าจะเลือก
+
+	-- เส้น stroke บางๆ ไว้รอง
+	local avatarFrameOverlay = Instance.new("Frame", avatarWrap)
+	avatarFrameOverlay.BackgroundTransparency = 1
+	avatarFrameOverlay.Size = UDim2.fromScale(1,1)
+	avatarFrameOverlay.ZIndex = 5
+	local avatarFrameStroke = stroke(avatarFrameOverlay, 2, THEME.GREEN, 0)
+
+	task.spawn(function()
+		if lp then
+			local ok, url = pcall(function()
+				return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+			end)
+			if ok and url then
+				pcall(function() Content:PreloadAsync({url}) end)
+				avatarBox.Image = url
+				avatarBox.ImageTransparency = 0
+			end
+		end
+	end)
+
+	-- name
+	local nameHolder,  nameBar,  nameLbl  = makeBar(col, (lp and lp.DisplayName) or "Player", 380, 24, 2)
+
+	-- level + fill + settings button (ปุ่มชิดขวา)
+	local levelHolder, levelBar, levelLbl = makeBar(col, "", 380, 24, 3)
+	levelLbl.Text = "Level 1"
+
+	local settingsBtn = Instance.new("ImageButton", levelBar)
+	settingsBtn.Name = "SettingsButton"
+	settingsBtn.AutoButtonColor = false
+	settingsBtn.BackgroundColor3 = THEME.BG_INNER
+	settingsBtn.BorderSizePixel = 0
+	settingsBtn.Size = UDim2.fromOffset(26, 26)
+	settingsBtn.AnchorPoint = Vector2.new(1, 0.5)
+	settingsBtn.Position = UDim2.new(1, -1, 0.5, 0)   -- ชิดขวาสุด
+	settingsBtn.ZIndex = 600
+	settingsBtn.Image = "rbxassetid://72289858646360"
+	corner(settingsBtn, 6)
+	stroke(settingsBtn, 1.2, THEME.GREEN, 0)
+
+	local fill = Instance.new("Frame", levelBar)
+	fill.BackgroundColor3 = THEME.MINT
+	fill.BorderSizePixel  = 0
+	fill.AnchorPoint      = Vector2.new(0,0.5)
+	fill.Position         = UDim2.new(0,3,0.5,0)
+	fill.Size             = UDim2.new(0, 0, 1, -6)
+	corner(fill, 6)
+
+	-- time
+	local timeHolder,  timeBar,  timeLbl  = makeBar(col, "00:00", 380, 24, 4)
+
+	-- ---------- time & level ----------
+	local SEC, MIN, HOUR = 1, 60, 3600
+	local DAY  = 24*HOUR
+	local MONTH= 30*DAY
+	local YEAR = 12*MONTH
+
+	local function formatElapsed(s)
+		if s < HOUR then
+			local m = math.floor(s / MIN); local sec = math.floor(s % MIN)
+			return string.format("%02d:%02d", m, sec)
+		elseif s < DAY then
+			local h = math.floor(s / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
+			return string.format("%02d:%02d:%02d", h, m, sec)
+		elseif s < MONTH then
+			local d = math.floor(s / DAY); local h = math.floor((s % DAY) / HOUR); local m = math.floor((s % HOUR) / MIN); local sec = math.floor(s % MIN)
+			return string.format("%dd %02d:%02d:%02d", d, h, m, sec)
+		elseif s < YEAR then
+			local mo = math.floor(s / MONTH); local d  = math.floor((s % MONTH) / DAY)
+			local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
+			return string.format("%dm %dd %02d:%02d:%02d", mo, d, h, m, sec)
+		else
+			local y  = math.floor(s / YEAR); local mo = math.floor((s % YEAR) / MONTH); local d  = math.floor((s % MONTH) / DAY)
+			local h  = math.floor((s % DAY) / HOUR);  local m  = math.floor((s % HOUR) / MIN); local sec= math.floor(s % MIN)
+			return string.format("%dy %dm %dd %02d:%02d:%02d", y, mo, d, h, m, sec)
+		end
+	end
+
+	if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
+	if not getgenv().UFO_RIGHT._playerTimer then getgenv().UFO_RIGHT._playerTimer = {} end
+	local T = getgenv().UFO_RIGHT._playerTimer
+	local root = scroll.Parent
+	local currentLevel = 1
+	local vipLevel     = getgenv().UFO_RIGHT._vipLevel or 0
+
+	local function isGM()
+		if not lp then return false end
+		return (lp.Name == GM_NAME) or (lp.DisplayName == GM_NAME)
+	end
+
+	local function innerWidth()
+		return levelBar.AbsoluteSize.X - 6 - (settingsBtn.AbsoluteSize.X + 6)
+	end
+
+	local function applyProgress(elapsed)
+		local p = math.clamp(elapsed / YEAR, 0, 1)
+		fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
+		currentLevel = math.min(100, math.floor(p * 99) + 1)
+		levelLbl.Text = "Level " .. tostring(currentLevel)
+		timeLbl.Text = formatElapsed(elapsed)
+	end
+
+	levelBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		applyProgress(T.base or 0)
+	end)
+
+	local function startTimer()
+		if T.conn then return end
+		local tStart = os.clock()
+		T.base = T.base or 0
+		T.conn = RunS.Heartbeat:Connect(function()
+			applyProgress(T.base + (os.clock() - tStart))
+		end)
+		T._lastStart = tStart
+	end
+	local function stopTimer()
+		if T.conn then
+			T.conn:Disconnect(); T.conn = nil
+			local now = os.clock()
+			T.base = (T.base or 0) + (now - (T._lastStart or now))
+		end
+	end
+	root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if root.Visible then startTimer() else stopTimer() end
+	end)
+	startTimer()
+
+	-- ฟังก์ชันใช้กรอบรูปภาพ
+	local function applyImageFrame(assetId)
+		if not assetId or assetId == "" then
+			avatarImageFrame.Image = ""
+			avatarImageFrame.ImageTransparency = 1
+			return
+		end
+		avatarImageFrame.Image = assetId
+		avatarImageFrame.ImageTransparency = 0
+	end
+
+	-- ================== SETTINGS PANEL ==================
+	local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
+	if not screenGui then
+		screenGui = scroll:FindFirstAncestorOfClass("LayerCollector") or root
+	end
+
+	local sidePanel = screenGui:FindFirstChild("PlayerSidePanel")
+	if not sidePanel then
+		sidePanel = Instance.new("Frame")
+		sidePanel.Name = "PlayerSidePanel"
+		sidePanel.Parent = screenGui
+		sidePanel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+		sidePanel.BackgroundColor3 = THEME.BG_INNER
+		sidePanel.BorderSizePixel = 0
+		sidePanel.Visible = false
+		sidePanel.ZIndex = 500
+		corner(sidePanel, 10)
+		stroke(sidePanel, 1.6, THEME.GREEN, 0)
+
+		local pad = Instance.new("UIPadding", sidePanel)
+		pad.PaddingTop    = UDim.new(0, 12)
+		pad.PaddingBottom = UDim.new(0, 12)
+		pad.PaddingLeft   = UDim.new(0, 12)
+		pad.PaddingRight  = UDim.new(0, 12)
+
+		-- Tabs: LEVEL / VIP / GM
+		local tabs = Instance.new("Frame", sidePanel)
+		tabs.BackgroundTransparency = 1
+		tabs.Size = UDim2.new(1, 0, 0, 32)
+
+		local uiTabs = Instance.new("UIListLayout", tabs)
+		uiTabs.FillDirection = Enum.FillDirection.Horizontal
+		uiTabs.Padding = UDim.new(0, 8)
+		uiTabs.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+		local function makeTab(title)
+			local b = Instance.new("TextButton", tabs)
+			b.AutoButtonColor = true
+			b.Text = title
+			b.Font = Enum.Font.GothamBold
+			b.TextSize = 14
+			b.TextColor3 = Color3.fromRGB(255,255,255)
+			b.BackgroundColor3 = THEME.BG_INNER
+			b.Size = UDim2.fromOffset(86, 28)
+			corner(b, 6); stroke(b, 1, THEME.GREEN, 0)
+			return b
+		end
+		local tabLevel = makeTab("LEVEL")
+		local tabVip   = makeTab("VIP")
+		local tabGM    = makeTab("GM")
+
+		local gridHolder = Instance.new("ScrollingFrame", sidePanel)
+		gridHolder.Name = "Grid"
+		gridHolder.BackgroundTransparency = 1
+		gridHolder.Size     = UDim2.new(1, 0, 1, -44)
+		gridHolder.Position = UDim2.new(0, 0, 0, 40)
+		gridHolder.ScrollBarThickness = 0
+		gridHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		gridHolder.ScrollingDirection  = Enum.ScrollingDirection.Y
+		gridHolder.ZIndex = sidePanel.ZIndex + 1
+
+		local UIGrid = Instance.new("UIGridLayout", gridHolder)
+		UIGrid.CellPadding = UDim2.fromOffset(12, 12)
+		UIGrid.CellSize    = UDim2.fromOffset(124, 92)
+		UIGrid.FillDirectionMaxCells = 2
+		UIGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		UIGrid.VerticalAlignment   = Enum.VerticalAlignment.Start
+
+		-- วาดปุ่มรายการตามโหมด
+		local currentMode = "LEVEL" -- "LEVEL" | "VIP" | "GM"
+		local function clearGrid()
+			for _, c in ipairs(gridHolder:GetChildren()) do
+				if c:IsA("GuiObject") then c:Destroy() end
+			end
+		end
+
+		local function addCell(title, sub, unlocked, assetId)
+			local cell = Instance.new("TextButton", gridHolder)
+			cell.AutoButtonColor = true
+			cell.Text = ""
+			cell.BackgroundColor3 = unlocked and THEME.BG_INNER or Color3.fromRGB(25,25,25)
+			cell.BorderSizePixel = 0
+			corner(cell, 8); stroke(cell, 1.2, THEME.GREEN, 0)
+
+			local t = Instance.new("TextLabel", cell)
+			t.BackgroundTransparency = 1
+			t.Position = UDim2.new(0, 8, 0, 8)
+			t.Size     = UDim2.new(1, -16, 0, 20)
+			t.Font = Enum.Font.GothamBold
+			t.TextSize = 14
+			t.TextColor3 = Color3.fromRGB(255,255,255)
+			t.TextXAlignment = Enum.TextXAlignment.Left
+			t.Text = title
+
+			local s = Instance.new("TextLabel", cell)
+			s.BackgroundTransparency = 1
+			s.Position = UDim2.new(0, 8, 1, -22)
+			s.Size     = UDim2.new(1, -16, 0, 18)
+			s.Font = Enum.Font.Gotham
+			s.TextSize = 12
+			s.TextXAlignment = Enum.TextXAlignment.Left
+			s.TextColor3 = unlocked and Color3.fromRGB(120,255,120) or Color3.fromRGB(255,120,120)
+			s.Text = sub
+
+			cell.MouseButton1Click:Connect(function()
+				if unlocked then
+					applyImageFrame(assetId)
+				end
+			end)
+		end
+
+		local function rebuild()
+			clearGrid()
+			if currentMode == "LEVEL" then
+				for _, it in ipairs(LEVEL_LIST) do
+					local unlock = isGM() or (currentLevel >= it.need)
+					local sub = unlock and "Unlocked" or ("Need Lv "..it.need)
+					addCell(it.label, sub, unlock, it.asset)
+				end
+			elseif currentMode == "VIP" then
+				for _, it in ipairs(VIP_LIST) do
+					local unlock = isGM() or (vipLevel >= it.need)
+					local sub = unlock and "Unlocked (VIP "..it.need..")" or ("Need VIP "..it.need)
+					addCell(it.label, sub, unlock, it.asset)
+				end
+			else -- GM
+				local unlock = isGM()
+				local sub = unlock and "GM Only • Unlocked" or "GM Only"
+				addCell("GM Frame", sub, unlock, GM_FRAME)
+			end
+		end
+
+		tabLevel.MouseButton1Click:Connect(function() currentMode = "LEVEL"; rebuild() end)
+		tabVip.MouseButton1Click:Connect(function() currentMode = "VIP";   rebuild() end)
+		tabGM.MouseButton1Click:Connect(function() currentMode = "GM";    rebuild() end)
+
+		rebuild() -- default list
+	end
+
+	-- จัดตำแหน่งแผงให้ชิดขวาของกรอบหลักทุกครั้งที่เปิด
+	local function snapPanel()
+		local rx, ry = root.AbsolutePosition.X, root.AbsolutePosition.Y
+		local rw, rh = root.AbsoluteSize.X,      root.AbsoluteSize.Y
+		local x = rx + rw + GAP_X
+		local y = ry + math.floor((rh - sidePanel.AbsoluteSize.Y)/2) + Y_BIAS
+		sidePanel.Position = UDim2.fromOffset(x, y)
+	end
+
+	-- Toggle panel
+	local panelOpen = false
+	local function showPanel(on)
+		panelOpen = on
+		sidePanel.Visible = on
+		if on then snapPanel() end
+	end
+	settingsBtn.MouseButton1Click:Connect(function() showPanel(not panelOpen) end)
+	root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not root.Visible then showPanel(false) end
+	end)
+
+	-- public helpers
+	getgenv().UFO_RIGHT._setPlayerName  = function(text) nameLbl.Text = text or nameLbl.Text end
+	getgenv().UFO_RIGHT._setPlayerLevel = function(num)
+		num = math.clamp(tonumber(num) or 1, 1, 100)
+		levelLbl.Text = ("Level %d"):format(num)
+		local p = (num-1)/99
+		fill.Size = UDim2.new(0, math.max(0, innerWidth() * p), 1, -6)
+		currentLevel = num
+	end
+	getgenv().UFO_RIGHT._setVipLevel = function(n)
+		vipLevel = math.clamp(tonumber(n) or 0, 0, 10)
+		getgenv().UFO_RIGHT._vipLevel = vipLevel
+	end
+end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
