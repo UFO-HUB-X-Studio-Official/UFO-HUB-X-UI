@@ -686,13 +686,13 @@ registerRight("Player", function(scroll)
 
     col.Parent = scroll
 end)
--- ===== Player tab (Right) — Flight System UI =====
-registerRight("Player", function(scroll)
+-- ===== Right Tab: FLIGHT (แยกระบบจาก Player) =====
+-- จะโผล่เป็นแท็บชื่อ "Flight" ทางขวาตามระบบ registerRight ของคุณ
+registerRight("Flight", function(scroll)
     local Players = game:GetService("Players")
-    local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
-    -- ===== Theme =====
+    -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
@@ -700,39 +700,35 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
+    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui end
+    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.6; s.Color=col or THEME.GREEN; s.Parent=ui end
 
-    local function corner(ui, r)
-        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = ui
-        return c
-    end
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke"); s.Thickness = th or 1.6; s.Color = col or THEME.GREEN; s.Parent = ui
-        return s
-    end
+    -- ทำให้พื้นที่ Right เลื่อนยาวได้ และไม่ไปลบของเดิมของระบบ
+    scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
 
-    -- ===== Tweak sizes here (ปรับได้ถ้าต้องการ “เป๊ะๆ”) =====
-    local NAME_W, NAME_H     = 320, 40     -- แถบชื่อด้านบน
-    local ICON_W, ICON_H     = 110, 120    -- ไอคอน (เดิมสี่เหลี่ยมแดง)
-    local AREA_H             = 120         -- ความสูงกรอบยาว (กว้างจะยืดตามหน้ากรอบ)
-    local TOGGLE_W, TOGGLE_H = 180, 38     -- ปุ่ม START กลางกรอบ
+    -- ขนาดองค์ประกอบ (ปรับได้ถ้าต้องการเป๊ะกว่านี้)
+    local NAME_W, NAME_H     = 320, 40      -- แถบชื่อด้านบน
+    local ICON_W, ICON_H     = 110, 120     -- ไอคอน (แทนสี่เหลี่ยมแดง)
+    local AREA_H             = 120          -- กรอบยาว (พื้นดำ ขอบเขียว)
+    local TOGGLE_W, TOGGLE_H = 180, 38      -- ปุ่ม START
 
-    -- ===== Clean & ensure visible =====
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") then ch:Destroy() end
-    end
-    scroll.Visible = true
-
-    -- ===== Layout root =====
-    local root = Instance.new("Frame", scroll)
+    -- รากของแท็บ Flight (ไม่ยุ่งกับคอนเทนต์แท็บอื่น)
+    local root = Instance.new("Frame")
+    root.Name = "FlightRoot"
     root.BackgroundTransparency = 1
-    root.Size = UDim2.new(1, 0, 1, 0)
+    root.Size = UDim2.new(1, 0, 0, 0)
+    root.AutomaticSize = Enum.AutomaticSize.Y
+    root.LayoutOrder = 100
+    root.Parent = scroll
 
     local vlist = Instance.new("UIListLayout", root)
     vlist.Padding = UDim.new(0, 16)
     vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
     vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
 
-    -- ===== Name pill =====
+    -- ชื่อผู้เล่น (แถบสีดำ ขอบเขียว)
     local nameBar = Instance.new("Frame", root)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.Size = UDim2.fromOffset(NAME_W, NAME_H)
@@ -748,7 +744,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 
-    -- ===== Icon (แทนสี่เหลี่ยมแดง) =====
+    -- ไอคอน (แทนกรอบสี่เหลี่ยมสีแดง) ใช้รูป 89004973470552
     local iconWrap = Instance.new("Frame", root)
     iconWrap.BackgroundTransparency = 1
     iconWrap.Size = UDim2.fromOffset(ICON_W, ICON_H)
@@ -760,24 +756,23 @@ registerRight("Player", function(scroll)
     icon.ScaleType = Enum.ScaleType.Fit
     corner(icon, 8); stroke(icon, 1.6, THEME.GREEN)
 
-    -- ===== Long area (เดิมสี่เหลี่ยมสีขาว -> เปลี่ยนเป็นดำ ขอบเขียว) =====
+    -- กรอบยาว (เปลี่ยนจากขาว -> ดำ, ขอบเขียว)
     local area = Instance.new("Frame", root)
+    area.Name = "FlightArea"
     area.BackgroundColor3 = THEME.BLACK
-    area.Size = UDim2.new(1, -120, 0, AREA_H)  -- กินความกว้างเยอะเหมือนในรูป
+    area.Size = UDim2.new(1, -120, 0, AREA_H)    -- ความยาวตามรูป
     corner(area, 10); stroke(area, 1.8, THEME.GREEN)
 
-    -- center helper
+    -- จัดกึ่งกลางปุ่มภายในกรอบยาว
     local areaCenter = Instance.new("Frame", area)
     areaCenter.BackgroundTransparency = 1
-    areaCenter.Size = UDim2.fromScale(1, 1)
-
+    areaCenter.Size = UDim2.fromScale(1,1)
     local ac = Instance.new("UIListLayout", areaCenter)
     ac.FillDirection = Enum.FillDirection.Vertical
     ac.HorizontalAlignment = Enum.HorizontalAlignment.Center
     ac.VerticalAlignment   = Enum.VerticalAlignment.Center
-    ac.Padding = UDim.new(0, 0)
 
-    -- ===== Toggle button (เดิมสีฟ้า -> ดำ ขอบเขียว, ข้อความ START) =====
+    -- ปุ่ม START (สี่เหลี่ยม, พื้นดำ ขอบเขียว, ตัวหนังสืออังกฤษ)
     local toggleBtn = Instance.new("TextButton", areaCenter)
     toggleBtn.AutoButtonColor = true
     toggleBtn.Text = "START"
@@ -788,12 +783,12 @@ registerRight("Player", function(scroll)
     toggleBtn.BackgroundColor3 = THEME.BLACK
     corner(toggleBtn, 8); stroke(toggleBtn, 1.8, THEME.GREEN)
 
-    -- (Optional) สลับสถานะเมื่อกด — ไว้ต่อระบบบินจริงทีหลัง
+    -- สลับ START/STOP (เตรียมต่อระบบบินจริงภายหลัง)
     local isOn = false
     toggleBtn.MouseButton1Click:Connect(function()
         isOn = not isOn
         toggleBtn.Text = isOn and "STOP" or "START"
-        -- TODO: ต่อเข้าระบบบินจริง ๆ ตรงนี้
+        -- TODO: hook ระบบบินจริงที่นี่
     end)
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
