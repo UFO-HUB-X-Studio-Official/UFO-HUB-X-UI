@@ -707,8 +707,24 @@ registerRight("Player", function(scroll)
         nameLbl.Text = (lp and lp.DisplayName) or "Player"
     end
 
-    -- ===== Player tab (Right) — Append Flight section under profile =====
+    -- ===== Player tab (Right) — Append FLIGHT section under profile (safe, no overlap) =====
 registerRight("Player", function(scroll)
+    -- ป้องกันกรณี scroll ไม่ใช่ ScrollingFrame
+    if not (scroll and scroll.Parent) then return end
+    if not scroll:IsA("ScrollingFrame") then
+        local wrap = Instance.new("ScrollingFrame")
+        wrap.Name = "RightScrollWrap"
+        wrap.BackgroundTransparency = 1
+        wrap.BorderSizePixel = 0
+        wrap.Size = UDim2.fromScale(1,1)
+        wrap.CanvasSize = UDim2.new(0,0,0,0)
+        wrap.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        wrap.ScrollingDirection = Enum.ScrollingDirection.Y
+        wrap.Parent = scroll
+        scroll = wrap
+    end
+
+    -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
@@ -719,30 +735,30 @@ registerRight("Player", function(scroll)
     local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui end
     local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.6; s.Color=col or THEME.GREEN; s.Parent=ui end
 
-    -- ใช้ layout กลางร่วม (ถ้ายังไม่มีค่อยสร้าง) — ไม่ลบอะไรทั้งนั้น
+    -- ให้พื้นที่ Right มี layout กลาง (ถ้ายังไม่มีจะสร้าง)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
-        vlist.Parent = scroll
         vlist.Padding = UDim.new(0, 12)
         vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
         vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        vlist.Parent = scroll
     end
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- เคลียร์เฉพาะของตัวเอง (Section_Flight) ถ้ามีจากครั้งก่อน
+    -- เคลียร์เฉพาะ Section_Flight เก่า (ไม่แตะโปรไฟล์/ของเดิม)
     local old = scroll:FindFirstChild("Section_Flight")
     if old then old:Destroy() end
 
-    -- ===== Flight section (วางต่อท้ายโปรไฟล์) =====
+    -- ===== สร้าง Flight Section (วางต่อท้ายโปรไฟล์) =====
     local section = Instance.new("Frame")
     section.Name = "Section_Flight"
     section.BackgroundTransparency = 1
     section.Size = UDim2.new(1, 0, 0, 0)
     section.AutomaticSize = Enum.AutomaticSize.Y
-    section.LayoutOrder = 20   -- ต่อจากโปรไฟล์ (ซึ่งใช้ 10)
+    section.LayoutOrder = 20  -- โปรไฟล์ใช้ 10 อยู่แล้ว อันนี้ต่อท้าย
     section.Parent = scroll
 
     local stack = Instance.new("UIListLayout", section)
@@ -750,23 +766,23 @@ registerRight("Player", function(scroll)
     stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
     stack.VerticalAlignment   = Enum.VerticalAlignment.Top
 
-    -- ชื่อหัวข้อ (เหมือนป้าย pill)
-    local nameBar = Instance.new("Frame", section)
-    nameBar.BackgroundColor3 = THEME.BG_INNER
-    nameBar.Size = UDim2.fromOffset(320, 40)
-    corner(nameBar, 12); stroke(nameBar, 1.6, THEME.GREEN)
+    -- ป้ายหัวข้อ
+    local title = Instance.new("Frame", section)
+    title.BackgroundColor3 = THEME.BG_INNER
+    title.Size = UDim2.fromOffset(320, 40)
+    corner(title, 12); stroke(title, 1.6, THEME.GREEN)
 
-    local nameLbl = Instance.new("TextLabel", nameBar)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Size = UDim2.fromScale(1,1)
-    nameLbl.Font = Enum.Font.GothamBold
-    nameLbl.TextSize = 18
-    nameLbl.TextColor3 = THEME.WHITE
-    nameLbl.Text = "FLIGHT"
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
+    local tl = Instance.new("TextLabel", title)
+    tl.BackgroundTransparency = 1
+    tl.Size = UDim2.fromScale(1,1)
+    tl.Font = Enum.Font.GothamBold
+    tl.TextSize = 18
+    tl.TextColor3 = THEME.WHITE
+    tl.Text = "FLIGHT"
+    tl.TextXAlignment = Enum.TextXAlignment.Center
+    tl.TextYAlignment = Enum.TextYAlignment.Center
 
-    -- ไอคอน “อิโมจิ” (ใช้รูป แต่ไม่ไปยุ่งกับโปรไฟล์)
+    -- “อิโมจิ” (รูปไอคอน แต่ไม่ยุ่งกับรูปโปรไฟล์)
     local emojiWrap = Instance.new("Frame", section)
     emojiWrap.BackgroundTransparency = 1
     emojiWrap.Size = UDim2.fromOffset(110, 120)
@@ -774,11 +790,11 @@ registerRight("Player", function(scroll)
     local emoji = Instance.new("ImageLabel", emojiWrap)
     emoji.BackgroundColor3 = THEME.BLACK
     emoji.Size = UDim2.fromScale(1,1)
-    emoji.Image = "rbxassetid://89004973470552" -- UFO
+    emoji.Image = "rbxassetid://89004973470552"  -- UFO icon
     emoji.ScaleType = Enum.ScaleType.Fit
     corner(emoji, 8); stroke(emoji, 1.6, THEME.GREEN)
 
-    -- พื้นที่ยาว (ดำ ขอบเขียว) + ปุ่ม START ตรงกลาง
+    -- กรอบยาว + ปุ่ม START
     local area = Instance.new("Frame", section)
     area.BackgroundColor3 = THEME.BLACK
     area.Size = UDim2.new(1, -120, 0, 120)
@@ -792,21 +808,21 @@ registerRight("Player", function(scroll)
     cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
     cl.VerticalAlignment   = Enum.VerticalAlignment.Center
 
-    local toggle = Instance.new("TextButton", center)
-    toggle.Size = UDim2.fromOffset(180, 38)
-    toggle.BackgroundColor3 = THEME.BLACK
-    toggle.Text = "START"
-    toggle.Font = Enum.Font.GothamBold
-    toggle.TextSize = 16
-    toggle.TextColor3 = THEME.WHITE
-    toggle.AutoButtonColor = true
-    corner(toggle, 8); stroke(toggle, 1.8, THEME.GREEN)
+    local btn = Instance.new("TextButton", center)
+    btn.Size = UDim2.fromOffset(180, 38)
+    btn.BackgroundColor3 = THEME.BLACK
+    btn.Text = "START"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.TextColor3 = THEME.WHITE
+    btn.AutoButtonColor = true
+    corner(btn, 8); stroke(btn, 1.8, THEME.GREEN)
 
-    local isOn = false
-    toggle.MouseButton1Click:Connect(function()
-        isOn = not isOn
-        toggle.Text = isOn and "STOP" or "START"
-        -- TODO: ผูกระบบบินจริงที่นี่ (ไม่แตะส่วนโปรไฟล์)
+    local on = false
+    btn.MouseButton1Click:Connect(function()
+        on = not on
+        btn.Text = on and "STOP" or "START"
+        -- TODO: ใส่โค้ดบินจริงที่นี่
     end)
 end)
 
