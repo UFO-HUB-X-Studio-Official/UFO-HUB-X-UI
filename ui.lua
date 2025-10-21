@@ -707,42 +707,107 @@ registerRight("Player", function(scroll)
         nameLbl.Text = (lp and lp.DisplayName) or "Player"
     end
 
-    ----------------------------------------------------------------
-    -- Section B: EMOJI-STYLE IMAGE (เป็น “อิโมจิ” แต่ใช้รูป)  LayoutOrder = 20
-    --  * แยกบล็อกของตัวเอง ไม่ทับกับโปรไฟล์
-    --  * ใช้ทรงกลม/เม็ดยา พื้นดำ ขอบเขียว เพื่อให้ “อารมณ์อิโมจิ”
-    ----------------------------------------------------------------
-    do
-        local old = scroll:FindFirstChild("Section_EmojiUFO")
-        if old then old:Destroy() end
+    -- ===== Player tab (Right) — Append Flight section under profile =====
+registerRight("Player", function(scroll)
+    local BASE = rawget(_G, "THEME") or {}
+    local THEME = {
+        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
+        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
+        WHITE    = Color3.fromRGB(255, 255, 255),
+        BLACK    = Color3.fromRGB(0, 0, 0),
+    }
+    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui end
+    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.6; s.Color=col or THEME.GREEN; s.Parent=ui end
 
-        local section = Instance.new("Frame")
-        section.Name = "Section_EmojiUFO"
-        section.BackgroundTransparency = 1
-        section.Size = UDim2.new(1, 0, 0, 0)
-        section.AutomaticSize = Enum.AutomaticSize.Y
-        section.LayoutOrder = 20
-        section.Parent = scroll
-
-        local layout = Instance.new("UIListLayout", section)
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.VerticalAlignment   = Enum.VerticalAlignment.Top
-        layout.Padding             = UDim.new(0, 8)
-
-        -- เม็ดยา/วงกลมดำ ขอบเขียว (เหมือนกล่องอิโมจิ)
-        local emojiWrap = Instance.new("Frame", section)
-        emojiWrap.BackgroundColor3 = THEME.BLACK
-        emojiWrap.Size = UDim2.fromOffset(110, 110)
-        local c = Instance.new("UICorner", emojiWrap); c.CornerRadius = UDim.new(1, 0) -- กลมเต็ม
-        local s = stroke(emojiWrap, 1.8, THEME.GREEN)
-
-        local img = Instance.new("ImageLabel", emojiWrap)
-        img.BackgroundTransparency = 1
-        img.Size = UDim2.fromScale(0.8, 0.8)
-        img.Position = UDim2.fromScale(0.1, 0.1)
-        img.Image = "rbxassetid://89004973470552"  -- รูปของระบบใหม่ (ให้ฟีลอิโมจิ แต่ยังเป็นรูป)
-        img.ScaleType = Enum.ScaleType.Fit
+    -- ใช้ layout กลางร่วม (ถ้ายังไม่มีค่อยสร้าง) — ไม่ลบอะไรทั้งนั้น
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Parent = scroll
+        vlist.Padding = UDim.new(0, 12)
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
     end
+    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- เคลียร์เฉพาะของตัวเอง (Section_Flight) ถ้ามีจากครั้งก่อน
+    local old = scroll:FindFirstChild("Section_Flight")
+    if old then old:Destroy() end
+
+    -- ===== Flight section (วางต่อท้ายโปรไฟล์) =====
+    local section = Instance.new("Frame")
+    section.Name = "Section_Flight"
+    section.BackgroundTransparency = 1
+    section.Size = UDim2.new(1, 0, 0, 0)
+    section.AutomaticSize = Enum.AutomaticSize.Y
+    section.LayoutOrder = 20   -- ต่อจากโปรไฟล์ (ซึ่งใช้ 10)
+    section.Parent = scroll
+
+    local stack = Instance.new("UIListLayout", section)
+    stack.Padding = UDim.new(0, 12)
+    stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    stack.VerticalAlignment   = Enum.VerticalAlignment.Top
+
+    -- ชื่อหัวข้อ (เหมือนป้าย pill)
+    local nameBar = Instance.new("Frame", section)
+    nameBar.BackgroundColor3 = THEME.BG_INNER
+    nameBar.Size = UDim2.fromOffset(320, 40)
+    corner(nameBar, 12); stroke(nameBar, 1.6, THEME.GREEN)
+
+    local nameLbl = Instance.new("TextLabel", nameBar)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Size = UDim2.fromScale(1,1)
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.TextSize = 18
+    nameLbl.TextColor3 = THEME.WHITE
+    nameLbl.Text = "FLIGHT"
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
+
+    -- ไอคอน “อิโมจิ” (ใช้รูป แต่ไม่ไปยุ่งกับโปรไฟล์)
+    local emojiWrap = Instance.new("Frame", section)
+    emojiWrap.BackgroundTransparency = 1
+    emojiWrap.Size = UDim2.fromOffset(110, 120)
+
+    local emoji = Instance.new("ImageLabel", emojiWrap)
+    emoji.BackgroundColor3 = THEME.BLACK
+    emoji.Size = UDim2.fromScale(1,1)
+    emoji.Image = "rbxassetid://89004973470552" -- UFO
+    emoji.ScaleType = Enum.ScaleType.Fit
+    corner(emoji, 8); stroke(emoji, 1.6, THEME.GREEN)
+
+    -- พื้นที่ยาว (ดำ ขอบเขียว) + ปุ่ม START ตรงกลาง
+    local area = Instance.new("Frame", section)
+    area.BackgroundColor3 = THEME.BLACK
+    area.Size = UDim2.new(1, -120, 0, 120)
+    corner(area, 10); stroke(area, 1.8, THEME.GREEN)
+
+    local center = Instance.new("Frame", area)
+    center.BackgroundTransparency = 1
+    center.Size = UDim2.fromScale(1,1)
+    local cl = Instance.new("UIListLayout", center)
+    cl.FillDirection = Enum.FillDirection.Vertical
+    cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    cl.VerticalAlignment   = Enum.VerticalAlignment.Center
+
+    local toggle = Instance.new("TextButton", center)
+    toggle.Size = UDim2.fromOffset(180, 38)
+    toggle.BackgroundColor3 = THEME.BLACK
+    toggle.Text = "START"
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 16
+    toggle.TextColor3 = THEME.WHITE
+    toggle.AutoButtonColor = true
+    corner(toggle, 8); stroke(toggle, 1.8, THEME.GREEN)
+
+    local isOn = false
+    toggle.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        toggle.Text = isOn and "STOP" or "START"
+        -- TODO: ผูกระบบบินจริงที่นี่ (ไม่แตะส่วนโปรไฟล์)
+    end)
 end)
 
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
