@@ -609,7 +609,7 @@ registerRight("Player", function(scroll)
     local Content  = game:GetService("ContentProvider")
     local lp       = Players.LocalPlayer
 
-    -- ===== THEME =====
+    -- ===== THEME (ใช้สีเดิมของ UI ถ้ามี) =====
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
@@ -618,18 +618,13 @@ registerRight("Player", function(scroll)
     }
 
     local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 10)
-        c.Parent = ui
+        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = ui
     end
     local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.6
-        s.Color = col or THEME.GREEN
-        s.Parent = ui
+        local s = Instance.new("UIStroke"); s.Thickness = th or 1.5; s.Color = col or THEME.GREEN; s.Parent = ui
     end
 
-    -- เคลียร์ของเก่า + บังคับให้พื้นที่ Right มองเห็น
+    -- ===== SAFETY: เคลียร์ของเก่าและบังคับให้พื้นที่ Right มองเห็นเมื่อแท็บ Player ถูกเปิด =====
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") then ch:Destroy() end
     end
@@ -638,7 +633,7 @@ registerRight("Player", function(scroll)
         scroll.Parent.Visible = true
     end
 
-    -- === Layout container ===
+    -- ===== LAYOUT (แค่รูป + ชื่อ) =====
     local col = Instance.new("Frame")
     col.BackgroundTransparency = 1
     col.Size = UDim2.new(1, 0, 1, 0)
@@ -649,12 +644,11 @@ registerRight("Player", function(scroll)
     list.VerticalAlignment   = Enum.VerticalAlignment.Top
     list.Padding             = UDim.new(0, 10)
 
-    -- === Avatar (พื้นดำ ขอบเขียว) ===
+    -- Avatar (พื้นดำ ขอบเขียว)
     local avatarWrap = Instance.new("Frame", col)
     avatarWrap.BackgroundColor3 = THEME.BG_INNER
     avatarWrap.Size = UDim2.fromOffset(150, 150)
-    corner(avatarWrap, 12)
-    stroke(avatarWrap, 1.6, THEME.GREEN)
+    corner(avatarWrap, 12); stroke(avatarWrap, 1.6, THEME.GREEN)
 
     local avatarImg = Instance.new("ImageLabel", avatarWrap)
     avatarImg.BackgroundTransparency = 1
@@ -664,11 +658,7 @@ registerRight("Player", function(scroll)
     task.spawn(function()
         if lp then
             local ok, url = pcall(function()
-                return Players:GetUserThumbnailAsync(
-                    lp.UserId,
-                    Enum.ThumbnailType.HeadShot,
-                    Enum.ThumbnailSize.Size420x420
-                )
+                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
             end)
             if ok and url then
                 pcall(function() Content:PreloadAsync({url}) end)
@@ -678,12 +668,11 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- === Name bar (พื้นดำ ขอบเขียว ตัวอักษรขาว) ===
+    -- Name (พื้นดำ ขอบเขียว ตัวหนังสือขาว)
     local nameBar = Instance.new("Frame", col)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.Size = UDim2.fromOffset(200, 34)
-    corner(nameBar, 8)
-    stroke(nameBar, 1.3, THEME.GREEN)
+    corner(nameBar, 8); stroke(nameBar, 1.3, THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
     nameLbl.BackgroundTransparency = 1
@@ -694,6 +683,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextXAlignment = Enum.TextXAlignment.Center
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
+
+    -- ===== OPTIONAL FAILSAFE: ถ้ามีฟังก์ชันเปิดแท็บของระบบหลัก ให้เรียก “Player” อัตโนมัติได้ =====
+    -- ตัวอย่าง: ถ้า framework ของ M มีฟังก์ชันแบบ _G.OpenRightTab("Player") ให้ปลดคอมเมนต์บรรทัดถัดไป
+    -- if type(_G.OpenRightTab) == "function" then _G.OpenRightTab("Player") end
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
