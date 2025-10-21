@@ -686,12 +686,12 @@ registerRight("Player", function(scroll)
 
     col.Parent = scroll
 end)
--- ===== Right Tab: FLIGHT (แยกจาก Player ชัดเจน) =====
-registerRight("Flight", function(scroll)
+-- ===== Player tab (Right) — APPEND Flight System under existing content =====
+registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local lp      = Players.LocalPlayer
 
-    -- theme
+    -- THEME (ใช้สีหลักเดิม)
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
@@ -702,40 +702,56 @@ registerRight("Flight", function(scroll)
     local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui end
     local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.6; s.Color=col or THEME.GREEN; s.Parent=ui end
 
-    -- ล้างเฉพาะของแท็บ Flight เท่านั้น (ไม่ยุ่งแท็บอื่น)
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") then ch:Destroy() end
+    -- ทำให้พื้นที่ Right เลื่อนลงได้ และ “ห้ามลบของเก่า”
+    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize          = UDim2.new(0,0,0,0)
+
+    -- ถ้ายังไม่มี Layout ของคอลัมน์รวม ให้สร้าง (จะจัดทุกระบบให้เรียงต่อกัน)
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Parent = scroll
+        vlist.Padding = UDim.new(0, 12)
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
     end
-    scroll.ScrollingDirection   = Enum.ScrollingDirection.Y
-    scroll.AutomaticCanvasSize  = Enum.AutomaticSize.Y
-    scroll.CanvasSize           = UDim2.new(0,0,0,0)
 
-    -- ขนาดตามภาพ
-    local NAME_W, NAME_H     = 320, 40
-    local ICON_W, ICON_H     = 110, 120
-    local AREA_H             = 120
-    local TOGGLE_W, TOGGLE_H = 180, 38
+    -- กันซ้ำ: ถ้ามี Section_Flight แล้ว ไม่ต้องสร้างซ้ำ
+    if scroll:FindFirstChild("Section_Flight") then
+        return
+    end
 
-    -- root
-    local root = Instance.new("Frame", scroll)
-    root.BackgroundTransparency = 1
-    root.Size = UDim2.new(1,0,0,0)
-    root.AutomaticSize = Enum.AutomaticSize.Y
+    -- ====== ขนาดตามภาพ (แก้ให้ “เป๊ะๆ” ได้ที่นี่) ======
+    local NAME_W, NAME_H     = 320, 40     -- แถบชื่อบนของระบบบิน
+    local ICON_W, ICON_H     = 110, 120    -- กล่องรูป (ใช้รูปแดง)
+    local AREA_H             = 120         -- กรอบยาวสีดำ ขอบเขียว
+    local TOGGLE_W, TOGGLE_H = 180, 38     -- ปุ่ม START
 
-    local v = Instance.new("UIListLayout", root)
-    v.Padding = UDim.new(0,16)
-    v.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    v.VerticalAlignment   = Enum.VerticalAlignment.Top
+    -- ====== สร้าง Section ของ “Flight” ต่อท้ายของเดิม ======
+    local section = Instance.new("Frame")
+    section.Name = "Section_Flight"
+    section.BackgroundTransparency = 1
+    section.Size = UDim2.new(1, 0, 0, 0)
+    section.AutomaticSize = Enum.AutomaticSize.Y
+    section.LayoutOrder = 200              -- มากกว่า avatar/ชื่อเดิม → ไปอยู่ “ใต้สุด”
+    section.Parent = scroll
 
-    -- name bar
-    local nameBar = Instance.new("Frame", root)
+    local list = Instance.new("UIListLayout", section)
+    list.Padding = UDim.new(0, 16)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.VerticalAlignment   = Enum.VerticalAlignment.Top
+
+    -- แถบชื่อ (ดำ/ขอบเขียว/ตัวขาว)
+    local nameBar = Instance.new("Frame", section)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.Size = UDim2.fromOffset(NAME_W, NAME_H)
     corner(nameBar, 12); stroke(nameBar, 1.6, THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
     nameLbl.BackgroundTransparency = 1
-    nameLbl.Size = UDim2.fromScale(1,1)
+    nameLbl.Size = UDim2.fromScale(1, 1)
     nameLbl.Font = Enum.Font.GothamBold
     nameLbl.TextSize = 18
     nameLbl.TextColor3 = THEME.WHITE
@@ -743,8 +759,8 @@ registerRight("Flight", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 
-    -- icon (แทนกล่องแดง)
-    local iconWrap = Instance.new("Frame", root)
+    -- ไอคอน (แทนกรอบแดง) ใช้รูป 89004973470552, พื้นดำ/ขอบเขียว
+    local iconWrap = Instance.new("Frame", section)
     iconWrap.BackgroundTransparency = 1
     iconWrap.Size = UDim2.fromOffset(ICON_W, ICON_H)
     local icon = Instance.new("ImageLabel", iconWrap)
@@ -754,12 +770,13 @@ registerRight("Flight", function(scroll)
     icon.ScaleType = Enum.ScaleType.Fit
     corner(icon, 8); stroke(icon, 1.6, THEME.GREEN)
 
-    -- long area (ขาว -> ดำ ขอบเขียว)
-    local area = Instance.new("Frame", root)
+    -- กรอบยาว (ขาว → ดำ ขอบเขียว)
+    local area = Instance.new("Frame", section)
     area.BackgroundColor3 = THEME.BLACK
-    area.Size = UDim2.new(1, -120, 0, AREA_H)
+    area.Size = UDim2.new(1, -120, 0, AREA_H)    -- ยาวตามภาพ (เหลือขอบซ้ายขวา)
     corner(area, 10); stroke(area, 1.8, THEME.GREEN)
 
+    -- จัดกึ่งกลางปุ่ม
     local center = Instance.new("Frame", area)
     center.BackgroundTransparency = 1
     center.Size = UDim2.fromScale(1,1)
@@ -767,7 +784,7 @@ registerRight("Flight", function(scroll)
     lc.HorizontalAlignment = Enum.HorizontalAlignment.Center
     lc.VerticalAlignment   = Enum.VerticalAlignment.Center
 
-    -- toggle START
+    -- ปุ่ม START (ดำ/ขอบเขียว/ข้อความอังกฤษ)
     local toggleBtn = Instance.new("TextButton", center)
     toggleBtn.AutoButtonColor = true
     toggleBtn.Text = "START"
@@ -778,29 +795,14 @@ registerRight("Flight", function(scroll)
     toggleBtn.BackgroundColor3 = THEME.BLACK
     corner(toggleBtn, 8); stroke(toggleBtn, 1.8, THEME.GREEN)
 
+    -- ตัวอย่างสลับข้อความ (ต่อระบบจริงภายหลัง)
     local isOn = false
     toggleBtn.MouseButton1Click:Connect(function()
         isOn = not isOn
         toggleBtn.Text = isOn and "STOP" or "START"
-        -- TODO: ผูกระบบบินจริง
     end)
 end)
 
--- ===== ปุ่มเมนูซ้าย "Flight" เพื่อเปิดแท็บ Flight โดยไม่ทับ Player =====
-do
-    local function openFlight()
-        if type(_G.OpenRightTab) == "function" then
-            _G.OpenRightTab("Flight")            -- เฟรมเวิร์กส่วนใหญ่ใช้แบบนี้
-        elseif type(selectRight) == "function" then
-            selectRight("Flight")
-        end
-    end
-    if type(registerLeft) == "function" then
-        pcall(function()
-            registerLeft("Flight", openFlight, "rbxassetid://89004973470552")
-        end)
-    end
-end
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
