@@ -603,57 +603,56 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Avatar + Name only, shows when pressing "Player" =====
+-- ===== Player tab (avatar + name only) =====
 registerRight("Player", function(scroll)
-    local Players  = game:GetService("Players")
-    local Content  = game:GetService("ContentProvider")
-    local lp       = Players.LocalPlayer
+    local Players = game:GetService("Players")
+    local Content = game:GetService("ContentProvider")
+    local lp = Players.LocalPlayer
 
-    -- ===== THEME (ใช้สีเดิมของ UI ถ้ามี) =====
-    local BASE = rawget(_G, "THEME") or {}
+    -- ===== Theme =====
+    local BASE_THEME = rawget(_G, "THEME") or {}
     local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
+        BG_INNER = BASE_THEME.BG_INNER or Color3.fromRGB(0, 0, 0),
+        GREEN    = BASE_THEME.GREEN or BASE_THEME.ACCENT or Color3.fromRGB(25, 255, 125),
         WHITE    = Color3.fromRGB(255, 255, 255),
     }
 
     local function corner(ui, r)
-        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = ui
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
     end
+
     local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke"); s.Thickness = th or 1.5; s.Color = col or THEME.GREEN; s.Parent = ui
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 1.5
+        s.Color = col or THEME.GREEN
+        s.Parent = ui
+        return s
     end
 
-    -- ===== SAFETY: เคลียร์ของเก่าและบังคับให้พื้นที่ Right มองเห็นเมื่อแท็บ Player ถูกเปิด =====
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") then ch:Destroy() end
-    end
-    scroll.Visible = true
-    if scroll.Parent and scroll.Parent:IsA("GuiObject") then
-        scroll.Parent.Visible = true
-    end
-
-    -- ===== LAYOUT (แค่รูป + ชื่อ) =====
-    local col = Instance.new("Frame")
+    -- ===== Layout =====
+    local col = Instance.new("Frame", scroll)
     col.BackgroundTransparency = 1
     col.Size = UDim2.new(1, 0, 1, 0)
-    col.Parent = scroll
 
-    local list = Instance.new("UIListLayout", col)
-    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    list.VerticalAlignment   = Enum.VerticalAlignment.Top
-    list.Padding             = UDim.new(0, 10)
+    local layout = Instance.new("UIListLayout", col)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment = Enum.VerticalAlignment.Top
+    layout.Padding = UDim.new(0, 10)
 
-    -- Avatar (พื้นดำ ขอบเขียว)
+    -- ===== Avatar =====
     local avatarWrap = Instance.new("Frame", col)
     avatarWrap.BackgroundColor3 = THEME.BG_INNER
     avatarWrap.Size = UDim2.fromOffset(150, 150)
-    corner(avatarWrap, 12); stroke(avatarWrap, 1.6, THEME.GREEN)
+    corner(avatarWrap, 12)
+    stroke(avatarWrap, 1.6, THEME.GREEN)
 
-    local avatarImg = Instance.new("ImageLabel", avatarWrap)
-    avatarImg.BackgroundTransparency = 1
-    avatarImg.Size = UDim2.fromScale(1, 1)
-    avatarImg.ImageTransparency = 1
+    local avatarBox = Instance.new("ImageLabel", avatarWrap)
+    avatarBox.BackgroundTransparency = 1
+    avatarBox.Size = UDim2.fromScale(1, 1)
+    avatarBox.ImageTransparency = 1
 
     task.spawn(function()
         if lp then
@@ -662,17 +661,18 @@ registerRight("Player", function(scroll)
             end)
             if ok and url then
                 pcall(function() Content:PreloadAsync({url}) end)
-                avatarImg.Image = url
-                avatarImg.ImageTransparency = 0
+                avatarBox.Image = url
+                avatarBox.ImageTransparency = 0
             end
         end
     end)
 
-    -- Name (พื้นดำ ขอบเขียว ตัวหนังสือขาว)
+    -- ===== Name =====
     local nameBar = Instance.new("Frame", col)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.Size = UDim2.fromOffset(200, 34)
-    corner(nameBar, 8); stroke(nameBar, 1.3, THEME.GREEN)
+    corner(nameBar, 8)
+    stroke(nameBar, 1.3, THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
     nameLbl.BackgroundTransparency = 1
@@ -680,13 +680,11 @@ registerRight("Player", function(scroll)
     nameLbl.Font = Enum.Font.GothamBold
     nameLbl.TextSize = 16
     nameLbl.TextColor3 = THEME.WHITE
+    nameLbl.Text = lp and lp.DisplayName or "Player"
     nameLbl.TextXAlignment = Enum.TextXAlignment.Center
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
-    nameLbl.Text = (lp and lp.DisplayName) or "Player"
 
-    -- ===== OPTIONAL FAILSAFE: ถ้ามีฟังก์ชันเปิดแท็บของระบบหลัก ให้เรียก “Player” อัตโนมัติได้ =====
-    -- ตัวอย่าง: ถ้า framework ของ M มีฟังก์ชันแบบ _G.OpenRightTab("Player") ให้ปลดคอมเมนต์บรรทัดถัดไป
-    -- if type(_G.OpenRightTab) == "function" then _G.OpenRightTab("Player") end
+    col.Parent = scroll
 end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
