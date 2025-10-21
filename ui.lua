@@ -603,109 +603,98 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile section + Emoji-style image (stacked, no overlap) =====
+-- ===== Player tab (Right) — Profile section ONLY (avatar + name) =====
 registerRight("Player", function(scroll)
-    local Players = game:GetService("Players")
-    local Content = game:GetService("ContentProvider")
-    local lp      = Players.LocalPlayer
+local Players = game:GetService("Players")
+local Content = game:GetService("ContentProvider")
+local lp      = Players.LocalPlayer
 
-    -- THEME
-    local BASE = rawget(_G, "THEME") or {}
-    local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
-        WHITE    = Color3.fromRGB(255, 255, 255),
-        BLACK    = Color3.fromRGB(0, 0, 0),
-    }
-    local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 10)
-        c.Parent = ui
-        return c
-    end
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.6
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- กันเส้นเขียว “ขาด” ตามขอบ
-        s.Parent = ui
-        return s
-    end
+-- THEME  
+local BASE = rawget(_G, "THEME") or {}  
+local THEME = {  
+    BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),  
+    GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),  
+    WHITE    = Color3.fromRGB(255, 255, 255),  
+}  
+local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui end  
+local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.5; s.Color=col or THEME.GREEN; s.Parent=ui end  
 
-    -- ให้ scroll เป็นคอลัมน์กลาง และเลื่อนยาวได้ (สร้าง layout แค่ครั้งแรก)
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Parent = scroll
-        vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
-    end
-    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+-- ให้ Scroll มี layout กลางร่วม (ถ้ายังไม่มีค่อยสร้าง) — ไม่ลบของเดิม!  
+local vlist = scroll:FindFirstChildOfClass("UIListLayout")  
+if not vlist then  
+    vlist = Instance.new("UIListLayout")  
+    vlist.Parent = scroll  
+    vlist.Padding = UDim.new(0, 12)  
+    vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center  
+    vlist.VerticalAlignment   = Enum.VerticalAlignment.Top  
+    vlist.SortOrder = Enum.SortOrder.LayoutOrder  
+end  
+scroll.ScrollingDirection  = Enum.ScrollingDirection.Y  
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y  
 
-    ----------------------------------------------------------------
-    -- Section A: PROFILE (avatar + name)   LayoutOrder = 10
-    ----------------------------------------------------------------
-    do
-        local old = scroll:FindFirstChild("Section_Profile")
-        if old then old:Destroy() end
+-- เคลียร์ “เฉพาะ” Section_Profile เดิม (ถ้ามี) เพื่อไม่ซ้อนหลายอัน  
+local old = scroll:FindFirstChild("Section_Profile")  
+if old then old:Destroy() end  
 
-        local section = Instance.new("Frame")
-        section.Name = "Section_Profile"
-        section.BackgroundTransparency = 1
-        section.Size = UDim2.new(1, 0, 0, 0)
-        section.AutomaticSize = Enum.AutomaticSize.Y
-        section.LayoutOrder = 10
-        section.Parent = scroll
+-- ===== สร้าง Section โปรไฟล์ (อยู่บนสุดด้วย LayoutOrder = 10) =====  
+local section = Instance.new("Frame")  
+section.Name = "Section_Profile"  
+section.BackgroundTransparency = 1  
+section.Size = UDim2.new(1, 0, 0, 0)  
+section.AutomaticSize = Enum.AutomaticSize.Y  
+section.LayoutOrder = 10  
+section.Parent = scroll  
 
-        local layout = Instance.new("UIListLayout", section)
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.VerticalAlignment   = Enum.VerticalAlignment.Top
-        layout.Padding             = UDim.new(0, 10)
+local layout = Instance.new("UIListLayout", section)  
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center  
+layout.VerticalAlignment   = Enum.VerticalAlignment.Top  
+layout.Padding = UDim.new(0, 10)  
 
-        -- Avatar
-        local avatarWrap = Instance.new("Frame", section)
-        avatarWrap.BackgroundColor3 = THEME.BG_INNER
-        avatarWrap.Size = UDim2.fromOffset(150, 150)
-        avatarWrap.ClipsDescendants = false
-        corner(avatarWrap, 12); stroke(avatarWrap, 1.6, THEME.GREEN)
+-- ===== Avatar =====  
+local avatarWrap = Instance.new("Frame", section)  
+avatarWrap.BackgroundColor3 = THEME.BG_INNER  
+avatarWrap.Size = UDim2.fromOffset(150, 150)  
+avatarWrap.ZIndex = 5  
+corner(avatarWrap, 12); stroke(avatarWrap, 1.6, THEME.GREEN)  
 
-        local avatarImg = Instance.new("ImageLabel", avatarWrap)
-        avatarImg.BackgroundTransparency = 1
-        avatarImg.Size = UDim2.fromScale(1, 1)
-        avatarImg.ImageTransparency = 1
+local avatarImg = Instance.new("ImageLabel", avatarWrap)  
+avatarImg.BackgroundTransparency = 1  
+avatarImg.Size = UDim2.fromScale(1, 1)  
+avatarImg.ImageTransparency = 1  
+avatarImg.ZIndex = 6  
 
-        task.spawn(function()
-            if lp then
-                local ok, url = pcall(function()
-                    return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-                end)
-                if ok and url then
-                    pcall(function() Content:PreloadAsync({url}) end)
-                    avatarImg.Image = url
-                    avatarImg.ImageTransparency = 0
-                end
-            end
-        end)
+task.spawn(function()  
+    if lp then  
+        local ok, url = pcall(function()  
+            return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)  
+        end)  
+        if ok and url then  
+            pcall(function() Content:PreloadAsync({url}) end)  
+            avatarImg.Image = url  
+            avatarImg.ImageTransparency = 0  
+        end  
+    end  
+end)  
 
-        -- Name
-        local nameBar = Instance.new("Frame", section)
-        nameBar.BackgroundColor3 = THEME.BG_INNER
-        nameBar.Size = UDim2.fromOffset(220, 36)
-        corner(nameBar, 8); stroke(nameBar, 1.3, THEME.GREEN)
+-- ===== Name =====  
+local nameBar = Instance.new("Frame", section)  
+nameBar.BackgroundColor3 = THEME.BG_INNER  
+nameBar.Size = UDim2.fromOffset(220, 36)  
+nameBar.ZIndex = 5  
+corner(nameBar, 8); stroke(nameBar, 1.3, THEME.GREEN)  
 
-        local nameLbl = Instance.new("TextLabel", nameBar)
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Size = UDim2.fromScale(1, 1)
-        nameLbl.Font = Enum.Font.GothamBold
-        nameLbl.TextSize = 16
-        nameLbl.TextColor3 = THEME.WHITE
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-        nameLbl.TextYAlignment = Enum.TextYAlignment.Center
-        nameLbl.Text = (lp and lp.DisplayName) or "Player"
-    end
+local nameLbl = Instance.new("TextLabel", nameBar)  
+nameLbl.BackgroundTransparency = 1  
+nameLbl.Size = UDim2.fromScale(1, 1)  
+nameLbl.Font = Enum.Font.GothamBold  
+nameLbl.TextSize = 16  
+nameLbl.TextColor3 = THEME.WHITE  
+nameLbl.TextXAlignment = Enum.TextXAlignment.Center  
+nameLbl.TextYAlignment = Enum.TextYAlignment.Center  
+nameLbl.Text = (lp and lp.DisplayName) or "Player"  
+nameLbl.ZIndex = 6
+
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
