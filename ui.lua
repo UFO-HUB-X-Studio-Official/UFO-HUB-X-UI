@@ -694,6 +694,121 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
     nameLbl.ZIndex = 6
 end)
+-- ===== Player tab (avatar + name + emoji UFO) =====
+registerRight("Player", function(scroll)
+    local Players = game:GetService("Players")
+    local Content = game:GetService("ContentProvider")
+    local lp = Players.LocalPlayer
+
+    -- ===== Theme =====
+    local BASE_THEME = rawget(_G, "THEME") or {}
+    local THEME = {
+        BG_INNER = BASE_THEME.BG_INNER or Color3.fromRGB(0, 0, 0),
+        GREEN    = BASE_THEME.GREEN or BASE_THEME.ACCENT or Color3.fromRGB(25, 255, 125),
+        WHITE    = Color3.fromRGB(255, 255, 255),
+        BLACK    = Color3.fromRGB(0, 0, 0),
+    }
+
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
+    end
+
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 1.5
+        s.Color = col or THEME.GREEN
+        s.Parent = ui
+        return s
+    end
+
+    -- ===== Layout (Avatar + Name) =====
+    local col = Instance.new("Frame", scroll)
+    col.BackgroundTransparency = 1
+    col.Size = UDim2.new(1, 0, 1, 0)
+
+    local layout = Instance.new("UIListLayout", col)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment = Enum.VerticalAlignment.Top
+    layout.Padding = UDim.new(0, 10)
+
+    -- ===== Avatar =====
+    local avatarWrap = Instance.new("Frame", col)
+    avatarWrap.BackgroundColor3 = THEME.BG_INNER
+    avatarWrap.Size = UDim2.fromOffset(150, 150)
+    corner(avatarWrap, 12)
+    stroke(avatarWrap, 1.6, THEME.GREEN)
+
+    local avatarBox = Instance.new("ImageLabel", avatarWrap)
+    avatarBox.BackgroundTransparency = 1
+    avatarBox.Size = UDim2.fromScale(1, 1)
+    avatarBox.ImageTransparency = 1
+
+    task.spawn(function()
+        if lp then
+            local ok, url = pcall(function()
+                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            end)
+            if ok and url then
+                pcall(function() Content:PreloadAsync({url}) end)
+                avatarBox.Image = url
+                avatarBox.ImageTransparency = 0
+            end
+        end
+    end)
+
+    -- ===== Name =====
+    local nameBar = Instance.new("Frame", col)
+    nameBar.BackgroundColor3 = THEME.BG_INNER
+    nameBar.Size = UDim2.fromOffset(200, 34)
+    corner(nameBar, 8)
+    stroke(nameBar, 1.3, THEME.GREEN)
+
+    local nameLbl = Instance.new("TextLabel", nameBar)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Size = UDim2.fromScale(1, 1)
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.TextSize = 16
+    nameLbl.TextColor3 = THEME.WHITE
+    nameLbl.Text = lp and lp.DisplayName or "Player"
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
+
+    -- ===== Add-on: UFO Emoji (เป็นรูปอิโมจิ ไม่ทับระบบเก่า) =====
+    local emojiSection = Instance.new("Frame", scroll)
+    emojiSection.Name = "Player_EmojiSection"
+    emojiSection.BackgroundTransparency = 1
+    emojiSection.Size = UDim2.new(1, 0, 0, 0)
+    emojiSection.AutomaticSize = Enum.AutomaticSize.Y
+    emojiSection.LayoutOrder = 999
+    emojiSection.Parent = scroll
+
+    local list = Instance.new("UIListLayout", emojiSection)
+    list.Padding = UDim.new(0, 12)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.VerticalAlignment   = Enum.VerticalAlignment.Top
+
+    local emoji = Instance.new("Frame", emojiSection)
+    emoji.Name = "Emoji_UFO"
+    emoji.BackgroundColor3 = THEME.BLACK
+    emoji.Size = UDim2.fromOffset(110, 110)
+    local c = Instance.new("UICorner", emoji)
+    c.CornerRadius = UDim.new(1, 0)
+    local s = Instance.new("UIStroke", emoji)
+    s.Color = THEME.GREEN
+    s.Thickness = 1.8
+
+    local img = Instance.new("ImageLabel", emoji)
+    img.BackgroundTransparency = 1
+    img.Size = UDim2.fromScale(0.8, 0.8)
+    img.Position = UDim2.fromScale(0.1, 0.1)
+    img.Image = "rbxassetid://89004973470552"
+    img.ScaleType = Enum.ScaleType.Fit
+
+    col.Parent = scroll
+end)
 -- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
