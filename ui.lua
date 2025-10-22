@@ -608,10 +608,7 @@ registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
 -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
--- โปรไฟล์ (avatar + name)
 registerRight("Player", function(scroll)
-    -- … โค้ด Section_Profile ของคุณ …
-end)
     local Players = game:GetService("Players")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
@@ -624,14 +621,21 @@ end)
         WHITE    = Color3.fromRGB(255, 255, 255),
     }
     local function corner(ui, r)
-        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = ui; return c
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
     end
     local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke"); s.Thickness = th or 1.5; s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = ui; return s
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 1.5
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
     end
 
-    -- สร้าง layout กลางถ้ายังไม่มี (แต่ไม่ลบของเดิม)
+    -- สร้าง layout กลางถ้ายังไม่มี (ไม่ลบของแท็บอื่น)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -644,7 +648,7 @@ end)
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- ลบเฉพาะบล็อคโปรไฟล์เก่าของตัวเอง (ถ้ามี) เพื่อไม่ซ้อนกัน
+    -- ลบเฉพาะบล็อกโปรไฟล์ของตัวเอง (กันซ้ำ)
     local old = scroll:FindFirstChild("Section_Profile")
     if old then old:Destroy() end
 
@@ -666,7 +670,8 @@ end)
     local avatarWrap = Instance.new("Frame", section)
     avatarWrap.BackgroundColor3 = THEME.BG_INNER
     avatarWrap.Size = UDim2.fromOffset(150, 150)
-    corner(avatarWrap, 12); stroke(avatarWrap, 1.6, THEME.GREEN)
+    corner(avatarWrap, 12)
+    stroke(avatarWrap, 1.6, THEME.GREEN)
 
     local avatarImg = Instance.new("ImageLabel", avatarWrap)
     avatarImg.BackgroundTransparency = 1
@@ -690,7 +695,8 @@ end)
     local nameBar = Instance.new("Frame", section)
     nameBar.BackgroundColor3 = THEME.BG_INNER
     nameBar.Size = UDim2.fromOffset(220, 36)
-    corner(nameBar, 8); stroke(nameBar, 1.3, THEME.GREEN)
+    corner(nameBar, 8)
+    stroke(nameBar, 1.3, THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
     nameLbl.BackgroundTransparency = 1
@@ -703,10 +709,7 @@ end)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Flight header + MapFly card (append after existing content) =====
--- หัว "โหมดบิน 🛸" + การ์ด "โหมดบินชมแมพ" + สวิตช์
 registerRight("Player", function(scroll)
-    -- … โค้ด Section_FlightHeader + Section_MapFly ของคุณ …
-end)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
@@ -721,7 +724,7 @@ end)
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent=ui; return s
     end
 
-    -- 1) Ensure layout (do NOT clear old content)
+    -- 1) Ensure layout (ไม่ลบของเดิม)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -734,7 +737,7 @@ end)
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- 2) Find next layout order (append after everything)
+    -- 2) หา LayoutOrder ถัดไปเพื่อ “ต่อท้าย”
     local nextOrder = 10
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -742,13 +745,13 @@ end)
         end
     end
 
-    -- (guard) ถ้าเคยแปะชุดนี้แล้ว จะไม่สร้างซ้ำ
+    -- กันสร้างซ้ำ
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then
         return
     end
 
     ----------------------------------------------------------------
-    -- A) หัวข้อ "โหมดบิน 🛸" — (แทนสี่เหลี่ยมขาวเล็กในภาพ)
+    -- A) หัวข้อ "โหมดบิน 🛸" — สี่เหลี่ยมเล็ก (พื้นดำ เส้นเขียว ตัวอักษรขาว)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -764,8 +767,8 @@ end)
     hl.Padding             = UDim.new(0, 6)
 
     local pill = Instance.new("Frame", header)
-    pill.Size = UDim2.fromOffset(130, 26)   -- ขนาดใกล้ภาพ
-    pill.BackgroundColor3 = THEME.WHITE
+    pill.Size = UDim2.fromOffset(130, 26)   -- ขนาดตามภาพ
+    pill.BackgroundColor3 = THEME.BLACK     -- ตามโจทย์: ขาว -> ดำ
     corner(pill, 8); stroke(pill, 1.6, THEME.GREEN)
 
     local pillText = Instance.new("TextLabel", pill)
@@ -773,13 +776,13 @@ end)
     pillText.Size = UDim2.fromScale(1, 1)
     pillText.Font = Enum.Font.GothamBold
     pillText.TextSize = 14
-    pillText.TextColor3 = THEME.BLACK
+    pillText.TextColor3 = THEME.WHITE
     pillText.TextXAlignment = Enum.TextXAlignment.Center
     pillText.TextYAlignment = Enum.TextYAlignment.Center
     pillText.Text = "โหมดบิน 🛸"
 
     ----------------------------------------------------------------
-    -- B) แผง "โหมดบินชมแมพ" + สวิตช์ — (แทนสี่เหลี่ยมแดงยาว)
+    -- B) การ์ด "โหมดบินชมแมพ" + สวิตช์ (พื้นดำ เส้นเขียว)
     ----------------------------------------------------------------
     local card = Instance.new("Frame")
     card.Name = "Section_MapFly"
@@ -795,13 +798,13 @@ end)
 
     local bar = Instance.new("Frame", card)
     bar.BackgroundColor3 = THEME.BLACK
-    bar.Size = UDim2.new(1, -180, 0, 42)    -- ยาวพอดีคอลัมน์ (ขอบซ้าย/ขวา ~90px)
+    bar.Size = UDim2.new(1, -180, 0, 42)     -- ยาวพอดีคอลัมน์ (ขอบซ้าย/ขวา ~90px)
     corner(bar, 10); stroke(bar, 1.8, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
     title.Position = UDim2.new(0, 14, 0, 0)
-    title.Size = UDim2.new(1, -140, 1, 0)   -- เผื่อพื้นที่สวิตช์ด้านขวา
+    title.Size = UDim2.new(1, -140, 1, 0)    -- เผื่อสวิตช์ด้านขวา
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
@@ -809,7 +812,7 @@ end)
     title.TextColor3 = THEME.WHITE
     title.Text = "โหมดบินชมแมพ"
 
-    -- Switch (ปุ่มเปิด/ปิด)
+    -- สวิตช์ เปิด/ปิด
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
