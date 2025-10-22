@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header + MapFly card (edge-to-edge full stretch) =====
+-- ===== Player tab (Right) — Flight header (emoji text only, left aligned) + MapFly card (full stretch) =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
@@ -733,14 +733,14 @@ registerRight("Player", function(scroll)
         return s
     end
 
-    -- Ensure layout (ไม่ลบของเดิม)
+    -- Ensure layout (do NOT clear old content)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
         vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left  -- << ให้เรียงด้านซ้าย
         vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
         vlist.Parent = scroll
     end
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
@@ -758,7 +758,7 @@ registerRight("Player", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- A) Header: Flight Mode 🛸
+    -- A) Header text only: "Flight Mode 🛸" (no background, no border)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -768,40 +768,33 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = nextOrder
     header.Parent = scroll
 
-    local hl = Instance.new("UIListLayout", header)
-    hl.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    hl.VerticalAlignment   = Enum.VerticalAlignment.Top
-    hl.Padding             = UDim.new(0, 6)
-
-    local pill = Instance.new("Frame", header)
-    pill.Size = UDim2.fromOffset(120, 26)
-    pill.BackgroundColor3 = THEME.BLACK
-    corner(pill, 8); stroke(pill, 1.6, THEME.GREEN)
-
-    local pillText = Instance.new("TextLabel", pill)
-    pillText.BackgroundTransparency = 1
-    pillText.Size = UDim2.fromScale(1, 1)
-    pillText.Font = Enum.Font.GothamBold
-    pillText.TextSize = 13
-    pillText.TextColor3 = THEME.WHITE
-    pillText.TextXAlignment = Enum.TextXAlignment.Center
-    pillText.TextYAlignment = Enum.TextYAlignment.Center
-    pillText.Text = "Flight Mode 🛸"
+    local txt = Instance.new("TextLabel", header)
+    txt.BackgroundTransparency = 1
+    txt.Position = UDim2.new(0, 0, 0, 0)
+    txt.Size = UDim2.new(1, 0, 0, 40)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 20
+    txt.TextColor3 = THEME.WHITE
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.TextYAlignment = Enum.TextYAlignment.Center
+    txt.Text = "Flight Mode 🛸"
+    txt.TextStrokeTransparency = 0.7
+    txt.TextStrokeColor3 = THEME.GREEN
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode row — now truly full width (left-right flush)
+    -- B) Map Fly Mode (full width bar)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
-    row.Size = UDim2.new(1, 0, 0, 46) -- เพิ่มความสูงขึ้นเล็กน้อย
+    row.Size = UDim2.new(1, 0, 0, 46)
     row.LayoutOrder = nextOrder + 1
     row.Parent = scroll
 
     local bar = Instance.new("Frame", row)
     bar.AnchorPoint = Vector2.new(0.5, 0)
     bar.Position = UDim2.new(0.5, 0, 0, 0)
-    bar.Size = UDim2.new(1, -6, 1, 0) -- เดิม -16 → ตอนนี้เหลือแค่ -6 (แทบชิดกรอบ)
+    bar.Size = UDim2.new(1, -6, 1, 0)
     bar.BackgroundColor3 = THEME.BLACK
     corner(bar, 12); stroke(bar, 2.2, THEME.GREEN)
 
