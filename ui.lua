@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header (emoji text only, slightly left) + smaller MapFly card =====
+-- ===== Player tab (Right) — Flight header (left a bit more) + MapFly card (smaller title) =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
@@ -719,17 +719,17 @@ registerRight("Player", function(scroll)
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
 
-    -- Layout setup
+    -- layout (ไม่ลบของเดิม)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
         vlist.Padding = UDim.new(0, 12)
         vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left
         vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
         vlist.Parent = scroll
     end
-    scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     local nextOrder = 10
@@ -742,7 +742,7 @@ registerRight("Player", function(scroll)
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- A) Header: Flight Mode 🛸 (เลื่อนซ้าย + เล็กลง)
+    -- A) Header: Flight Mode 🛸 (ขยับซ้ายอีกนิด)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -754,67 +754,58 @@ registerRight("Player", function(scroll)
 
     local txt = Instance.new("TextLabel", header)
     txt.BackgroundTransparency = 1
-    txt.Position = UDim2.new(0, 6, 0, 0) -- ← จาก 14 → เหลือ 6 ขยับซ้าย
-    txt.Size = UDim2.new(1, 0, 0, 28) -- ลดความสูงให้ดูเล็กลง
+    txt.Position = UDim2.new(0, 6, 0, 0)  -- จาก 14 → 6 (ไปซ้ายอีกนิด)
+    txt.Size = UDim2.new(1, 0, 0, 32)
     txt.Font = Enum.Font.GothamBold
-    txt.TextSize = 16                  -- ลดขนาดลงอีกนิด
+    txt.TextSize = 16                   -- เล็กลงเล็กน้อย
     txt.TextColor3 = THEME.WHITE
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.TextYAlignment = Enum.TextYAlignment.Center
     txt.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode (แคบลงทั้งแนวกว้างและสูง)
+    -- B) Map Fly Mode (ลดขนาดชื่อ)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
-    row.Size = UDim2.new(1, 0, 0, 38)  -- เดิม 46 → 38
+    row.Size = UDim2.new(1, 0, 0, 46)
     row.LayoutOrder = nextOrder + 1
     row.Parent = scroll
 
     local bar = Instance.new("Frame", row)
     bar.AnchorPoint = Vector2.new(0.5, 0)
     bar.Position = UDim2.new(0.5, 0, 0, 0)
-    bar.Size = UDim2.new(1, -80, 1, 0) -- เดิม -6 → -80 ให้เล็กลงในแนวกว้าง
+    bar.Size = UDim2.new(1, -6, 1, 0)
     bar.BackgroundColor3 = THEME.BLACK
-    local corner = Instance.new("UICorner", bar)
-    corner.CornerRadius = UDim.new(0, 10)
-    local stroke = Instance.new("UIStroke", bar)
-    stroke.Thickness = 1.8
-    stroke.Color = THEME.GREEN
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local corner = Instance.new("UICorner", bar); corner.CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", bar); stroke.Thickness = 2.2; stroke.Color = THEME.GREEN; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0, 12, 0, 0)
-    title.Size = UDim2.new(1, -120, 1, 0)
+    title.Position = UDim2.new(0, 16, 0, 0)
+    title.Size = UDim2.new(1, -140, 1, 0)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 14
+    title.TextSize = 13                -- จาก 16 → 13 (เล็กลงตามคำขอ)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextYAlignment = Enum.TextYAlignment.Center
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Toggle switch
+    -- Toggle switch (เหมือนเดิม)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
-    switch.Position = UDim2.new(1, -10, 0.5, 0)
-    switch.Size = UDim2.fromOffset(46, 22) -- เดิม 52x26 → 46x22 ให้เล็กลง
+    switch.Position = UDim2.new(1, -12, 0.5, 0)
+    switch.Size = UDim2.fromOffset(52, 26)
     switch.BackgroundColor3 = THEME.BLACK
-    local swCorner = Instance.new("UICorner", switch)
-    swCorner.CornerRadius = UDim.new(0, 11)
-    local swStroke = Instance.new("UIStroke", switch)
-    swStroke.Thickness = 1.4
-    swStroke.Color = THEME.GREEN
-    swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local swCorner = Instance.new("UICorner", switch); swCorner.CornerRadius = UDim.new(0, 13)
+    local swStroke = Instance.new("UIStroke", switch); swStroke.Thickness = 1.6; swStroke.Color = THEME.GREEN; swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local knob = Instance.new("Frame", switch)
-    knob.Size = UDim2.fromOffset(18, 18)
-    knob.Position = UDim2.new(0, 2, 0.5, -9)
+    knob.Size = UDim2.fromOffset(22, 22)
+    knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
-    local knobCorner = Instance.new("UICorner", knob)
-    knobCorner.CornerRadius = UDim.new(0, 9)
+    local knobCorner = Instance.new("UICorner", knob); knobCorner.CornerRadius = UDim.new(0, 11)
 
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
@@ -825,9 +816,9 @@ registerRight("Player", function(scroll)
     local function setState(v)
         isOn = v
         if isOn then
-            knob:TweenPosition(UDim2.new(1, -20, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
-            knob:TweenPosition(UDim2.new(0, 2, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
