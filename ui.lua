@@ -709,7 +709,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
--- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Faster speed =====
+-- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Fixed pad order =====
 registerRight("Player", function(scroll)
     ----------------------------------------------------------------
     -- Services / Theme
@@ -827,11 +827,10 @@ registerRight("Player", function(scroll)
     ----------------------------------------------------------------
     -- Hover + Mini Control Pad (hold-to-move) + Swipe Strafe + Noclip
     ----------------------------------------------------------------
-    local hoverHeight   = 6          -- hover height above current spot
-    -- >>> เร่งความเร็วตามคำขอ <<<
-    local moveSpeed     = 38         -- forward/back speed (stud/s) — เร็วขึ้น
-    local strafeSpeed   = 38         -- left/right slide speed — เร็วขึ้น
-    local ascendSpeed   = 28         -- up/down speed — เร็วขึ้น
+    local hoverHeight   = 6
+    local moveSpeed     = 38  -- faster
+    local strafeSpeed   = 38  -- faster
+    local ascendSpeed   = 28  -- faster
 
     local movers = {bp=nil, bg=nil}
     local loopConn, noclipConn
@@ -845,7 +844,6 @@ registerRight("Player", function(scroll)
                char
     end
 
-    -- parent สำหรับ GUI (รองรับ executor หลายแบบ)
     local function getGuiParent()
         local ok, hui = pcall(function() return gethui and gethui() end)
         if ok and hui then return hui end
@@ -858,13 +856,23 @@ registerRight("Player", function(scroll)
         controlsGui.Name = "UFO_FlyMiniPad"
         controlsGui.ResetOnSpawn = false
         controlsGui.IgnoreGuiInset = true
+        controlsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        controlsGui.DisplayOrder = 9999
         controlsGui.Parent = getGuiParent()
 
-        local SIZE = 64
-        local GAP  = 10
-        local baseX, baseY = 100, -160  -- left/bottom offsets (ตามรูป)
+        local SIZE, GAP = 64, 10
 
-        local function makeBtn(name, offx, offy, emoji)
+        -- ฐานแพดซ้ายล่าง (ยึดจาก "ล่างซ้าย" เพื่อกันสลับตำแหน่ง)
+        local pad = Instance.new("Frame")
+        pad.Name = "Pad"
+        pad.BackgroundTransparency = 1
+        pad.AnchorPoint = Vector2.new(0,1)
+        pad.Position = UDim2.new(0, 100, 1, -140)            -- (ซ้าย 100, จากล่าง 140)
+        pad.Size     = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
+        pad.Active   = true
+        pad.Parent   = controlsGui
+
+        local function makeBtn(parent, name, x, y, emoji)
             local b = Instance.new("TextButton")
             b.Name = name
             b.BackgroundColor3 = THEME.BLACK
@@ -873,75 +881,91 @@ registerRight("Player", function(scroll)
             b.TextSize = 28
             b.TextColor3 = THEME.WHITE
             b.AutoButtonColor = false
-            b.Active = true
             b.Size = UDim2.fromOffset(SIZE, SIZE)
-            b.AnchorPoint = Vector2.new(0,1)
-            b.Position = UDim2.new(0, baseX + offx, 1, baseY + offy)
-            b.Parent = controlsGui
+            b.Position = UDim2.new(0, x, 0, y)               -- ตำแหน่งจากมุมซ้ายบนของ pad
+            b.Parent = parent
+            b.Activated:Connect(function() end)              -- ช่วยให้โฟกัสปุ่ม
             corner(b, 10); stroke(b, 2, THEME.GREEN)
+            b.ZIndex = 100
             return b
         end
-        -- น้ำเงิน: เดินหน้า/ถอยหลัง (แก้ทิศให้ถูก)
-        local btnFwd  = makeBtn("Fwd",   SIZE+GAP, SIZE*2+GAP*2, "🔼") -- ไปข้างหน้า
-        local btnBack = makeBtn("Back",  SIZE+GAP, 0,             "🔽") -- ถอยหลัง
-        -- แดง: เลื่อนซ้าย/ขวา (strafe) — หน้ายังคงเดิม
-        local btnLeft = makeBtn("Left",  0,        SIZE+GAP,      "◀️")
-        local btnRight= makeBtn("Right", (SIZE+GAP)*2, SIZE+GAP,  "▶️")
 
-        -- ขวากลาง: เขียว ขึ้น/ลง
-        local R_SIZE = 64
-        local rx = -120
-        local function makeRightBtn(name, offy, emoji)
-            local b = Instance.new("TextButton")
-            b.Name = name
-            b.BackgroundColor3 = THEME.BLACK
-            b.Text = emoji
-            b.Font = Enum.Font.GothamBold
-            b.TextSize = 28
-            b.TextColor3 = THEME.WHITE
-            b.AutoButtonColor = false
-            b.Active = true
-            b.Size = UDim2.fromOffset(R_SIZE, R_SIZE)
-            b.AnchorPoint = Vector2.new(1,0.5)
-            b.Position = UDim2.new(1, rx, 0.5, offy)
-            b.Parent = controlsGui
-            corner(b, 10); stroke(b, 2, THEME.GREEN)
-            return b
-        end
-        local btnUp   = makeRightBtn("Up",   -(R_SIZE+GAP)/2, "⬆️")
-        local btnDown = makeRightBtn("Down",  (R_SIZE+GAP)/2, "⬇️")
+        -- จัดตำแหน่งแน่นอน: บน=หน้า, ล่าง=หลัง  (ไม่สลับอีก)
+        local btnFwd  = makeBtn(pad, "Fwd",   SIZE+GAP, 0,                "🔼") -- ไปข้างหน้า (บน)
+        local btnBack = makeBtn(pad, "Back",  SIZE+GAP, SIZE*2+GAP*2,     "🔽") -- ถอยหลัง (ล่าง)
+        local btnLeft = makeBtn(pad, "Left",  0,        SIZE+GAP,         "◀️") -- เลื่อนซ้าย
+        local btnRight= makeBtn(pad, "Right", (SIZE+GAP)*2, SIZE+GAP,     "▶️") -- เลื่อนขวา
 
-        -- โซนสไลด์นิ้วซ้าย/ขวา (เลื่อนซ้าย/ขวาแบบ strafe)
+        -- โซนสไลด์นิ้วเสริม (ภายใน pad ทั้งอัน) => strafe ซ้าย/ขวา
         local swipeZone = Instance.new("Frame")
-        swipeZone.Name = "SwipeZone"
         swipeZone.BackgroundTransparency = 1
-        swipeZone.Active = true
-        swipeZone.AnchorPoint = Vector2.new(0,1)
-        swipeZone.Size = UDim2.fromOffset(SIZE*3 + GAP*2, SIZE*3 + GAP*2)
-        swipeZone.Position = UDim2.new(0, baseX - GAP, 1, baseY + SIZE*3 + GAP*2 + GAP)
-        swipeZone.Parent = controlsGui
+        swipeZone.Size = UDim2.fromScale(1,1)
+        swipeZone.Parent = pad
 
-        local swipeTouch = nil
-        local lastPos = nil
-        local dead = 12 -- deadzone pixels
+        -- ปุ่มขึ้น/ลง ด้านขวากลาง
+        local R_SIZE = 64
+        local rWrap = Instance.new("Frame")
+        rWrap.BackgroundTransparency = 1
+        rWrap.AnchorPoint = Vector2.new(1,0.5)
+        rWrap.Position = UDim2.new(1, -120, 0.5, 0)
+        rWrap.Size = UDim2.fromOffset(R_SIZE, R_SIZE*2+GAP)
+        rWrap.Parent = controlsGui
 
+        local btnUp   = makeBtn(rWrap, "Up",   0, 0,            "⬆️")
+        local btnDown = makeBtn(rWrap, "Down", 0, R_SIZE+GAP,   "⬇️")
+
+        -- ====== การตรวจจับกดค้างที่เชื่อถือได้ ======
+        local activeTouches = {}
+
+        local function setHold(key, v) hold[key] = v end
+
+        local function bindHold(btn, key)
+            btn.InputBegan:Connect(function(io)
+                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+                    setHold(key, true)
+                    if io.UserInputType == Enum.UserInputType.Touch then
+                        activeTouches[io] = key
+                    end
+                end
+            end)
+            btn.InputEnded:Connect(function(io)
+                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+                    setHold(key, false)
+                    activeTouches[io] = nil
+                end
+            end)
+        end
+        bindHold(btnFwd,  "fwd")
+        bindHold(btnBack, "back")
+        bindHold(btnLeft, "left")
+        bindHold(btnRight,"right")
+        bindHold(btnUp,   "up")
+        bindHold(btnDown, "down")
+
+        -- กรณีเลื่อนนิ้วออกนอกปุ่ม/ปล่อยนอกปุ่ม => จับจากระบบกลาง
+        UserInputService.InputEnded:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.Touch then
+                local key = activeTouches[io]
+                if key then setHold(key, false); activeTouches[io] = nil end
+            elseif io.UserInputType == Enum.UserInputType.MouseButton1 then
+                -- ป้องกัน “ค้างคา”
+                hold.fwd, hold.back, hold.left, hold.right, hold.up, hold.down = false,false,false,false,false,false
+            end
+        end)
+
+        -- สไลด์นิ้วใน pad = strafe (หันหน้าเดิม)
+        local swipeTouch, lastPos
+        local dead = 12
         swipeZone.InputBegan:Connect(function(io)
             if io.UserInputType == Enum.UserInputType.Touch and not swipeTouch then
-                swipeTouch = io
-                lastPos = io.Position
+                swipeTouch, lastPos = io, io.Position
             end
         end)
         swipeZone.InputChanged:Connect(function(io)
             if swipeTouch and io == swipeTouch and io.UserInputType == Enum.UserInputType.Touch then
                 local dx = io.Position.X - lastPos.X
                 if math.abs(dx) > dead then
-                    if dx > 0 then
-                        hold.left  = false
-                        hold.right = true
-                    else
-                        hold.right = false
-                        hold.left  = true
-                    end
+                    hold.left, hold.right = dx < 0, dx > 0
                 else
                     hold.left, hold.right = false, false
                 end
@@ -953,26 +977,6 @@ registerRight("Player", function(scroll)
                 hold.left, hold.right = false, false
             end
         end)
-
-        -- ผูกปุ่มให้ “กดค้าง = เดินค้าง”
-        local function bindHold(btn, key)
-            btn.InputBegan:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    hold[key] = true
-                end
-            end)
-            btn.InputEnded:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    hold[key] = false
-                end
-            end)
-        end
-        bindHold(btnFwd,  "fwd")
-        bindHold(btnBack, "back")
-        bindHold(btnLeft, "left")
-        bindHold(btnRight,"right")
-        bindHold(btnUp,   "up")
-        bindHold(btnDown, "down")
 
         return controlsGui
     end
@@ -1013,7 +1017,6 @@ registerRight("Player", function(scroll)
         ensureControlsGui().Enabled = true
         setNoclipEnabled(true)
 
-        -- continuous motion while holding
         loopConn = RunService.Heartbeat:Connect(function(dt)
             if not (movers.bp and movers.bg and hrp.Parent) then return end
 
@@ -1022,22 +1025,15 @@ registerRight("Player", function(scroll)
             local right= Vector3.new(cf.RightVector.X,0, cf.RightVector.Z) ; if right.Magnitude> 0 then right= right.Unit end
 
             local pos = movers.bp.Position
-
-            -- *** แก้ทิศทาง: 🔼 = ไปข้างหน้า, 🔽 = ถอยหลัง ***
-            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- forward
-            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- backward
-
-            -- strafe ซ้าย/ขวา (หันหน้าเดิม)
-            if hold.left then  pos = pos - right * (strafeSpeed * dt) end
-            if hold.right then pos = pos + right * (strafeSpeed * dt) end
-
-            -- ขึ้น/ลง เร็วขึ้น
+            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- ไปข้างหน้า (🔼)
+            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- ถอยหลัง   (🔽)
+            if hold.left then  pos = pos - right * (strafeSpeed * dt) end   -- เลื่อนซ้าย
+            if hold.right then pos = pos + right * (strafeSpeed * dt) end   -- เลื่อนขวา
             if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
             if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
 
             movers.bp.Position = pos
-            -- คงทิศหันหน้าเดิม (ไม่หมุนตาม strafe)
-            movers.bg.CFrame   = CFrame.new(hrp.Position, hrp.Position + cf.LookVector)
+            movers.bg.CFrame   = CFrame.new(hrp.Position, hrp.Position + cf.LookVector) -- หน้าหันเดิม
         end)
     end
 
