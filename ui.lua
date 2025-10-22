@@ -708,8 +708,8 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V3 — Flight Mode 🛸
--- Hover Toggle + Control Pad (Hold + Swipe Move) + Fixed Anim Freeze + Noclip =====
+-- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
+-- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Steering (UFO wheel) =====
 registerRight("Player", function(scroll)
     ----------------------------------------------------------------
     -- Services / Theme
@@ -728,11 +728,23 @@ registerRight("Player", function(scroll)
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
 
-    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 12); c.Parent=ui; return c end
-    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 12)
+        c.Parent = ui
+        return c
+    end
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
+    end
 
     ----------------------------------------------------------------
-    -- Layout setup
+    -- Layout (same as before)
     ----------------------------------------------------------------
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
@@ -755,9 +767,10 @@ registerRight("Player", function(scroll)
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- Header: Flight Mode 🛸
+    -- Header / Toggle UI (unchanged)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
+    header.Name = "Section_FlightHeader"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1, 0, 0, 0)
     header.AutomaticSize = Enum.AutomaticSize.Y
@@ -775,10 +788,8 @@ registerRight("Player", function(scroll)
     txt.TextYAlignment = Enum.TextYAlignment.Center
     txt.Text = "Flight Mode 🛸"
 
-    ----------------------------------------------------------------
-    -- Map Fly Toggle
-    ----------------------------------------------------------------
     local row = Instance.new("Frame")
+    row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1, 0, 0, 46)
     row.LayoutOrder = nextOrder + 1
@@ -809,211 +820,135 @@ registerRight("Player", function(scroll)
     switch.BackgroundColor3 = THEME.BLACK
     corner(switch, 13)
     local swStroke = stroke(switch, 1.8, THEME.RED)
+
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
     corner(knob, 11)
+
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Hover / Movement System
+    -- Hover + Steering logic (only new part)
     ----------------------------------------------------------------
-    local hoverHeight   = 6
-    local moveSpeed     = 42
-    local strafeSpeed   = 42
-    local ascendSpeed   = 32
-    local turnSpeed     = math.rad(90)
+    local hoverHeight = 6
+    local moveSpeed   = 38
+    local strafeSpeed = 38
+    local ascendSpeed = 28
+    local turnSpeed   = math.rad(80) -- ความเร็วหมุน (degree/sec)
 
-    local movers, loopConn, noclipConn = {bp=nil, bg=nil}, nil, nil
-    local controlsGui
+    local movers = {bp=nil, bg=nil}
+    local loopConn, noclipConn
+    local steeringTouch, steeringStartX, steeringYaw = nil, 0, 0
     local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
-    local swipeActive, swipeStartX
 
     local function getHRP()
-        local char = lp.Character
+        local char = lp and lp.Character
         return char and char:FindFirstChild("HumanoidRootPart"),
-               char and char:FindFirstChildOfClass("Humanoid"),
-               char
+               char and char:FindFirstChildOfClass("Humanoid")
     end
 
-    local function freezeAnimations(hum)
-        for _, t in ipairs(hum:GetPlayingAnimationTracks()) do t:Stop() end
-        hum:ChangeState(Enum.HumanoidStateType.Physics)
-    end
-
-    local function setNoclip(state)
-        if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
+    local function setNoclipEnabled(state)
+        if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
         if not state then return end
         noclipConn = RunService.Stepped:Connect(function()
-            local _,_,char = getHRP()
-            if not char then return end
-            for _,p in ipairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide=false end
+            local hrp, hum = getHRP()
+            if not hrp then return end
+            for _, p in ipairs(lp.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
             end
         end)
     end
 
-    ----------------------------------------------------------------
-    -- GUI Controls (same as before, corrected order)
-    ----------------------------------------------------------------
-    local function ensureControlsGui()
-        if controlsGui and controlsGui.Parent then return controlsGui end
-        local cg = Instance.new("ScreenGui")
-        cg.Name = "UFO_FlyMiniPad"
-        cg.IgnoreGuiInset = true
-        cg.ResetOnSpawn = false
-        cg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        cg.DisplayOrder = 9999
-        cg.Parent = game:GetService("CoreGui")
-
-        local SIZE, GAP = 64, 10
-        local baseX, baseY = 100, -140
-
-        local pad = Instance.new("Frame")
-        pad.AnchorPoint = Vector2.new(0,1)
-        pad.Position = UDim2.new(0, baseX, 1, baseY)
-        pad.Size = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
-        pad.BackgroundTransparency = 1
-        pad.Parent = cg
-
-        local function makeBtn(x,y,emoji)
-            local b=Instance.new("TextButton")
-            b.Size=UDim2.fromOffset(SIZE,SIZE)
-            b.Position=UDim2.new(0,x,0,y)
-            b.BackgroundColor3=THEME.BLACK
-            b.Text=emoji
-            b.Font=Enum.Font.GothamBold
-            b.TextSize=28
-            b.TextColor3=THEME.WHITE
-            b.AutoButtonColor=false
-            corner(b,10); stroke(b,2,THEME.GREEN)
-            b.Parent=pad
-            return b
-        end
-
-        local btnFwd  = makeBtn(SIZE+GAP,0,"🔼")
-        local btnBack = makeBtn(SIZE+GAP,SIZE*2+GAP*2,"🔽")
-        local btnLeft = makeBtn(0,SIZE+GAP,"◀️")
-        local btnRight= makeBtn((SIZE+GAP)*2,SIZE+GAP,"▶️")
-
-        local R_SIZE=64
-        local rUp   = makeBtn(SIZE*4+GAP*5,-(SIZE+GAP),"⬆️")
-        local rDown = makeBtn(SIZE*4+GAP*5,SIZE+GAP,"⬇️")
-
-        local map={ [btnFwd]="fwd",[btnBack]="back",[btnLeft]="left",[btnRight]="right",[rUp]="up",[rDown]="down" }
-
-        for b,k in pairs(map) do
-            b.InputBegan:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseButton1 then
-                    hold[k]=true
-                end
-            end)
-            b.InputEnded:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseButton1 then
-                    hold[k]=false
-                end
-            end)
-        end
-
-        -- Swipe control area (บนจอทั้งหมด)
-        local swipeZone = Instance.new("Frame")
-        swipeZone.BackgroundTransparency=1
-        swipeZone.Size=UDim2.fromScale(1,1)
-        swipeZone.Parent=cg
-
-        swipeZone.InputBegan:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.Touch then
-                swipeActive=true
-                swipeStartX=io.Position.X
-            end
-        end)
-        swipeZone.InputChanged:Connect(function(io)
-            if swipeActive and io.UserInputType==Enum.UserInputType.Touch then
-                local dx=io.Position.X-swipeStartX
-                if math.abs(dx)>20 then
-                    hold.left=(dx<0)
-                    hold.right=(dx>0)
-                else
-                    hold.left,hold.right=false,false
-                end
-            end
-        end)
-        swipeZone.InputEnded:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.Touch then
-                swipeActive=false
-                hold.left,hold.right=false,false
-            end
-        end)
-        return cg
-    end
-
-    ----------------------------------------------------------------
-    -- Start / Stop Hover
-    ----------------------------------------------------------------
     local function startHover()
         local hrp, hum = getHRP()
         if not hrp or not hum then return end
-        hum.PlatformStand=false
-        freezeAnimations(hum)
 
-        local bp=Instance.new("BodyPosition")
-        bp.MaxForce=Vector3.new(1e6,1e6,1e6)
-        bp.P=8e4; bp.D=2e3
-        bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
-        bp.Parent=hrp
+        hum.PlatformStand = false
+        hrp.Anchored = false
 
-        local bg=Instance.new("BodyGyro")
-        bg.MaxTorque=Vector3.new(1e6,1e6,1e6)
-        bg.P=8e4; bg.D=2e3
-        bg.CFrame=hrp.CFrame
-        bg.Parent=hrp
+        local bp = Instance.new("BodyPosition")
+        bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+        bp.P = 7e4; bp.D = 2e3
+        bp.Position = hrp.Position + Vector3.new(0, hoverHeight, 0)
+        bp.Parent = hrp
 
-        movers.bp,movers.bg=bp,bg
-        ensureControlsGui().Enabled=true
-        setNoclip(true)
+        local bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+        bg.P = 7e4; bg.D = 2e3
+        bg.CFrame = hrp.CFrame
+        bg.Parent = hrp
 
-        loopConn=RunService.Heartbeat:Connect(function(dt)
-            if not (movers.bp and movers.bg) then return end
-            local cf=hrp.CFrame
-            local fwd=Vector3.new(cf.LookVector.X,0,cf.LookVector.Z).Unit
-            local right=Vector3.new(cf.RightVector.X,0,cf.RightVector.Z).Unit
-            local pos=movers.bp.Position
-            if hold.fwd  then pos+=fwd*moveSpeed*dt end
-            if hold.back then pos-=fwd*moveSpeed*dt end
-            if hold.left then pos-=right*strafeSpeed*dt end
-            if hold.right then pos+=right*strafeSpeed*dt end
-            if hold.up then pos+=Vector3.new(0,ascendSpeed*dt,0) end
-            if hold.down then pos-=Vector3.new(0,ascendSpeed*dt,0) end
-            movers.bp.Position=pos
-            movers.bg.CFrame=CFrame.new(hrp.Position,hrp.Position+cf.LookVector)
+        movers.bp, movers.bg = bp, bg
+        setNoclipEnabled(true)
+
+        -- ✅ Steering Detection (พวงมาลัย)
+        UserInputService.InputBegan:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.Touch and not steeringTouch then
+                steeringTouch = io
+                steeringStartX = io.Position.X
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(io)
+            if steeringTouch and io == steeringTouch and io.UserInputType == Enum.UserInputType.Touch then
+                local dx = io.Position.X - steeringStartX
+                steeringYaw = math.clamp(dx / 300, -1, 1) -- หันซ้าย/ขวาค่อยๆ
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(io)
+            if steeringTouch and io == steeringTouch then
+                steeringTouch = nil
+                steeringYaw = 0
+            end
+        end)
+
+        loopConn = RunService.Heartbeat:Connect(function(dt)
+            if not (movers.bp and movers.bg and hrp.Parent) then return end
+
+            local cf   = hrp.CFrame
+            local fwd  = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z).Unit
+            local right= Vector3.new(cf.RightVector.X,0, cf.RightVector.Z).Unit
+            local pos  = movers.bp.Position
+
+            if hold.fwd  then pos += fwd * (moveSpeed * dt) end
+            if hold.back then pos -= fwd * (moveSpeed * dt) end
+            if hold.left then pos -= right * (strafeSpeed * dt) end
+            if hold.right then pos += right * (strafeSpeed * dt) end
+            if hold.up   then pos += Vector3.new(0, ascendSpeed*dt, 0) end
+            if hold.down then pos -= Vector3.new(0, ascendSpeed*dt, 0) end
+
+            -- ✅ Steering effect (หมุนตัวเหมือนพวงมาลัย)
+            if hold.fwd or hold.back then
+                local yawChange = steeringYaw * turnSpeed * dt
+                movers.bg.CFrame = movers.bg.CFrame * CFrame.Angles(0, yawChange, 0)
+            end
+
+            movers.bp.Position = pos
         end)
     end
 
     local function stopHover()
         if loopConn then loopConn:Disconnect(); loopConn=nil end
-        setNoclip(false)
-        local hrp,hum=getHRP()
+        setNoclipEnabled(false)
+        local hrp, hum = getHRP()
         if movers.bp then movers.bp:Destroy() movers.bp=nil end
         if movers.bg then movers.bg:Destroy() movers.bg=nil end
         if hum then hum:ChangeState(Enum.HumanoidStateType.Landed) hum.PlatformStand=false end
     end
 
-    ----------------------------------------------------------------
-    -- Toggle On/Off
-    ----------------------------------------------------------------
-    local isOn=false
+    local isOn = false
     local function setState(v)
-        isOn=v
+        isOn = v
         if v then
-            swStroke.Color=THEME.GREEN
+            swStroke.Color = THEME.GREEN
             knob:TweenPosition(UDim2.new(1,-24,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
             startHover()
         else
-            swStroke.Color=THEME.RED
+            swStroke.Color = THEME.RED
             knob:TweenPosition(UDim2.new(0,2,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
             stopHover()
         end
@@ -1021,9 +956,7 @@ registerRight("Player", function(scroll)
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
     setState(false)
 
-    lp.CharacterAdded:Connect(function()
-        setState(false)
-    end)
+    lp.CharacterAdded:Connect(function() setState(false) end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
