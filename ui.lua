@@ -708,8 +708,13 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2 (Player Abilities ⚡ + Switch Color System) =====
+-- ===== Player tab (Right) — Model A V2 (Flight Mode 🛸 + Hover Toggle with Red/Green border) =====
 registerRight("Player", function(scroll)
+    -- SERVICES
+    local Players     = game:GetService("Players")
+    local RunService  = game:GetService("RunService")
+    local lp          = Players.LocalPlayer
+
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
@@ -740,13 +745,13 @@ registerRight("Player", function(scroll)
         end
     end
 
-    if scroll:FindFirstChild("Section_PlayerAbilities") or scroll:FindFirstChild("Section_MapFly") then return end
+    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- A) Header: Player Abilities ⚡ (ขยับซ้ายอีกนิด)
+    -- A) Header: Flight Mode 🛸 (ตัวอักษรล้วน ชิดซ้าย)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
-    header.Name = "Section_PlayerAbilities"
+    header.Name = "Section_FlightHeader"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1, 0, 0, 0)
     header.AutomaticSize = Enum.AutomaticSize.Y
@@ -762,10 +767,10 @@ registerRight("Player", function(scroll)
     txt.TextColor3 = THEME.WHITE
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.TextYAlignment = Enum.TextYAlignment.Center
-    txt.Text = "Player Abilities ⚡"
+    txt.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode (ลดขนาดชื่อ + toggle เปลี่ยนสี)
+    -- B) Map Fly Mode (สวิตช์แดง/เขียว + โหมดลอยค้าง)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
@@ -793,7 +798,7 @@ registerRight("Player", function(scroll)
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Toggle switch (สีแดง/เขียวตามสถานะ)
+    -- Toggle switch (กรอบแดงตอนปิด / เขียวตอนเปิด)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
@@ -813,21 +818,87 @@ registerRight("Player", function(scroll)
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
-    -- ระบบเปลี่ยนสีกรอบและตำแหน่ง knob
+    ----------------------------------------------------------------
+    -- Hover logic: ลอยขึ้นและค้างที่ตำแหน่งเดิม
+    ----------------------------------------------------------------
+    local hoverHeight = 6                 -- ลอยขึ้นกี่สตูดิโอบล็อกจากพื้น
+    local movers = {bp=nil, bg=nil}       -- ตัวช่วยยึดตำแหน่ง/ทิศทาง
+
+    local function getHRP()
+        local char = lp and lp.Character
+        return char and char:FindFirstChild("HumanoidRootPart"), char and char:FindFirstChildOfClass("Humanoid")
+    end
+
+    local function startHover()
+        local hrp, hum = getHRP()
+        if not hrp or not hum then return end
+
+        -- ปล่อยการ anchor เผื่อมีค่าค้าง
+        hrp.Anchored = false
+        hum.PlatformStand = false
+
+        -- ย้ายจุดเป้าหมายขึ้นไปตาม hoverHeight
+        local targetPos = hrp.Position + Vector3.new(0, hoverHeight, 0)
+
+        -- ตัวคุมตำแหน่ง
+        local bp = Instance.new("BodyPosition")
+        bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+        bp.P = 5e4
+        bp.D = 1e3
+        bp.Position = targetPos
+        bp.Parent = hrp
+
+        -- ตัวคุมการหันให้ตั้งตรงนิ่ง
+        local bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+        bg.P = 5e4
+        bg.D = 1e3
+        bg.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector) * CFrame.Angles(0,0,0)
+        bg.Parent = hrp
+
+        movers.bp, movers.bg = bp, bg
+
+        -- รีเซ็ตความเร็วเพื่อไม่ให้ไหล
+        hrp.Velocity = Vector3.new()
+        hrp.RotVelocity = Vector3.new()
+    end
+
+    local function stopHover()
+        local hrp, hum = getHRP()
+        if movers.bp then movers.bp:Destroy() movers.bp = nil end
+        if movers.bg then movers.bg:Destroy() movers.bg = nil end
+        if hrp then
+            hrp.Velocity = Vector3.new()
+            hrp.RotVelocity = Vector3.new()
+        end
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Landed)
+            hum.PlatformStand = false
+        end
+    end
+
+    -- สลับสถานะ + เปลี่ยนสีกรอบ + เลื่อนปุ่ม
     local isOn = false
     local function setState(v)
         isOn = v
         if isOn then
             swStroke.Color = THEME.GREEN
             knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            startHover()
         else
             swStroke.Color = THEME.RED
             knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            stopHover()
         end
     end
 
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
     setState(false)
+
+    -- ถ้าตัวละครรีสปอว์น ให้ปิดโหมดลอยเพื่อความปลอดภัย
+    lp.CharacterAdded:Connect(function()
+        setState(false)
+    end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
