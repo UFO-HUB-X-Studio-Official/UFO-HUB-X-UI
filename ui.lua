@@ -532,9 +532,10 @@ local function makeTabFrame(tabName)
     return RSTATE.frames[tabName]
 end
 
--- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ
+-- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (รองรับหลายตัว)
 local function registerRight(tabName, builderFn)
-    RSTATE.builders[tabName] = builderFn
+    RSTATE.builders[tabName] = RSTATE.builders[tabName] or {}
+    table.insert(RSTATE.builders[tabName], builderFn)
 end
 
 -- 5) หัวเรื่อง
@@ -575,8 +576,11 @@ function showRight(titleText, iconId)
 
     if not f.built then
         addHeader(f.scroll, titleText, iconId)
-        local builder = RSTATE.builders[tab]
-        if builder then builder(f.scroll) end
+        -- เรียกทุก builder ของแท็บนี้ (เรียงตามที่ register เข้ามา)
+        local list = RSTATE.builders[tab] or {}
+        for _, builder in ipairs(list) do
+            pcall(builder, f.scroll)
+        end
         f.built = true
     end
 
@@ -604,7 +608,10 @@ registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
 -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
+-- โปรไฟล์ (avatar + name)
 registerRight("Player", function(scroll)
+    -- … โค้ด Section_Profile ของคุณ …
+end)
     local Players = game:GetService("Players")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
@@ -696,7 +703,10 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Flight header + MapFly card (append after existing content) =====
+-- หัว "โหมดบิน 🛸" + การ์ด "โหมดบินชมแมพ" + สวิตช์
 registerRight("Player", function(scroll)
+    -- … โค้ด Section_FlightHeader + Section_MapFly ของคุณ …
+end)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
