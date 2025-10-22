@@ -737,7 +737,7 @@ registerRight("Player", function(scroll)
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- find next layout order (append)
+    -- next order
     local nextOrder = 10
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -745,13 +745,12 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- guard duplicate
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then
         return
     end
 
     ----------------------------------------------------------------
-    -- A) Header pill: "Flight Mode 🛸"  (black bg + green border)
+    -- A) Header: Flight Mode 🛸
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -766,7 +765,6 @@ registerRight("Player", function(scroll)
     hl.VerticalAlignment   = Enum.VerticalAlignment.Top
     hl.Padding             = UDim.new(0, 6)
 
-    -- ขนาดเล็กลงให้เหมือนภาพตัวอย่าง
     local pill = Instance.new("Frame", header)
     pill.Size = UDim2.fromOffset(118, 24)
     pill.BackgroundColor3 = THEME.BLACK
@@ -783,30 +781,28 @@ registerRight("Player", function(scroll)
     pillText.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Long bar: "Map Fly Mode" + small toggle (match pic #1)
+    -- B) Map Fly Mode row (FULL-WIDTH with equal left/right gutters)
     ----------------------------------------------------------------
-    local card = Instance.new("Frame")
-    card.Name = "Section_MapFly"
-    card.BackgroundTransparency = 1
-    card.Size = UDim2.new(1, 0, 0, 0)
-    card.AutomaticSize = Enum.AutomaticSize.Y
-    card.LayoutOrder = nextOrder + 1
-    card.Parent = scroll
+    local GUTTER = 12  -- ระยะขอบซ้าย/ขวาให้เท่ากันแบบโปร
 
-    local cl = Instance.new("UIListLayout", card)
-    cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    cl.VerticalAlignment   = Enum.VerticalAlignment.Top
+    local row = Instance.new("Frame")
+    row.Name = "Section_MapFly"
+    row.BackgroundTransparency = 1
+    row.Size = UDim2.new(1, -GUTTER*2, 0, 30)   -- ดึงซ้าย/ขวาออกเท่ากัน
+    row.Position = UDim2.new(0, GUTTER, 0, 0)   -- จัดกึ่งกลางด้วยการดันเข้าเท่ากับ GUTTER
+    row.LayoutOrder = nextOrder + 1
+    row.Parent = scroll
 
-    -- ความยาวแคบลงให้ดูเหมือนภาพ (เหลือระยะซ้าย/ขวาประมาณ 110px)
-    local bar = Instance.new("Frame", card)
+    -- แถบดำ (เต็มแถวพอดี)
+    local bar = Instance.new("Frame", row)
     bar.BackgroundColor3 = THEME.BLACK
-    bar.Size = UDim2.new(1, -220, 0, 30)
+    bar.Size = UDim2.fromScale(1, 1)
     corner(bar, 10); stroke(bar, 1.6, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
     title.Position = UDim2.new(0, 12, 0, 0)
-    title.Size = UDim2.new(1, -120, 1, 0) -- เว้นพื้นที่ให้สวิตช์เล็ก
+    title.Size = UDim2.new(1, -120, 1, 0)  -- เผื่อสวิตช์ด้านขวา
     title.Font = Enum.Font.GothamBold
     title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
@@ -814,7 +810,7 @@ registerRight("Player", function(scroll)
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Small toggle (ตามภาพ #1)
+    -- สวิตช์เล็ก (ตามภาพ)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -10, 0.5, 0)
@@ -839,7 +835,7 @@ registerRight("Player", function(scroll)
         if isOn then
             knob:TweenPosition(UDim2.new(1, -20, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
-            knob:TweenPosition(UDim2.new(0, 2,   0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0,   2, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
