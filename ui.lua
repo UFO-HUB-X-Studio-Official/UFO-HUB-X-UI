@@ -724,7 +724,7 @@ registerRight("Player", function(scroll)
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent=ui; return s
     end
 
-    -- 1) Ensure layout (ไม่ลบของเดิม)
+    -- Ensure layout (do NOT clear old content)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -737,7 +737,7 @@ registerRight("Player", function(scroll)
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- 2) หา LayoutOrder ถัดไปเพื่อ “ต่อท้าย”
+    -- find next layout order (append)
     local nextOrder = 10
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -745,13 +745,13 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- กันสร้างซ้ำ
+    -- guard duplicate
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then
         return
     end
 
     ----------------------------------------------------------------
-    -- A) หัวข้อ "โหมดบิน 🛸" — สี่เหลี่ยมเล็ก (พื้นดำ เส้นเขียว ตัวอักษรขาว)
+    -- A) Header pill: "Flight Mode 🛸"  (black bg + green border)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -766,23 +766,24 @@ registerRight("Player", function(scroll)
     hl.VerticalAlignment   = Enum.VerticalAlignment.Top
     hl.Padding             = UDim.new(0, 6)
 
+    -- ขนาดเล็กลงให้เหมือนภาพตัวอย่าง
     local pill = Instance.new("Frame", header)
-    pill.Size = UDim2.fromOffset(130, 26)   -- ขนาดตามภาพ
-    pill.BackgroundColor3 = THEME.BLACK     -- ตามโจทย์: ขาว -> ดำ
+    pill.Size = UDim2.fromOffset(118, 24)
+    pill.BackgroundColor3 = THEME.BLACK
     corner(pill, 8); stroke(pill, 1.6, THEME.GREEN)
 
     local pillText = Instance.new("TextLabel", pill)
     pillText.BackgroundTransparency = 1
     pillText.Size = UDim2.fromScale(1, 1)
     pillText.Font = Enum.Font.GothamBold
-    pillText.TextSize = 14
+    pillText.TextSize = 13
     pillText.TextColor3 = THEME.WHITE
     pillText.TextXAlignment = Enum.TextXAlignment.Center
     pillText.TextYAlignment = Enum.TextYAlignment.Center
-    pillText.Text = "โหมดบิน 🛸"
+    pillText.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) การ์ด "โหมดบินชมแมพ" + สวิตช์ (พื้นดำ เส้นเขียว)
+    -- B) Long bar: "Map Fly Mode" + small toggle (match pic #1)
     ----------------------------------------------------------------
     local card = Instance.new("Frame")
     card.Name = "Section_MapFly"
@@ -796,35 +797,36 @@ registerRight("Player", function(scroll)
     cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
     cl.VerticalAlignment   = Enum.VerticalAlignment.Top
 
+    -- ความยาวแคบลงให้ดูเหมือนภาพ (เหลือระยะซ้าย/ขวาประมาณ 110px)
     local bar = Instance.new("Frame", card)
     bar.BackgroundColor3 = THEME.BLACK
-    bar.Size = UDim2.new(1, -180, 0, 42)     -- ยาวพอดีคอลัมน์ (ขอบซ้าย/ขวา ~90px)
-    corner(bar, 10); stroke(bar, 1.8, THEME.GREEN)
+    bar.Size = UDim2.new(1, -220, 0, 30)
+    corner(bar, 10); stroke(bar, 1.6, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0, 14, 0, 0)
-    title.Size = UDim2.new(1, -140, 1, 0)    -- เผื่อสวิตช์ด้านขวา
+    title.Position = UDim2.new(0, 12, 0, 0)
+    title.Size = UDim2.new(1, -120, 1, 0) -- เว้นพื้นที่ให้สวิตช์เล็ก
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
+    title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextYAlignment = Enum.TextYAlignment.Center
     title.TextColor3 = THEME.WHITE
-    title.Text = "โหมดบินชมแมพ"
+    title.Text = "Map Fly Mode"
 
-    -- สวิตช์ เปิด/ปิด
+    -- Small toggle (ตามภาพ #1)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
-    switch.Position = UDim2.new(1, -12, 0.5, 0)
-    switch.Size = UDim2.fromOffset(64, 28)
+    switch.Position = UDim2.new(1, -10, 0.5, 0)
+    switch.Size = UDim2.fromOffset(44, 22)
     switch.BackgroundColor3 = THEME.BLACK
-    corner(switch, 14); stroke(switch, 1.6, THEME.GREEN)
+    corner(switch, 11); stroke(switch, 1.4, THEME.GREEN)
 
     local knob = Instance.new("Frame", switch)
-    knob.Size = UDim2.fromOffset(24, 24)
-    knob.Position = UDim2.new(0, 2, 0.5, -12)
+    knob.Size = UDim2.fromOffset(18, 18)
+    knob.Position = UDim2.new(0, 2, 0.5, -9)
     knob.BackgroundColor3 = THEME.WHITE
-    corner(knob, 12)
+    corner(knob, 9)
 
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
@@ -835,9 +837,9 @@ registerRight("Player", function(scroll)
     local function setState(v)
         isOn = v
         if isOn then
-            knob:TweenPosition(UDim2.new(1, -26, 0.5, -12), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(1, -20, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
-            knob:TweenPosition(UDim2.new(0, 2, 0.5, -12),  Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0, 2,   0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
