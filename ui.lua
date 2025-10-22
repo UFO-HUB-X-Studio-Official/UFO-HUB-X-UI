@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header (emoji text only, left aligned) + MapFly card (full stretch) =====
+-- ===== Player tab (Right) — Flight header (emoji text only, slightly right & smaller) + MapFly card =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
@@ -718,32 +718,18 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
-    local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 10)
-        c.Parent = ui
-        return c
-    end
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 2
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Parent = ui
-        return s
-    end
 
-    -- Ensure layout (do NOT clear old content)
+    -- Layout setup
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
         vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left  -- << ให้เรียงด้านซ้าย
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left
         vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
         vlist.SortOrder = Enum.SortOrder.LayoutOrder
         vlist.Parent = scroll
     end
-    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    scroll.ScrollingDirection = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     local nextOrder = 10
@@ -753,12 +739,10 @@ registerRight("Player", function(scroll)
         end
     end
 
-    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then
-        return
-    end
+    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- A) Header text only: "Flight Mode 🛸" (no background, no border)
+    -- A) Header: Flight Mode 🛸 (text only, slightly right + smaller)
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -770,19 +754,17 @@ registerRight("Player", function(scroll)
 
     local txt = Instance.new("TextLabel", header)
     txt.BackgroundTransparency = 1
-    txt.Position = UDim2.new(0, 0, 0, 0)
-    txt.Size = UDim2.new(1, 0, 0, 40)
+    txt.Position = UDim2.new(0, 14, 0, 0) -- ขยับเข้าขวา 14px
+    txt.Size = UDim2.new(1, 0, 0, 32) -- ลดความสูงลงเล็กน้อย
     txt.Font = Enum.Font.GothamBold
-    txt.TextSize = 20
-    txt.TextColor3 = THEME.WHITE
+    txt.TextSize = 17                 -- ลดขนาดลงเล็กน้อย
+    txt.TextColor3 = THEME.WHITE      -- สีขาวล้วน
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.TextYAlignment = Enum.TextYAlignment.Center
     txt.Text = "Flight Mode 🛸"
-    txt.TextStrokeTransparency = 0.7
-    txt.TextStrokeColor3 = THEME.GREEN
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode (full width bar)
+    -- B) Map Fly Mode (full width)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
@@ -796,7 +778,12 @@ registerRight("Player", function(scroll)
     bar.Position = UDim2.new(0.5, 0, 0, 0)
     bar.Size = UDim2.new(1, -6, 1, 0)
     bar.BackgroundColor3 = THEME.BLACK
-    corner(bar, 12); stroke(bar, 2.2, THEME.GREEN)
+    local corner = Instance.new("UICorner", bar)
+    corner.CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", bar)
+    stroke.Thickness = 2.2
+    stroke.Color = THEME.GREEN
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
@@ -815,13 +802,19 @@ registerRight("Player", function(scroll)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
     switch.Size = UDim2.fromOffset(52, 26)
     switch.BackgroundColor3 = THEME.BLACK
-    corner(switch, 13); stroke(switch, 1.6, THEME.GREEN)
+    local swCorner = Instance.new("UICorner", switch)
+    swCorner.CornerRadius = UDim.new(0, 13)
+    local swStroke = Instance.new("UIStroke", switch)
+    swStroke.Thickness = 1.6
+    swStroke.Color = THEME.GREEN
+    swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
-    corner(knob, 11)
+    local knobCorner = Instance.new("UICorner", knob)
+    knobCorner.CornerRadius = UDim.new(0, 11)
 
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
