@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header + MapFly card (append after existing content) =====
+-- ===== Player tab (Right) — Flight header + MapFly card (perfect full width) =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
@@ -718,10 +718,19 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
-    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui; return c end
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
+    end
     local function stroke(ui, th, col)
-        local s=Instance.new("UIStroke"); s.Thickness=th or 1.6; s.Color=col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent=ui; return s
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 1.6
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
     end
 
     -- Ensure layout (do NOT clear old content)
@@ -781,28 +790,28 @@ registerRight("Player", function(scroll)
     pillText.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode row (FULL-WIDTH with equal left/right gutters)
+    -- B) Map Fly Mode row (now perfectly flush with both sides)
     ----------------------------------------------------------------
-    local GUTTER = 12  -- ระยะขอบซ้าย/ขวาให้เท่ากันแบบโปร
-
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
-    row.Size = UDim2.new(1, -GUTTER*2, 0, 30)   -- ดึงซ้าย/ขวาออกเท่ากัน
-    row.Position = UDim2.new(0, GUTTER, 0, 0)   -- จัดกึ่งกลางด้วยการดันเข้าเท่ากับ GUTTER
+    row.Size = UDim2.new(1, 0, 0, 34)
+    row.AutomaticSize = Enum.AutomaticSize.None
     row.LayoutOrder = nextOrder + 1
     row.Parent = scroll
 
-    -- แถบดำ (เต็มแถวพอดี)
+    -- Full-width bar (extend a bit left/right)
     local bar = Instance.new("Frame", row)
+    bar.AnchorPoint = Vector2.new(0.5, 0)
+    bar.Position = UDim2.new(0.5, 0, 0, 0)
+    bar.Size = UDim2.new(1, -36, 1, 0) -- กินเต็มพอดีแบบมือโปร (เหลือขอบเขียว 18px ต่อข้าง)
     bar.BackgroundColor3 = THEME.BLACK
-    bar.Size = UDim2.fromScale(1, 1)
-    corner(bar, 10); stroke(bar, 1.6, THEME.GREEN)
+    corner(bar, 10); stroke(bar, 1.8, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0, 12, 0, 0)
-    title.Size = UDim2.new(1, -120, 1, 0)  -- เผื่อสวิตช์ด้านขวา
+    title.Position = UDim2.new(0, 14, 0, 0)
+    title.Size = UDim2.new(1, -110, 1, 0)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
@@ -810,7 +819,7 @@ registerRight("Player", function(scroll)
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- สวิตช์เล็ก (ตามภาพ)
+    -- Toggle switch (same small size)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -10, 0.5, 0)
@@ -835,7 +844,7 @@ registerRight("Player", function(scroll)
         if isOn then
             knob:TweenPosition(UDim2.new(1, -20, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
-            knob:TweenPosition(UDim2.new(0,   2, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0, 2, 0.5, -9), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
