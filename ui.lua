@@ -708,18 +708,19 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header (left a bit more) + MapFly card (smaller title) =====
+-- ===== Player tab (Right) — Model A V1 (Switch Color State Added) =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
         GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
+        RED      = Color3.fromRGB(255, 40, 40),
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
 
-    -- layout (ไม่ลบของเดิม)
+    -- Layout (ไม่ลบของเดิม)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -732,6 +733,7 @@ registerRight("Player", function(scroll)
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
+    -- หา LayoutOrder ถัดไป
     local nextOrder = 10
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -739,6 +741,7 @@ registerRight("Player", function(scroll)
         end
     end
 
+    -- ป้องกันสร้างซ้ำ
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
@@ -754,17 +757,17 @@ registerRight("Player", function(scroll)
 
     local txt = Instance.new("TextLabel", header)
     txt.BackgroundTransparency = 1
-    txt.Position = UDim2.new(0, 6, 0, 0)  -- จาก 14 → 6 (ไปซ้ายอีกนิด)
+    txt.Position = UDim2.new(0, 6, 0, 0)
     txt.Size = UDim2.new(1, 0, 0, 32)
     txt.Font = Enum.Font.GothamBold
-    txt.TextSize = 16                   -- เล็กลงเล็กน้อย
+    txt.TextSize = 16
     txt.TextColor3 = THEME.WHITE
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.TextYAlignment = Enum.TextYAlignment.Center
     txt.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode (ลดขนาดชื่อ)
+    -- B) Map Fly Mode (สวิตช์สีเปลี่ยนตามสถานะ)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
@@ -778,50 +781,65 @@ registerRight("Player", function(scroll)
     bar.Position = UDim2.new(0.5, 0, 0, 0)
     bar.Size = UDim2.new(1, -6, 1, 0)
     bar.BackgroundColor3 = THEME.BLACK
-    local corner = Instance.new("UICorner", bar); corner.CornerRadius = UDim.new(0, 12)
-    local stroke = Instance.new("UIStroke", bar); stroke.Thickness = 2.2; stroke.Color = THEME.GREEN; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local corner = Instance.new("UICorner", bar)
+    corner.CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", bar)
+    stroke.Thickness = 2.2
+    stroke.Color = THEME.GREEN
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
     title.Position = UDim2.new(0, 16, 0, 0)
     title.Size = UDim2.new(1, -140, 1, 0)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 13                -- จาก 16 → 13 (เล็กลงตามคำขอ)
+    title.TextSize = 13
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextYAlignment = Enum.TextYAlignment.Center
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Toggle switch (เหมือนเดิม)
+    -- Toggle switch (สีกรอบเปลี่ยนตามสถานะ)
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
     switch.Size = UDim2.fromOffset(52, 26)
     switch.BackgroundColor3 = THEME.BLACK
-    local swCorner = Instance.new("UICorner", switch); swCorner.CornerRadius = UDim.new(0, 13)
-    local swStroke = Instance.new("UIStroke", switch); swStroke.Thickness = 1.6; swStroke.Color = THEME.GREEN; swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local swCorner = Instance.new("UICorner", switch)
+    swCorner.CornerRadius = UDim.new(0, 13)
+    local swStroke = Instance.new("UIStroke", switch)
+    swStroke.Thickness = 1.8
+    swStroke.Color = THEME.RED -- เริ่มต้นเป็นสีแดง (ปิด)
+    swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
-    local knobCorner = Instance.new("UICorner", knob); knobCorner.CornerRadius = UDim.new(0, 11)
+    local knobCorner = Instance.new("UICorner", knob)
+    knobCorner.CornerRadius = UDim.new(0, 11)
 
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
+    -- ระบบเปิด/ปิด + เปลี่ยนสีขอบ
     local isOn = false
     local function setState(v)
         isOn = v
         if isOn then
+            swStroke.Color = THEME.GREEN
             knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
+            swStroke.Color = THEME.RED
             knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
-    button.MouseButton1Click:Connect(function() setState(not isOn) end)
+
+    button.MouseButton1Click:Connect(function()
+        setState(not isOn)
+    end)
     setState(false)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
