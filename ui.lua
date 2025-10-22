@@ -695,6 +695,142 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
+-- ===== Player tab (Right) — Flight Mode Header + Map Fly Card (stacked, no overlap) =====
+registerRight("Player", function(scroll)
+    -- ==== THEME ====
+    local BASE = rawget(_G, "THEME") or {}
+    local THEME = {
+        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
+        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
+        WHITE    = Color3.fromRGB(255, 255, 255),
+        BLACK    = Color3.fromRGB(0, 0, 0),
+    }
+    local function corner(ui, r)
+        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = ui; return c
+    end
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke"); s.Thickness = th or 1.6; s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = ui; return s
+    end
+
+    -- ==== Ensure scroll layout (create once, don't clear others) ====
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Padding = UDim.new(0, 12)
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+        vlist.Parent = scroll
+    end
+    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- ลบเฉพาะบล็อกเก่าของ “FlightModeHeader/MapFly” ถ้ามี
+    local oldA = scroll:FindFirstChild("Section_FlightHeader"); if oldA then oldA:Destroy() end
+    local oldB = scroll:FindFirstChild("Section_MapFly");      if oldB then oldB:Destroy() end
+
+    ----------------------------------------------------------------
+    -- A) หัวข้อ “โหมดบิน + อิโมจิ”  (แทนสี่เหลี่ยมสีขาวเล็กในภาพ)
+    --    * ขนาดกำหนดให้ใกล้ภาพ: 130x26  พื้น “ขาว”, ขอบเขียว, ตัวอักษรดำ + อิโมจิ 🛸
+    ----------------------------------------------------------------
+    local header = Instance.new("Frame")
+    header.Name = "Section_FlightHeader"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, 0, 0, 0)
+    header.AutomaticSize = Enum.AutomaticSize.Y
+    header.LayoutOrder = 40
+    header.Parent = scroll
+
+    local hl = Instance.new("UIListLayout", header)
+    hl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    hl.VerticalAlignment   = Enum.VerticalAlignment.Top
+    hl.Padding             = UDim.new(0, 6)
+
+    local pill = Instance.new("Frame", header)
+    pill.Size = UDim2.fromOffset(130, 26)     -- “เป๊ะๆ” ใกล้ภาพ
+    pill.BackgroundColor3 = THEME.WHITE       -- คง “สีขาว” ตามคำขอ
+    corner(pill, 8); stroke(pill, 1.6, THEME.GREEN)
+
+    local pillText = Instance.new("TextLabel", pill)
+    pillText.BackgroundTransparency = 1
+    pillText.Size = UDim2.fromScale(1, 1)
+    pillText.Font = Enum.Font.GothamBold
+    pillText.TextSize = 14
+    pillText.TextColor3 = THEME.BLACK
+    pillText.TextXAlignment = Enum.TextXAlignment.Center
+    pillText.TextYAlignment = Enum.TextYAlignment.Center
+    pillText.Text = "โหมดบิน 🛸"  -- “ชื่อ + อิโมจิ” เท่านั้น
+
+    ----------------------------------------------------------------
+    -- B) แผง “โหมดบินชมแมพ” (แทนสี่เหลี่ยมแดงยาวในภาพ)
+    --    * ขนาดยาวพอดี: กว้างตามคอลัมน์  ลดขอบซ้ายขวา 90px  สูง 42px
+    --    * พื้น “ดำ”, ขอบ “เขียว”, ตัวอักษร “ขาว”
+    --    * มี “สวิตช์ปิด/เปิด” ด้านขวา
+    ----------------------------------------------------------------
+    local card = Instance.new("Frame")
+    card.Name = "Section_MapFly"
+    card.BackgroundTransparency = 1
+    card.Size = UDim2.new(1, 0, 0, 0)
+    card.AutomaticSize = Enum.AutomaticSize.Y
+    card.LayoutOrder = 41
+    card.Parent = scroll
+
+    local cl = Instance.new("UIListLayout", card)
+    cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    cl.VerticalAlignment   = Enum.VerticalAlignment.Top
+    cl.Padding             = UDim.new(0, 0)
+
+    local bar = Instance.new("Frame", card)
+    bar.BackgroundColor3 = THEME.BLACK
+    bar.Size = UDim2.new(1, -180, 0, 42)  -- ความยาว “ยาวพอดี” ใกล้ภาพ (ปรับระยะขอบซ้ายขวา 90px)
+    corner(bar, 10); stroke(bar, 1.8, THEME.GREEN)
+
+    -- ข้อความ “โหมดบินชมแมพ”
+    local title = Instance.new("TextLabel", bar)
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 14, 0, 0)
+    title.Size = UDim2.new(1, -140, 1, 0) -- เว้นที่ด้านขวาไว้สำหรับสวิตช์
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextYAlignment = Enum.TextYAlignment.Center
+    title.TextColor3 = THEME.WHITE
+    title.Text = "โหมดบินชมแมพ"
+
+    -- สวิตช์ ปิด/เปิด
+    local switch = Instance.new("Frame", bar)
+    switch.Name = "Switch"
+    switch.AnchorPoint = Vector2.new(1, 0.5)
+    switch.Position = UDim2.new(1, -12, 0.5, 0)
+    switch.Size = UDim2.fromOffset(64, 28)
+    switch.BackgroundColor3 = THEME.BLACK
+    corner(switch, 14); stroke(switch, 1.6, THEME.GREEN)
+
+    local knob = Instance.new("Frame", switch)
+    knob.Size = UDim2.fromOffset(24, 24)
+    knob.Position = UDim2.new(0, 2, 0.5, -12)
+    knob.BackgroundColor3 = THEME.WHITE
+    corner(knob, 12)
+
+    local btn = Instance.new("TextButton", switch)
+    btn.AutoButtonColor = true
+    btn.BackgroundTransparency = 1
+    btn.Size = UDim2.fromScale(1, 1)
+    btn.Text = ""
+
+    local on = false
+    local function setState(v)
+        on = v
+        if on then
+            knob:TweenPosition(UDim2.new(1, -26, 0.5, -12), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+        else
+            knob:TweenPosition(UDim2.new(0, 2, 0.5, -12),  Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+        end
+    end
+    btn.MouseButton1Click:Connect(function() setState(not on) end)
+    setState(false)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
