@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Flight header + MapFly card (full width & bigger) =====
+-- ===== Player tab (Right) — Flight header + MapFly card (edge-to-edge full stretch) =====
 registerRight("Player", function(scroll)
     -- THEME
     local BASE = rawget(_G, "THEME") or {}
@@ -718,10 +718,22 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
-    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 10); c.Parent=ui; return c end
-    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 1.8; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
+    end
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
+    end
 
-    -- Layout (ไม่ลบของเดิม)
+    -- Ensure layout (ไม่ลบของเดิม)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -741,23 +753,28 @@ registerRight("Player", function(scroll)
         end
     end
 
-    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
+    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then
+        return
+    end
 
     ----------------------------------------------------------------
-    -- Header: Flight Mode 🛸
+    -- A) Header: Flight Mode 🛸
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
-    header.Name, header.BackgroundTransparency = "Section_FlightHeader", 1
+    header.Name = "Section_FlightHeader"
+    header.BackgroundTransparency = 1
     header.Size = UDim2.new(1, 0, 0, 0)
     header.AutomaticSize = Enum.AutomaticSize.Y
     header.LayoutOrder = nextOrder
     header.Parent = scroll
 
     local hl = Instance.new("UIListLayout", header)
-    hl.HorizontalAlignment, hl.VerticalAlignment, hl.Padding = Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, UDim.new(0, 6)
+    hl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    hl.VerticalAlignment   = Enum.VerticalAlignment.Top
+    hl.Padding             = UDim.new(0, 6)
 
     local pill = Instance.new("Frame", header)
-    pill.Size = UDim2.fromOffset(118, 24)
+    pill.Size = UDim2.fromOffset(120, 26)
     pill.BackgroundColor3 = THEME.BLACK
     corner(pill, 8); stroke(pill, 1.6, THEME.GREEN)
 
@@ -772,45 +789,46 @@ registerRight("Player", function(scroll)
     pillText.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- Map Fly Mode row — FULL width + bigger
+    -- B) Map Fly Mode row — now truly full width (left-right flush)
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
-    row.Name, row.BackgroundTransparency = "Section_MapFly", 1
-    row.Size = UDim2.new(1, 0, 0, 40)          -- สูงขึ้นเล็กน้อย
-    row.AutomaticSize = Enum.AutomaticSize.None
+    row.Name = "Section_MapFly"
+    row.BackgroundTransparency = 1
+    row.Size = UDim2.new(1, 0, 0, 46) -- เพิ่มความสูงขึ้นเล็กน้อย
     row.LayoutOrder = nextOrder + 1
     row.Parent = scroll
 
-    -- ขยายเต็มกรอบ: เหลือ margin ข้างละ 8px ให้เส้นไม่ชิดจนเกินไป
     local bar = Instance.new("Frame", row)
-    bar.AnchorPoint, bar.Position = Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 0)
-    bar.Size = UDim2.new(1, -16, 1, 0)         -- << เดิม -36 → ตอนนี้ -16 ชิดซ้าย/ขวากว่าเดิม
+    bar.AnchorPoint = Vector2.new(0.5, 0)
+    bar.Position = UDim2.new(0.5, 0, 0, 0)
+    bar.Size = UDim2.new(1, -6, 1, 0) -- เดิม -16 → ตอนนี้เหลือแค่ -6 (แทบชิดกรอบ)
     bar.BackgroundColor3 = THEME.BLACK
-    corner(bar, 12); stroke(bar, 2.0, THEME.GREEN)
+    corner(bar, 12); stroke(bar, 2.2, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0, 16, 0, 0)    -- ดันในเข้าอีกนิด
-    title.Size = UDim2.new(1, -130, 1, 0)      -- เผื่อพื้นที่สวิตช์
+    title.Position = UDim2.new(0, 16, 0, 0)
+    title.Size = UDim2.new(1, -140, 1, 0)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 15                        -- ใหญ่ขึ้นนิด
-    title.TextXAlignment, title.TextYAlignment = Enum.TextXAlignment.Left, Enum.TextYAlignment.Center
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextYAlignment = Enum.TextYAlignment.Center
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Toggle (คงขนาดกะทัดรัดแต่ดันตามความสูงใหม่)
+    -- Toggle switch
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
-    switch.Size = UDim2.fromOffset(48, 24)     -- ใหญ่ขึ้นเล็กน้อยให้บาลานซ์กับแถบ
+    switch.Size = UDim2.fromOffset(52, 26)
     switch.BackgroundColor3 = THEME.BLACK
-    corner(switch, 12); stroke(switch, 1.6, THEME.GREEN)
+    corner(switch, 13); stroke(switch, 1.6, THEME.GREEN)
 
     local knob = Instance.new("Frame", switch)
-    knob.Size = UDim2.fromOffset(20, 20)
-    knob.Position = UDim2.new(0, 2, 0.5, -10)
+    knob.Size = UDim2.fromOffset(22, 22)
+    knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
-    corner(knob, 10)
+    corner(knob, 11)
 
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
@@ -821,9 +839,9 @@ registerRight("Player", function(scroll)
     local function setState(v)
         isOn = v
         if isOn then
-            knob:TweenPosition(UDim2.new(1, -22, 0.5, -10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         else
-            knob:TweenPosition(UDim2.new(0, 2,   0.5, -10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
         end
     end
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
