@@ -708,8 +708,8 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
--- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Fixed pad order =====
+-- ===== Player tab (Right) — Model A V3 — Flight Mode 🛸
+-- Hover Toggle + Control Pad (Hold + Swipe Move) + Fixed Anim Freeze + Noclip =====
 registerRight("Player", function(scroll)
     ----------------------------------------------------------------
     -- Services / Theme
@@ -732,7 +732,7 @@ registerRight("Player", function(scroll)
     local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
     ----------------------------------------------------------------
-    -- Layout (don't clear old content)
+    -- Layout setup
     ----------------------------------------------------------------
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
@@ -752,14 +752,12 @@ registerRight("Player", function(scroll)
             nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0) + 1)
         end
     end
-
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- A) Header: Flight Mode 🛸 (text only)
+    -- Header: Flight Mode 🛸
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
-    header.Name = "Section_FlightHeader"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1, 0, 0, 0)
     header.AutomaticSize = Enum.AutomaticSize.Y
@@ -778,10 +776,9 @@ registerRight("Player", function(scroll)
     txt.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Row: Map Fly Mode + Switch (red when OFF / green when ON)
+    -- Map Fly Toggle
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
-    row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1, 0, 0, 46)
     row.LayoutOrder = nextOrder + 1
@@ -800,9 +797,9 @@ registerRight("Player", function(scroll)
     title.Size = UDim2.new(1, -140, 1, 0)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 13
+    title.TextColor3 = THEME.WHITE
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextYAlignment = Enum.TextYAlignment.Center
-    title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
     local switch = Instance.new("Frame", bar)
@@ -812,263 +809,221 @@ registerRight("Player", function(scroll)
     switch.BackgroundColor3 = THEME.BLACK
     corner(switch, 13)
     local swStroke = stroke(switch, 1.8, THEME.RED)
-
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
     corner(knob, 11)
-
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Hover + Mini Control Pad (hold-to-move) + Swipe Strafe + Noclip
+    -- Hover / Movement System
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 38  -- faster
-    local strafeSpeed   = 38  -- faster
-    local ascendSpeed   = 28  -- faster
+    local moveSpeed     = 42
+    local strafeSpeed   = 42
+    local ascendSpeed   = 32
+    local turnSpeed     = math.rad(90)
 
-    local movers = {bp=nil, bg=nil}
-    local loopConn, noclipConn
+    local movers, loopConn, noclipConn = {bp=nil, bg=nil}, nil, nil
     local controlsGui
     local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
+    local swipeActive, swipeStartX
 
     local function getHRP()
-        local char = lp and lp.Character
+        local char = lp.Character
         return char and char:FindFirstChild("HumanoidRootPart"),
                char and char:FindFirstChildOfClass("Humanoid"),
                char
     end
 
-    local function getGuiParent()
-        local ok, hui = pcall(function() return gethui and gethui() end)
-        if ok and hui then return hui end
-        return game:GetService("CoreGui")
+    local function freezeAnimations(hum)
+        for _, t in ipairs(hum:GetPlayingAnimationTracks()) do t:Stop() end
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
     end
 
+    local function setNoclip(state)
+        if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
+        if not state then return end
+        noclipConn = RunService.Stepped:Connect(function()
+            local _,_,char = getHRP()
+            if not char then return end
+            for _,p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=false end
+            end
+        end)
+    end
+
+    ----------------------------------------------------------------
+    -- GUI Controls (same as before, corrected order)
+    ----------------------------------------------------------------
     local function ensureControlsGui()
         if controlsGui and controlsGui.Parent then return controlsGui end
-        controlsGui = Instance.new("ScreenGui")
-        controlsGui.Name = "UFO_FlyMiniPad"
-        controlsGui.ResetOnSpawn = false
-        controlsGui.IgnoreGuiInset = true
-        controlsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        controlsGui.DisplayOrder = 9999
-        controlsGui.Parent = getGuiParent()
+        local cg = Instance.new("ScreenGui")
+        cg.Name = "UFO_FlyMiniPad"
+        cg.IgnoreGuiInset = true
+        cg.ResetOnSpawn = false
+        cg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        cg.DisplayOrder = 9999
+        cg.Parent = game:GetService("CoreGui")
 
         local SIZE, GAP = 64, 10
+        local baseX, baseY = 100, -140
 
-        -- ฐานแพดซ้ายล่าง (ยึดจาก "ล่างซ้าย" เพื่อกันสลับตำแหน่ง)
         local pad = Instance.new("Frame")
-        pad.Name = "Pad"
-        pad.BackgroundTransparency = 1
         pad.AnchorPoint = Vector2.new(0,1)
-        pad.Position = UDim2.new(0, 100, 1, -140)            -- (ซ้าย 100, จากล่าง 140)
-        pad.Size     = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
-        pad.Active   = true
-        pad.Parent   = controlsGui
+        pad.Position = UDim2.new(0, baseX, 1, baseY)
+        pad.Size = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
+        pad.BackgroundTransparency = 1
+        pad.Parent = cg
 
-        local function makeBtn(parent, name, x, y, emoji)
-            local b = Instance.new("TextButton")
-            b.Name = name
-            b.BackgroundColor3 = THEME.BLACK
-            b.Text = emoji
-            b.Font = Enum.Font.GothamBold
-            b.TextSize = 28
-            b.TextColor3 = THEME.WHITE
-            b.AutoButtonColor = false
-            b.Size = UDim2.fromOffset(SIZE, SIZE)
-            b.Position = UDim2.new(0, x, 0, y)               -- ตำแหน่งจากมุมซ้ายบนของ pad
-            b.Parent = parent
-            b.Activated:Connect(function() end)              -- ช่วยให้โฟกัสปุ่ม
-            corner(b, 10); stroke(b, 2, THEME.GREEN)
-            b.ZIndex = 100
+        local function makeBtn(x,y,emoji)
+            local b=Instance.new("TextButton")
+            b.Size=UDim2.fromOffset(SIZE,SIZE)
+            b.Position=UDim2.new(0,x,0,y)
+            b.BackgroundColor3=THEME.BLACK
+            b.Text=emoji
+            b.Font=Enum.Font.GothamBold
+            b.TextSize=28
+            b.TextColor3=THEME.WHITE
+            b.AutoButtonColor=false
+            corner(b,10); stroke(b,2,THEME.GREEN)
+            b.Parent=pad
             return b
         end
 
-        -- จัดตำแหน่งแน่นอน: บน=หน้า, ล่าง=หลัง  (ไม่สลับอีก)
-        local btnFwd  = makeBtn(pad, "Fwd",   SIZE+GAP, 0,                "🔼") -- ไปข้างหน้า (บน)
-        local btnBack = makeBtn(pad, "Back",  SIZE+GAP, SIZE*2+GAP*2,     "🔽") -- ถอยหลัง (ล่าง)
-        local btnLeft = makeBtn(pad, "Left",  0,        SIZE+GAP,         "◀️") -- เลื่อนซ้าย
-        local btnRight= makeBtn(pad, "Right", (SIZE+GAP)*2, SIZE+GAP,     "▶️") -- เลื่อนขวา
+        local btnFwd  = makeBtn(SIZE+GAP,0,"🔼")
+        local btnBack = makeBtn(SIZE+GAP,SIZE*2+GAP*2,"🔽")
+        local btnLeft = makeBtn(0,SIZE+GAP,"◀️")
+        local btnRight= makeBtn((SIZE+GAP)*2,SIZE+GAP,"▶️")
 
-        -- โซนสไลด์นิ้วเสริม (ภายใน pad ทั้งอัน) => strafe ซ้าย/ขวา
-        local swipeZone = Instance.new("Frame")
-        swipeZone.BackgroundTransparency = 1
-        swipeZone.Size = UDim2.fromScale(1,1)
-        swipeZone.Parent = pad
+        local R_SIZE=64
+        local rUp   = makeBtn(SIZE*4+GAP*5,-(SIZE+GAP),"⬆️")
+        local rDown = makeBtn(SIZE*4+GAP*5,SIZE+GAP,"⬇️")
 
-        -- ปุ่มขึ้น/ลง ด้านขวากลาง
-        local R_SIZE = 64
-        local rWrap = Instance.new("Frame")
-        rWrap.BackgroundTransparency = 1
-        rWrap.AnchorPoint = Vector2.new(1,0.5)
-        rWrap.Position = UDim2.new(1, -120, 0.5, 0)
-        rWrap.Size = UDim2.fromOffset(R_SIZE, R_SIZE*2+GAP)
-        rWrap.Parent = controlsGui
+        local map={ [btnFwd]="fwd",[btnBack]="back",[btnLeft]="left",[btnRight]="right",[rUp]="up",[rDown]="down" }
 
-        local btnUp   = makeBtn(rWrap, "Up",   0, 0,            "⬆️")
-        local btnDown = makeBtn(rWrap, "Down", 0, R_SIZE+GAP,   "⬇️")
-
-        -- ====== การตรวจจับกดค้างที่เชื่อถือได้ ======
-        local activeTouches = {}
-
-        local function setHold(key, v) hold[key] = v end
-
-        local function bindHold(btn, key)
-            btn.InputBegan:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    setHold(key, true)
-                    if io.UserInputType == Enum.UserInputType.Touch then
-                        activeTouches[io] = key
-                    end
+        for b,k in pairs(map) do
+            b.InputBegan:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseButton1 then
+                    hold[k]=true
                 end
             end)
-            btn.InputEnded:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    setHold(key, false)
-                    activeTouches[io] = nil
+            b.InputEnded:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseButton1 then
+                    hold[k]=false
                 end
             end)
         end
-        bindHold(btnFwd,  "fwd")
-        bindHold(btnBack, "back")
-        bindHold(btnLeft, "left")
-        bindHold(btnRight,"right")
-        bindHold(btnUp,   "up")
-        bindHold(btnDown, "down")
 
-        -- กรณีเลื่อนนิ้วออกนอกปุ่ม/ปล่อยนอกปุ่ม => จับจากระบบกลาง
-        UserInputService.InputEnded:Connect(function(io)
-            if io.UserInputType == Enum.UserInputType.Touch then
-                local key = activeTouches[io]
-                if key then setHold(key, false); activeTouches[io] = nil end
-            elseif io.UserInputType == Enum.UserInputType.MouseButton1 then
-                -- ป้องกัน “ค้างคา”
-                hold.fwd, hold.back, hold.left, hold.right, hold.up, hold.down = false,false,false,false,false,false
-            end
-        end)
+        -- Swipe control area (บนจอทั้งหมด)
+        local swipeZone = Instance.new("Frame")
+        swipeZone.BackgroundTransparency=1
+        swipeZone.Size=UDim2.fromScale(1,1)
+        swipeZone.Parent=cg
 
-        -- สไลด์นิ้วใน pad = strafe (หันหน้าเดิม)
-        local swipeTouch, lastPos
-        local dead = 12
         swipeZone.InputBegan:Connect(function(io)
-            if io.UserInputType == Enum.UserInputType.Touch and not swipeTouch then
-                swipeTouch, lastPos = io, io.Position
+            if io.UserInputType==Enum.UserInputType.Touch then
+                swipeActive=true
+                swipeStartX=io.Position.X
             end
         end)
         swipeZone.InputChanged:Connect(function(io)
-            if swipeTouch and io == swipeTouch and io.UserInputType == Enum.UserInputType.Touch then
-                local dx = io.Position.X - lastPos.X
-                if math.abs(dx) > dead then
-                    hold.left, hold.right = dx < 0, dx > 0
+            if swipeActive and io.UserInputType==Enum.UserInputType.Touch then
+                local dx=io.Position.X-swipeStartX
+                if math.abs(dx)>20 then
+                    hold.left=(dx<0)
+                    hold.right=(dx>0)
                 else
-                    hold.left, hold.right = false, false
+                    hold.left,hold.right=false,false
                 end
             end
         end)
         swipeZone.InputEnded:Connect(function(io)
-            if swipeTouch and io == swipeTouch then
-                swipeTouch = nil
-                hold.left, hold.right = false, false
+            if io.UserInputType==Enum.UserInputType.Touch then
+                swipeActive=false
+                hold.left,hold.right=false,false
             end
         end)
-
-        return controlsGui
+        return cg
     end
 
-    local function setNoclipEnabled(enabled)
-        if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
-        if not enabled then return end
-        noclipConn = RunService.Stepped:Connect(function()
-            local _, _, char = getHRP()
-            if not char then return end
-            for _, d in ipairs(char:GetDescendants()) do
-                if d:IsA("BasePart") then d.CanCollide = false end
-            end
-        end)
-    end
-
+    ----------------------------------------------------------------
+    -- Start / Stop Hover
+    ----------------------------------------------------------------
     local function startHover()
         local hrp, hum = getHRP()
         if not hrp or not hum then return end
+        hum.PlatformStand=false
+        freezeAnimations(hum)
 
-        hrp.Anchored = false
-        hum.PlatformStand = false
+        local bp=Instance.new("BodyPosition")
+        bp.MaxForce=Vector3.new(1e6,1e6,1e6)
+        bp.P=8e4; bp.D=2e3
+        bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
+        bp.Parent=hrp
 
-        local bp = Instance.new("BodyPosition")
-        bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        bp.P = 7e4; bp.D = 2e3
-        bp.Position = hrp.Position + Vector3.new(0, hoverHeight, 0)
-        bp.Parent = hrp
+        local bg=Instance.new("BodyGyro")
+        bg.MaxTorque=Vector3.new(1e6,1e6,1e6)
+        bg.P=8e4; bg.D=2e3
+        bg.CFrame=hrp.CFrame
+        bg.Parent=hrp
 
-        local bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-        bg.P = 7e4; bg.D = 2e3
-        bg.CFrame = hrp.CFrame
-        bg.Parent = hrp
+        movers.bp,movers.bg=bp,bg
+        ensureControlsGui().Enabled=true
+        setNoclip(true)
 
-        movers.bp, movers.bg = bp, bg
-
-        ensureControlsGui().Enabled = true
-        setNoclipEnabled(true)
-
-        loopConn = RunService.Heartbeat:Connect(function(dt)
-            if not (movers.bp and movers.bg and hrp.Parent) then return end
-
-            local cf   = hrp.CFrame
-            local fwd  = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)  ; if fwd.Magnitude  > 0 then fwd  = fwd.Unit  end
-            local right= Vector3.new(cf.RightVector.X,0, cf.RightVector.Z) ; if right.Magnitude> 0 then right= right.Unit end
-
-            local pos = movers.bp.Position
-            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- ไปข้างหน้า (🔼)
-            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- ถอยหลัง   (🔽)
-            if hold.left then  pos = pos - right * (strafeSpeed * dt) end   -- เลื่อนซ้าย
-            if hold.right then pos = pos + right * (strafeSpeed * dt) end   -- เลื่อนขวา
-            if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
-            if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
-
-            movers.bp.Position = pos
-            movers.bg.CFrame   = CFrame.new(hrp.Position, hrp.Position + cf.LookVector) -- หน้าหันเดิม
+        loopConn=RunService.Heartbeat:Connect(function(dt)
+            if not (movers.bp and movers.bg) then return end
+            local cf=hrp.CFrame
+            local fwd=Vector3.new(cf.LookVector.X,0,cf.LookVector.Z).Unit
+            local right=Vector3.new(cf.RightVector.X,0,cf.RightVector.Z).Unit
+            local pos=movers.bp.Position
+            if hold.fwd  then pos+=fwd*moveSpeed*dt end
+            if hold.back then pos-=fwd*moveSpeed*dt end
+            if hold.left then pos-=right*strafeSpeed*dt end
+            if hold.right then pos+=right*strafeSpeed*dt end
+            if hold.up then pos+=Vector3.new(0,ascendSpeed*dt,0) end
+            if hold.down then pos-=Vector3.new(0,ascendSpeed*dt,0) end
+            movers.bp.Position=pos
+            movers.bg.CFrame=CFrame.new(hrp.Position,hrp.Position+cf.LookVector)
         end)
     end
 
     local function stopHover()
-        if loopConn   then loopConn:Disconnect();   loopConn = nil   end
-        if controlsGui then controlsGui.Enabled = false end
-        setNoclipEnabled(false)
-
-        local hrp, hum = getHRP()
-        if movers.bp then movers.bp:Destroy(); movers.bp = nil end
-        if movers.bg then movers.bg:Destroy(); movers.bg = nil end
-        if hrp then hrp.Velocity = Vector3.new(); hrp.RotVelocity = Vector3.new() end
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Landed); hum.PlatformStand = false end
+        if loopConn then loopConn:Disconnect(); loopConn=nil end
+        setNoclip(false)
+        local hrp,hum=getHRP()
+        if movers.bp then movers.bp:Destroy() movers.bp=nil end
+        if movers.bg then movers.bg:Destroy() movers.bg=nil end
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Landed) hum.PlatformStand=false end
     end
 
-    -- Toggle
-    local isOn = false
+    ----------------------------------------------------------------
+    -- Toggle On/Off
+    ----------------------------------------------------------------
+    local isOn=false
     local function setState(v)
-        isOn = v
-        if isOn then
-            swStroke.Color = THEME.GREEN
-            knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+        isOn=v
+        if v then
+            swStroke.Color=THEME.GREEN
+            knob:TweenPosition(UDim2.new(1,-24,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
             startHover()
         else
-            swStroke.Color = THEME.RED
-            knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            swStroke.Color=THEME.RED
+            knob:TweenPosition(UDim2.new(0,2,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
             stopHover()
         end
     end
-
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
     setState(false)
 
-    -- Safety: disable on respawn
-    lp.CharacterAdded:Connect(function() setState(false) end)
+    lp.CharacterAdded:Connect(function()
+        setState(false)
+    end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
