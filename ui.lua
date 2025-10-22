@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2 (Flight Mode 🛸 + Hover Toggle with Red/Green border) =====
+-- ===== Player tab (Right) — Model A V2 (Flight Mode 🛸 + Hover + Mini Control Pad) =====
 registerRight("Player", function(scroll)
     -- SERVICES
     local Players     = game:GetService("Players")
@@ -724,6 +724,10 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
+
+    -- ===== UI HELPERS =====
+    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui; return c end
+    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
     -- layout (ไม่ลบของเดิม)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
@@ -748,7 +752,7 @@ registerRight("Player", function(scroll)
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
     ----------------------------------------------------------------
-    -- A) Header: Flight Mode 🛸 (ตัวอักษรล้วน ชิดซ้าย)
+    -- A) Header: Flight Mode 🛸
     ----------------------------------------------------------------
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
@@ -770,7 +774,7 @@ registerRight("Player", function(scroll)
     txt.Text = "Flight Mode 🛸"
 
     ----------------------------------------------------------------
-    -- B) Map Fly Mode (สวิตช์แดง/เขียว + โหมดลอยค้าง)
+    -- B) Row: Map Fly Mode + Switch (แดง/เขียว)   +   Hover & ControlPad Logic
     ----------------------------------------------------------------
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
@@ -784,8 +788,7 @@ registerRight("Player", function(scroll)
     bar.Position = UDim2.new(0.5, 0, 0, 0)
     bar.Size = UDim2.new(1, -6, 1, 0)
     bar.BackgroundColor3 = THEME.BLACK
-    local corner = Instance.new("UICorner", bar); corner.CornerRadius = UDim.new(0, 12)
-    local stroke = Instance.new("UIStroke", bar); stroke.Thickness = 2.2; stroke.Color = THEME.GREEN; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    corner(bar, 12); stroke(bar, 2.2, THEME.GREEN)
 
     local title = Instance.new("TextLabel", bar)
     title.BackgroundTransparency = 1
@@ -798,49 +801,133 @@ registerRight("Player", function(scroll)
     title.TextColor3 = THEME.WHITE
     title.Text = "Map Fly Mode"
 
-    -- Toggle switch (กรอบแดงตอนปิด / เขียวตอนเปิด)
+    -- Switch
     local switch = Instance.new("Frame", bar)
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, -12, 0.5, 0)
     switch.Size = UDim2.fromOffset(52, 26)
     switch.BackgroundColor3 = THEME.BLACK
-    local swCorner = Instance.new("UICorner", switch); swCorner.CornerRadius = UDim.new(0, 13)
-    local swStroke = Instance.new("UIStroke", switch); swStroke.Thickness = 1.8; swStroke.Color = THEME.RED; swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    corner(switch, 13)
+    local swStroke = stroke(switch, 1.8, THEME.RED)
 
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
-    local knobCorner = Instance.new("UICorner", knob); knobCorner.CornerRadius = UDim.new(0, 11)
-
+    corner(knob, 11)
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Hover logic: ลอยขึ้นและค้างที่ตำแหน่งเดิม
+    -- Hover & Mini Controls
     ----------------------------------------------------------------
-    local hoverHeight = 6                 -- ลอยขึ้นกี่สตูดิโอบล็อกจากพื้น
-    local movers = {bp=nil, bg=nil}       -- ตัวช่วยยึดตำแหน่ง/ทิศทาง
+    local hoverHeight   = 6          -- สูงจากพื้น
+    local moveSpeed     = 22         -- ความเร็วเคลื่อนที่ (stud/วินาที)
+    local turnSpeedDeg  = 90         -- องศาต่อวินาที (เลี้ยวซ้าย/ขวา)
+    local ascendSpeed   = 18         -- ความเร็วขึ้น/ลง
+
+    local movers = {bp=nil, bg=nil}
+    local loopConn;  -- Heartbeat loop
+    local controlsGui -- ScreenGui ของปุ่มมินิ
+    local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
 
     local function getHRP()
         local char = lp and lp.Character
-        return char and char:FindFirstChild("HumanoidRootPart"), char and char:FindFirstChildOfClass("Humanoid")
+        return char and char:FindFirstChild("HumanoidRootPart"),
+               char and char:FindFirstChildOfClass("Humanoid")
+    end
+
+    local function ensureControlsGui()
+        if controlsGui and controlsGui.Parent then return controlsGui end
+        controlsGui = Instance.new("ScreenGui")
+        controlsGui.Name = "UFO_FlyMiniPad"
+        controlsGui.ResetOnSpawn = false
+        controlsGui.IgnoreGuiInset = true
+        controlsGui.Parent = game:GetService("CoreGui")
+
+        -- ===== ซ้ายล่าง: D-Pad แบบที่เห็นในรูป =====
+        local SIZE = 64
+        local GAP  = 10
+        local baseX, baseY = 100, -160  -- ตำแหน่งฐาน (จากซ้าย, จากล่าง) — ปรับจูนได้
+
+        local function makeBtn(name, offx, offy, emoji)
+            local b = Instance.new("TextButton")
+            b.Name = name
+            b.BackgroundColor3 = THEME.BLACK
+            b.Text = emoji
+            b.Font = Enum.Font.GothamBold
+            b.TextSize = 28
+            b.TextColor3 = THEME.WHITE
+            b.AutoButtonColor = false
+            b.Size = UDim2.fromOffset(SIZE, SIZE)
+            b.AnchorPoint = Vector2.new(0,1)
+            b.Position = UDim2.new(0, baseX + offx, 1, baseY + offy)
+            b.Parent = controlsGui
+            corner(b, 10); stroke(b, 2, THEME.GREEN)
+            return b
+        end
+        -- น้ำเงิน: บินหน้า/หลัง (บน/ล่าง)
+        local btnFwd  = makeBtn("Fwd",   SIZE+GAP, SIZE*2+GAP*2, "🔼")
+        local btnBack = makeBtn("Back",  SIZE+GAP, 0,             "🔽")
+        -- แดง: เลี้ยวซ้าย/ขวา (กลางซ้าย/ขวา)
+        local btnLeft = makeBtn("TurnL", 0,        SIZE+GAP,      "↩️")
+        local btnRight= makeBtn("TurnR", (SIZE+GAP)*2, SIZE+GAP,  "↪️")
+
+        -- ทำให้ปุ่มน้ำเงิน/แดงดูต่างเฉดเล็กน้อยด้วยขอบ/ตัวหนังสือ (ยังคงพื้นดำ กรอบเขียว)
+        btnFwd.TextColor3  = THEME.WHITE
+        btnBack.TextColor3 = THEME.WHITE
+        btnLeft.TextColor3 = THEME.WHITE
+        btnRight.TextColor3= THEME.WHITE
+
+        -- ===== ขวากลาง: ขึ้น/ลง (เขียว) =====
+        local R_SIZE = 64
+        local rx, ry = -120, -100 -- จากขวา, จากกึ่งกลางจอ
+        local function makeRightBtn(name, offy, emoji)
+            local b = Instance.new("TextButton")
+            b.Name = name
+            b.BackgroundColor3 = THEME.BLACK
+            b.Text = emoji
+            b.Font = Enum.Font.GothamBold
+            b.TextSize = 28
+            b.TextColor3 = THEME.WHITE
+            b.AutoButtonColor = false
+            b.Size = UDim2.fromOffset(R_SIZE, R_SIZE)
+            b.AnchorPoint = Vector2.new(1,0.5)
+            b.Position = UDim2.new(1, rx, 0.5, offy)
+            b.Parent = controlsGui
+            corner(b, 10); stroke(b, 2, THEME.GREEN)
+            return b
+        end
+        local btnUp   = makeRightBtn("Up",   -(R_SIZE+GAP)/2, "⬆️")
+        local btnDown = makeRightBtn("Down",  (R_SIZE+GAP)/2, "⬇️")
+
+        -- Hold detection
+        local function bindHold(btn, key)
+            btn.MouseButton1Down:Connect(function() hold[key] = true end)
+            btn.MouseButton1Up:Connect(function() hold[key] = false end)
+            btn.TouchLongPress:Connect(function(_, state) hold[key] = (state=="Begin") end)
+        end
+        bindHold(btnFwd, "fwd")
+        bindHold(btnBack,"back")
+        bindHold(btnLeft,"left")
+        bindHold(btnRight,"right")
+        bindHold(btnUp,"up")
+        bindHold(btnDown,"down")
+
+        return controlsGui
     end
 
     local function startHover()
         local hrp, hum = getHRP()
         if not hrp or not hum then return end
 
-        -- ปล่อยการ anchor เผื่อมีค่าค้าง
         hrp.Anchored = false
         hum.PlatformStand = false
 
-        -- ย้ายจุดเป้าหมายขึ้นไปตาม hoverHeight
         local targetPos = hrp.Position + Vector3.new(0, hoverHeight, 0)
 
-        -- ตัวคุมตำแหน่ง
         local bp = Instance.new("BodyPosition")
         bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
         bp.P = 5e4
@@ -848,22 +935,52 @@ registerRight("Player", function(scroll)
         bp.Position = targetPos
         bp.Parent = hrp
 
-        -- ตัวคุมการหันให้ตั้งตรงนิ่ง
         local bg = Instance.new("BodyGyro")
         bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
         bg.P = 5e4
         bg.D = 1e3
-        bg.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector) * CFrame.Angles(0,0,0)
+        bg.CFrame = hrp.CFrame
         bg.Parent = hrp
 
         movers.bp, movers.bg = bp, bg
 
-        -- รีเซ็ตความเร็วเพื่อไม่ให้ไหล
-        hrp.Velocity = Vector3.new()
-        hrp.RotVelocity = Vector3.new()
+        -- แสดงปุ่มมินิ
+        ensureControlsGui().Enabled = true
+
+        -- วนอัพเดตการเคลื่อนที่ขณะกดปุ่ม
+        local yaw = 0 -- คุมการหมุนสะสม
+        loopConn = RunService.Heartbeat:Connect(function(dt)
+            if not (movers.bp and movers.bg and hrp.Parent) then return end
+
+            -- ทิศอ้างจากการมองของตัวละคร
+            local cf   = hrp.CFrame
+            local fwd  = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z).Unit
+            local right= Vector3.new(cf.RightVector.X,0, cf.RightVector.Z).Unit
+
+            local pos = movers.bp.Position
+
+            if hold.fwd  then pos = pos + fwd  * (moveSpeed * dt) end
+            if hold.back then pos = pos - fwd  * (moveSpeed * dt) end
+            if hold.up   then pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
+            if hold.down then pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
+
+            -- หมุนซ้าย/ขวา (yaw)
+            local yawDelta = 0
+            if hold.left  then yawDelta = yawDelta - math.rad(turnSpeedDeg*dt) end
+            if hold.right then yawDelta = yawDelta + math.rad(turnSpeedDeg*dt) end
+            if yawDelta ~= 0 then
+                yaw = yaw + yawDelta
+                movers.bg.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, yaw, 0)
+            end
+
+            movers.bp.Position = pos
+        end)
     end
 
     local function stopHover()
+        if loopConn then loopConn:Disconnect(); loopConn = nil end
+        if controlsGui then controlsGui.Enabled = false end
+
         local hrp, hum = getHRP()
         if movers.bp then movers.bp:Destroy() movers.bp = nil end
         if movers.bg then movers.bg:Destroy() movers.bg = nil end
@@ -877,7 +994,7 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- สลับสถานะ + เปลี่ยนสีกรอบ + เลื่อนปุ่ม
+    -- Toggle state (สีกรอบ + ลอย/หยุด + โชว์/ซ่อนปุ่ม)
     local isOn = false
     local function setState(v)
         isOn = v
@@ -895,7 +1012,7 @@ registerRight("Player", function(scroll)
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
     setState(false)
 
-    -- ถ้าตัวละครรีสปอว์น ให้ปิดโหมดลอยเพื่อความปลอดภัย
+    -- รีสปอว์น -> ปิดโหมดลอยและซ่อนปุ่ม
     lp.CharacterAdded:Connect(function()
         setState(false)
     end)
