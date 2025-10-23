@@ -708,9 +708,9 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9i HOTFIX (PASTE-AND-GO) =====
--- ✅ แก้บัค syntax: ปิดฟังก์ชันด้วย end (ไม่ใช่ })
--- ✅ แยก UI conns ออกจาก temp conns: เปิดบิน/ปิดบิน สไลเดอร์ยังใช้งานได้
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX PASTE-AND-GO) =====
+-- ✅ Tap-to-set ไม่สั่น: แตะครั้งเดียวเซ็ตค่าเฉยๆ, ลากจริงเมื่อขยับเกิน 5px
+-- ✅ แยก UI conns / temp conns, เปิดบินแล้วสไลเดอร์ยังใช้ได้
 -- ✅ Flight toggle + Noclip(ON only) | Joypad มือถือ | ฮอตคีย์ PC
 -- ✅ Slider ลื่น (RenderStepped + visual lerp) | จำค่าความไว | Layout ตายตัว | Cleanup ปลอดภัย
 
@@ -724,20 +724,18 @@ registerRight("Player", function(scroll)
 
     -- ---------- SAFE STATE / CONNECTION MANAGER ----------
     _G.UFOX = _G.UFOX or {}
-    _G.UFOX.tempConns = _G.UFOX.tempConns or {}  -- runtime (บิน/ลาก)
-    _G.UFOX.uiConns   = _G.UFOX.uiConns   or {}  -- UI ถาวร (ไม่ล้างตอนสลับบิน)
+    _G.UFOX.tempConns = _G.UFOX.tempConns or {}
+    _G.UFOX.uiConns   = _G.UFOX.uiConns   or {}
     _G.UFOX.movers    = _G.UFOX.movers    or {}
     _G.UFOX.gui       = _G.UFOX.gui or nil
     _G.UFOX.noclipPulse = _G.UFOX.noclipPulse or nil
 
     local function keepTemp(c) table.insert(_G.UFOX.tempConns,c) return c end
     local function keepUI(c)   table.insert(_G.UFOX.uiConns,c)   return c end
-
     local function disconnectAll(list)
         for i=#list,1,-1 do local c=list[i]; pcall(function() c:Disconnect() end); list[i]=nil end
     end
-
-    local function cleanupRuntime() -- ไม่ยุ่งกับ UI
+    local function cleanupRuntime()
         disconnectAll(_G.UFOX.tempConns)
         if _G.UFOX.noclipPulse then pcall(function() _G.UFOX.noclipPulse:Disconnect() end) _G.UFOX.noclipPulse=nil end
         if _G.UFOX.gui then pcall(function() _G.UFOX.gui:Destroy() end) _G.UFOX.gui=nil end
@@ -755,8 +753,6 @@ registerRight("Player", function(scroll)
         end
         _G.UFOX.movers={}
     end
-
-    -- ถ้าหน้าต่างนี้ถูกสร้างใหม่ ให้เคลียร์ UI เดิมก่อน กันซ้ำซ้อน
     disconnectAll(_G.UFOX.uiConns)
 
     -- ---------- THEME / HELPERS ----------
@@ -782,9 +778,14 @@ registerRight("Player", function(scroll)
     local currentRel = _G.UFOX_sensRel or 0
     local visRel     = currentRel
     local sliderCenterLabel
+
+    -- slider drag/tap state
     local dragging=false
+    local maybeDrag=false
+    local downX=nil
     local RSdragConn, EndDragConn
     local lastTouchX
+    local DRAG_THRESHOLD = 5  -- px
 
     local function speeds()
         local norm=(S_MAX>0) and (sensApplied/S_MAX) or 0
@@ -847,11 +848,11 @@ registerRight("Player", function(scroll)
             end))
         end
         bind(f,"fwd"); bind(bb,"back"); bind(l,"left"); bind(r,"right"); bind(u,"up"); bind(d,"down")
-    end  -- <<<< ตรงนี้ต้องเป็น end ไม่ใช่ }
+    end
 
     -- ---------- FLIGHT ----------
     local function startFly()
-        cleanupRuntime() -- ล้างเฉพาะ runtime, ไม่ไปยุ่ง UI
+        cleanupRuntime()
         local hrp,hum,char=getHRP(); if not hrp or not hum then return end
         flightOn=true; hum.AutoRotate=false
         local an=char:FindFirstChild("Animate"); if an and an:IsA("LocalScript") then an.Enabled=false; savedAnimate=an end
@@ -887,7 +888,7 @@ registerRight("Player", function(scroll)
     local function stopFly()
         flightOn=false
         local hrp,hum,char=getHRP(); if char then setPartsClip(char,false) end
-        cleanupRuntime() -- ไม่ไปตัด UI
+        cleanupRuntime()
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
@@ -902,7 +903,6 @@ registerRight("Player", function(scroll)
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
     end
-
     keepUI(UserInputService.InputBegan:Connect(function(io,gp)
         if gp then return end
         local k=io.KeyCode
@@ -963,7 +963,7 @@ registerRight("Player", function(scroll)
     end
     keepUI(btn.MouseButton1Click:Connect(function() setState(not on) end))
 
-    -- ---------- SLIDER ----------
+    -- ---------- SLIDER (tap-to-set + drag threshold) ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
     sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4)
@@ -987,15 +987,14 @@ registerRight("Player", function(scroll)
     end
 
     local function stopDrag()
-        dragging=false
+        dragging=false; maybeDrag=false; downX=nil
         if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
         if EndDragConn then EndDragConn:Disconnect() EndDragConn=nil end
         scroll.ScrollingEnabled=true
     end
 
-    local function startDrag(px)
-        dragging=true; scroll.ScrollingEnabled=false
-        applyRel(relFrom(px), true); syncVisual(true)
+    local function beginDragLoop()
+        dragging=true; maybeDrag=false
         RSdragConn = keepTemp(RunService.RenderStepped:Connect(function()
             local mx = UserInputService:GetMouseLocation().X
             local x = lastTouchX or mx
@@ -1007,11 +1006,47 @@ registerRight("Player", function(scroll)
         end))
     end
 
+    local function onPress(px)
+        -- เริ่มสถานะ "อาจลาก" (tap ยังไม่ลาก) เพื่อกันอาการวาร์ป
+        maybeDrag=true; dragging=false; downX=px
+        scroll.ScrollingEnabled=false
+        -- เซ็ตค่าให้ตรงจุดที่กดทันทีแบบนิ่มๆ (ครั้งเดียว)
+        applyRel(relFrom(px), true); syncVisual(true)
+    end
+
+    local function onMove(mx)
+        if not maybeDrag then return end
+        if downX==nil then downX=mx end
+        if math.abs(mx - downX) >= DRAG_THRESHOLD then
+            -- ขยับพอที่จะถือว่าเป็น "ลาก" แล้วค่อยเริ่ม loop
+            beginDragLoop()
+        end
+    end
+
+    keepUI(UserInputService.InputChanged:Connect(function(io)
+        if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
+            local x = (io.UserInputType==Enum.UserInputType.Touch) and io.Position.X or UserInputService:GetMouseLocation().X
+            lastTouchX = (io.UserInputType==Enum.UserInputType.Touch) and x or lastTouchX
+            onMove(x)
+        end
+    end))
+    keepUI(UserInputService.InputEnded:Connect(function(io)
+        if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then
+            -- จบ tap โดยไม่เข้าสู่โหมดลาก
+            stopDrag()
+        end
+    end))
+
+    local function onPressFromInput(io)
+        local px = io.Position.X
+        onPress(px)
+    end
+
     keepUI(bar.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then onPressFromInput(io) end
     end))
     keepUI(knobBtn.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then onPressFromInput(io) end
     end))
 
     -- ---------- INIT ----------
