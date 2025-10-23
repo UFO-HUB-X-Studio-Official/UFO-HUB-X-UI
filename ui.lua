@@ -708,10 +708,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.4.3 =====
+-- ===== Player tab (Right) — Model A V2.4.4 =====
 -- Flight (Fast + Pitch Steering + PC/Mobile)
--- Noclip only active when Flight is ON
--- Sensitivity starts at 0, smoothed slider + smoothed apply
+-- Noclip only when Flight ON
+-- Sensitivity: UI starts at 0 but effective speed starts at x1.00 (old default)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -729,10 +729,10 @@ registerRight("Player", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui; return c end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
     local function tween(obj,props,dur)
-        TweenService:Create(obj, TweenInfo.new(dur or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+        TweenService:Create(obj, TweenInfo.new(dur or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
     end
 
-    -- layout
+    -- ===== layout =====
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -766,7 +766,7 @@ registerRight("Player", function(scroll)
     header.Parent=scroll
 
     ----------------------------------------------------------------
-    -- CONFIG (base)
+    -- CONFIG
     ----------------------------------------------------------------
     local hoverHeight   = 6
     local BASE_MOVE     = 150
@@ -775,16 +775,19 @@ registerRight("Player", function(scroll)
     local liftPower     = 1e7
     local dampFactor    = 4e3
 
-    -- sensitivity (slider target starts at 0)
-    local sensTarget    = 0.0   -- start from zero (player adjusts)
-    local sensApplied   = 0.0   -- smoothed each frame
+    -- Sensitivity UI starts at 0, but effective multiplier = 1.0 + sensApplied
+    -- => เริ่มบินได้เท่าค่าเดิม (x1.00) แม้แถบอยู่ที่ 0
+    local sensTarget    = 0.0     -- 0..S_MAX (ค่าในแถบ)
+    local sensApplied   = 0.0     -- ค่าที่นำไปคูณแบบ smooth
+    local S_MIN, S_MAX  = 0.0, 1.5  -- x1.00 → x2.50 เมื่อดันสุด
 
     local function speeds()
-        return BASE_MOVE*sensApplied, BASE_STRAFE*sensApplied, BASE_ASCEND*sensApplied
+        local mul = 1.0 + sensApplied
+        return BASE_MOVE*mul, BASE_STRAFE*mul, BASE_ASCEND*mul
     end
 
     local flightOn      = false
-    local noclipWanted  = true   -- default ON, but only effective while flightOn = true
+    local noclipWanted  = true
 
     local movers = {bp=nil, ao=nil, att=nil}
     local loopConn, noclipConn
@@ -864,7 +867,7 @@ registerRight("Player", function(scroll)
         return controlsGui
     end
 
-    -- ==== Noclip (effective only when flightOn) ====
+    -- ==== Noclip only when flight ON ====
     local function applyCollision(noClip)
         local _,_,char = getHRP()
         if not char then return end
@@ -879,19 +882,17 @@ registerRight("Player", function(scroll)
     local function setNoclipLooper(enabled)
         if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
         if not enabled then
-            applyCollision(false) -- ensure normal when flight OFF
+            applyCollision(false)
             return
         end
         noclipConn = RunService.Stepped:Connect(function()
-            applyCollision(noclipWanted) -- follow toggle live
+            applyCollision(noclipWanted)
         end)
     end
 
     local function stopAllAnimations(hum)
         local animator = hum and hum:FindFirstChildOfClass("Animator")
-        if animator then
-            for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do trk:Stop(0) end
-        end
+        if animator then for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do trk:Stop(0) end end
     end
 
     local function startFly()
@@ -921,9 +922,9 @@ registerRight("Player", function(scroll)
         ensureControls().Enabled = true
         setNoclipLooper(true)
 
+        -- smooth sens (exponential)
         loopConn = RunService.Heartbeat:Connect(function(dt)
-            -- smooth sens apply
-            local lerpFactor = math.clamp(dt*10, 0, 1) -- quicker response but smooth
+            local lerpFactor = math.clamp(dt*10, 0, 1)
             sensApplied = sensApplied + (sensTarget - sensApplied) * lerpFactor
 
             local cam = workspace.CurrentCamera; if not cam then return end
@@ -949,7 +950,7 @@ registerRight("Player", function(scroll)
     local function stopFly()
         flightOn = false
         if loopConn then loopConn:Disconnect(); loopConn=nil end
-        setNoclipLooper(false)                     -- disable + restore collision
+        setNoclipLooper(false)
         local _,hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp=nil end
         if movers.ao then movers.ao.Enabled=false end
@@ -958,7 +959,7 @@ registerRight("Player", function(scroll)
         if controlsGui then controlsGui.Enabled=false end
     end
 
-    -- ===== UI: main toggle (Flight Mode) =====
+    -- ===== UI: Flight toggle =====
     local frame=Instance.new("Frame"); frame.Size=UDim2.new(1,-6,0,46); frame.BackgroundColor3=THEME.BLACK
     frame.LayoutOrder=nextOrder+1; corner(frame,12); stroke(frame,2.2,THEME.GREEN); frame.Parent=scroll
     local lab=Instance.new("TextLabel",frame); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0)
@@ -971,7 +972,7 @@ registerRight("Player", function(scroll)
     knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
     local btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
 
-    -- ===== UI: Noclip Mode (works only when Flight ON) =====
+    -- ===== UI: Noclip toggle =====
     local ncRow = Instance.new("Frame"); ncRow.Size=UDim2.new(1,-6,0,46); ncRow.BackgroundColor3=THEME.BLACK
     ncRow.LayoutOrder=nextOrder+2; corner(ncRow,12); stroke(ncRow,2.2,THEME.GREEN); ncRow.Parent=scroll
     local ncLab = Instance.new("TextLabel",ncRow)
@@ -981,7 +982,7 @@ registerRight("Player", function(scroll)
     local ncSwitch = Instance.new("Frame",ncRow)
     ncSwitch.AnchorPoint=Vector2.new(1,0.5); ncSwitch.Position=UDim2.new(1,-12,0.5,0)
     ncSwitch.Size=UDim2.fromOffset(52,26); ncSwitch.BackgroundColor3=THEME.BLACK; corner(ncSwitch,13)
-    local ncStroke=stroke(ncSwitch,1.8,THEME.GREEN) -- default ON
+    local ncStroke=stroke(ncSwitch,1.8,THEME.GREEN)
     local ncKnob = Instance.new("Frame",ncSwitch); ncKnob.Size=UDim2.fromOffset(22,22); ncKnob.Position=UDim2.new(1,-24,0.5,-11)
     ncKnob.BackgroundColor3=THEME.WHITE; corner(ncKnob,11)
     local ncBtn = Instance.new("TextButton",ncSwitch); ncBtn.BackgroundTransparency=1; ncBtn.Size=UDim2.fromScale(1,1); ncBtn.Text=""
@@ -993,16 +994,13 @@ registerRight("Player", function(scroll)
         else
             ncStroke.Color = THEME.RED
             tween(ncKnob, {Position=UDim2.new(0,2,0.5,-11)}, 0.1)
-            if flightOn then applyCollision(false) end -- stop clipping immediately
+            if flightOn then applyCollision(false) end
         end
     end
     setNoclipState(true)
-    ncBtn.MouseButton1Click:Connect(function()
-        -- If flight is OFF, just toggle UI state; effect will apply when flight starts
-        setNoclipState(not noclipWanted)
-    end)
+    ncBtn.MouseButton1Click:Connect(function() setNoclipState(not noclipWanted) end)
 
-    -- ===== UI: Sensitivity (0.0 → 2.5) =====
+    -- ===== UI: Sensitivity slider (center value text) =====
     local sRow = Instance.new("Frame"); sRow.Size=UDim2.new(1,-6,0,64); sRow.BackgroundColor3=THEME.BLACK
     sRow.LayoutOrder=nextOrder+3; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.Parent=scroll
     local sLab = Instance.new("TextLabel",sRow)
@@ -1011,45 +1009,69 @@ registerRight("Player", function(scroll)
     sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
 
     local bar = Instance.new("Frame",sRow)
-    bar.Position=UDim2.new(0,16,0,30); bar.Size=UDim2.new(1,-32,0,10)
-    bar.BackgroundColor3=THEME.BLACK; corner(bar,5); stroke(bar,1.6,THEME.GREEN)
-    local fill = Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,5); fill.Size=UDim2.fromScale(0,1)
+    bar.Position=UDim2.new(0,16,0,30); bar.Size=UDim2.new(1,-32,0,12)
+    bar.BackgroundColor3=THEME.BLACK; corner(bar,6); stroke(bar,1.6,THEME.GREEN)
+    local fill = Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,6); fill.Size=UDim2.fromScale(0,1)
     local knob2 = Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(20,20); knob2.Position=UDim2.new(0, -10, 0.5, -10)
     knob2.BackgroundColor3=THEME.WHITE; corner(knob2,10)
-    local sVal = Instance.new("TextLabel",sRow)
-    sVal.BackgroundTransparency=1; sVal.Position=UDim2.new(1,-80,0,26); sVal.Size=UDim2.fromOffset(64,20)
-    sVal.Font=Enum.Font.GothamBold; sVal.TextSize=12; sVal.TextColor3=THEME.WHITE; sVal.TextXAlignment=Enum.TextXAlignment.Right
-    sVal.Text = "x0.00"
 
-    local S_MIN,S_MAX = 0.0, 2.5
+    -- value text centered on the bar (shows effective multiplier)
+    local centerVal = Instance.new("TextLabel", bar)
+    centerVal.BackgroundTransparency=1
+    centerVal.Size = UDim2.fromScale(1,1)
+    centerVal.Position = UDim2.fromScale(0,0)
+    centerVal.Font = Enum.Font.GothamBold
+    centerVal.TextSize = 12
+    centerVal.TextColor3 = THEME.WHITE
+    centerVal.TextXAlignment = Enum.TextXAlignment.Center
+    centerVal.TextYAlignment = Enum.TextYAlignment.Center
+    centerVal.Text = "x1.00"
+
     local dragging = false
-    local function setSensUI(rel)
+    local function uiFromRel(rel, instant)
         rel = math.clamp(rel, 0, 1)
-        local val = S_MIN + (S_MAX-S_MIN)*rel
-        sensTarget = val
-        tween(fill, {Size=UDim2.fromScale(rel,1)}, 0.06)
-        tween(knob2, {Position=UDim2.new(rel, -10, 0.5, -10)}, 0.06)
-        sVal.Text = string.format("x%.2f", val)
+        sensTarget = S_MIN + (S_MAX-S_MIN)*rel
+        centerVal.Text = string.format("x%.2f", 1.0 + sensTarget)
+        if instant then
+            fill.Size = UDim2.fromScale(rel,1)
+            knob2.Position = UDim2.new(rel, -10, 0.5, -10)
+        else
+            -- drag uses instant; release uses tween
+            tween(fill, {Size=UDim2.fromScale(rel,1)}, 0.08)
+            tween(knob2, {Position=UDim2.new(rel, -10, 0.5, -10)}, 0.08)
+        end
     end
     local function relFromX(x)
         return (x - bar.AbsolutePosition.X)/math.max(1, bar.AbsoluteSize.X)
     end
+
+    -- smoother dragging: update every RenderStepped while dragging (no tween)
     knob2.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=true end
-    end)
-    knob2.InputEnded:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=false end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+            dragging=true
+        end
     end)
     bar.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 then setSensUI(relFromX(io.Position.X)) end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 then
+            dragging=true
+            uiFromRel(relFromX(io.Position.X), true)
+        end
     end)
-    UserInputService.InputChanged:Connect(function(io)
-        if dragging and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
-            setSensUI(relFromX(io.Position.X))
+    UserInputService.InputEnded:Connect(function(io)
+        if dragging and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then
+            dragging=false
+            -- snap with a tiny tween to feel polished
+            uiFromRel(relFromX(UserInputService:GetMouseLocation().X), false)
+        end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local x = UserInputService:GetMouseLocation().X
+            uiFromRel(relFromX(x), true)
         end
     end)
 
-    -- Main toggle
+    -- ===== Main toggle =====
     local function setState(v)
         if v == flightOn then return end
         flightOn = v
@@ -1062,6 +1084,10 @@ registerRight("Player", function(scroll)
             tween(knob, {Position=UDim2.new(0,2,0.5,-11)}, 0.12)
             stopFly()
         end
+    end
+    local btn=frame:FindFirstChildOfClass("TextButton")
+    if not btn then
+        btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
     end
     btn.MouseButton1Click:Connect(function() setState(not flightOn) end)
     lp.CharacterAdded:Connect(function() setState(false) end)
