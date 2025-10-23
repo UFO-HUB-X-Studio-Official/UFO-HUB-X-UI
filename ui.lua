@@ -756,6 +756,7 @@ registerRight("Player", function(scroll)
     local nextOrder=10; for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") and ch~=vlist then nextOrder=math.max(nextOrder,(ch.LayoutOrder or 0)+1) end end
     if scroll:FindFirstChild("Section_FlightHeader") then return end
 
+    -- Header
     local header = Instance.new("TextLabel")
     header.Name="Section_FlightHeader"; header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
     header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE; header.TextXAlignment=Enum.TextXAlignment.Left
@@ -763,7 +764,7 @@ registerRight("Player", function(scroll)
 
     -- Config
     local hoverHeight, BASE_MOVE, BASE_STRAFE, BASE_ASCEND = 6,150,100,100
-    local liftPower, dampFactor = 1e7, 4e3
+    local dampFactor = 4e3
     local sensTarget, sensApplied = 0, 0
     local S_MIN, S_MAX = 0.0, 2.0
     local function speeds() local m=1+sensApplied; return BASE_MOVE*m, BASE_STRAFE*m, BASE_ASCEND*m end
@@ -788,7 +789,7 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- Controls
+    -- Controls (mobile pad + keyboard)
     local function ensureControls()
         if controlsGui and controlsGui.Parent then controlsGui.Enabled=true; return controlsGui end
         controlsGui = Instance.new("ScreenGui")
@@ -803,12 +804,8 @@ registerRight("Player", function(scroll)
         local rwrap=Instance.new("Frame",controlsGui); rwrap.AnchorPoint=Vector2.new(1,0.5); rwrap.Position=UDim2.new(1,-120,0.5,0); rwrap.Size=UDim2.fromOffset(64,64*2+GAP); rwrap.BackgroundTransparency=1
         local u=btn(rwrap,0,0,"⬆️"); local d=btn(rwrap,0,64+GAP,"⬇️")
         local function bindTouch(but,key)
-            but.InputBegan:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end
-            end)
-            but.InputEnded:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end
-            end)
+            but.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end end)
+            but.InputEnded:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end end)
         end
         bindTouch(f,"fwd"); bindTouch(b,"back"); bindTouch(l,"left"); bindTouch(r,"right"); bindTouch(u,"up"); bindTouch(d,"down")
         return controlsGui
@@ -837,9 +834,9 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- === Noclip System (Fix) ===
+    -- Noclip (hard lock OFF)
     local restorePulse
-    local function forceProps(p, on)
+    local function forceProps(p,on)
         if on then p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
         else p.CanCollide=true; p.CanTouch=true; p.CanQuery=true end
     end
@@ -849,10 +846,10 @@ registerRight("Player", function(scroll)
                 if CAN_USE_PHYSICS then
                     pcall(function()
                         if not origGroup[p] then origGroup[p]=PhysicsService:GetCollisionGroupName(p.CollisionGroupId) end
-                        PhysicsService:SetPartCollisionGroup(p, NOCLIP_GROUP)
+                        PhysicsService:SetPartCollisionGroup(p, "UFO_NoClip")
                     end)
                 end
-                forceProps(p, true)
+                forceProps(p,true)
             end
         end
     end
@@ -869,22 +866,19 @@ registerRight("Player", function(scroll)
             end
         end
         once()
-        -- ยิงซ้ำ 0.6 วิ กันสคริปต์อื่นทับ
         local t0=tick()
         restorePulse=RunService.Stepped:Connect(function()
             if tick()-t0>0.6 then restorePulse:Disconnect(); restorePulse=nil else once() end
         end)
-        -- ดันตัวขึ้นเล็กน้อย
-        local hrp=(lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"))
-        if hrp then for i=1,5 do hrp.CFrame=hrp.CFrame+Vector3.new(0,2.2,0); task.wait() end end
+        local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then for i=1,5 do hrp.CFrame = hrp.CFrame + Vector3.new(0,2.2,0); task.wait() end end
     end
     local function setNoclipState(on)
-        noclipWanted=on
         local _,_,char=getHRP(); if not char then return end
         if on then applyNoClip(char) else restoreClip(char) end
     end
 
-    -- === Flight ===
+    -- Flight
     local function stopAllAnimations(hum)
         local animator=hum and hum:FindFirstChildOfClass("Animator")
         if animator then for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do trk:Stop(0) end end
@@ -935,19 +929,56 @@ registerRight("Player", function(scroll)
         setNoclipState(false)
     end
 
-    -- === UI ===
+    -- UI
     local frame=Instance.new("Frame",scroll); frame.Size=UDim2.new(1,-6,0,46); frame.BackgroundColor3=THEME.BLACK; corner(frame,12); stroke(frame,2.2,THEME.GREEN); frame.LayoutOrder=nextOrder+1
     local lab=Instance.new("TextLabel",frame); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0); lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.TextColor3=THEME.WHITE; lab.Text="Flight Mode"
     local switch=Instance.new("Frame",frame); switch.AnchorPoint=Vector2.new(1,0.5); switch.Position=UDim2.new(1,-12,0.5,0); switch.Size=UDim2.fromOffset(52,26); switch.BackgroundColor3=THEME.BLACK; corner(switch,13)
     local swStroke=stroke(switch,1.8,THEME.RED)
     local knob=Instance.new("Frame",switch); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
     local btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+    local function setState(v)
+        if v==flightOn then return end
+        flightOn=v
+        if flightOn then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.12); startFly()
+        else             swStroke.Color=THEME.RED;   tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.12); stopFly() end
+    end
+    btn.MouseButton1Click:Connect(function() setState(not flightOn) end)
+    lp.CharacterAdded:Connect(function() setState(false) end)
 
     local ncRow=Instance.new("Frame",scroll); ncRow.Size=UDim2.new(1,-6,0,46); ncRow.BackgroundColor3=THEME.BLACK; corner(ncRow,12); stroke(ncRow,2.2,THEME.GREEN); ncRow.LayoutOrder=nextOrder+2
     local ncLab=Instance.new("TextLabel",ncRow); ncLab.BackgroundTransparency=1; ncLab.Size=UDim2.new(1,-140,1,0); ncLab.Position=UDim2.new(0,16,0,0); ncLab.Font=Enum.Font.GothamBold; ncLab.TextSize=13; ncLab.TextXAlignment=Enum.TextXAlignment.Left; ncLab.TextColor3=THEME.WHITE; ncLab.Text="Noclip Mode"
     local ncSwitch=Instance.new("Frame",ncRow); ncSwitch.AnchorPoint=Vector2.new(1,0.5); ncSwitch.Position=UDim2.new(1,-12,0.5,0); ncSwitch.Size=UDim2.fromOffset(52,26); ncSwitch.BackgroundColor3=THEME.BLACK; corner(ncSwitch,13)
     local ncStroke=stroke(ncSwitch,1.8,THEME.GREEN)
-    local ncKnob=Instance.new("Frame",ncSwitch); ncKnob.Size=UDim2.fromOffset(22,22); ncKnob.Position=UDim2.new(1,-24
+    local ncKnob=Instance.new("Frame",ncSwitch); ncKnob.Size=UDim2.fromOffset(22,22); ncKnob.Position=UDim2.new(1,-24,0.5,-11); ncKnob.BackgroundColor3=THEME.WHITE; corner(ncKnob,11)
+    local ncBtn=Instance.new("TextButton",ncSwitch); ncBtn.BackgroundTransparency=1; ncBtn.Size=UDim2.fromScale(1,1); ncBtn.Text=""
+    local function toggleNoclip(on)
+        noclipWanted=on
+        if on then ncStroke.Color=THEME.GREEN; tween(ncKnob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); setNoclipState(true)
+        else      ncStroke.Color=THEME.RED;   tween(ncKnob,{Position=UDim2.new(0,2,0.5,-11)},0.1); setNoclipState(false) end
+    end
+    toggleNoclip(true)
+    ncBtn.MouseButton1Click:Connect(function() toggleNoclip(not noclipWanted) end)
+
+    -- Sensitivity
+    local sRow=Instance.new("Frame",scroll); sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+3
+    local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24); sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left; sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
+    local bar=Instance.new("Frame",sRow); bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16); bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
+    local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+    local knob2=Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(24,24); knob2.Position=UDim2.new(0,-12,0.5,-12); knob2.BackgroundColor3=THEME.WHITE; corner(knob2,12)
+    local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1); centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.TextXAlignment=Enum.TextXAlignment.Center; centerVal.TextYAlignment=Enum.TextYAlignment.Center; centerVal.Text="0%"
+    local dragging=false
+    local function uiFromRel(rel,instant)
+        rel=math.clamp(rel,0,1); sensTarget=S_MIN+(S_MAX-S_MIN)*rel
+        centerVal.Text=string.format("%d%%",math.floor(rel*100+0.5))
+        if instant then fill.Size=UDim2.fromScale(rel,1); knob2.Position=UDim2.new(rel,-12,0.5,-12)
+        else tween(fill,{Size=UDim2.fromScale(rel,1)},0.08); tween(knob2,{Position=UDim2.new(rel,-12,0.5,-12)},0.08) end
+    end
+    local function relFromX(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
+    knob2.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=true end end)
+    bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; uiFromRel(relFromX(io.Position.X),true) end end)
+    UserInputService.InputEnded:Connect(function(io) if dragging and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then dragging=false; uiFromRel(relFromX(UserInputService:GetMouseLocation().X),false) end end)
+    RunService.RenderStepped:Connect(function() if dragging then uiFromRel(relFromX(UserInputService:GetMouseLocation().X),true) end end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
