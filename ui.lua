@@ -708,10 +708,11 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A LEGACY 2.3.9b-Final (Rebind Safe + Speed Slider) =====
--- ✅ Fix ปุ่มกดไม่ทำงานหลังเปิดปิดใหม่ (rebind ใหม่ทุกครั้ง)
--- ✅ สไลเดอร์ปรับความไว: 0% = 0.9x, 100% = 3.0x
--- ✅ ปิดแล้วคืนชน/แอนิเมชัน, เปิดแล้ว Noclip และคุมทิศตามกล้อง
+-- ===== Player tab (Right) — Model A LEGACY 2.3.9b — Clean Toggle Noclip + Speed Slider =====
+-- ✅ สวิตช์เปิด = บิน + Noclip (ย้ำทุกเฟรม) / ปิด = หยุดบิน + คืนชนครบ
+-- ✅ แก้บั๊กปิด-เปิดใหม่แล้ว Noclip หาย: มี forceNoclipLoop เฉพาะตอน "เปิด"
+-- ✅ ปุ่ม W A S D / ขึ้น (Space/E) / ลง (Shift/Q) + จอยบนจอ
+-- ✅ สไลเดอร์ความไว: 0% = 0.9x, 100% = 3.0x
 
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
@@ -721,25 +722,18 @@ registerRight("Player", function(scroll)
     local PhysicsService = game:GetService("PhysicsService")
     local lp = Players.LocalPlayer
 
-    -- ---------- SAFE CLEANUP ----------
+    -- ---------- SAFE STATE ----------
     if _G.UFOX and typeof(_G.UFOX.cleanupAll)=="function" then pcall(_G.UFOX.cleanupAll) end
-    _G.UFOX = {conns={}, movers={}, gui=nil}
+    _G.UFOX = {conns={}, movers={}, gui=nil, noclipPulse=nil}
     local function keep(c) table.insert(_G.UFOX.conns,c) return c end
     _G.UFOX.cleanupAll=function()
         for _,c in ipairs(_G.UFOX.conns) do pcall(function() c:Disconnect() end) end
         _G.UFOX.conns={}
+        if _G.UFOX.noclipPulse then pcall(function() _G.UFOX.noclipPulse:Disconnect() end) _G.UFOX.noclipPulse=nil end
         if _G.UFOX.gui then pcall(function() _G.UFOX.gui:Destroy() end) _G.UFOX.gui=nil end
         local ch=lp.Character
         if ch then
-            for _,n in ipairs({"UFO_BP","UFO_AO","UFO_Att"}) do
-                local i=ch:FindFirstChild(n,true); if i then pcall(function() i:Destroy() end) end
-            end
-            for _,p in ipairs(ch:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    p.CanCollide=true; p.CanTouch=true; p.CanQuery=true
-                    pcall(function() PhysicsService:SetPartCollisionGroup(p,"Default") end)
-                end
-            end
+            for _,n in ipairs({"UFO_BP","UFO_AO","UFO_Att"}) do local i=ch:FindFirstChild(n,true); if i then pcall(function() i:Destroy() end) end end
             local hrp=ch:FindFirstChild("HumanoidRootPart")
             if hrp then hrp.Velocity=Vector3.zero; hrp.RotVelocity=Vector3.zero end
         end
@@ -767,7 +761,6 @@ registerRight("Player", function(scroll)
     local sensTarget, sensApplied = 0,0
     local S_MIN,S_MAX = 0.0, 2.0
     local MIN_MULT, MAX_MULT = 0.9, 3.0
-
     local function speeds()
         local norm = (S_MAX>0) and (sensApplied/S_MAX) or 0
         local mult = MIN_MULT + (MAX_MULT - MIN_MULT) * math.clamp(norm,0,1)
@@ -790,14 +783,24 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- ---------- Noclip ----------
-    local function setPartsClip(char,noclip)
+    -- ---------- Noclip helpers (ผูกกับสวิตช์) ----------
+    local function setPartsClip(char, noclip)
         for _,p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") then
                 p.CanCollide=not noclip; p.CanTouch=not noclip; p.CanQuery=not noclip
                 if not noclip then pcall(function() PhysicsService:SetPartCollisionGroup(p,"Default") end) end
             end
         end
+    end
+    local function forceNoclipLoop(enable)
+        if _G.UFOX.noclipPulse then _G.UFOX.noclipPulse:Disconnect(); _G.UFOX.noclipPulse=nil end
+        if not enable then return end
+        _G.UFOX.noclipPulse = keep(RunService.Stepped:Connect(function()
+            local _,_,char=getHRP(); if not char then return end
+            for _,p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=false; p.CanTouch=false; p.CanQuery=false end
+            end
+        end))
     end
 
     -- ---------- Controls (GUI) ----------
@@ -869,32 +872,29 @@ registerRight("Player", function(scroll)
         local an=char:FindFirstChild("Animate"); if an and an:IsA("LocalScript") then an.Enabled=false; savedAnimate=an end
         hrp.Anchored=false; hum.PlatformStand=false
 
-        local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"
-        bp.MaxForce=Vector3.new(1e7,1e7,1e7); bp.P=9e4; bp.D=dampFactor
-        bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
-
+        local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"; bp.MaxForce=Vector3.new(1e7,1e7,1e7)
+        bp.P=9e4; bp.D=dampFactor; bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
         local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
         local ao=Instance.new("AlignOrientation",hrp); ao.Name="UFO_AO"
-        ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge
-        ao.RigidityEnabled=true; ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
-
+        ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true
+        ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
         local gui=createPad(); gui.Enabled=true
-        bindKeyboard(); setPartsClip(char,true)
+        bindKeyboard()
+
+        -- เปิด Noclip ทันที + ย้ำทุกเฟรม (กันหลุด)
+        setPartsClip(char,true)
+        forceNoclipLoop(true)
 
         keep(RunService.Heartbeat:Connect(function(dt)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
-
             local cam=workspace.CurrentCamera; if not cam then return end
-            local camCF=cam.CFrame
-            local fwd=camCF.LookVector
-            local rightVec=camCF.RightVector
-            local rightH=Vector3.new(rightVec.X,0,rightVec.Z)
+            local camCF=cam.CFrame; local fwd=camCF.LookVector
+            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
             if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
 
-            local MOVE,STRAFE,ASC=speeds()
-            local pos=bp.Position
+            local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
             if hold.fwd  then pos+=fwd*(MOVE*dt) end
             if hold.back then pos-=fwd*(MOVE*dt) end
             if hold.left then pos-=rightH*(STRAFE*dt) end
@@ -909,15 +909,18 @@ registerRight("Player", function(scroll)
 
     local function stopFly()
         flightOn=false
-        _G.UFOX.cleanupAll()
+        -- ปิดลูป Noclip ก่อน แล้วคืนชน
+        forceNoclipLoop(false)
         local hrp,hum,char=getHRP()
         if char then setPartsClip(char,false) end
+
+        _G.UFOX.cleanupAll()
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     end
 
-    -- ---------- UI: Switch ----------
+    -- ---------- UI: Toggle Switch ----------
     local function makeSwitch(name,order)
         local row=Instance.new("Frame",scroll); row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=order
@@ -930,14 +933,12 @@ registerRight("Player", function(scroll)
         local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11)
         knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
         local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+
         local on=false
         local function setState(v)
             on=v
-            if v then
-                swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly()
-            else
-                swStroke.Color=THEME.RED; tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly()
-            end
+            if v then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly()
+            else     swStroke.Color=THEME.RED;   tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly() end
         end
         btn.MouseButton1Click:Connect(function() setState(not on) end)
         return row
@@ -977,9 +978,8 @@ registerRight("Player", function(scroll)
             tween(knobBtn,{Position=UDim2.new(rel,-14,0.5,-14)},0.08)
         end
     end
-
-    local dragConn,endConn
     local function relFrom(px) return (px - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
+    local dragConn,endConn
     local function beginDrag(px)
         applyRel(relFrom(px),true)
         if dragConn then dragConn:Disconnect() end
