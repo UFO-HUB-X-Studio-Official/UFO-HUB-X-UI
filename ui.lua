@@ -709,7 +709,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
--- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Fixed pad order + Screen Steering =====
+-- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Fixed pad order + Screen Steering + Camera Lock =====
 registerRight("Player", function(scroll)
     ----------------------------------------------------------------
     -- Services / Theme
@@ -825,23 +825,25 @@ registerRight("Player", function(scroll)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Hover + Mini Control Pad (hold-to-move) + Swipe Strafe + Noclip + Screen Steering
+    -- Hover + Mini Control Pad (hold-to-move) + Swipe Strafe + Noclip + Screen Steering + Camera Lock
     ----------------------------------------------------------------
     local hoverHeight   = 6
     local moveSpeed     = 38  -- forward/back
     local strafeSpeed   = 38  -- left/right slide
     local ascendSpeed   = 28  -- up/down
-    local turnRate      = math.rad(80) -- rad/s @ steering = 1
+    local turnRate      = math.rad(100) -- rad/s @ steering = 1 (แรงขึ้นเล็กน้อย)
 
     local movers = {bp=nil, bg=nil}
     local loopConn, noclipConn
     local controlsGui
     local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
 
-    -- << NEW: screen steering state (พวงมาลัยทั้งหน้าจอ) >>
-    local steerTouch = nil
-    local steerStartX = 0
-    local steerX = 0         -- -1..1 (ซ้าย..ขวา)
+    -- Screen steering (สไลด์ทั้งหน้าจอ = พวงมาลัย)
+    local steerTouch, steerStartX, steerX = nil, 0, 0   -- -1..1
+
+    -- กล้อง
+    local cam = workspace.CurrentCamera
+    local savedCamType, savedSubject, savedRelCF
 
     local function getHRP()
         local char = lp and lp.Character
@@ -896,13 +898,13 @@ registerRight("Player", function(scroll)
             return b
         end
 
-        -- ตำแหน่งเดิม: บน=ไปข้างหน้า / ล่าง=ถอยหลัง
+        -- ปุ่มคุมการเดิน/เลื่อน (ตำแหน่งเดิมเป๊ะ)
         local btnFwd  = makeBtn(pad, "Fwd",   SIZE+GAP, 0,                "🔼")
         local btnBack = makeBtn(pad, "Back",  SIZE+GAP, SIZE*2+GAP*2,     "🔽")
         local btnLeft = makeBtn(pad, "Left",  0,        SIZE+GAP,         "◀️")
         local btnRight= makeBtn(pad, "Right", (SIZE+GAP)*2, SIZE+GAP,     "▶️")
 
-        -- โซนสไลด์ใน pad = strafe (คงหน้าตาเดิม)
+        -- โซนสไลด์ใน pad = strafe
         local swipeZone = Instance.new("Frame")
         swipeZone.BackgroundTransparency = 1
         swipeZone.Size = UDim2.fromScale(1,1)
@@ -935,14 +937,11 @@ registerRight("Player", function(scroll)
                 end
             end)
         end
-        bindHold(btnFwd,  "fwd")
-        bindHold(btnBack, "back")
-        bindHold(btnLeft, "left")
-        bindHold(btnRight,"right")
-        bindHold(btnUp,   "up")
-        bindHold(btnDown, "down")
+        bindHold(btnFwd,  "fwd");  bindHold(btnBack,"back")
+        bindHold(btnLeft, "left"); bindHold(btnRight,"right")
+        bindHold(btnUp,   "up");   bindHold(btnDown, "down")
 
-        -- ป้องกันปุ่มค้างเมื่อปล่อยนอกปุ่ม
+        -- กันค้างเมื่อปล่อยนอกปุ่ม
         UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType == Enum.UserInputType.Touch then
                 local k = activeTouches[io]
@@ -992,8 +991,7 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- << NEW: global screen steering — เลี้ยวซ้าย/ขวาได้โดย "หันหน้าจอ/สไลด์ทั้งจอ"
-    -- ใช้ UserInputService.Input* แบบ gameProcessed=false เพื่อไม่ชนกับปุ่ม >>
+    -- Global screen steering (พวงมาลัยทั้งหน้าจอ)
     UserInputService.InputBegan:Connect(function(io, gp)
         if gp then return end
         if io.UserInputType == Enum.UserInputType.Touch and not steerTouch then
@@ -1006,8 +1004,7 @@ registerRight("Player", function(scroll)
         if gp then return end
         if steerTouch and io == steerTouch and io.UserInputType == Enum.UserInputType.Touch then
             local dx = io.Position.X - steerStartX
-            -- แปลงเป็นค่า -1..1 (ยิ่งลากห่าง ยิ่งเลี้ยวแรง)
-            steerX = math.clamp(dx / 300, -1, 1)
+            steerX = math.clamp(dx / 300, -1, 1) -- ยิ่งลากมากยิ่งเลี้ยวมาก
         end
     end)
     UserInputService.InputEnded:Connect(function(io, gp)
@@ -1024,6 +1021,7 @@ registerRight("Player", function(scroll)
         hrp.Anchored = false
         hum.PlatformStand = false
 
+        -- ตัวยึดตำแหน่ง + หัน
         local bp = Instance.new("BodyPosition")
         bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
         bp.P = 7e4; bp.D = 2e3
@@ -1037,6 +1035,14 @@ registerRight("Player", function(scroll)
         bg.Parent = hrp
 
         movers.bp, movers.bg = bp, bg
+
+        -- ===== Lock กล้องให้หมุนตามตัวละคร =====
+        savedCamType   = cam.CameraType
+        savedSubject   = cam.CameraSubject
+        savedRelCF     = hrp.CFrame:ToObjectSpace(cam.CFrame) -- เก็บออฟเซ็ตสัมพันธ์ HRP
+
+        cam.CameraType   = Enum.CameraType.Scriptable
+        cam.CameraSubject= nil -- คุมเอง
 
         ensureControlsGui().Enabled = true
         setNoclipEnabled(true)
@@ -1056,13 +1062,16 @@ registerRight("Player", function(scroll)
             if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
             if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
 
-            -- เลี้ยวซ้าย/ขวาแบบพวงมาลัยจาก "การสไลด์ทั้งหน้าจอ"
+            -- พวงมาลัย: หมุน yaw ของตัวละคร
             if steerX ~= 0 then
                 local yaw = steerX * turnRate * dt
                 movers.bg.CFrame = movers.bg.CFrame * CFrame.Angles(0, yaw, 0)
             end
 
             movers.bp.Position = pos
+
+            -- อัปเดตกล้องให้คงออฟเซ็ตเดิม แต่หมุนตาม HRP => หน้าจอ “หันไปด้วย”
+            cam.CFrame = hrp.CFrame * savedRelCF
         end)
     end
 
@@ -1070,6 +1079,13 @@ registerRight("Player", function(scroll)
         if loopConn   then loopConn:Disconnect();   loopConn = nil   end
         if controlsGui then controlsGui.Enabled = false end
         setNoclipEnabled(false)
+
+        -- คืนค่ากล้อง
+        if savedCamType then
+            cam.CameraType   = savedCamType
+            cam.CameraSubject= savedSubject
+            savedCamType, savedSubject, savedRelCF = nil, nil, nil
+        end
 
         local hrp, hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp = nil end
