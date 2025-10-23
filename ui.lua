@@ -709,11 +709,10 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
--- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip + Fixed pad order + Screen Steering + Camera Lock =====
+-- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip
+-- Fixed pad order + Screen Steering (velocity-based) + Camera-Driven Facing =====
 registerRight("Player", function(scroll)
-    ----------------------------------------------------------------
     -- Services / Theme
-    ----------------------------------------------------------------
     local Players     = game:GetService("Players")
     local RunService  = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
@@ -727,13 +726,10 @@ registerRight("Player", function(scroll)
         WHITE    = Color3.fromRGB(255, 255, 255),
         BLACK    = Color3.fromRGB(0, 0, 0),
     }
-
     local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 12); c.Parent=ui; return c end
     local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
-    ----------------------------------------------------------------
-    -- Layout (don't clear old content)
-    ----------------------------------------------------------------
+    -- Layout (keep old content)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
@@ -745,19 +741,15 @@ registerRight("Player", function(scroll)
     end
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
     local nextOrder = 10
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
             nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0) + 1)
         end
     end
-
     if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
-    ----------------------------------------------------------------
-    -- A) Header: Flight Mode 🛸 (text only)
-    ----------------------------------------------------------------
+    -- Header
     local header = Instance.new("Frame")
     header.Name = "Section_FlightHeader"
     header.BackgroundTransparency = 1
@@ -765,7 +757,6 @@ registerRight("Player", function(scroll)
     header.AutomaticSize = Enum.AutomaticSize.Y
     header.LayoutOrder = nextOrder
     header.Parent = scroll
-
     local txt = Instance.new("TextLabel", header)
     txt.BackgroundTransparency = 1
     txt.Position = UDim2.new(0, 6, 0, 0)
@@ -777,9 +768,7 @@ registerRight("Player", function(scroll)
     txt.TextYAlignment = Enum.TextYAlignment.Center
     txt.Text = "Flight Mode 🛸"
 
-    ----------------------------------------------------------------
-    -- B) Row: Map Fly Mode + Switch (red when OFF / green when ON)
-    ----------------------------------------------------------------
+    -- Row + switch
     local row = Instance.new("Frame")
     row.Name = "Section_MapFly"
     row.BackgroundTransparency = 1
@@ -812,36 +801,41 @@ registerRight("Player", function(scroll)
     switch.BackgroundColor3 = THEME.BLACK
     corner(switch, 13)
     local swStroke = stroke(switch, 1.8, THEME.RED)
-
     local knob = Instance.new("Frame", switch)
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.new(0, 2, 0.5, -11)
     knob.BackgroundColor3 = THEME.WHITE
     corner(knob, 11)
-
     local button = Instance.new("TextButton", switch)
     button.BackgroundTransparency = 1
     button.Size = UDim2.fromScale(1, 1)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Hover + Mini Control Pad (hold-to-move) + Swipe Strafe + Noclip + Screen Steering + Camera Lock
+    -- Flight core
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 38  -- forward/back
-    local strafeSpeed   = 38  -- left/right slide
-    local ascendSpeed   = 28  -- up/down
-    local turnRate      = math.rad(100) -- rad/s @ steering = 1 (แรงขึ้นเล็กน้อย)
+    -- >>> เร่งความเร็วตามคำขอ <<<
+    local moveSpeed     = 52  -- forward/back (เดิม 38)
+    local strafeSpeed   = 44  -- left/right
+    local ascendSpeed   = 40  -- up/down (เดิม 28) เร็วขึ้นชัดเจน
+
+    -- Steering sensitivity (ตาม "ความเร็วมือจริง")
+    local STEER = {
+        pxPerFull    = 140,                -- พิกเซล/วินาที ที่เทียบเป็นอัตราเลี้ยวมาตรฐาน
+        maxTurnRate  = math.rad(300),      -- rad/s เมื่อเลื่อนเร็วมาก
+    }
 
     local movers = {bp=nil, bg=nil}
     local loopConn, noclipConn
     local controlsGui
     local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
 
-    -- Screen steering (สไลด์ทั้งหน้าจอ = พวงมาลัย)
-    local steerTouch, steerStartX, steerX = nil, 0, 0   -- -1..1
+    -- screen steering state
+    local steerTouch, lastX, lastT = nil, 0, 0
+    local steerVel = 0    -- พิกเซลต่อวินาที (+ขวา / -ซ้าย)
 
-    -- กล้อง
+    -- camera
     local cam = workspace.CurrentCamera
     local savedCamType, savedSubject, savedRelCF
 
@@ -851,13 +845,13 @@ registerRight("Player", function(scroll)
                char and char:FindFirstChildOfClass("Humanoid"),
                char
     end
-
     local function getGuiParent()
         local ok, hui = pcall(function() return gethui and gethui() end)
         if ok and hui then return hui end
         return game:GetService("CoreGui")
     end
 
+    -- Mini pad (ตำแหน่งเดิม)
     local function ensureControlsGui()
         if controlsGui and controlsGui.Parent then return controlsGui end
         controlsGui = Instance.new("ScreenGui")
@@ -869,8 +863,6 @@ registerRight("Player", function(scroll)
         controlsGui.Parent = getGuiParent()
 
         local SIZE, GAP = 64, 10
-
-        -- ฐานแพดซ้ายล่าง
         local pad = Instance.new("Frame")
         pad.Name = "Pad"
         pad.BackgroundTransparency = 1
@@ -898,19 +890,16 @@ registerRight("Player", function(scroll)
             return b
         end
 
-        -- ปุ่มคุมการเดิน/เลื่อน (ตำแหน่งเดิมเป๊ะ)
         local btnFwd  = makeBtn(pad, "Fwd",   SIZE+GAP, 0,                "🔼")
         local btnBack = makeBtn(pad, "Back",  SIZE+GAP, SIZE*2+GAP*2,     "🔽")
         local btnLeft = makeBtn(pad, "Left",  0,        SIZE+GAP,         "◀️")
         local btnRight= makeBtn(pad, "Right", (SIZE+GAP)*2, SIZE+GAP,     "▶️")
 
-        -- โซนสไลด์ใน pad = strafe
         local swipeZone = Instance.new("Frame")
         swipeZone.BackgroundTransparency = 1
         swipeZone.Size = UDim2.fromScale(1,1)
         swipeZone.Parent = pad
 
-        -- ปุ่มขึ้น/ลง ด้านขวากลาง
         local R_SIZE = 64
         local rWrap = Instance.new("Frame")
         rWrap.BackgroundTransparency = 1
@@ -918,11 +907,9 @@ registerRight("Player", function(scroll)
         rWrap.Position = UDim2.new(1, -120, 0.5, 0)
         rWrap.Size = UDim2.fromOffset(R_SIZE, R_SIZE*2+GAP)
         rWrap.Parent = controlsGui
-
         local btnUp   = makeBtn(rWrap, "Up",   0, 0,            "⬆️")
         local btnDown = makeBtn(rWrap, "Down", 0, R_SIZE+GAP,   "⬇️")
 
-        -- กดค้างปุ่ม
         local activeTouches = {}
         local function setHold(k, v) hold[k] = v end
         local function bindHold(btn, key)
@@ -941,7 +928,6 @@ registerRight("Player", function(scroll)
         bindHold(btnLeft, "left"); bindHold(btnRight,"right")
         bindHold(btnUp,   "up");   bindHold(btnDown, "down")
 
-        -- กันค้างเมื่อปล่อยนอกปุ่ม
         UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType == Enum.UserInputType.Touch then
                 local k = activeTouches[io]
@@ -951,7 +937,7 @@ registerRight("Player", function(scroll)
             end
         end)
 
-        -- สไลด์ใน pad => strafe
+        -- swipe strafe in pad
         local swipeTouch, lastPos
         local dead = 12
         swipeZone.InputBegan:Connect(function(io)
@@ -991,37 +977,38 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- Global screen steering (พวงมาลัยทั้งหน้าจอ)
+    -- Global screen steering: คิด “ความเร็วการเลื่อน” จริง (px/s)
     UserInputService.InputBegan:Connect(function(io, gp)
         if gp then return end
         if io.UserInputType == Enum.UserInputType.Touch and not steerTouch then
             steerTouch = io
-            steerStartX = io.Position.X
-            steerX = 0
+            lastX = io.Position.X
+            lastT = os.clock()
+            steerVel = 0
         end
     end)
     UserInputService.InputChanged:Connect(function(io, gp)
         if gp then return end
         if steerTouch and io == steerTouch and io.UserInputType == Enum.UserInputType.Touch then
-            local dx = io.Position.X - steerStartX
-            steerX = math.clamp(dx / 300, -1, 1) -- ยิ่งลากมากยิ่งเลี้ยวมาก
+            local x = io.Position.X
+            local t = os.clock()
+            local dt = math.max(t - lastT, 1/240)  -- ป้องกันหารศูนย์
+            steerVel = (x - lastX) / dt            -- px/s (+ขวา -ซ้าย)
+            lastX, lastT = x, t
         end
     end)
     UserInputService.InputEnded:Connect(function(io, gp)
         if steerTouch and io == steerTouch then
             steerTouch = nil
-            steerX = 0
+            steerVel = 0
         end
     end)
 
     local function startHover()
-        local hrp, hum = getHRP()
-        if not hrp or not hum then return end
-
+        local hrp, hum = getHRP(); if not hrp or not hum then return end
         hrp.Anchored = false
         hum.PlatformStand = false
 
-        -- ตัวยึดตำแหน่ง + หัน
         local bp = Instance.new("BodyPosition")
         bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
         bp.P = 7e4; bp.D = 2e3
@@ -1036,13 +1023,13 @@ registerRight("Player", function(scroll)
 
         movers.bp, movers.bg = bp, bg
 
-        -- ===== Lock กล้องให้หมุนตามตัวละคร =====
+        -- กล้องนำ: เก็บออฟเซ็ตกล้องจาก HRP
+        local cam = workspace.CurrentCamera
         savedCamType   = cam.CameraType
         savedSubject   = cam.CameraSubject
-        savedRelCF     = hrp.CFrame:ToObjectSpace(cam.CFrame) -- เก็บออฟเซ็ตสัมพันธ์ HRP
-
-        cam.CameraType   = Enum.CameraType.Scriptable
-        cam.CameraSubject= nil -- คุมเอง
+        savedRelCF     = hrp.CFrame:ToObjectSpace(cam.CFrame)
+        cam.CameraType = Enum.CameraType.Scriptable
+        cam.CameraSubject = nil
 
         ensureControlsGui().Enabled = true
         setNoclipEnabled(true)
@@ -1050,40 +1037,44 @@ registerRight("Player", function(scroll)
         loopConn = RunService.Heartbeat:Connect(function(dt)
             if not (movers.bp and movers.bg and hrp.Parent) then return end
 
-            local cf   = hrp.CFrame
-            local fwd  = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)  ; if fwd.Magnitude  > 0 then fwd  = fwd.Unit  end
-            local right= Vector3.new(cf.RightVector.X,0, cf.RightVector.Z) ; if right.Magnitude> 0 then right= right.Unit end
-
-            local pos = movers.bp.Position
-            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- 🔼 ไปหน้า
-            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- 🔽 ถอยหลัง
-            if hold.left then  pos = pos - right * (strafeSpeed * dt) end   -- ◀️ เลื่อนซ้าย
-            if hold.right then pos = pos + right * (strafeSpeed * dt) end   -- ▶️ เลื่อนขวา
-            if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
-            if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
-
-            -- พวงมาลัย: หมุน yaw ของตัวละคร
-            if steerX ~= 0 then
-                local yaw = steerX * turnRate * dt
-                movers.bg.CFrame = movers.bg.CFrame * CFrame.Angles(0, yaw, 0)
+            -- หมุนกล้องตามความเร็วการเลื่อนนิ้ว (แรงขึ้น/ไวขึ้น)
+            if steerVel ~= 0 then
+                local rate = math.clamp(steerVel / STEER.pxPerFull, -3, 3)   -- scale
+                local yaw  = rate * STEER.maxTurnRate * dt
+                savedRelCF = savedRelCF * CFrame.Angles(0, yaw, 0)           -- หมุนกล้องรอบ HRP
             end
 
+            -- กล้องใหม่
+            local camCF = hrp.CFrame * savedRelCF
+            workspace.CurrentCamera.CFrame = camCF
+
+            -- การเคลื่อนที่ “ยึดทิศจากกล้อง”
+            local fwd   = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
+            local right = Vector3.new(camCF.RightVector.X,0, camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
+
+            local pos = movers.bp.Position
+            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- ไปหน้า เร็วขึ้น
+            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- ถอยหลัง
+            if hold.left then  pos = pos - right * (strafeSpeed * dt) end   -- เลื่อนซ้าย (หันหน้าเดิม)
+            if hold.right then pos = pos + right * (strafeSpeed * dt) end   -- เลื่อนขวา
+            if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
+            if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
             movers.bp.Position = pos
 
-            -- อัปเดตกล้องให้คงออฟเซ็ตเดิม แต่หมุนตาม HRP => หน้าจอ “หันไปด้วย”
-            cam.CFrame = hrp.CFrame * savedRelCF
+            -- ให้ตัวละคร “หันตามมุมกล้อง” เสมอ (ไม่หมุนเองคนละทิศ)
+            movers.bg.CFrame = CFrame.new(hrp.Position, hrp.Position + fwd)
         end)
     end
 
     local function stopHover()
-        if loopConn   then loopConn:Disconnect();   loopConn = nil   end
+        if loopConn   then loopConn:Disconnect(); loopConn = nil end
         if controlsGui then controlsGui.Enabled = false end
         setNoclipEnabled(false)
 
-        -- คืนค่ากล้อง
         if savedCamType then
-            cam.CameraType   = savedCamType
-            cam.CameraSubject= savedSubject
+            local cam = workspace.CurrentCamera
+            cam.CameraType    = savedCamType
+            cam.CameraSubject = savedSubject
             savedCamType, savedSubject, savedRelCF = nil, nil, nil
         end
 
@@ -1095,24 +1086,22 @@ registerRight("Player", function(scroll)
     end
 
     -- Toggle
-    local isOn = false
+    local isOn=false
     local function setState(v)
-        isOn = v
+        isOn=v
         if isOn then
             swStroke.Color = THEME.GREEN
-            knob:TweenPosition(UDim2.new(1, -24, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(1,-24,0.5,-11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
             startHover()
         else
             swStroke.Color = THEME.RED
-            knob:TweenPosition(UDim2.new(0, 2, 0.5, -11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
+            knob:TweenPosition(UDim2.new(0,2,0.5,-11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
             stopHover()
         end
     end
-
     button.MouseButton1Click:Connect(function() setState(not isOn) end)
     setState(false)
 
-    -- Safety: disable on respawn
     lp.CharacterAdded:Connect(function() setState(false) end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
