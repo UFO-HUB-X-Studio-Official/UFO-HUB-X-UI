@@ -607,106 +607,126 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
+-- ===== Player tab (Right) — Profile + Hide Name Toggle =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local Content = game:GetService("ContentProvider")
     local lp      = Players.LocalPlayer
 
+    -- keep/restore simple state
+    _G.UFOX_PROFILE = _G.UFOX_PROFILE or { hiddenName = false }
+
     -- THEME
-    local BASE = rawget(_G, "THEME") or {}
+    local BASE  = rawget(_G, "THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
         GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
         WHITE    = Color3.fromRGB(255, 255, 255),
+        BLACK    = Color3.fromRGB(0, 0, 0),
+        RED      = Color3.fromRGB(255, 40, 40),
     }
-    local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 10)
-        c.Parent = ui
-        return c
-    end
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.5
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Parent = ui
-        return s
-    end
+    local function corner(ui, r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui return c end
+    local function stroke(ui, th, col) local s=Instance.new("UIStroke") s.Thickness=th or 1.6 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui return s end
 
-    -- สร้าง layout กลางถ้ายังไม่มี (ไม่ลบของแท็บอื่น)
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
-        vlist.Parent = scroll
-    end
-    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    -- layout
+    local old = scroll:FindFirstChild("Section_Profile"); if old then old:Destroy() end
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    vlist.Padding = UDim.new(0, 12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- ลบเฉพาะบล็อกโปรไฟล์ของตัวเอง (กันซ้ำ)
-    local old = scroll:FindFirstChild("Section_Profile")
-    if old then old:Destroy() end
-
-    -- ===== Section: Profile =====
-    local section = Instance.new("Frame")
-    section.Name = "Section_Profile"
-    section.BackgroundTransparency = 1
-    section.Size = UDim2.new(1, 0, 0, 0)
-    section.AutomaticSize = Enum.AutomaticSize.Y
+    local section = Instance.new("Frame", scroll)
+    section.Name = "Section_Profile"; section.BackgroundTransparency = 1
+    section.Size = UDim2.new(1,0,0,0); section.AutomaticSize = Enum.AutomaticSize.Y
     section.LayoutOrder = 10
-    section.Parent = scroll
-
     local layout = Instance.new("UIListLayout", section)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.VerticalAlignment   = Enum.VerticalAlignment.Top
-    layout.Padding             = UDim.new(0, 10)
+    layout.Padding = UDim.new(0,10)
 
-    -- Avatar
+    -- avatar
     local avatarWrap = Instance.new("Frame", section)
     avatarWrap.BackgroundColor3 = THEME.BG_INNER
-    avatarWrap.Size = UDim2.fromOffset(150, 150)
-    corner(avatarWrap, 12)
-    stroke(avatarWrap, 1.6, THEME.GREEN)
-
+    avatarWrap.Size = UDim2.fromOffset(150,150); corner(avatarWrap,12); stroke(avatarWrap,1.6,THEME.GREEN)
     local avatarImg = Instance.new("ImageLabel", avatarWrap)
-    avatarImg.BackgroundTransparency = 1
-    avatarImg.Size = UDim2.fromScale(1, 1)
-    avatarImg.ImageTransparency = 1
-
+    avatarImg.BackgroundTransparency = 1; avatarImg.Size = UDim2.fromScale(1,1); avatarImg.ImageTransparency = 1
     task.spawn(function()
         if lp then
             local ok, url = pcall(function()
                 return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
             end)
-            if ok and url then
-                pcall(function() Content:PreloadAsync({url}) end)
-                avatarImg.Image = url
-                avatarImg.ImageTransparency = 0
-            end
+            if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
         end
     end)
 
-    -- Name
+    -- name bar
     local nameBar = Instance.new("Frame", section)
     nameBar.BackgroundColor3 = THEME.BG_INNER
-    nameBar.Size = UDim2.fromOffset(220, 36)
-    corner(nameBar, 8)
-    stroke(nameBar, 1.3, THEME.GREEN)
+    nameBar.Size = UDim2.fromOffset(220, 36); corner(nameBar,8); stroke(nameBar,1.3,THEME.GREEN)
 
     local nameLbl = Instance.new("TextLabel", nameBar)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Size = UDim2.fromScale(1, 1)
-    nameLbl.Font = Enum.Font.GothamBold
-    nameLbl.TextSize = 16
-    nameLbl.TextColor3 = THEME.WHITE
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
-    nameLbl.Text = (lp and lp.DisplayName) or "Player"
+    nameLbl.BackgroundTransparency = 1; nameLbl.Size = UDim2.fromScale(1,1)
+    nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 16; nameLbl.TextColor3 = THEME.WHITE
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Center; nameLbl.RichText = true
+
+    -- small white strip (ตำแหน่งและขนาดอ้างอิง)
+    local STRIP_W, STRIP_H = 120, 12  -- << ขนาด “เท่านั้นเป๊ะๆ”
+    local stripWhite = Instance.new("Frame", section)
+    stripWhite.Name = "WhiteStrip"; stripWhite.Size = UDim2.fromOffset(STRIP_W, STRIP_H)
+    stripWhite.BackgroundColor3 = THEME.WHITE; corner(stripWhite, 6)
+
+    -- สร้าง “สีดำขอบเขียว” วางทับแถบขาวแบบเป๊ะ (Overlay)
+    local stripOverlay = Instance.new("Frame", section)
+    stripOverlay.Name = "OverlayStrip"
+    stripOverlay.Size = UDim2.fromOffset(STRIP_W, STRIP_H)
+    stripOverlay.BackgroundColor3 = THEME.BLACK; corner(stripOverlay, 6); stroke(stripOverlay, 1.6, THEME.GREEN)
+    stripOverlay.ZIndex = (stripWhite.ZIndex or 1) + 1
+
+    -- จัดให้อยู่ตรงตำแหน่งเดียวกันเป๊ะ (กลางแนวตั้ง, กึ่งกลางเหมือนกัน)
+    -- ใช้ UIListLayout เหมือนกันจึงเรียงต่อกัน: ทำให้ overlay อยู่ "ทับ" ด้วยการวางอีกตัวและเอาช่องว่าง 0
+    -- เพื่อความเป๊ะ ให้จับคู่ตำแหน่งด้วย AutomaticSize + ขนาดเดียวกัน (STRIP_W/STRIP_H เดียวกัน)
+
+    -- helper: อัปเดตข้อความตามโหมดซ่อน/แสดงชื่อ
+    local function refreshName()
+        if _G.UFOX_PROFILE.hiddenName then
+            nameLbl.Text = '<font color="#FFFFFF">UFO </font><font color="#19FF7D">HUB X</font>'
+        else
+            local dn = (lp and lp.DisplayName) or "Player"
+            nameLbl.Text = dn
+        end
+    end
+    refreshName()
+
+    -- ===== Toggle: Hide Name =====
+    local row = Instance.new("Frame", section)
+    row.Size = UDim2.fromOffset(260, 46); row.BackgroundColor3 = THEME.BG_INNER
+    corner(row,12); stroke(row,1.8,THEME.GREEN)
+
+    local lab = Instance.new("TextLabel", row)
+    lab.BackgroundTransparency = 1; lab.Position = UDim2.new(0,16,0,0); lab.Size = UDim2.new(1,-140,1,0)
+    lab.Font = Enum.Font.GothamBold; lab.TextSize = 13; lab.TextColor3 = THEME.WHITE
+    lab.TextXAlignment = Enum.TextXAlignment.Left; lab.Text = "Hide Name"
+
+    local sw = Instance.new("Frame", row)
+    sw.AnchorPoint = Vector2.new(1,0.5); sw.Position = UDim2.new(1,-12,0.5,0)
+    sw.Size = UDim2.fromOffset(52,26); sw.BackgroundColor3 = THEME.BG_INNER
+    corner(sw,13)
+    local swStroke = stroke(sw, 1.8, _G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
+    local knob = Instance.new("Frame", sw)
+    knob.Size = UDim2.fromOffset(22,22)
+    knob.Position = UDim2.new(_G.UFOX_PROFILE.hiddenName and 1 or 0, _G.UFOX_PROFILE.hiddenName and -24 or 2, 0.5, -11)
+    knob.BackgroundColor3 = THEME.WHITE; corner(knob,11)
+
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+
+    local TweenService = game:GetService("TweenService")
+    local function setHidden(v)
+        _G.UFOX_PROFILE.hiddenName = v
+        swStroke.Color = v and THEME.GREEN or THEME.RED
+        TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)}):Play()
+        refreshName()
+    end
+    btn.MouseButton1Click:Connect(function() setHidden(not _G.UFOX_PROFILE.hiddenName) end)
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
