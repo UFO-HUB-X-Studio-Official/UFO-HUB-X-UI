@@ -708,11 +708,9 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A LEGACY 2.3.9 (Mobile slider fix + start-on-switch) =====
--- เริ่มต้น: ไม่ทำอะไรจนกดสวิตช์ ON
--- ON  : บิน + Noclip ตลอดเวลา (pulse เฉพาะตอนบิน)
--- OFF : คืนชนทันที + ซ่อนปุ่มจอย + รีเซ็ตสถานะกด
-
+-- ===== Player tab (Right) — Model A LEGACY 2.3.9b (Start on switch + Mobile-Strong Slider) =====
+-- ON  : บิน + Noclip (pulse ขณะบิน) + โชว์ปุ่มจอย
+-- OFF : คืนชนทันที + ซ่อนปุ่มจอย + รีเซ็ตกด
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -721,7 +719,7 @@ registerRight("Player", function(scroll)
     local PhysicsService = game:GetService("PhysicsService")
     local lp = Players.LocalPlayer
 
-    -- ---------- SAFE CLEANUP (กันค้าง/ลอยเวลารีรัน) ----------
+    -- ---------- SAFE CLEANUP ----------
     if _G.UFOX and typeof(_G.UFOX.cleanupAll)=="function" then pcall(_G.UFOX.cleanupAll) end
     _G.UFOX = {conns={}, movers={}}
     local function keep(c) table.insert(_G.UFOX.conns,c) return c end
@@ -736,11 +734,12 @@ registerRight("Player", function(scroll)
                     pcall(function() PhysicsService:SetPartCollisionGroup(p,"Default") end)
                 end
             end
-            local hrp=ch:FindFirstChild("HumanoidRootPart"); if hrp then hrp.Velocity=Vector3.zero; hrp.RotVelocity=Vector3.zero end
+            local hrp=ch:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.Velocity=Vector3.zero; hrp.RotVelocity=Vector3.zero end
         end
     end
 
-    -- ---------- THEME / UI helpers ----------
+    -- ---------- THEME / HELPERS ----------
     local BASE = rawget(_G,"THEME") or {}
     local THEME={ GREEN=BASE.GREEN or BASE.ACCENT or Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40), WHITE=Color3.fromRGB(255,255,255), BLACK=Color3.fromRGB(0,0,0) }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui; return c end
@@ -780,7 +779,7 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- ---------- Pads + Keyboard (แสดงเฉพาะตอน ON) ----------
+    -- ---------- Pads + Keyboard ----------
     local function ensureControls()
         if controlsGui and controlsGui.Parent then return controlsGui end
         controlsGui=Instance.new("ScreenGui")
@@ -840,7 +839,7 @@ registerRight("Player", function(scroll)
 
     -- ---------- Flight ----------
     local function startFly()
-        _G.UFOX.cleanupAll() -- ไม่เริ่มอะไรจนกด ON
+        _G.UFOX.cleanupAll()
         local hrp,hum,char=getHRP(); if not hrp or not hum then return end
         flightOn=true
         hum.AutoRotate=false
@@ -850,6 +849,7 @@ registerRight("Player", function(scroll)
         local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
         local ao=Instance.new("AlignOrientation",hrp); ao.Name="UFO_AO"; ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true; ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
+
         ensureControls().Enabled=true
         bindKeyboard()
         setPartsClip(char,true); forceNoclipLoop(true)
@@ -886,10 +886,11 @@ registerRight("Player", function(scroll)
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     end
 
-    -- ---------- UI: สวิตช์เริ่มต้นปิด ----------
+    -- ---------- UI: สวิตช์เริ่ม OFF ----------
     local function makeSwitch(name, order, default, callback)
         local row=Instance.new("Frame",scroll); row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=order
-        local lab=Instance.new("TextLabel",row); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0); lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.TextColor3=THEME.WHITE; lab.Text=name
+        local lab=Instance.new("TextLabel",row); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.TextColor3=THEME.WHITE; lab.Text=name
         local sw=Instance.new("Frame",row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0); sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
         local swStroke=stroke(sw,1.8,THEME.RED)
         local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
@@ -901,44 +902,79 @@ registerRight("Player", function(scroll)
             callback(v)
         end
         btn.MouseButton1Click:Connect(function() update(not state) end)
-        update(false) -- เริ่ม OFF เสมอ
+        update(false)
         return row
     end
     makeSwitch("Flight Mode", nextOrder+1, false, function(v) if v then startFly() else stopFly() end end)
 
-    -- ---------- Sensitivity (แก้ให้ลากบนมือถือได้จริง) ----------
-    local sRow=Instance.new("Frame",scroll); sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
-    local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24); sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left; sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
-    local bar=Instance.new("Frame",sRow); bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16); bar.BackgroundColor3=THEME.BLACK; bar.Active=true; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
-    local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
-    local knob2=Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(24,24); knob2.Position=UDim2.new(0,-12,0.5,-12); knob2.BackgroundColor3=THEME.WHITE; knob2.Active=true; corner(knob2,12)
-    local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1); centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
+    -- ---------- Sensitivity (MOBILE-STRONG SLIDER) ----------
+    local sRow=Instance.new("Frame",scroll)
+    sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK
+    corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
 
-    local dragging=false
-    local lastX=nil
-    local function relFromX(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
-    local function uiFromRel(rel,instant)
-        rel=math.clamp(rel,0,1); sensTarget = S_MIN + (S_MAX - S_MIN)*rel
+    local sLab=Instance.new("TextLabel",sRow)
+    sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24)
+    sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left; sLab.TextColor3=THEME.WHITE
+    sLab.Text="Sensitivity"
+
+    local bar=Instance.new("Frame",sRow)
+    bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
+    bar.BackgroundColor3=THEME.BLACK; bar.Active=true; bar.ClipsDescendants=false; bar.ZIndex=2
+    corner(bar,8); stroke(bar,1.8,THEME.GREEN)
+
+    local fill=Instance.new("Frame",bar)
+    fill.BackgroundColor3=THEME.GREEN; fill.ZIndex=2
+    corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+
+    local knobBtn=Instance.new("ImageButton",bar)
+    knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.WHITE
+    knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14)
+    knobBtn.BorderSizePixel=0; knobBtn.ZIndex=3; knobBtn.Active=true
+    corner(knobBtn,14)
+
+    local centerVal=Instance.new("TextLabel",bar)
+    centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
+    centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16
+    centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2
+    centerVal.ZIndex=4; centerVal.Text="0%"
+
+    local dragConn, endConn
+    local function relFromX(px) return (px - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
+    local function applyRel(rel, instant)
+        rel = math.clamp(rel, 0, 1)
+        sensTarget = S_MIN + (S_MAX - S_MIN)*rel
         centerVal.Text = string.format("%d%%", math.floor(rel*100+0.5))
-        if instant then fill.Size=UDim2.fromScale(rel,1); knob2.Position=UDim2.new(rel,-12,0.5,-12)
-        else tween(fill,{Size=UDim2.fromScale(rel,1)},0.08); tween(knob2,{Position=UDim2.new(rel,-12,0.5,-12)},0.08) end
+        if instant then
+            fill.Size = UDim2.fromScale(rel,1)
+            knobBtn.Position = UDim2.new(rel,-14,0.5,-14)
+        else
+            tween(fill, {Size=UDim2.fromScale(rel,1)}, 0.08)
+            tween(knobBtn, {Position=UDim2.new(rel,-14,0.5,-14)}, 0.08)
+        end
     end
-
-    keep(knob2.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=true; lastX=io.Position.X end
-    end))
-    keep(bar.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; lastX=io.Position.X; uiFromRel(relFromX(lastX),true) end
-    end))
-    keep(knob2.InputChanged:Connect(function(io)
-        if dragging and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then lastX=io.Position.X; uiFromRel(relFromX(lastX),true) end
-    end))
-    keep(bar.InputChanged:Connect(function(io)
-        if dragging and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then lastX=io.Position.X; uiFromRel(relFromX(lastX),true) end
-    end))
-    keep(UserInputService.InputEnded:Connect(function(io)
-        if dragging and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then dragging=false; if lastX then uiFromRel(relFromX(lastX),false) end end
-    end))
+    local function beginDrag(startX)
+        applyRel(relFromX(startX), true)
+        if dragConn then dragConn:Disconnect() end
+        if endConn  then endConn:Disconnect()  end
+        dragConn = UserInputService.InputChanged:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseMovement then
+                applyRel(relFromX(io.Position.X), true)
+            end
+        end)
+        endConn = UserInputService.InputEnded:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseButton1 then
+                if dragConn then dragConn:Disconnect() dragConn=nil end
+                if endConn  then endConn:Disconnect()  endConn=nil end
+                applyRel(relFromX(io.Position.X), false)
+            end
+        end)
+    end
+    bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 then beginDrag(io.Position.X) end end)
+    knobBtn.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+            beginDrag(io.Position.X)
+        end
+    end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
