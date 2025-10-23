@@ -1053,10 +1053,9 @@ registerRight("Player", function(scroll)
     if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
     syncVisual(true)
 end)
--- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (PASTE-AND-GO) =====
--- 1) Run Speed slider  2) Jump Power slider  3) Enable Fast Run & High Jump (master switch)
--- 4) Infinite Jump toggle
--- • ไม่ชนกับระบบบินเดิม  • จำค่าที่ตั้งไว้ชั่วคราวระหว่างเปิดเมนู  • คืนค่าปลอดภัยตอนปิด
+-- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (BOOSTED) =====
+-- Header: ปรับการวิ่งไวกระโดดสูง 🏃‍♂️💨🦘
+-- Run Speed (max 200), Jump Power (max 300), Master switch, Infinite Jump
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -1065,127 +1064,109 @@ registerRight("Player", function(scroll)
     local TweenService=game:GetService("TweenService")
     local lp=Players.LocalPlayer
 
-    -- ---------- STATE (เฉพาะโมดูล Speed&Jump นี้) ----------
+    -- ---------- STATE ----------
     _G.UFOX_RJ = _G.UFOX_RJ or { uiConns={}, tempConns={}, remember={} }
-    local RJ = _G.UFOX_RJ
+    local RJ=_G.UFOX_RJ
     local function keepUI(c) table.insert(RJ.uiConns,c) return c end
     local function keepTmp(c) table.insert(RJ.tempConns,c) return c end
     local function disconnectAll(t) for i=#t,1,-1 do local c=t[i] pcall(function() c:Disconnect() end) t[i]=nil end end
-
-    -- ล้างเฉพาะ UI เดิมของโมดูลนี้ (เพื่อรีบิลด์ส่วนของเรา) ไม่ยุ่งของระบบอื่น
     disconnectAll(RJ.uiConns)
 
-    -- ค่าจำล่าสุด (ถ้ายังไม่มีให้ตั้งค่าเริ่มต้น)
-    RJ.remember.enabled = (RJ.remember.enabled == nil) and false or RJ.remember.enabled
-    RJ.remember.infJump = (RJ.remember.infJump == nil) and false or RJ.remember.infJump
-    RJ.remember.runRel  = RJ.remember.runRel or 0.25  -- 0..1 (เริ่มต้นวิ่งไวขึ้นเล็กน้อย)
-    RJ.remember.jumpRel = RJ.remember.jumpRel or 0.25 -- 0..1
+    RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
+    RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
+    RJ.remember.runRel  = RJ.remember.runRel or 0.25
+    RJ.remember.jumpRel = RJ.remember.jumpRel or 0.25
 
-    -- ช่วงค่าสไลเดอร์
-    local RUN_MIN, RUN_MAX = 16, 50         -- WalkSpeed
-    local JUMP_MIN, JUMP_MAX = 50, 150      -- JumpPower (ถ้าเกมใช้ JumpHeight จะคำนวณเทียบให้)
-    local draggingRun, draggingJump = false, false
+    -- >>> Boost ranges here <<<
+    local RUN_MIN, RUN_MAX   = 16, 200   -- เดิม 50 → เพิ่มเป็น 200
+    local JUMP_MIN, JUMP_MAX = 50, 300   -- เดิม 150 → เพิ่มเป็น 300
+
     local runRel, jumpRel = RJ.remember.runRel, RJ.remember.jumpRel
     local masterOn, infJumpOn = RJ.remember.enabled, RJ.remember.infJump
 
-    -- เก็บค่าเดิมของตัวละครไว้คืนค่าเมื่อปิด master
     RJ.defaults = RJ.defaults or { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
 
     local function getHum()
         local ch=lp.Character
         return ch and ch:FindFirstChildOfClass("Humanoid"), ch
     end
-
     local function lerp(a,b,t) return a+(b-a)*t end
-    local function mapRel(rel, minV, maxV) rel=math.clamp(rel,0,1); return lerp(minV,maxV,rel) end
+    local function mapRel(rel, mn, mx) rel=math.clamp(rel,0,1) return lerp(mn,mx,rel) end
 
     local function snapshotDefaults()
-        local hum = getHum()
+        local hum=getHum()
         if not hum then return end
-        hum = hum
-        if RJ.defaults.WalkSpeed==nil then RJ.defaults.WalkSpeed = hum.WalkSpeed end
-        if RJ.defaults.UseJumpPower==nil then RJ.defaults.UseJumpPower = hum.UseJumpPower end
-        if RJ.defaults.JumpPower==nil then RJ.defaults.JumpPower = hum.JumpPower end
-        if RJ.defaults.JumpHeight==nil then RJ.defaults.JumpHeight = hum.JumpHeight end
+        if RJ.defaults.WalkSpeed==nil then RJ.defaults.WalkSpeed=hum.WalkSpeed end
+        if RJ.defaults.UseJumpPower==nil then RJ.defaults.UseJumpPower=hum.UseJumpPower end
+        if RJ.defaults.JumpPower==nil then RJ.defaults.JumpPower=hum.JumpPower end
+        if RJ.defaults.JumpHeight==nil then RJ.defaults.JumpHeight=hum.JumpHeight end
     end
 
     local function applyStats()
-        local hum = getHum()
-        if not hum then return end
-        hum = hum
+        local hum=getHum(); if not hum then return end
         if masterOn then
             snapshotDefaults()
-            local ws = math.floor(mapRel(runRel, RUN_MIN, RUN_MAX)+0.5)
-            local jp = math.floor(mapRel(jumpRel, JUMP_MIN, JUMP_MAX)+0.5)
-            -- รองรับทั้ง JumpPower และ JumpHeight
+            local ws=math.floor(mapRel(runRel,RUN_MIN,RUN_MAX)+0.5)
+            local jp=math.floor(mapRel(jumpRel,JUMP_MIN,JUMP_MAX)+0.5)
             pcall(function()
                 if hum.UseJumpPower then
-                    hum.JumpPower = jp
+                    hum.JumpPower=jp
                 else
-                    -- แปลงประมาณการ JumpPower -> JumpHeight (ค่าใกล้เคียง)
-                    hum.JumpHeight = (jp-50)/100*7 + 7.2  -- mapping อย่างคร่าว ๆ
+                    -- แปลงประมาณการให้กระโดดสูงขึ้นตาม jp (โค้งแรงขึ้นเล็กน้อย)
+                    hum.JumpHeight = 7 + (jp-50)*0.25
                 end
-                hum.WalkSpeed = ws
+                hum.WalkSpeed=ws
             end)
         else
-            -- คืนค่าเดิม
             pcall(function()
-                if RJ.defaults.WalkSpeed then hum.WalkSpeed = RJ.defaults.WalkSpeed end
-                if RJ.defaults.UseJumpPower ~= nil then
+                if RJ.defaults.WalkSpeed then hum.WalkSpeed=RJ.defaults.WalkSpeed end
+                if RJ.defaults.UseJumpPower~=nil then
                     if RJ.defaults.UseJumpPower then
-                        if RJ.defaults.JumpPower then hum.JumpPower = RJ.defaults.JumpPower end
+                        if RJ.defaults.JumpPower then hum.JumpPower=RJ.defaults.JumpPower end
                     else
-                        if RJ.defaults.JumpHeight then hum.JumpHeight = RJ.defaults.JumpHeight end
+                        if RJ.defaults.JumpHeight then hum.JumpHeight=RJ.defaults.JumpHeight end
                     end
                 end
             end)
         end
     end
 
-    -- Infinite Jump (เปิด/ปิด)
-    disconnectAll(RJ.tempConns) -- เคลียร์ temp ก่อน
+    disconnectAll(RJ.tempConns)
     local function bindInfJump()
         disconnectAll(RJ.tempConns)
         if not infJumpOn then return end
         keepTmp(UserInputService.JumpRequest:Connect(function()
-            local hum = getHum()
+            local hum=getHum()
             if hum then pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end) end
         end))
     end
 
-    -- เมื่อเกิดตัวละครใหม่ ให้ใช้ค่าปัจจุบัน
     keepUI(lp.CharacterAdded:Connect(function()
-        RJ.defaults = { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
-        task.defer(function()
-            applyStats()
-            bindInfJump()
-        end)
+        RJ.defaults={WalkSpeed=nil,JumpPower=nil,UseJumpPower=nil,JumpHeight=nil}
+        task.defer(function() applyStats(); bindInfJump() end)
     end))
 
-    -- ---------- THEME / HELPERS ----------
+    -- ---------- THEME / UI HELPERS ----------
     local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0)}
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ---------- UI LAYOUT ----------
-    -- ลบชิ้นส่วนเดิมของเรา (ถ้ามี) แล้วสร้างใหม่ต่อท้าย
     for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Jump","RJ_Inf"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12); vlist.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-    local baseOrder=1000
-    for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") and ch~=vlist then baseOrder = math.max(baseOrder, (ch.LayoutOrder or 0)+1) end end
+    local baseOrder=1000; for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") and ch~=vlist then baseOrder=math.max(baseOrder,(ch.LayoutOrder or 0)+1) end end
 
-    -- Header
+    -- Header (ตามที่ขอ)
     local header=Instance.new("TextLabel",scroll)
     header.Name="RJ_Header"; header.LayoutOrder=baseOrder
     header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,32)
     header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE
     header.TextXAlignment=Enum.TextXAlignment.Left
-    header.Text="Speed & Jump — Model A V1"
+    header.Text="ปรับการวิ่งไวกระโดดสูง 🏃‍♂️💨🦘"
 
-    -- สวิตช์ Master: Enable Fast Run & High Jump
+    -- Master switch
     local master=Instance.new("Frame",scroll); master.Name="RJ_Master"; master.LayoutOrder=baseOrder+1
     master.Size=UDim2.new(1,-6,0,46); master.BackgroundColor3=THEME.BLACK; corner(master,12); stroke(master,2.2,THEME.GREEN)
     local mLab=Instance.new("TextLabel",master); mLab.BackgroundTransparency=1; mLab.Size=UDim2.new(1,-140,1,0); mLab.Position=UDim2.new(0,16,0,0)
@@ -1196,17 +1177,15 @@ registerRight("Player", function(scroll)
     local mKnob=Instance.new("Frame",mSw); mKnob.Size=UDim2.fromOffset(22,22); mKnob.Position=UDim2.new(masterOn and 1 or 0, masterOn and -24 or 2, 0.5,-11)
     mKnob.BackgroundColor3=THEME.WHITE; corner(mKnob,11)
     local mBtn=Instance.new("TextButton",mSw); mBtn.BackgroundTransparency=1; mBtn.Size=UDim2.fromScale(1,1); mBtn.Text=""
-
     local function setMaster(v)
-        masterOn=v
-        RJ.remember.enabled = v
-        local st = mSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end
+        masterOn=v; RJ.remember.enabled=v
+        local st=mSw:FindFirstChildOfClass("UIStroke"); if st then st.Color=v and THEME.GREEN or THEME.RED end
         tween(mKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.1)
         applyStats()
     end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
-    -- Utility: สร้างสไลเดอร์ทั่วไป
+    -- Generic slider builder
     local function createSlider(name, order, title, getRel, setRel)
         local row=Instance.new("Frame",scroll); row.Name=name; row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN)
@@ -1238,9 +1217,7 @@ registerRight("Player", function(scroll)
             if RSconn then RSconn:Disconnect() RSconn=nil end
             if EndConn then EndConn:Disconnect() EndConn=nil end
             scroll.ScrollingEnabled=true
-            -- บันทึกและใช้ค่า
-            setRel(getRel())
-            applyStats()
+            setRel(getRel()); applyStats()
         end
         local function startDrag(px)
             dragging=true; scroll.ScrollingEnabled=false
@@ -1260,46 +1237,31 @@ registerRight("Player", function(scroll)
         keepUI(knob.InputBegan:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
         end))
-
-        -- อัปเดตครั้งแรก
-        sync()
-        return row
+        sync(); return row
     end
 
-    -- Slider: Run Speed
-    createSlider("RJ_Run", baseOrder+2, "Run Speed", function() return runRel end, function(r)
-        runRel = math.clamp(r,0,1); RJ.remember.runRel = runRel
-    end)
+    createSlider("RJ_Run",  baseOrder+2, "Run Speed",  function() return runRel end,  function(r) runRel = math.clamp(r,0,1); RJ.remember.runRel=runRel end)
+    createSlider("RJ_Jump", baseOrder+3, "Jump Power", function() return jumpRel end, function(r) jumpRel= math.clamp(r,0,1); RJ.remember.jumpRel=jumpRel end)
 
-    -- Slider: Jump Power
-    createSlider("RJ_Jump", baseOrder+3, "Jump Power", function() return jumpRel end, function(r)
-        jumpRel = math.clamp(r,0,1); RJ.remember.jumpRel = jumpRel
-    end)
-
-    -- Toggle: Infinite Jump
+    -- Infinite Jump
     local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+4
     inf.Size=UDim2.new(1,-6,0,46); inf.BackgroundColor3=THEME.BLACK; corner(inf,12); stroke(inf,2.2,THEME.GREEN)
     local iLab=Instance.new("TextLabel",inf); iLab.BackgroundTransparency=1; iLab.Size=UDim2.new(1,-140,1,0); iLab.Position=UDim2.new(0,16,0,0)
-    iLab.Font=Enum.Font.GothamBold; iLab.TextSize=13; iLab.TextColor3=THEME.WHITE; iLab.TextXAlignment=Enum.TextXAlignment.Left
-    iLab.Text="Infinite Jump"
+    iLab.Font=Enum.Font.GothamBold; iLab.TextSize=13; iLab.TextColor3=THEME.WHITE; iLab.TextXAlignment=Enum.TextXAlignment.Left; iLab.Text="Infinite Jump"
     local iSw=Instance.new("Frame",inf); iSw.AnchorPoint=Vector2.new(1,0.5); iSw.Position=UDim2.new(1,-12,0.5,0)
     iSw.Size=UDim2.fromOffset(52,26); iSw.BackgroundColor3=THEME.BLACK; corner(iSw,13); stroke(iSw,1.8, infJumpOn and THEME.GREEN or THEME.RED)
     local iKnob=Instance.new("Frame",iSw); iKnob.Size=UDim2.fromOffset(22,22); iKnob.Position=UDim2.new(infJumpOn and 1 or 0, infJumpOn and -24 or 2, 0.5,-11)
     iKnob.BackgroundColor3=THEME.WHITE; corner(iKnob,11)
     local iBtn=Instance.new("TextButton",iSw); iBtn.BackgroundTransparency=1; iBtn.Size=UDim2.fromScale(1,1); iBtn.Text=""
-
     local function setInf(v)
-        infJumpOn=v
-        RJ.remember.infJump=v
-        local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end
+        infJumpOn=v; RJ.remember.infJump=v
+        local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color=v and THEME.GREEN or THEME.RED end
         tween(iKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.1)
         bindInfJump()
     end
     keepUI(iBtn.MouseButton1Click:Connect(function() setInf(not infJumpOn) end))
 
-    -- ใช้ค่าปัจจุบันให้เรียบร้อย
-    applyStats()
-    bindInfJump()
+    applyStats(); bindInfJump()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
