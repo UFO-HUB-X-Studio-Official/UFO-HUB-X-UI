@@ -709,9 +709,9 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Model A LEGACY 2.3.9b-Final (Rebind Safe + Speed Slider) =====
--- ✅ Fix ปุ่มกดไม่ทำงานหลังเปิดปิดใหม่
--- ✅ มีสไลเดอร์ปรับความไว (0% = 90%, 100% = 300%)
--- ✅ เปิดใหม่ rebind auto ทุกครั้ง
+-- ✅ Fix ปุ่มกดไม่ทำงานหลังเปิดปิดใหม่ (rebind ใหม่ทุกครั้ง)
+-- ✅ สไลเดอร์ปรับความไว: 0% = 0.9x, 100% = 3.0x
+-- ✅ ปิดแล้วคืนชน/แอนิเมชัน, เปิดแล้ว Noclip และคุมทิศตามกล้อง
 
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
@@ -727,10 +727,13 @@ registerRight("Player", function(scroll)
     local function keep(c) table.insert(_G.UFOX.conns,c) return c end
     _G.UFOX.cleanupAll=function()
         for _,c in ipairs(_G.UFOX.conns) do pcall(function() c:Disconnect() end) end
+        _G.UFOX.conns={}
         if _G.UFOX.gui then pcall(function() _G.UFOX.gui:Destroy() end) _G.UFOX.gui=nil end
         local ch=lp.Character
         if ch then
-            for _,n in ipairs({"UFO_BP","UFO_AO","UFO_Att"}) do local i=ch:FindFirstChild(n,true); if i then pcall(function() i:Destroy() end) end end
+            for _,n in ipairs({"UFO_BP","UFO_AO","UFO_Att"}) do
+                local i=ch:FindFirstChild(n,true); if i then pcall(function() i:Destroy() end) end
+            end
             for _,p in ipairs(ch:GetDescendants()) do
                 if p:IsA("BasePart") then
                     p.CanCollide=true; p.CanTouch=true; p.CanQuery=true
@@ -787,7 +790,17 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- ---------- Controls ----------
+    -- ---------- Noclip ----------
+    local function setPartsClip(char,noclip)
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide=not noclip; p.CanTouch=not noclip; p.CanQuery=not noclip
+                if not noclip then pcall(function() PhysicsService:SetPartCollisionGroup(p,"Default") end) end
+            end
+        end
+    end
+
+    -- ---------- Controls (GUI) ----------
     local function createPad()
         if _G.UFOX.gui then _G.UFOX.gui:Destroy() end
         local gui=Instance.new("ScreenGui")
@@ -856,12 +869,14 @@ registerRight("Player", function(scroll)
         local an=char:FindFirstChild("Animate"); if an and an:IsA("LocalScript") then an.Enabled=false; savedAnimate=an end
         hrp.Anchored=false; hum.PlatformStand=false
 
-        local bp=Instance.new("BodyPosition",hrp); bp.MaxForce=Vector3.new(1e7,1e7,1e7)
-        bp.P=9e4; bp.D=dampFactor; bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
-        local att=Instance.new("Attachment",hrp)
-        local ao=Instance.new("AlignOrientation",hrp); ao.Attachment0=att
-        ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true
-        ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
+        local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"
+        bp.MaxForce=Vector3.new(1e7,1e7,1e7); bp.P=9e4; bp.D=dampFactor
+        bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
+
+        local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
+        local ao=Instance.new("AlignOrientation",hrp); ao.Name="UFO_AO"
+        ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge
+        ao.RigidityEnabled=true; ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
 
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
@@ -870,22 +885,31 @@ registerRight("Player", function(scroll)
 
         keep(RunService.Heartbeat:Connect(function(dt)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
+
             local cam=workspace.CurrentCamera; if not cam then return end
-            local camCF=cam.CFrame; local fwd=camCF.LookVector
-            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z).Unit
-            local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
-            if hold.fwd then pos+=fwd*(MOVE*dt) end
+            local camCF=cam.CFrame
+            local fwd=camCF.LookVector
+            local rightVec=camCF.RightVector
+            local rightH=Vector3.new(rightVec.X,0,rightVec.Z)
+            if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
+
+            local MOVE,STRAFE,ASC=speeds()
+            local pos=bp.Position
+            if hold.fwd  then pos+=fwd*(MOVE*dt) end
             if hold.back then pos-=fwd*(MOVE*dt) end
             if hold.left then pos-=rightH*(STRAFE*dt) end
             if hold.right then pos+=rightH*(STRAFE*dt) end
-            if hold.up then pos+=Vector3.new(0,ASC*dt,0) end
+            if hold.up   then pos+=Vector3.new(0,ASC*dt,0) end
             if hold.down then pos-=Vector3.new(0,ASC*dt,0) end
-            bp.Position=pos; ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
+
+            bp.Position=pos
+            ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
         end))
     end
 
     local function stopFly()
-        flightOn=false; _G.UFOX.cleanupAll()
+        flightOn=false
+        _G.UFOX.cleanupAll()
         local hrp,hum,char=getHRP()
         if char then setPartsClip(char,false) end
         if hum then hum.AutoRotate=true end
@@ -893,29 +917,32 @@ registerRight("Player", function(scroll)
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     end
 
-    -- ---------- UI ----------
-    local function makeSwitch(name,order,callback)
+    -- ---------- UI: Switch ----------
+    local function makeSwitch(name,order)
         local row=Instance.new("Frame",scroll); row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=order
         local lab=Instance.new("TextLabel",row); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0)
         lab.Position=UDim2.new(0,16,0,0); lab.Font=Enum.Font.GothamBold; lab.TextSize=13
         lab.TextXAlignment=Enum.TextXAlignment.Left; lab.TextColor3=THEME.WHITE; lab.Text=name
-        local sw=Instance.new("Frame",row); sw.AnchorPoint=Vector2.new(1,0.5)
-        sw.Position=UDim2.new(1,-12,0.5,0); sw.Size=UDim2.fromOffset(52,26)
-        sw.BackgroundColor3=THEME.BLACK; corner(sw,13); local swStroke=stroke(sw,1.8,THEME.RED)
-        local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22)
-        knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+        local sw=Instance.new("Frame",row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
+        local swStroke=stroke(sw,1.8,THEME.RED)
+        local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11)
+        knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
         local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         local on=false
         local function setState(v)
             on=v
-            if v then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1) startFly()
-            else swStroke.Color=THEME.RED; tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1) stopFly() end
+            if v then
+                swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly()
+            else
+                swStroke.Color=THEME.RED; tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly()
+            end
         end
         btn.MouseButton1Click:Connect(function() setState(not on) end)
         return row
     end
-    makeSwitch("Flight Mode",nextOrder+1,function()end)
+    makeSwitch("Flight Mode",nextOrder+1)
 
     -- ---------- Sensitivity Slider ----------
     local sRow=Instance.new("Frame",scroll)
@@ -931,38 +958,52 @@ registerRight("Player", function(scroll)
     bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
     bar.BackgroundColor3=THEME.BLACK; bar.Active=true; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
 
-    local fill=Instance.new("Frame",bar)
-    fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+    local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+    local knobBtn=Instance.new("ImageButton",bar); knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.WHITE
+    knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14); knobBtn.BorderSizePixel=0; corner(knobBtn,14)
+    local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
+    centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
 
-    local knobBtn=Instance.new("ImageButton",bar)
-    knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.WHITE
-    knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14)
-    knobBtn.BorderSizePixel=0; corner(knobBtn,14)
-
-    local centerVal=Instance.new("TextLabel",bar)
-    centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
-    centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2
-    centerVal.Text="0%"
-
-    local function applyRel(rel)
+    local function applyRel(rel,instant)
         rel=math.clamp(rel,0,1)
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
-        fill.Size=UDim2.fromScale(rel,1)
-        knobBtn.Position=UDim2.new(rel,-14,0.5,-14)
         centerVal.Text=string.format("%d%%",math.floor(rel*100+0.5))
+        if instant then
+            sensApplied=sensTarget
+            fill.Size=UDim2.fromScale(rel,1)
+            knobBtn.Position=UDim2.new(rel,-14,0.5,-14)
+        else
+            tween(fill,{Size=UDim2.fromScale(rel,1)},0.08)
+            tween(knobBtn,{Position=UDim2.new(rel,-14,0.5,-14)},0.08)
+        end
     end
 
     local dragConn,endConn
+    local function relFrom(px) return (px - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
     local function beginDrag(px)
-        applyRel((px-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X))
-        dragConn=UserInputService.InputChanged:Connect(function(io)
+        applyRel(relFrom(px),true)
+        if dragConn then dragConn:Disconnect() end
+        if endConn then endConn:Disconnect() end
+        dragConn=keep(UserInputService.InputChanged:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseMovement then
-                applyRel((io.Position.X-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X))
+                applyRel(relFrom(io.Position.X),true)
             end
-        end)
-        endConn=UserInputService.InputEnded:Connect(function(io)
+        end))
+        endConn=keep(UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-                if dragConn then dragConn:Disconnect() dragConn
+                if dragConn then dragConn:Disconnect() dragConn=nil end
+                if endConn then endConn:Disconnect() endConn=nil end
+                applyRel(relFrom(io.Position.X),false)
+            end
+        end))
+    end
+    bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 then beginDrag(io.Position.X) end end)
+    knobBtn.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+            beginDrag(io.Position.X)
+        end
+    end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
