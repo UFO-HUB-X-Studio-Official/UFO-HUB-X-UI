@@ -1053,9 +1053,9 @@ registerRight("Player", function(scroll)
     if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
     syncVisual(true)
 end)
--- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (SLIDER-SQUARE + 500 CAP) =====
+-- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (BUGFIX + GREY SQUARE SLIDER + 500 CAP) =====
 -- Header: Fast Run & High Jump 🏃‍♂️💨🦘
--- Sliders knob = square; Toggles knob = round; Max Run/Jump = 500
+-- Fix: drag only one slider at a time; initial 0%; slider knob is grey square; max run/jump = 500
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -1072,16 +1072,17 @@ registerRight("Player", function(scroll)
     local function disconnectAll(t) for i=#t,1,-1 do local c=t[i] pcall(function() c:Disconnect() end) t[i]=nil end end
     disconnectAll(RJ.uiConns)
 
+    -- เริ่มครั้งแรกให้เป็น 0%
     RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
     RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
-    RJ.remember.runRel  = RJ.remember.runRel or 0.25
-    RJ.remember.jumpRel = RJ.remember.jumpRel or 0.25
+    RJ.remember.runRel  = (RJ.remember.runRel==nil) and 0 or RJ.remember.runRel
+    RJ.remember.jumpRel = (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel
 
-    -- Ranges (ตามที่ขอ 500)
+    -- Ranges (500)
     local RUN_MIN, RUN_MAX   = 16, 500
     local JUMP_MIN, JUMP_MAX = 50, 500
 
-    local runRel, jumpRel = RJ.remember.runRel, RJ.remember.jumpRel
+    local runRel,  jumpRel  = RJ.remember.runRel, RJ.remember.jumpRel
     local masterOn, infJumpOn = RJ.remember.enabled, RJ.remember.infJump
 
     RJ.defaults = RJ.defaults or { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
@@ -1094,8 +1095,7 @@ registerRight("Player", function(scroll)
     local function mapRel(rel, mn, mx) rel=math.clamp(rel,0,1) return lerp(mn,mx,rel) end
 
     local function snapshotDefaults()
-        local hum=getHum()
-        if not hum then return end
+        local hum=getHum(); if not hum then return end
         if RJ.defaults.WalkSpeed==nil then RJ.defaults.WalkSpeed=hum.WalkSpeed end
         if RJ.defaults.UseJumpPower==nil then RJ.defaults.UseJumpPower=hum.UseJumpPower end
         if RJ.defaults.JumpPower==nil then RJ.defaults.JumpPower=hum.JumpPower end
@@ -1106,15 +1106,10 @@ registerRight("Player", function(scroll)
         local hum=getHum(); if not hum then return end
         if masterOn then
             snapshotDefaults()
-            local ws=math.floor(mapRel(runRel,RUN_MIN,RUN_MAX)+0.5)
+            local ws=math.floor(mapRel(runRel, RUN_MIN, RUN_MAX)+0.5)
             local jp=math.floor(mapRel(jumpRel,JUMP_MIN,JUMP_MAX)+0.5)
             pcall(function()
-                if hum.UseJumpPower then
-                    hum.JumpPower=jp
-                else
-                    -- mapping แบบแรงขึ้นให้สอดคล้องเพดาน 500
-                    hum.JumpHeight = 7 + (jp-50)*0.25
-                end
+                if hum.UseJumpPower then hum.JumpPower=jp else hum.JumpHeight = 7 + (jp-50)*0.25 end
                 hum.WalkSpeed=ws
             end)
         else
@@ -1131,6 +1126,7 @@ registerRight("Player", function(scroll)
         end
     end
 
+    -- Infinite Jump
     disconnectAll(RJ.tempConns)
     local function bindInfJump()
         disconnectAll(RJ.tempConns)
@@ -1147,7 +1143,7 @@ registerRight("Player", function(scroll)
     end))
 
     -- ---------- THEME / HELPERS ----------
-    local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0)}
+    local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0),GREY=Color3.fromRGB(200,200,200)}
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
@@ -1166,7 +1162,7 @@ registerRight("Player", function(scroll)
     header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="Fast Run & High Jump 🏃‍♂️💨🦘"
 
-    -- Master toggle (กลับเป็นทรงกลมเหมือนเดิม)
+    -- Master toggle (กลมเหมือนเดิม)
     local master=Instance.new("Frame",scroll); master.Name="RJ_Master"; master.LayoutOrder=baseOrder+1
     master.Size=UDim2.new(1,-6,0,46); master.BackgroundColor3=THEME.BLACK; corner(master,12); stroke(master,2.2,THEME.GREEN)
     local mLab=Instance.new("TextLabel",master); mLab.BackgroundTransparency=1; mLab.Size=UDim2.new(1,-140,1,0); mLab.Position=UDim2.new(0,16,0,0)
@@ -1185,7 +1181,7 @@ registerRight("Player", function(scroll)
     end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
-    -- สร้างสไลเดอร์ (เฉพาะปุ่มเลื่อนเป็น "สี่เหลี่ยม")
+    -- สร้างสไลเดอร์ (เฉพาะปุ่มเลื่อนเป็น "สี่เหลี่ยมสีเทา") + กันลากพร้อมกัน
     local function createSlider(name, order, title, getRel, setRel)
         local row=Instance.new("Frame",scroll); row.Name=name; row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN)
@@ -1196,11 +1192,11 @@ registerRight("Player", function(scroll)
         bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true
         local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(getRel(),1)
 
-        -- << square knob only for sliders >>
+        -- square, grey knob
         local knob=Instance.new("ImageButton",bar)
-        knob.AutoButtonColor=false; knob.BackgroundColor3=THEME.WHITE
+        knob.AutoButtonColor=false; knob.BackgroundColor3=THEME.GREY
         knob.Size=UDim2.fromOffset(24,24); knob.Position=UDim2.new(getRel(),-12,0.5,-12)
-        stroke(knob,1.2,THEME.GREEN) -- ไม่ใส่ UICorner = สี่เหลี่ยม
+        stroke(knob,1.2,THEME.GREEN) -- ไม่มี UICorner = สี่เหลี่ยม
 
         local val=Instance.new("TextLabel",bar); val.BackgroundTransparency=1; val.Size=UDim2.fromScale(1,1)
         val.Font=Enum.Font.GothamBlack; val.TextSize=16; val.TextColor3=THEME.WHITE; val.TextStrokeTransparency=0.2
@@ -1224,6 +1220,8 @@ registerRight("Player", function(scroll)
             setRel(getRel()); applyStats()
         end
         local function startDrag(px)
+            -- กันลากทีละหลายอัน: ตัดทุก temp conn ก่อนเริ่มอันนี้
+            disconnectAll(RJ.tempConns)
             scroll.ScrollingEnabled=false
             setRel(relFromX(px)); sync()
             RSconn=keepTmp(RunService.RenderStepped:Connect(function()
@@ -1247,7 +1245,7 @@ registerRight("Player", function(scroll)
     createSlider("RJ_Run",  baseOrder+2, "Run Speed",  function() return runRel end,  function(r) runRel=math.clamp(r,0,1); RJ.remember.runRel=runRel end)
     createSlider("RJ_Jump", baseOrder+3, "Jump Power", function() return jumpRel end, function(r) jumpRel=math.clamp(r,0,1); RJ.remember.jumpRel=jumpRel end)
 
-    -- Infinite Jump toggle (ทรงกลมเหมือนเดิม)
+    -- Infinite Jump toggle (กลม)
     local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+4
     inf.Size=UDim2.new(1,-6,0,46); inf.BackgroundColor3=THEME.BLACK; corner(inf,12); stroke(inf,2.2,THEME.GREEN)
     local iLab=Instance.new("TextLabel",inf); iLab.BackgroundTransparency=1; iLab.Size=UDim2.new(1,-140,1,0); iLab.Position=UDim2.new(0,16,0,0)
