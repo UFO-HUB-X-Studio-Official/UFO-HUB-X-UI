@@ -708,334 +708,263 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
--- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip
--- Fixed pad order + Camera-Facing (no camera control) =====
+-- ===== Player tab (Right) — Model A V2.1 — Flight Mode (Stable + Fast)
+-- Hover Toggle + Pad Control + Camera Facing + High Lift Stability =====
 registerRight("Player", function(scroll)
-    -- Services / Theme
-    local Players     = game:GetService("Players")
-    local RunService  = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
-    local lp          = Players.LocalPlayer
+    local lp = Players.LocalPlayer
 
-    local BASE  = rawget(_G, "THEME") or {}
+    local BASE = rawget(_G, "THEME") or {}
     local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
-        RED      = Color3.fromRGB(255, 40, 40),
-        WHITE    = Color3.fromRGB(255, 255, 255),
-        BLACK    = Color3.fromRGB(0, 0, 0),
+        GREEN = BASE.GREEN or BASE.ACCENT or Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
     }
-    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 12); c.Parent=ui; return c end
-    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
-    -- Layout (keep old content)
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left
-        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
-        vlist.Parent = scroll
+    local function corner(ui, r)
+        local c=Instance.new("UICorner")
+        c.CornerRadius=UDim.new(0,r or 12)
+        c.Parent=ui
+        return c
     end
-    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local nextOrder = 10
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch ~= vlist then
-            nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0) + 1)
+    local function stroke(ui,th,col)
+        local s=Instance.new("UIStroke")
+        s.Thickness=th or 2
+        s.Color=col or THEME.GREEN
+        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+        s.Parent=ui
+        return s
+    end
+
+    local vlist=scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist=Instance.new("UIListLayout")
+        vlist.Padding=UDim.new(0,12)
+        vlist.HorizontalAlignment=Enum.HorizontalAlignment.Left
+        vlist.VerticalAlignment=Enum.VerticalAlignment.Top
+        vlist.SortOrder=Enum.SortOrder.LayoutOrder
+        vlist.Parent=scroll
+    end
+    scroll.ScrollingDirection=Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+
+    local nextOrder=10
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch~=vlist then
+            nextOrder=math.max(nextOrder,(ch.LayoutOrder or 0)+1)
         end
     end
-    if scroll:FindFirstChild("Section_FlightHeader") or scroll:FindFirstChild("Section_MapFly") then return end
 
-    -- Header
-    local header = Instance.new("Frame")
-    header.Name = "Section_FlightHeader"
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1, 0, 0, 0)
-    header.AutomaticSize = Enum.AutomaticSize.Y
-    header.LayoutOrder = nextOrder
-    header.Parent = scroll
-    local txt = Instance.new("TextLabel", header)
-    txt.BackgroundTransparency = 1
-    txt.Position = UDim2.new(0, 6, 0, 0)
-    txt.Size = UDim2.new(1, 0, 0, 32)
-    txt.Font = Enum.Font.GothamBold
-    txt.TextSize = 16
-    txt.TextColor3 = THEME.WHITE
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.TextYAlignment = Enum.TextYAlignment.Center
-    txt.Text = "Flight Mode 🛸"
+    if scroll:FindFirstChild("Section_FlightHeader") then return end
 
-    -- Row + switch
-    local row = Instance.new("Frame")
-    row.Name = "Section_MapFly"
-    row.BackgroundTransparency = 1
-    row.Size = UDim2.new(1, 0, 0, 46)
-    row.LayoutOrder = nextOrder + 1
-    row.Parent = scroll
+    local header=Instance.new("TextLabel")
+    header.Name="Section_FlightHeader"
+    header.BackgroundTransparency=1
+    header.Size=UDim2.new(1,0,0,36)
+    header.Font=Enum.Font.GothamBold
+    header.TextSize=16
+    header.TextColor3=THEME.WHITE
+    header.TextXAlignment=Enum.TextXAlignment.Left
+    header.Text="Flight Mode 🛸"
+    header.LayoutOrder=nextOrder
+    header.Parent=scroll
 
-    local bar = Instance.new("Frame", row)
-    bar.AnchorPoint = Vector2.new(0.5, 0)
-    bar.Position = UDim2.new(0.5, 0, 0, 0)
-    bar.Size = UDim2.new(1, -6, 1, 0)
-    bar.BackgroundColor3 = THEME.BLACK
-    corner(bar, 12); stroke(bar, 2.2, THEME.GREEN)
-
-    local title = Instance.new("TextLabel", bar)
-    title.BackgroundTransparency = 1
-    title.Position = UDim2.new(0, 16, 0, 0)
-    title.Size = UDim2.new(1, -140, 1, 0)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 13
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.TextYAlignment = Enum.TextYAlignment.Center
-    title.TextColor3 = THEME.WHITE
-    title.Text = "Map Fly Mode"
-
-    local switch = Instance.new("Frame", bar)
-    switch.AnchorPoint = Vector2.new(1, 0.5)
-    switch.Position = UDim2.new(1, -12, 0.5, 0)
-    switch.Size = UDim2.fromOffset(52, 26)
-    switch.BackgroundColor3 = THEME.BLACK
-    corner(switch, 13)
-    local swStroke = stroke(switch, 1.8, THEME.RED)
-    local knob = Instance.new("Frame", switch)
-    knob.Size = UDim2.fromOffset(22, 22)
-    knob.Position = UDim2.new(0, 2, 0.5, -11)
-    knob.BackgroundColor3 = THEME.WHITE
-    corner(knob, 11)
-    local button = Instance.new("TextButton", switch)
-    button.BackgroundTransparency = 1
-    button.Size = UDim2.fromScale(1, 1)
-    button.Text = ""
-
-    ----------------------------------------------------------------
-    -- Flight core (no camera control; face camera direction)
-    ----------------------------------------------------------------
+    --------------------------------------------------------------------
+    -- CONFIG / CORE
+    --------------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 52  -- forward/back (faster)
-    local strafeSpeed   = 44  -- left/right  (faster)
-    local ascendSpeed   = 40  -- up/down     (faster)
+    local moveSpeed     = 80  -- 🔥 เพิ่มความเร็วไปข้างหน้า
+    local strafeSpeed   = 60  -- 🔥 เพิ่มการเคลื่อนไหวข้าง
+    local ascendSpeed   = 60  -- 🔥 เพิ่มการขึ้นลงให้ไวขึ้น
+    local gyroPower     = 1e7 -- 🔥 เพิ่มแรงควบคุมการหัน/นิ่ง
+    local liftPower     = 1e7 -- 🔥 เพิ่มแรงยก (ไม่ให้ตก)
+    local dampFactor    = 4e3 -- ลดการแกว่ง
 
-    local movers = {bp=nil, bg=nil}
-    local loopConn, noclipConn
+    local movers = {bp=nil,bg=nil}
+    local loopConn,noclipConn
     local controlsGui
-    local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
+    local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
 
     local function getHRP()
-        local char = lp and lp.Character
+        local char=lp.Character
         return char and char:FindFirstChild("HumanoidRootPart"),
-               char and char:FindFirstChildOfClass("Humanoid"),
-               char
-    end
-    local function getGuiParent()
-        local ok, hui = pcall(function() return gethui and gethui() end)
-        if ok and hui then return hui end
-        return game:GetService("CoreGui")
+               char and char:FindFirstChildOfClass("Humanoid")
     end
 
-    -- Mini pad (fixed order)
-    local function ensureControlsGui()
+    local function ensureControls()
         if controlsGui and controlsGui.Parent then return controlsGui end
-        controlsGui = Instance.new("ScreenGui")
-        controlsGui.Name = "UFO_FlyMiniPad"
-        controlsGui.ResetOnSpawn = false
-        controlsGui.IgnoreGuiInset = true
-        controlsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        controlsGui.DisplayOrder = 9999
-        controlsGui.Parent = getGuiParent()
+        controlsGui=Instance.new("ScreenGui")
+        controlsGui.IgnoreGuiInset=true
+        controlsGui.DisplayOrder=9999
+        controlsGui.Name="UFO_FlyPad"
+        controlsGui.Parent=game:GetService("CoreGui")
 
-        local SIZE, GAP = 64, 10
-        local pad = Instance.new("Frame")
-        pad.Name = "Pad"
-        pad.BackgroundTransparency = 1
-        pad.AnchorPoint = Vector2.new(0,1)
-        pad.Position = UDim2.new(0, 100, 1, -140)
-        pad.Size     = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
-        pad.Active   = true
-        pad.Parent   = controlsGui
+        local SIZE,GAP=64,10
+        local pad=Instance.new("Frame")
+        pad.AnchorPoint=Vector2.new(0,1)
+        pad.Position=UDim2.new(0,100,1,-140)
+        pad.Size=UDim2.fromOffset(SIZE*3+GAP*2,SIZE*3+GAP*2)
+        pad.BackgroundTransparency=1
+        pad.Parent=controlsGui
 
-        local function makeBtn(parent, name, x, y, emoji)
-            local b = Instance.new("TextButton")
-            b.Name = name
-            b.BackgroundColor3 = THEME.BLACK
-            b.Text = emoji
-            b.Font = Enum.Font.GothamBold
-            b.TextSize = 28
-            b.TextColor3 = THEME.WHITE
-            b.AutoButtonColor = false
-            b.Size = UDim2.fromOffset(SIZE, SIZE)
-            b.Position = UDim2.new(0, x, 0, y)
-            b.Parent = parent
-            b.Activated:Connect(function() end)
-            corner(b, 10); stroke(b, 2, THEME.GREEN)
-            b.ZIndex = 100
-            return b
+        local function btn(p,x,y,t)
+            local b=Instance.new("TextButton")
+            b.Size=UDim2.fromOffset(SIZE,SIZE)
+            b.Position=UDim2.new(0,x,0,y)
+            b.BackgroundColor3=THEME.BLACK
+            b.Text=t
+            b.Font=Enum.Font.GothamBold
+            b.TextSize=28
+            b.TextColor3=THEME.WHITE
+            b.AutoButtonColor=false
+            corner(b,10); stroke(b,2,THEME.GREEN)
+            b.Parent=p; return b
         end
 
-        local btnFwd  = makeBtn(pad, "Fwd",   SIZE+GAP, 0,                "🔼")
-        local btnBack = makeBtn(pad, "Back",  SIZE+GAP, SIZE*2+GAP*2,     "🔽")
-        local btnLeft = makeBtn(pad, "Left",  0,        SIZE+GAP,         "◀️")
-        local btnRight= makeBtn(pad, "Right", (SIZE+GAP)*2, SIZE+GAP,     "▶️")
+        local f=btn(pad, SIZE+GAP, 0, "🔼")
+        local b=btn(pad, SIZE+GAP, SIZE*2+GAP*2, "🔽")
+        local l=btn(pad, 0, SIZE+GAP, "◀️")
+        local r=btn(pad, (SIZE+GAP)*2, SIZE+GAP, "▶️")
 
-        local swipeZone = Instance.new("Frame")
-        swipeZone.BackgroundTransparency = 1
-        swipeZone.Size = UDim2.fromScale(1,1)
-        swipeZone.Parent = pad
+        local rwrap=Instance.new("Frame")
+        rwrap.AnchorPoint=Vector2.new(1,0.5)
+        rwrap.Position=UDim2.new(1,-120,0.5,0)
+        rwrap.Size=UDim2.fromOffset(64,64*2+GAP)
+        rwrap.BackgroundTransparency=1
+        rwrap.Parent=controlsGui
+        local u=btn(rwrap,0,0,"⬆️")
+        local d=btn(rwrap,0,64+GAP,"⬇️")
 
-        local R_SIZE = 64
-        local rWrap = Instance.new("Frame")
-        rWrap.BackgroundTransparency = 1
-        rWrap.AnchorPoint = Vector2.new(1,0.5)
-        rWrap.Position = UDim2.new(1, -120, 0.5, 0)
-        rWrap.Size = UDim2.fromOffset(R_SIZE, R_SIZE*2+GAP)
-        rWrap.Parent = controlsGui
-        local btnUp   = makeBtn(rWrap, "Up",   0, 0,            "⬆️")
-        local btnDown = makeBtn(rWrap, "Down", 0, R_SIZE+GAP,   "⬇️")
-
-        local activeTouches = {}
-        local function setHold(k, v) hold[k] = v end
-        local function bindHold(btn, key)
-            btn.InputBegan:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    setHold(key, true); if io.UserInputType == Enum.UserInputType.Touch then activeTouches[io] = key end
+        local function bind(but,key)
+            but.InputBegan:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+                    hold[key]=true
                 end
             end)
-            btn.InputEnded:Connect(function(io)
-                if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                    setHold(key, false); activeTouches[io] = nil
+            but.InputEnded:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+                    hold[key]=false
                 end
             end)
         end
-        bindHold(btnFwd,  "fwd");  bindHold(btnBack,"back")
-        bindHold(btnLeft, "left"); bindHold(btnRight,"right")
-        bindHold(btnUp,   "up");   bindHold(btnDown, "down")
-
-        UserInputService.InputEnded:Connect(function(io)
-            if io.UserInputType == Enum.UserInputType.Touch then
-                local k = activeTouches[io]
-                if k then hold[k] = false; activeTouches[io] = nil end
-            elseif io.UserInputType == Enum.UserInputType.MouseButton1 then
-                hold.fwd,hold.back,hold.left,hold.right,hold.up,hold.down = false,false,false,false,false,false
-            end
-        end)
-
-        -- swipe in pad => strafe (หน้าตรง)
-        local swipeTouch, lastPos
-        local dead = 12
-        swipeZone.InputBegan:Connect(function(io)
-            if io.UserInputType == Enum.UserInputType.Touch and not swipeTouch then
-                swipeTouch, lastPos = io, io.Position
-            end
-        end)
-        swipeZone.InputChanged:Connect(function(io)
-            if swipeTouch and io == swipeTouch and io.UserInputType == Enum.UserInputType.Touch then
-                local dx = io.Position.X - lastPos.X
-                if math.abs(dx) > dead then
-                    hold.left, hold.right = dx < 0, dx > 0
-                else
-                    hold.left, hold.right = false, false
-                end
-            end
-        end)
-        swipeZone.InputEnded:Connect(function(io)
-            if swipeTouch and io == swipeTouch then
-                swipeTouch = nil
-                hold.left, hold.right = false, false
-            end
-        end)
-
+        bind(f,"fwd");bind(b,"back");bind(l,"left");bind(r,"right");bind(u,"up");bind(d,"down")
         return controlsGui
     end
 
-    local function setNoclipEnabled(enabled)
-        if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+    local function setNoclip(enabled)
+        if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
         if not enabled then return end
-        noclipConn = RunService.Stepped:Connect(function()
-            local _, _, char = getHRP()
+        noclipConn=RunService.Stepped:Connect(function()
+            local hrp,char=getHRP()
             if not char then return end
-            for _, d in ipairs(char:GetDescendants()) do
-                if d:IsA("BasePart") then d.CanCollide = false end
+            for _,p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=false end
             end
         end)
     end
 
-    local function startHover()
-        local hrp, hum = getHRP(); if not hrp or not hum then return end
-        hrp.Anchored = false
-        hum.PlatformStand = false
+    local function startFly()
+        local hrp,hum=getHRP()
+        if not hrp or not hum then return end
 
-        local bp = Instance.new("BodyPosition")
-        bp.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        bp.P = 7e4; bp.D = 2e3
-        bp.Position = hrp.Position + Vector3.new(0, hoverHeight, 0)
-        bp.Parent = hrp
+        hrp.Anchored=false
+        hum.PlatformStand=false
 
-        local bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-        bg.P = 7e4; bg.D = 2e3
-        bg.CFrame = hrp.CFrame
-        bg.Parent = hrp
+        local bp=Instance.new("BodyPosition")
+        bp.MaxForce=Vector3.new(liftPower,liftPower,liftPower)
+        bp.P=9e4; bp.D=dampFactor
+        bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
+        bp.Parent=hrp
 
-        movers.bp, movers.bg = bp, bg
+        local bg=Instance.new("BodyGyro")
+        bg.MaxTorque=Vector3.new(gyroPower,gyroPower,gyroPower)
+        bg.P=9e4; bg.D=dampFactor
+        bg.CFrame=hrp.CFrame
+        bg.Parent=hrp
 
-        ensureControlsGui().Enabled = true
-        setNoclipEnabled(true)
+        movers.bp,bg.Parent=bp,bg
+        ensureControls().Enabled=true
+        setNoclip(true)
 
-        loopConn = RunService.Heartbeat:Connect(function(dt)
-            if not (movers.bp and movers.bg and hrp.Parent) then return end
+        loopConn=RunService.Heartbeat:Connect(function(dt)
+            local camCF=workspace.CurrentCamera.CFrame
+            local fwd=Vector3.new(camCF.LookVector.X,0,camCF.LookVector.Z).Unit
+            local right=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z).Unit
 
-            -- ใช้มุมกล้องของ Roblox (กล้อง native หมุนตามนิ้ว = ไวตามนิ้วอยู่แล้ว)
-            local camCF = workspace.CurrentCamera.CFrame
-            local fwd   = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
-            local right = Vector3.new(camCF.RightVector.X,0, camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
+            local pos=movers.bp.Position
+            if hold.fwd  then pos+=fwd*moveSpeed*dt end
+            if hold.back then pos-=fwd*moveSpeed*dt end
+            if hold.left then pos-=right*strafeSpeed*dt end
+            if hold.right then pos+=right*strafeSpeed*dt end
+            if hold.up   then pos+=Vector3.new(0,ascendSpeed*dt,0) end
+            if hold.down then pos-=Vector3.new(0,ascendSpeed*dt,0) end
 
-            -- เดินอิงกล้อง + สปีดเร็วขึ้น
-            local pos = movers.bp.Position
-            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end
-            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end
-            if hold.left then  pos = pos - right * (strafeSpeed * dt) end
-            if hold.right then pos = pos + right * (strafeSpeed * dt) end
-            if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
-            if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
-            movers.bp.Position = pos
-
-            -- ให้ตัวละคร “หันตามมุมกล้อง” เสมอ (หน้าตรงไปทิศเดียวกับกล้อง)
-            movers.bg.CFrame = CFrame.new(hrp.Position, hrp.Position + fwd)
+            movers.bp.Position=pos
+            movers.bg.CFrame=CFrame.new(hrp.Position, hrp.Position+fwd)
         end)
     end
 
-    local function stopHover()
-        if loopConn   then loopConn:Disconnect(); loopConn = nil end
-        if controlsGui then controlsGui.Enabled = false end
-        setNoclipEnabled(false)
-
-        local hrp, hum = getHRP()
-        if movers.bp then movers.bp:Destroy(); movers.bp = nil end
-        if movers.bg then movers.bg:Destroy(); movers.bg = nil end
-        if hrp then hrp.Velocity = Vector3.new(); hrp.RotVelocity = Vector3.new() end
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Landed); hum.PlatformStand = false end
+    local function stopFly()
+        if loopConn then loopConn:Disconnect(); loopConn=nil end
+        setNoclip(false)
+        if movers.bp then movers.bp:Destroy(); movers.bp=nil end
+        if movers.bg then movers.bg:Destroy(); movers.bg=nil end
     end
 
-    -- Toggle
+    ----------------------------------------------------------------
+    -- Toggle Switch UI
+    ----------------------------------------------------------------
+    local toggleFrame=Instance.new("Frame")
+    toggleFrame.Size=UDim2.new(1,-6,0,46)
+    toggleFrame.BackgroundColor3=THEME.BLACK
+    toggleFrame.LayoutOrder=nextOrder+1
+    corner(toggleFrame,12); stroke(toggleFrame,2.2,THEME.GREEN)
+    toggleFrame.Parent=scroll
+
+    local txt2=Instance.new("TextLabel",toggleFrame)
+    txt2.BackgroundTransparency=1
+    txt2.Size=UDim2.new(1,-140,1,0)
+    txt2.Position=UDim2.new(0,16,0,0)
+    txt2.Font=Enum.Font.GothamBold
+    txt2.TextSize=13
+    txt2.TextColor3=THEME.WHITE
+    txt2.TextXAlignment=Enum.TextXAlignment.Left
+    txt2.Text="Map Fly Mode"
+
+    local switch=Instance.new("Frame",toggleFrame)
+    switch.AnchorPoint=Vector2.new(1,0.5)
+    switch.Position=UDim2.new(1,-12,0.5,0)
+    switch.Size=UDim2.fromOffset(52,26)
+    switch.BackgroundColor3=THEME.BLACK
+    corner(switch,13)
+    local swStroke=stroke(switch,1.8,THEME.RED)
+    local knob=Instance.new("Frame",switch)
+    knob.Size=UDim2.fromOffset(22,22)
+    knob.Position=UDim2.new(0,2,0.5,-11)
+    knob.BackgroundColor3=THEME.WHITE
+    corner(knob,11)
+    local btn=Instance.new("TextButton",switch)
+    btn.BackgroundTransparency=1
+    btn.Size=UDim2.fromScale(1,1)
+    btn.Text=""
+
     local isOn=false
     local function setState(v)
         isOn=v
         if isOn then
-            swStroke.Color = THEME.GREEN
-            knob:TweenPosition(UDim2.new(1,-24,0.5,-11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
-            startHover()
+            swStroke.Color=THEME.GREEN
+            knob:TweenPosition(UDim2.new(1,-24,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
+            startFly()
         else
-            swStroke.Color = THEME.RED
-            knob:TweenPosition(UDim2.new(0,2,0.5,-11), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.12, true)
-            stopHover()
+            swStroke.Color=THEME.RED
+            knob:TweenPosition(UDim2.new(0,2,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
+            stopFly()
         end
     end
-    button.MouseButton1Click:Connect(function() setState(not isOn) end)
-    setState(false)
-
+    btn.MouseButton1Click:Connect(function() setState(not isOn) end)
     lp.CharacterAdded:Connect(function() setState(false) end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
