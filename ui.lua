@@ -762,14 +762,16 @@ registerRight("Player", function(scroll)
     local sensTarget, sensApplied = 0,0
     local S_MIN,S_MAX = 0.0, 2.0
 
-    -- >>> เปลี่ยนแค่นี้: ใส่ baseline ที่ 0% ให้ยังเร็ว (MIN_MULT)
-    local MIN_MULT = 0.90   -- 0% ยังได้ 90% ของความเร็วพื้นฐาน
-    local function speeds()
-        local norm = (S_MAX>0) and (sensApplied/S_MAX) or 0
-        local mult = MIN_MULT + (1 - MIN_MULT) * math.clamp(norm,0,1)
-        return BASE_MOVE*mult, BASE_STRAFE*mult, BASE_ASCEND*mult
-    end
-    -- <<< จบส่วนที่แก้
+    -- >>> เปลี่ยนแค่นี้: สไลเดอร์แรงขึ้นจริง + 0% ยังเร็ว
+local MIN_MULT = 0.90     -- 0% = 90% ความเร็วพื้นฐาน (ยังวิ่งได้)
+local MAX_MULT = 3.00     -- 100% = 220% ของความเร็วพื้นฐาน (รู้สึกไวขึ้นชัด)
+local function speeds()
+    local norm = (S_MAX>0) and (sensApplied/S_MAX) or 0
+    norm = math.clamp(norm, 0, 1)
+    local mult = MIN_MULT + (MAX_MULT - MIN_MULT) * norm
+    return BASE_MOVE*mult, BASE_STRAFE*mult, BASE_ASCEND*mult
+end
+-- <<< จบส่วนที่แก้
 
     -- ---------- State ----------
     local flightOn=false
