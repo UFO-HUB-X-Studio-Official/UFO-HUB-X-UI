@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.4.4 =====
+-- ===== Player tab (Right) — Model A V2.4.5 =====
 -- Flight (Fast + Pitch Steering + PC/Mobile)
 -- Noclip only when Flight ON
 -- Sensitivity: UI starts at 0 but effective speed starts at x1.00 (old default)
@@ -776,10 +776,10 @@ registerRight("Player", function(scroll)
     local dampFactor    = 4e3
 
     -- Sensitivity UI starts at 0, but effective multiplier = 1.0 + sensApplied
-    -- => เริ่มบินได้เท่าค่าเดิม (x1.00) แม้แถบอยู่ที่ 0
-    local sensTarget    = 0.0     -- 0..S_MAX (ค่าในแถบ)
-    local sensApplied   = 0.0     -- ค่าที่นำไปคูณแบบ smooth
-    local S_MIN, S_MAX  = 0.0, 1.5  -- x1.00 → x2.50 เมื่อดันสุด
+    -- เริ่มบินได้เท่าค่าเดิม (x1.00) แม้แถบอยู่ที่ 0
+    local sensTarget    = 0.0
+    local sensApplied   = 0.0
+    local S_MIN, S_MAX  = 0.0, 2.0   -- 🔥 เพิ่มเพดาน: สูงสุด = x3.00
 
     local function speeds()
         local mul = 1.0 + sensApplied
@@ -922,8 +922,8 @@ registerRight("Player", function(scroll)
         ensureControls().Enabled = true
         setNoclipLooper(true)
 
-        -- smooth sens (exponential)
         loopConn = RunService.Heartbeat:Connect(function(dt)
+            -- smooth sens apply
             local lerpFactor = math.clamp(dt*10, 0, 1)
             sensApplied = sensApplied + (sensTarget - sensApplied) * lerpFactor
 
@@ -1000,75 +1000,68 @@ registerRight("Player", function(scroll)
     setNoclipState(true)
     ncBtn.MouseButton1Click:Connect(function() setNoclipState(not noclipWanted) end)
 
-    -- ===== UI: Sensitivity slider (center value text) =====
-    local sRow = Instance.new("Frame"); sRow.Size=UDim2.new(1,-6,0,64); sRow.BackgroundColor3=THEME.BLACK
+    -- ===== UI: Sensitivity slider (percent 0–100, bigger & clearer) =====
+    local sRow = Instance.new("Frame"); sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK
     sRow.LayoutOrder=nextOrder+3; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.Parent=scroll
     local sLab = Instance.new("TextLabel",sRow)
-    sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,0); sLab.Size=UDim2.new(1,-32,0,24)
+    sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24)
     sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left
     sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
 
     local bar = Instance.new("Frame",sRow)
-    bar.Position=UDim2.new(0,16,0,30); bar.Size=UDim2.new(1,-32,0,12)
-    bar.BackgroundColor3=THEME.BLACK; corner(bar,6); stroke(bar,1.6,THEME.GREEN)
-    local fill = Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,6); fill.Size=UDim2.fromScale(0,1)
-    local knob2 = Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(20,20); knob2.Position=UDim2.new(0, -10, 0.5, -10)
-    knob2.BackgroundColor3=THEME.WHITE; corner(knob2,10)
+    bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
+    bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
+    local fill = Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+    local knob2 = Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(24,24); knob2.Position=UDim2.new(0,-12,0.5,-12)
+    knob2.BackgroundColor3=THEME.WHITE; corner(knob2,12)
 
-    -- value text centered on the bar (shows effective multiplier)
+    -- percent label (0–100) — ใหญ่ + มีเส้นขอบให้อ่านชัด
     local centerVal = Instance.new("TextLabel", bar)
-    centerVal.BackgroundTransparency=1
-    centerVal.Size = UDim2.fromScale(1,1)
-    centerVal.Position = UDim2.fromScale(0,0)
-    centerVal.Font = Enum.Font.GothamBold
-    centerVal.TextSize = 12
+    centerVal.BackgroundTransparency=0.15
+    centerVal.BackgroundColor3 = Color3.fromRGB(10,10,10)
+    corner(centerVal, 6)
+    centerVal.Size = UDim2.new(0, 80, 0, 20)
+    centerVal.Position = UDim2.new(0.5, -40, 0.5, -10)
+    centerVal.Font = Enum.Font.GothamBlack
+    centerVal.TextSize = 16
     centerVal.TextColor3 = THEME.WHITE
+    centerVal.TextStrokeTransparency = 0.2
+    centerVal.TextStrokeColor3 = Color3.new(0,0,0)
     centerVal.TextXAlignment = Enum.TextXAlignment.Center
     centerVal.TextYAlignment = Enum.TextYAlignment.Center
-    centerVal.Text = "x1.00"
+    centerVal.ZIndex = 5
+    centerVal.Text = "0%"
 
     local dragging = false
     local function uiFromRel(rel, instant)
         rel = math.clamp(rel, 0, 1)
         sensTarget = S_MIN + (S_MAX-S_MIN)*rel
-        centerVal.Text = string.format("x%.2f", 1.0 + sensTarget)
+        centerVal.Text = string.format("%d%%", math.floor(rel*100 + 0.5))
         if instant then
             fill.Size = UDim2.fromScale(rel,1)
-            knob2.Position = UDim2.new(rel, -10, 0.5, -10)
+            knob2.Position = UDim2.new(rel, -12, 0.5, -12)
         else
-            -- drag uses instant; release uses tween
             tween(fill, {Size=UDim2.fromScale(rel,1)}, 0.08)
-            tween(knob2, {Position=UDim2.new(rel, -10, 0.5, -10)}, 0.08)
+            tween(knob2, {Position=UDim2.new(rel, -12, 0.5, -12)}, 0.08)
         end
     end
     local function relFromX(x)
         return (x - bar.AbsolutePosition.X)/math.max(1, bar.AbsoluteSize.X)
     end
-
-    -- smoother dragging: update every RenderStepped while dragging (no tween)
     knob2.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            dragging=true
-        end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=true end
     end)
     bar.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 then
-            dragging=true
-            uiFromRel(relFromX(io.Position.X), true)
-        end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; uiFromRel(relFromX(io.Position.X), true) end
     end)
     UserInputService.InputEnded:Connect(function(io)
         if dragging and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then
             dragging=false
-            -- snap with a tiny tween to feel polished
             uiFromRel(relFromX(UserInputService:GetMouseLocation().X), false)
         end
     end)
     RunService.RenderStepped:Connect(function()
-        if dragging then
-            local x = UserInputService:GetMouseLocation().X
-            uiFromRel(relFromX(x), true)
-        end
+        if dragging then uiFromRel(relFromX(UserInputService:GetMouseLocation().X), true) end
     end)
 
     -- ===== Main toggle =====
@@ -1086,9 +1079,7 @@ registerRight("Player", function(scroll)
         end
     end
     local btn=frame:FindFirstChildOfClass("TextButton")
-    if not btn then
-        btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    end
+    if not btn then btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text="" end
     btn.MouseButton1Click:Connect(function() setState(not flightOn) end)
     lp.CharacterAdded:Connect(function() setState(false) end)
 end)
