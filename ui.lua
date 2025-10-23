@@ -708,8 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.4 — Flight (Fast + Pitch Steering + PC/Mobile)
--- Forward follows full camera LookVector (includes vertical), face == camera (yaw+pitch), true noclip
+-- ===== Player tab (Right) — Model A V2.4.1 — Flight (Fast + Pitch Steering + PC/Mobile)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -723,8 +722,8 @@ registerRight("Player", function(scroll)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
     }
-    local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 12); c.Parent=ui; return c end
-    local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui; return c end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
     -- layout
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
@@ -763,9 +762,9 @@ registerRight("Player", function(scroll)
     -- CONFIG (แรงขึ้น)
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 130   -- เดินหน้า/ถอยหลัง เร็วขึ้นมาก
-    local strafeSpeed   = 90    -- สไลด์ซ้ายขวา
-    local ascendSpeed   = 90    -- ปุ่มขึ้น/ลง
+    local moveSpeed     = 150   -- เร็วขึ้น
+    local strafeSpeed   = 100
+    local ascendSpeed   = 100
     local liftPower     = 1e7
     local dampFactor    = 4e3
 
@@ -905,23 +904,23 @@ registerRight("Player", function(scroll)
             local cam = workspace.CurrentCamera; if not cam then return end
             local camCF = cam.CFrame
 
-            -- >>> ใช้ LookVector “ทั้งแกน Y” สำหรับเดินหน้า/ถอยหลัง (ก้ม = ดิ่งลง, เงย = พุ่งขึ้น)
-            local fwd3   = camCF.LookVector            -- ไม่ตัดแกน Y
+            -- ใช้ LookVector ทั้งแกน Y: ก้ม = ดิ่งลง, เงย = พุ่งขึ้น
+            local fwd3   = camCF.LookVector
             local rightH = Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
             if rightH.Magnitude > 0 then rightH = rightH.Unit end
 
             local pos = movers.bp.Position
-            if hold.fwd  then pos += fwd3  * (moveSpeed   * dt) end  -- เดินหน้าตามมุมกล้องเต็มๆ
+            if hold.fwd  then pos += fwd3  * (moveSpeed   * dt) end
             if hold.back then pos -= fwd3  * (moveSpeed   * dt) end
-            if hold.left then  pos -= rightH* (strafeSpeed* dt) end  -- สไลด์แนวนอน
+            if hold.left then  pos -= rightH* (strafeSpeed* dt) end
             if hold.right then pos += rightH* (strafeSpeed* dt) end
             if hold.up   then  pos += Vector3.new(0, ascendSpeed*dt, 0) end
             if hold.down then  pos -= Vector3.new(0, ascendSpeed*dt, 0) end
             movers.bp.Position = pos
 
-            -- หันหน้าตามกล้อง “รวมก้ม-เงย” (ใช้ up vector ของกล้องด้วย)
+            -- หันตามกล้องแบบรวมก้ม-เงย
             movers.ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + camCF.LookVector, camCF.UpVector)
-        })
+        end) -- <<< ตรงนี้ต้องเป็น end) ไม่ใช่ })
     end
 
     local function stopFly()
@@ -936,38 +935,17 @@ registerRight("Player", function(scroll)
     end
 
     -- Toggle UI
-    local frame=Instance.new("Frame")
-    frame.Size=UDim2.new(1,-6,0,46)
-    frame.BackgroundColor3=THEME.BLACK
-    frame.LayoutOrder=nextOrder+1
-    corner(frame,12); stroke(frame,2.2,THEME.GREEN)
-    frame.Parent=scroll
-
-    local lab=Instance.new("TextLabel",frame)
-    lab.BackgroundTransparency=1
-    lab.Size=UDim2.new(1,-140,1,0)
-    lab.Position=UDim2.new(0,16,0,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=13
-    lab.TextXAlignment=Enum.TextXAlignment.Left
-    lab.TextColor3=THEME.WHITE
-    lab.Text="Map Fly Mode"
-
-    local switch=Instance.new("Frame",frame)
-    switch.AnchorPoint=Vector2.new(1,0.5)
-    switch.Position=UDim2.new(1,-12,0.5,0)
-    switch.Size=UDim2.fromOffset(52,26)
-    switch.BackgroundColor3=THEME.BLACK
-    corner(switch,13)
+    local frame=Instance.new("Frame"); frame.Size=UDim2.new(1,-6,0,46); frame.BackgroundColor3=THEME.BLACK
+    frame.LayoutOrder=nextOrder+1; corner(frame,12); stroke(frame,2.2,THEME.GREEN); frame.Parent=scroll
+    local lab=Instance.new("TextLabel",frame); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0)
+    lab.Position=UDim2.new(0,16,0,0); lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextXAlignment=Enum.TextXAlignment.Left
+    lab.TextColor3=THEME.WHITE; lab.Text="Map Fly Mode"
+    local switch=Instance.new("Frame",frame); switch.AnchorPoint=Vector2.new(1,0.5); switch.Position=UDim2.new(1,-12,0.5,0)
+    switch.Size=UDim2.fromOffset(52,26); switch.BackgroundColor3=THEME.BLACK; corner(switch,13)
     local swStroke=stroke(switch,1.8,THEME.RED)
-    local knob=Instance.new("Frame",switch)
-    knob.Size=UDim2.fromOffset(22,22)
-    knob.Position=UDim2.new(0,2,0.5,-11)
-    knob.BackgroundColor3=THEME.WHITE
-    corner(knob,11)
-    local btn=Instance.new("TextButton",switch)
-    btn.BackgroundTransparency=1
-    btn.Size=UDim2.fromScale(1,1)
-    btn.Text=""
+    local knob=Instance.new("Frame",switch); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11)
+    knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+    local btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
 
     local isOn=false
     local function setState(v)
