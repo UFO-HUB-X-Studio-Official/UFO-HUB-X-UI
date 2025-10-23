@@ -708,10 +708,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A LEGACY 2.3.9d HOTFIX =====
--- ✅ ปรับความไวลื่นและไวขึ้น (instant while dragging + fast lerp)
--- ✅ ปุ่มจอยกดติดแน่ จับ TouchEnded/MouseUp ทั่วจอ กันหลุด flag
--- ✅ 0% ยังวิ่งหน้าได้ (MIN_MULT)
+-- ===== Player tab (Right) — Model A LEGACY 2.3.9e STABLE =====
+-- ✅ ยืน/ลอย “นิ่ง” (ไม่ยกขึ้น ไม่เด้ง)
+-- ✅ ปุ่มค้างลื่น ไม่หยุดๆไปๆ (per-button touch tracking)
+-- ✅ 0% ยังไปข้างหน้าได้ (MIN_MULT)
 
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
@@ -737,14 +737,14 @@ registerRight("Player", function(scroll)
                 end
             end
             local hrp=ch:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.Velocity=Vector3.zero; hrp.RotVelocity=Vector3.zero end
+            if hrp then hrp.AssemblyLinearVelocity=Vector3.zero; hrp.AssemblyAngularVelocity=Vector3.zero end
         end
     end
 
     -- ---------- THEME / HELPERS ----------
     local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0)}
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui; return c end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.Parent=ui; return s end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
     -- ---------- Layout ----------
@@ -758,15 +758,15 @@ registerRight("Player", function(scroll)
     header.Text="Flight Mode 🛸"; header.LayoutOrder=nextOrder; header.Parent=scroll
 
     -- ---------- Config ----------
-    local hoverHeight = 6
+    local hoverHeight = 0                   -- << ไม่ยกขึ้น เพื่ออยู่นิ่งจริงๆ
     local BASE_MOVE, BASE_STRAFE, BASE_ASCEND = 150, 110, 110
-    local dampFactor = 4000
+    local dampFactor = 12000               -- << แดมป์สูงกันสั่น/เด้ง
 
     -- Sensitivity [0..S_MAX] | 0% ยังเร็วด้วย MIN_MULT
     local sensTarget, sensApplied = 0, 0
     local S_MAX   = 2.0
-    local MIN_MULT= 0.90
-    local S_RESP  = 40          -- << เร่งการตอบสนองให้ไวขึ้น (เดิม ~10)
+    local MIN_MULT= 0.90                    -- 0% = 90% ความเร็วพื้นฐาน
+    local S_RESP  = 40
 
     local function speeds()
         local norm = math.clamp(sensApplied / S_MAX, 0, 1)
@@ -778,6 +778,8 @@ registerRight("Player", function(scroll)
     local flightOn=false
     local controlsGui
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
+    local touchId = {fwd=nil,back=nil,left=nil,right=nil,up=nil,down=nil} -- << track นิ้วต่อปุ่ม
+    local mouseDownKey = nil
     local savedAnimate
 
     local function getHRP()
@@ -802,35 +804,51 @@ registerRight("Player", function(scroll)
         local pad=Instance.new("Frame",controlsGui); pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,100,1,-140)
         pad.Size=UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2); pad.BackgroundTransparency=1
 
-        local function btn(p,x,y,t)
+        local function btn(p,x,y,t,keyName)
             local b=Instance.new("TextButton",p)
             b.Size=UDim2.fromOffset(SIZE,SIZE); b.Position=UDim2.new(0,x,0,y)
             b.BackgroundColor3=THEME.BLACK; b.Text=t; b.Font=Enum.Font.GothamBold; b.TextSize=28; b.TextColor3=THEME.WHITE; b.AutoButtonColor=false
             b.Active=true; b.ClipsDescendants=false; b.ZIndex=50
-            corner(b,10); stroke(b,2,THEME.GREEN); return b
+            corner(b,10); stroke(b,2,THEME.GREEN)
+
+            -- Mouse
+            keep(b.InputBegan:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 then
+                    hold[keyName]=true; mouseDownKey=keyName
+                elseif io.UserInputType==Enum.UserInputType.Touch and touchId[keyName]==nil then
+                    hold[keyName]=true; touchId[keyName]=io.TouchId
+                end
+            end))
+            keep(b.InputEnded:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 and mouseDownKey==keyName then
+                    hold[keyName]=false; mouseDownKey=nil
+                elseif io.UserInputType==Enum.UserInputType.Touch and touchId[keyName]==io.TouchId then
+                    hold[keyName]=false; touchId[keyName]=nil
+                end
+            end))
+            return b
         end
-        local f=btn(pad,SIZE+GAP,0,"🔼"); local bb=btn(pad,SIZE+GAP,SIZE*2+GAP*2,"🔽"); local l=btn(pad,0,SIZE+GAP,"◀️"); local r=btn(pad,(SIZE+GAP)*2,SIZE+GAP,"▶️")
+
+        local f = btn(pad, SIZE+GAP,           0,              "🔼","fwd")
+        local bb= btn(pad, SIZE+GAP,           SIZE*2+GAP*2,   "🔽","back")
+        local l = btn(pad, 0,                  SIZE+GAP,       "◀️","left")
+        local r = btn(pad, (SIZE+GAP)*2,       SIZE+GAP,       "▶️","right")
 
         local rwrap=Instance.new("Frame",controlsGui); rwrap.AnchorPoint=Vector2.new(1,0.5); rwrap.Position=UDim2.new(1,-120,0.5,0)
         rwrap.Size=UDim2.fromOffset(64,64*2+GAP); rwrap.BackgroundTransparency=1
-        local u=btn(rwrap,0,0,"⬆️"); local d=btn(rwrap,0,64+GAP,"⬇️")
+        local u = btn(rwrap, 0, 0,        "⬆️","up")
+        local d = btn(rwrap, 0, 64+GAP,   "⬇️","down")
 
-        local function bindTouch(but,key)
-            keep(but.InputBegan:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end
-            end))
-            -- ถ้าลากออกนอกปุ่ม/ปล่อยที่อื่น ก็รีเซ็ตด้วย
-            keep(but.InputEnded:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end
-            end))
-        end
-        bindTouch(f,"fwd"); bindTouch(bb,"back"); bindTouch(l,"left"); bindTouch(r,"right"); bindTouch(u,"up"); bindTouch(d,"down")
-
-        -- เคลียร์ทุกปุ่มเมื่อยกนิ้ว/ปล่อยเมาส์ที่ไหนก็ได้ (กันค้าง/ไม่ติด)
-        keep(UserInputService.TouchEnded:Connect(function() hold={fwd=false,back=false,left=false,right=false,up=false,down=false} end))
+        -- จับ TouchEnded ทั่วจอ: ปล่อยเฉพาะปุ่มที่ถือ touchId เดียวกัน (ไม่รีเซ็ตทั้งก้อน)
+        keep(UserInputService.TouchEnded:Connect(function(t)
+            for k,id in pairs(touchId) do
+                if id==t.TouchId then hold[k]=false; touchId[k]=nil end
+            end
+        end))
+        -- จับ MouseUp ทั่วจอ เฉพาะปุ่มที่เริ่มด้วยเมาส์
         keep(UserInputService.InputEnded:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseButton1 then
-                hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
+            if io.UserInputType==Enum.UserInputType.MouseButton1 and mouseDownKey then
+                hold[mouseDownKey]=false; mouseDownKey=nil
             end
         end))
 
@@ -882,7 +900,7 @@ registerRight("Player", function(scroll)
 
         local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"
         bp.MaxForce=Vector3.new(1e7,1e7,1e7); bp.P=90000; bp.D=dampFactor
-        bp.Position=hrp.Position + Vector3.new(0, hoverHeight, 0)
+        bp.Position=hrp.Position + Vector3.new(0,hoverHeight,0)  -- hoverHeight = 0 => ไม่ยก
 
         local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
         local ao=Instance.new("AlignOrientation",hrp); ao.Name="UFO_AO"
@@ -895,7 +913,6 @@ registerRight("Player", function(scroll)
         setPartsClip(char,true)
 
         keep(RunService.Heartbeat:Connect(function(dt)
-            -- เร่งความไวให้ตอบสนองเร็วขึ้น
             sensApplied = sensApplied + (sensTarget - sensApplied) * math.clamp(dt*S_RESP,0,1)
 
             local cam=workspace.CurrentCamera; if not cam then return end
@@ -903,14 +920,19 @@ registerRight("Player", function(scroll)
             local fwd=camCF.LookVector
             local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
 
+            -- ถ้าไม่ได้กดอะไร คงที่จริงๆ: ฆ่าโมเมนตัมใดๆ เพิ่มนิ่ง
+            if not (hold.fwd or hold.back or hold.left or hold.right or hold.up or hold.down) then
+                hrp.AssemblyLinearVelocity=Vector3.zero; hrp.AssemblyAngularVelocity=Vector3.zero
+            end
+
             local MOVE,STRAFE,ASC = speeds()
             local pos = _G.UFOX.movers.bp.Position
-            if hold.fwd  then pos += fwd*(MOVE*dt) end
-            if hold.back then pos -= fwd*(MOVE*dt) end
-            if hold.left then pos -= rightH*(STRAFE*dt) end
-            if hold.right then pos += rightH*(STRAFE*dt) end
-            if hold.up   then pos += Vector3.new(0,ASC*dt,0) end
-            if hold.down then pos -= Vector3.new(0,ASC*dt,0) end
+            if hold.fwd  then pos = pos + fwd*(MOVE*dt) end
+            if hold.back then pos = pos - fwd*(MOVE*dt) end
+            if hold.left then pos = pos - rightH*(STRAFE*dt) end
+            if hold.right then pos = pos + rightH*(STRAFE*dt) end
+            if hold.up   then pos = pos + Vector3.new(0,ASC*dt,0) end
+            if hold.down then pos = pos - Vector3.new(0,ASC*dt,0) end
 
             _G.UFOX.movers.bp.Position = pos
             ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + camCF.LookVector, Vector3.new(0,1,0))
@@ -926,12 +948,13 @@ registerRight("Player", function(scroll)
         if char then
             setPartsClip(char,false)
             local r=char:FindFirstChild("HumanoidRootPart")
-            if r then r.Velocity=Vector3.zero; r.RotVelocity=Vector3.zero; r.CFrame=r.CFrame+Vector3.new(0,2,0) end
+            if r then r.AssemblyLinearVelocity=Vector3.zero; r.AssemblyAngularVelocity=Vector3.zero end
         end
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
         if controlsGui then controlsGui.Enabled=false end
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
+        touchId={fwd=nil,back=nil,left=nil,right=nil,up=nil,down=nil}; mouseDownKey=nil
     end
 
     -- ---------- UI ----------
@@ -977,7 +1000,7 @@ registerRight("Player", function(scroll)
     local function applyRel(rel, instant)
         rel = math.clamp(rel, 0, 1)
         sensTarget = S_MAX * rel
-        if instant then sensApplied = sensTarget end   -- << อัปเดตทันทีตอนกำลังลาก
+        if instant then sensApplied = sensTarget end
         centerVal.Text = string.format("%d%%", math.floor(rel*100 + 0.5))
         if instant then
             fill.Size = UDim2.fromScale(rel,1)
