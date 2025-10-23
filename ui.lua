@@ -708,8 +708,9 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9i (FIXED) =====
--- ✅ แก้บัค: เปิดโหมดบินแล้วสไลเดอร์ลากไม่ได้ (แยก UI conns ออกจาก temp conns)
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9i HOTFIX (PASTE-AND-GO) =====
+-- ✅ แก้บัค syntax: ปิดฟังก์ชันด้วย end (ไม่ใช่ })
+-- ✅ แยก UI conns ออกจาก temp conns: เปิดบิน/ปิดบิน สไลเดอร์ยังใช้งานได้
 -- ✅ Flight toggle + Noclip(ON only) | Joypad มือถือ | ฮอตคีย์ PC
 -- ✅ Slider ลื่น (RenderStepped + visual lerp) | จำค่าความไว | Layout ตายตัว | Cleanup ปลอดภัย
 
@@ -846,7 +847,7 @@ registerRight("Player", function(scroll)
             end))
         end
         bind(f,"fwd"); bind(bb,"back"); bind(l,"left"); bind(r,"right"); bind(u,"up"); bind(d,"down")
-    }
+    end  -- <<<< ตรงนี้ต้องเป็น end ไม่ใช่ }
 
     -- ---------- FLIGHT ----------
     local function startFly()
