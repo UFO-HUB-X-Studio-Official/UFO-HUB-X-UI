@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.2 — Flight (Stable + Fast + Pad Fixed + No-Fall Pose)
+-- ===== Player tab (Right) — Model A V2.3 — Flight (Realtime Face + True Noclip + Pad hide on OFF)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -725,57 +725,54 @@ registerRight("Player", function(scroll)
     local function corner(ui, r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0, r or 12); c.Parent=ui; return c end
     local function stroke(ui, th, col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
 
-    -- list layout
+    -- layout (keep old)
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout")
         vlist.Padding = UDim.new(0, 12)
         vlist.HorizontalAlignment = Enum.HorizontalAlignment.Left
         vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
         vlist.Parent = scroll
     end
     scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
     local nextOrder = 10
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch ~= vlist then
-            nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0) + 1)
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch~=vlist then
+            nextOrder = math.max(nextOrder,(ch.LayoutOrder or 0)+1)
         end
     end
     if scroll:FindFirstChild("Section_FlightHeader") then return end
 
     local header = Instance.new("TextLabel")
-    header.Name = "Section_FlightHeader"
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1,0,0,36)
-    header.Font = Enum.Font.GothamBold
-    header.TextSize = 16
-    header.TextColor3 = THEME.WHITE
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "Flight Mode 🛸"
+    header.Name="Section_FlightHeader"
+    header.BackgroundTransparency=1
+    header.Size=UDim2.new(1,0,0,36)
+    header.Font=Enum.Font.GothamBold
+    header.TextSize=16
+    header.TextColor3=THEME.WHITE
+    header.TextXAlignment=Enum.TextXAlignment.Left
+    header.Text="Flight Mode 🛸"
     header.LayoutOrder = nextOrder
-    header.Parent = scroll
+    header.Parent=scroll
 
     ----------------------------------------------------------------
     -- CONFIG
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 80
-    local strafeSpeed   = 60
-    local ascendSpeed   = 60
-    local gyroPower     = 1e7
+    local moveSpeed     = 90      -- เร็วขึ้น
+    local strafeSpeed   = 70
+    local ascendSpeed   = 70
     local liftPower     = 1e7
     local dampFactor    = 4e3
 
-    local movers = {bp=nil, bg=nil}
+    local movers = {bp=nil, ao=nil, att=nil}
     local loopConn, noclipConn
     local controlsGui
-    local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
+    local hold = {fwd=false,back=false,left=false,right=false,up=false,down=false}
 
-    local savedAnimate -- LocalScript Animate (จะปิดชั่วคราวตอนบิน)
-    local stoppedOnStart = {}
+    local savedAnimate
 
     local function getHRP()
         local char = lp.Character
@@ -785,33 +782,30 @@ registerRight("Player", function(scroll)
     end
 
     local function getGuiParent()
-        local ok, hui = pcall(function() return gethui and gethui() end)
+        local ok,hui = pcall(function() return gethui and gethui() end)
         if ok and hui then return hui end
         return game:GetService("CoreGui")
     end
 
+    -- ==== MINI PAD (fixed) ====
     local function ensureControls()
-        if controlsGui and controlsGui.Parent then
-            controlsGui.Enabled = true
-            return controlsGui
-        end
+        if controlsGui and controlsGui.Parent then return controlsGui end
         controlsGui = Instance.new("ScreenGui")
-        controlsGui.Name = "UFO_FlyPad"
-        controlsGui.ResetOnSpawn = false
-        controlsGui.IgnoreGuiInset = true
-        controlsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        controlsGui.DisplayOrder = 999999
-        controlsGui.Enabled = true
-        controlsGui.Parent = getGuiParent()
+        controlsGui.Name="UFO_FlyPad"
+        controlsGui.ResetOnSpawn=false
+        controlsGui.IgnoreGuiInset=true
+        controlsGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        controlsGui.DisplayOrder=999999
+        controlsGui.Enabled=true
+        controlsGui.Parent=getGuiParent()
 
-        local SIZE, GAP = 64, 10
-        local pad = Instance.new("Frame")
-        pad.Name = "Pad"
-        pad.AnchorPoint = Vector2.new(0,1)
-        pad.Position = UDim2.new(0, 100, 1, -140)
-        pad.Size = UDim2.fromOffset(SIZE*3+GAP*2, SIZE*3+GAP*2)
-        pad.BackgroundTransparency = 1
-        pad.Parent = controlsGui
+        local SIZE,GAP=64,10
+        local pad=Instance.new("Frame")
+        pad.AnchorPoint=Vector2.new(0,1)
+        pad.Position=UDim2.new(0,100,1,-140)
+        pad.Size=UDim2.fromOffset(SIZE*3+GAP*2,SIZE*3+GAP*2)
+        pad.BackgroundTransparency=1
+        pad.Parent=controlsGui
 
         local function btn(p,x,y,t)
             local b=Instance.new("TextButton")
@@ -823,11 +817,10 @@ registerRight("Player", function(scroll)
             corner(b,10); stroke(b,2,THEME.GREEN)
             b.Parent=p; return b
         end
-
-        local f=btn(pad, SIZE+GAP, 0, "🔼")
-        local b=btn(pad, SIZE+GAP, SIZE*2+GAP*2, "🔽")
-        local l=btn(pad, 0, SIZE+GAP, "◀️")
-        local r=btn(pad, (SIZE+GAP)*2, SIZE+GAP, "▶️")
+        local f=btn(pad,SIZE+GAP,0,"🔼")
+        local b=btn(pad,SIZE+GAP,SIZE*2+GAP*2,"🔽")
+        local l=btn(pad,0,SIZE+GAP,"◀️")
+        local r=btn(pad,(SIZE+GAP)*2,SIZE+GAP,"▶️")
 
         local rwrap=Instance.new("Frame")
         rwrap.AnchorPoint=Vector2.new(1,0.5)
@@ -854,14 +847,17 @@ registerRight("Player", function(scroll)
         return controlsGui
     end
 
+    -- ==== TRUE NOCLIP (ทุกชิ้นส่วน) ====
     local function setNoclip(enabled)
         if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
         if not enabled then return end
         noclipConn = RunService.Stepped:Connect(function()
-            local hrp,char = getHRP()
+            local hrp,hum,char = getHRP()
             if not char then return end
             for _,p in ipairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = false end
+                if p:IsA("BasePart") then
+                    p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
+                end
             end
         end)
     end
@@ -869,103 +865,112 @@ registerRight("Player", function(scroll)
     local function stopAllAnimations(hum)
         local animator = hum:FindFirstChildOfClass("Animator")
         if animator then
-            for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do
-                trk:Stop(0)
-            end
+            for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do trk:Stop(0) end
         end
     end
 
     local function startFly()
-        local hrp,hum,char = getHRP()
-        if not hrp or not hum then return end
+        local hrp,hum,char = getHRP(); if not hrp or not hum then return end
 
-        -- หยุดอนิเมชันตก/กระโดด → ท่าตรงนิ่ง
-        hum.AutoRotate = false
-        savedAnimate = char and char:FindFirstChild("Animate")
-        if savedAnimate and savedAnimate:IsA("LocalScript") then savedAnimate.Enabled = false end
+        hum.AutoRotate=false
+        savedAnimate = char and char:FindChild("Animate")
+        if savedAnimate and savedAnimate:IsA("LocalScript") then savedAnimate.Enabled=false end
         stopAllAnimations(hum)
 
-        hrp.Anchored = false
-        hum.PlatformStand = false
+        hrp.Anchored=false
+        hum.PlatformStand=false
 
-        local bp = Instance.new("BodyPosition")
-        bp.MaxForce = Vector3.new(liftPower, liftPower, liftPower)
-        bp.P = 9e4; bp.D = dampFactor
-        bp.Position = hrp.Position + Vector3.new(0, hoverHeight, 0)
-        bp.Parent = hrp
+        -- BodyPosition (ยกนิ่งๆ)
+        local bp=Instance.new("BodyPosition")
+        bp.MaxForce=Vector3.new(liftPower,liftPower,liftPower)
+        bp.P=9e4; bp.D=dampFactor
+        bp.Position = hrp.Position + Vector3.new(0,hoverHeight,0)
+        bp.Parent=hrp
 
-        local bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(gyroPower, gyroPower, gyroPower)
-        bg.P = 9e4; bg.D = dampFactor
-        bg.CFrame = hrp.CFrame
-        bg.Parent = hrp
+        -- AlignOrientation (หันแบบ realtime)
+        local att = hrp:FindFirstChild("AO_Att") or Instance.new("Attachment", hrp)
+        att.Name = "AO_Att"
+        local ao = hrp:FindFirstChild("AO_Face") or Instance.new("AlignOrientation", hrp)
+        ao.Name = "AO_Face"
+        ao.Attachment0 = att
+        ao.Responsiveness = 200         -- ยิ่งสูงยิ่งตอบสนองเร็ว
+        ao.MaxAngularVelocity = math.huge
+        ao.RigidityEnabled = true       -- ล็อคมั่นคง ไม่หน่วง
+        ao.Mode = Enum.OrientationAlignmentMode.OneAttachment
+        ao.Enabled = true
 
-        movers.bp, movers.bg = bp, bg
+        movers.bp, movers.ao, movers.att = bp, ao, att
 
-        ensureControls()
+        ensureControls().Enabled = true
         setNoclip(true)
 
         loopConn = RunService.Heartbeat:Connect(function(dt)
             local camCF = workspace.CurrentCamera.CFrame
-            local fwd   = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
-            local right = Vector3.new(camCF.RightVector.X,0, camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
+            local fwd   = Vector3.new(camCF.LookVector.X,0,camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
+            local right = Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
 
+            -- move
             local pos = movers.bp.Position
             if hold.fwd  then pos += fwd   * moveSpeed   * dt end
             if hold.back then pos -= fwd   * moveSpeed   * dt end
             if hold.left then  pos -= right* strafeSpeed * dt end
             if hold.right then pos += right* strafeSpeed * dt end
-            if hold.up   then  pos += Vector3.new(0, ascendSpeed*dt, 0) end
-            if hold.down then  pos -= Vector3.new(0, ascendSpeed*dt, 0) end
-
+            if hold.up   then  pos += Vector3.new(0,ascendSpeed*dt,0) end
+            if hold.down then  pos -= Vector3.new(0,ascendSpeed*dt,0) end
             movers.bp.Position = pos
-            movers.bg.CFrame   = CFrame.new(hrp.Position, hrp.Position + fwd)
+
+            -- face camera instantly (realtime)
+            movers.ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + fwd)
         end)
     end
 
     local function stopFly()
         if loopConn then loopConn:Disconnect(); loopConn=nil end
         setNoclip(false)
+
         local hrp,hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp=nil end
-        if movers.bg then movers.bg:Destroy(); movers.bg=nil end
-        if hum then hum.AutoRotate = true end
-        if savedAnimate then savedAnimate.Enabled = true; savedAnimate = nil end
+        if movers.ao then movers.ao.Enabled=false end
+        if hum then hum.AutoRotate=true end
+        if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
+
+        -- ซ่อนปุ่มเมื่อปิดสวิตช์
+        if controlsGui then controlsGui.Enabled=false end
     end
 
     -- Toggle UI
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1,-6,0,46)
-    frame.BackgroundColor3 = THEME.BLACK
-    frame.LayoutOrder = nextOrder+1
+    local frame=Instance.new("Frame")
+    frame.Size=UDim2.new(1,-6,0,46)
+    frame.BackgroundColor3=THEME.BLACK
+    frame.LayoutOrder=nextOrder+1
     corner(frame,12); stroke(frame,2.2,THEME.GREEN)
-    frame.Parent = scroll
+    frame.Parent=scroll
 
-    local lab = Instance.new("TextLabel", frame)
+    local lab=Instance.new("TextLabel",frame)
     lab.BackgroundTransparency=1
-    lab.Size = UDim2.new(1,-140,1,0)
-    lab.Position = UDim2.new(0,16,0,0)
+    lab.Size=UDim2.new(1,-140,1,0)
+    lab.Position=UDim2.new(0,16,0,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=13
     lab.TextXAlignment=Enum.TextXAlignment.Left
     lab.TextColor3=THEME.WHITE
-    lab.Text = "Map Fly Mode"
+    lab.Text="Map Fly Mode"
 
-    local switch = Instance.new("Frame", frame)
-    switch.AnchorPoint = Vector2.new(1,0.5)
-    switch.Position = UDim2.new(1,-12,0.5,0)
-    switch.Size = UDim2.fromOffset(52,26)
-    switch.BackgroundColor3 = THEME.BLACK
+    local switch=Instance.new("Frame",frame)
+    switch.AnchorPoint=Vector2.new(1,0.5)
+    switch.Position=UDim2.new(1,-12,0.5,0)
+    switch.Size=UDim2.fromOffset(52,26)
+    switch.BackgroundColor3=THEME.BLACK
     corner(switch,13)
-    local swStroke = stroke(switch,1.8,THEME.RED)
-    local knob = Instance.new("Frame", switch)
-    knob.Size = UDim2.fromOffset(22,22)
-    knob.Position = UDim2.new(0,2,0.5,-11)
-    knob.BackgroundColor3 = THEME.WHITE
+    local swStroke=stroke(switch,1.8,THEME.RED)
+    local knob=Instance.new("Frame",switch)
+    knob.Size=UDim2.fromOffset(22,22)
+    knob.Position=UDim2.new(0,2,0.5,-11)
+    knob.BackgroundColor3=THEME.WHITE
     corner(knob,11)
-    local btn = Instance.new("TextButton", switch)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = ""
+    local btn=Instance.new("TextButton",switch)
+    btn.BackgroundTransparency=1
+    btn.Size=UDim2.fromScale(1,1)
+    btn.Text=""
 
     local isOn=false
     local function setState(v)
