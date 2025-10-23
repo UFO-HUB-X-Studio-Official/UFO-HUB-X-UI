@@ -708,7 +708,8 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.3.1 — Flight (Fix start error + Realtime Face + True Noclip)
+-- ===== Player tab (Right) — Model A V2.4 — Flight (Fast + Pitch Steering + PC/Mobile)
+-- Forward follows full camera LookVector (includes vertical), face == camera (yaw+pitch), true noclip
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -759,12 +760,12 @@ registerRight("Player", function(scroll)
     header.Parent=scroll
 
     ----------------------------------------------------------------
-    -- CONFIG
+    -- CONFIG (แรงขึ้น)
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 90
-    local strafeSpeed   = 70
-    local ascendSpeed   = 70
+    local moveSpeed     = 130   -- เดินหน้า/ถอยหลัง เร็วขึ้นมาก
+    local strafeSpeed   = 90    -- สไลด์ซ้ายขวา
+    local ascendSpeed   = 90    -- ปุ่มขึ้น/ลง
     local liftPower     = 1e7
     local dampFactor    = 4e3
 
@@ -780,13 +781,10 @@ registerRight("Player", function(scroll)
                char and char:FindFirstChildOfClass("Humanoid"),
                char
     end
-
     local function getGuiParent()
         local ok,hui = pcall(function() return gethui and gethui() end)
         if ok and hui then return hui end
-        local core = game:FindService("CoreGui")
-        if core then return core end
-        return lp:WaitForChild("PlayerGui")  -- fallback
+        return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
     -- ==== MINI PAD ====
@@ -854,7 +852,7 @@ registerRight("Player", function(scroll)
         if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
         if not enabled then return end
         noclipConn = RunService.Stepped:Connect(function()
-            local hrp,hum,char = getHRP()
+            local _,_,char = getHRP()
             if not char then return end
             for _,p in ipairs(char:GetDescendants()) do
                 if p:IsA("BasePart") then
@@ -873,32 +871,26 @@ registerRight("Player", function(scroll)
 
     local function startFly()
         local hrp,hum,char = getHRP(); if not hrp or not hum then return end
-
-        -- ป้องกัน error เด้งให้ทุกอย่างเงียบ
         pcall(function()
             hum.AutoRotate=false
-            savedAnimate = char and char:FindFirstChild("Animate")   -- ✅ แก้จาก FindChild → FindFirstChild
+            savedAnimate = char and char:FindFirstChild("Animate")
             if savedAnimate and savedAnimate:IsA("LocalScript") then savedAnimate.Enabled=false end
             stopAllAnimations(hum)
         end)
+        hrp.Anchored=false; hum.PlatformStand=false
 
-        hrp.Anchored=false
-        hum.PlatformStand=false
-
-        -- ดึงลอยคงที่
         local bp=Instance.new("BodyPosition")
         bp.MaxForce=Vector3.new(liftPower,liftPower,liftPower)
         bp.P=9e4; bp.D=dampFactor
         bp.Position = hrp.Position + Vector3.new(0,hoverHeight,0)
         bp.Parent=hrp
 
-        -- หันแบบ realtime
         local att = hrp:FindFirstChild("AO_Att") or Instance.new("Attachment", hrp)
         att.Name = "AO_Att"
         local ao = hrp:FindFirstChild("AO_Face") or Instance.new("AlignOrientation", hrp)
         ao.Name = "AO_Face"
         ao.Attachment0 = att
-        ao.Responsiveness = 200
+        ao.Responsiveness = 240
         ao.MaxAngularVelocity = math.huge
         ao.RigidityEnabled = true
         ao.Mode = Enum.OrientationAlignmentMode.OneAttachment
@@ -910,35 +902,36 @@ registerRight("Player", function(scroll)
         setNoclip(true)
 
         loopConn = RunService.Heartbeat:Connect(function(dt)
-            local cam = workspace.CurrentCamera
-            if not cam then return end
+            local cam = workspace.CurrentCamera; if not cam then return end
             local camCF = cam.CFrame
-            local fwd   = Vector3.new(camCF.LookVector.X,0,camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
-            local right = Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
+
+            -- >>> ใช้ LookVector “ทั้งแกน Y” สำหรับเดินหน้า/ถอยหลัง (ก้ม = ดิ่งลง, เงย = พุ่งขึ้น)
+            local fwd3   = camCF.LookVector            -- ไม่ตัดแกน Y
+            local rightH = Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
+            if rightH.Magnitude > 0 then rightH = rightH.Unit end
 
             local pos = movers.bp.Position
-            if hold.fwd  then pos += fwd   * moveSpeed   * dt end
-            if hold.back then pos -= fwd   * moveSpeed   * dt end
-            if hold.left then  pos -= right* strafeSpeed * dt end
-            if hold.right then pos += right* strafeSpeed * dt end
-            if hold.up   then  pos += Vector3.new(0,ascendSpeed*dt,0) end
-            if hold.down then  pos -= Vector3.new(0,ascendSpeed*dt,0) end
+            if hold.fwd  then pos += fwd3  * (moveSpeed   * dt) end  -- เดินหน้าตามมุมกล้องเต็มๆ
+            if hold.back then pos -= fwd3  * (moveSpeed   * dt) end
+            if hold.left then  pos -= rightH* (strafeSpeed* dt) end  -- สไลด์แนวนอน
+            if hold.right then pos += rightH* (strafeSpeed* dt) end
+            if hold.up   then  pos += Vector3.new(0, ascendSpeed*dt, 0) end
+            if hold.down then  pos -= Vector3.new(0, ascendSpeed*dt, 0) end
             movers.bp.Position = pos
 
-            movers.ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + fwd)
-        end)
+            -- หันหน้าตามกล้อง “รวมก้ม-เงย” (ใช้ up vector ของกล้องด้วย)
+            movers.ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + camCF.LookVector, camCF.UpVector)
+        })
     end
 
     local function stopFly()
         if loopConn then loopConn:Disconnect(); loopConn=nil end
         setNoclip(false)
-
-        local hrp,hum = getHRP()
+        local _,hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp=nil end
         if movers.ao then movers.ao.Enabled=false end
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
-
         if controlsGui then controlsGui.Enabled=false end
     end
 
