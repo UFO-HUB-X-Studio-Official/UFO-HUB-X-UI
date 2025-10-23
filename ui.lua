@@ -708,11 +708,8 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX PASTE-AND-GO) =====
--- ✅ Tap-to-set ไม่สั่น: แตะครั้งเดียวเซ็ตค่าเฉยๆ, ลากจริงเมื่อขยับเกิน 5px
--- ✅ แยก UI conns / temp conns, เปิดบินแล้วสไลเดอร์ยังใช้ได้
--- ✅ Flight toggle + Noclip(ON only) | Joypad มือถือ | ฮอตคีย์ PC
--- ✅ Slider ลื่น (RenderStepped + visual lerp) | จำค่าความไว | Layout ตายตัว | Cleanup ปลอดภัย
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
+-- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -732,9 +729,7 @@ registerRight("Player", function(scroll)
 
     local function keepTemp(c) table.insert(_G.UFOX.tempConns,c) return c end
     local function keepUI(c)   table.insert(_G.UFOX.uiConns,c)   return c end
-    local function disconnectAll(list)
-        for i=#list,1,-1 do local c=list[i]; pcall(function() c:Disconnect() end); list[i]=nil end
-    end
+    local function disconnectAll(list) for i=#list,1,-1 do local c=list[i] pcall(function() c:Disconnect() end) list[i]=nil end end
     local function cleanupRuntime()
         disconnectAll(_G.UFOX.tempConns)
         if _G.UFOX.noclipPulse then pcall(function() _G.UFOX.noclipPulse:Disconnect() end) _G.UFOX.noclipPulse=nil end
@@ -756,7 +751,8 @@ registerRight("Player", function(scroll)
     disconnectAll(_G.UFOX.uiConns)
 
     -- ---------- THEME / HELPERS ----------
-    local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0)}
+    local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0),
+                 GREY=Color3.fromRGB(180,180,185), DARK=Color3.fromRGB(60,60,65)}
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
@@ -971,8 +967,29 @@ registerRight("Player", function(scroll)
     local bar=Instance.new("Frame",sRow); bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
     bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true
     local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
-    local knobBtn=Instance.new("ImageButton",bar); knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.WHITE
-    knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14); knobBtn.BorderSizePixel=0; corner(knobBtn,14)
+
+    -- ==== NEW: สี่เหลี่ยมแนวตั้งเมทัลลิก ====
+    local knobShadow=Instance.new("Frame",bar)
+    knobShadow.Size=UDim2.fromOffset(18,34); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
+    knobShadow.Position=UDim2.new(0,0,0.5,2); knobShadow.BackgroundColor3=THEME.DARK
+    knobShadow.BorderSizePixel=0; knobShadow.BackgroundTransparency=0.45; knobShadow.ZIndex=2
+
+    local knobBtn=Instance.new("ImageButton",bar)
+    knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.GREY
+    knobBtn.Size=UDim2.fromOffset(16,32)          -- สี่เหลี่ยมยาวแนวตั้ง
+    knobBtn.AnchorPoint=Vector2.new(0.5,0.5)
+    knobBtn.Position=UDim2.new(0,0,0.5,0)
+    knobBtn.BorderSizePixel=0; knobBtn.ZIndex=3
+    local kStroke=Instance.new("UIStroke",knobBtn); kStroke.Thickness=1.2; kStroke.Color=Color3.fromRGB(210,210,215)
+    local kGrad=Instance.new("UIGradient",knobBtn)
+    kGrad.Color=ColorSequence.new{
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(236,236,240)),
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(182,182,188)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216,216,222))
+    }
+    kGrad.Rotation=90
+    -- ======================================
+
     local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
     centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
     sliderCenterLabel=centerVal
@@ -982,66 +999,54 @@ registerRight("Player", function(scroll)
         if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.30 end
         visRel = math.clamp(visRel,0,1)
         fill.Size=UDim2.fromScale(visRel,1)
-        knobBtn.Position=UDim2.new(visRel,-14,0.5,-14)
+        knobBtn.Position=UDim2.new(visRel,0,0.5,0)     -- อัปเดตให้ใช้ anchor กลาง, ไม่มี offset
+        knobShadow.Position=UDim2.new(visRel,0,0.5,2)
         centerVal.Text=string.format("%d%%",math.floor(visRel*100+0.5))
     end
 
+    -- drag/tap logic (เหมือนเดิม)
     local function stopDrag()
         dragging=false; maybeDrag=false; downX=nil
         if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
         if EndDragConn then EndDragConn:Disconnect() EndDragConn=nil end
         scroll.ScrollingEnabled=true
     end
-
     local function beginDragLoop()
         dragging=true; maybeDrag=false
         RSdragConn = keepTemp(RunService.RenderStepped:Connect(function()
             local mx = UserInputService:GetMouseLocation().X
             local x = lastTouchX or mx
-            if dragging then applyRel(relFrom(x), false) end
+            if dragging then
+                local r = relFrom(x)
+                applyRel(r,false)
+            end
             syncVisual(false)
         end))
         EndDragConn = keepTemp(UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then stopDrag() end
         end))
     end
-
     local function onPress(px)
-        -- เริ่มสถานะ "อาจลาก" (tap ยังไม่ลาก) เพื่อกันอาการวาร์ป
         maybeDrag=true; dragging=false; downX=px
         scroll.ScrollingEnabled=false
-        -- เซ็ตค่าให้ตรงจุดที่กดทันทีแบบนิ่มๆ (ครั้งเดียว)
         applyRel(relFrom(px), true); syncVisual(true)
     end
-
     local function onMove(mx)
         if not maybeDrag then return end
         if downX==nil then downX=mx end
-        if math.abs(mx - downX) >= DRAG_THRESHOLD then
-            -- ขยับพอที่จะถือว่าเป็น "ลาก" แล้วค่อยเริ่ม loop
-            beginDragLoop()
-        end
+        if math.abs(mx - downX) >= DRAG_THRESHOLD then beginDragLoop() end
     end
-
     keepUI(UserInputService.InputChanged:Connect(function(io)
-        if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
+        if io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch then
             local x = (io.UserInputType==Enum.UserInputType.Touch) and io.Position.X or UserInputService:GetMouseLocation().X
-            lastTouchX = (io.UserInputType==Enum.UserInputType.Touch) and x or lastTouchX
+            if io.UserInputType==Enum.UserInputType.Touch then lastTouchX=x end
             onMove(x)
         end
     end))
     keepUI(UserInputService.InputEnded:Connect(function(io)
-        if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then
-            -- จบ tap โดยไม่เข้าสู่โหมดลาก
-            stopDrag()
-        end
+        if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then stopDrag() end
     end))
-
-    local function onPressFromInput(io)
-        local px = io.Position.X
-        onPress(px)
-    end
-
+    local function onPressFromInput(io) onPress(io.Position.X) end
     keepUI(bar.InputBegan:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then onPressFromInput(io) end
     end))
