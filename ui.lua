@@ -607,12 +607,12 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile + Hide Name (extra-compact, row-wide toggle) =====
+-- ===== Player tab (Right) — Profile + Hide Name (extra-compact, fixed toggle) =====
 registerRight("Player", function(scroll)
-    local Players       = game:GetService("Players")
-    local Content       = game:GetService("ContentProvider")
-    local TweenService  = game:GetService("TweenService")
-    local lp            = Players.LocalPlayer
+    local Players      = game:GetService("Players")
+    local Content      = game:GetService("ContentProvider")
+    local TweenService = game:GetService("TweenService")
+    local lp           = Players.LocalPlayer
 
     _G.UFOX_PROFILE = _G.UFOX_PROFILE or { hiddenName = false }
 
@@ -653,10 +653,12 @@ registerRight("Player", function(scroll)
         if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
     end)
 
-    -- Name bar
-    local nameBar=Instance.new("Frame",section)
+    -- Name bar (กดได้ด้วย)
+    local nameBar=Instance.new("TextButton",section)
+    nameBar.AutoButtonColor=false; nameBar.Text=""
     nameBar.BackgroundColor3=THEME.BG_INNER
     nameBar.Size=UDim2.fromOffset(220,36); corner(nameBar,8); stroke(nameBar,1.3,THEME.GREEN)
+    nameBar.ZIndex=20
     local nameLbl=Instance.new("TextLabel",nameBar)
     nameLbl.BackgroundTransparency=1; nameLbl.Size=UDim2.fromScale(1,1)
     nameLbl.Font=Enum.Font.GothamBold; nameLbl.TextSize=16; nameLbl.TextColor3=THEME.WHITE
@@ -666,46 +668,63 @@ registerRight("Player", function(scroll)
         if _G.UFOX_PROFILE.hiddenName then
             nameLbl.Text = '<font color="#FFFFFF">UFO </font><font color="#19FF7D">HUB X</font>'
         else
-            nameLbl.Text = lp.DisplayName or "Player"
+            nameLbl.Text = (lp and lp.DisplayName) or "Player"
         end
     end
-    refreshName()
 
-    -- Hide Name (EXTRA compact) + row-wide clickable
+    -- Hide Name (extra-compact) + row-wide clickable
     local row=Instance.new("Frame",section)
-    row.Size=UDim2.fromOffset(160,28)                 -- เล็กลงมากๆ
+    row.Size=UDim2.fromOffset(160,28)
     row.BackgroundColor3=THEME.BG_INNER
-    corner(row,8); stroke(row,1.2,THEME.GREEN)
+    row.ZIndex=20; corner(row,8); stroke(row,1.2,THEME.GREEN)
 
     local lab=Instance.new("TextLabel",row)
     lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,10,0,0); lab.Size=UDim2.new(1,-90,1,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=11; lab.TextColor3=THEME.WHITE
-    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"
+    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"; lab.ZIndex=21
 
     local sw=Instance.new("Frame",row)
     sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-8,0.5,0)
-    sw.Size=UDim2.fromOffset(36,18)                   -- สวิตช์เล็กมาก
-    sw.BackgroundColor3=THEME.BG_INNER; corner(sw,9)
+    sw.Size=UDim2.fromOffset(36,18); sw.BackgroundColor3=THEME.BG_INNER
+    sw.ZIndex=21; corner(sw,9)
     local swStroke=stroke(sw,1.1,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
 
     local knob=Instance.new("Frame",sw)
-    knob.Size=UDim2.fromOffset(14,14)
-    knob.Position=UDim2.new(_G.UFOX_PROFILE.hiddenName and 1 or 0, _G.UFOX_PROFILE.hiddenName and -16 or 2, 0.5,-7)
-    knob.BackgroundColor3=THEME.WHITE; corner(knob,7)
+    knob.Size=UDim2.fromOffset(14,14); knob.BackgroundColor3=THEME.WHITE
+    knob.ZIndex=22; corner(knob,7)
 
-    -- ปุ่มโปร่งใสคลุมทั้งแถว (แก้ปัญหากดไม่ทำงาน)
+    -- ปุ่มโปร่งใสคลุมทั้งแถว + ปุ่มบนสวิตช์ (กันกดไม่ติด)
     local rowBtn=Instance.new("TextButton",row)
-    rowBtn.BackgroundTransparency=1; rowBtn.Size=UDim2.fromScale(1,1); rowBtn.Text=""; rowBtn.ZIndex=10
+    rowBtn.BackgroundTransparency=1; rowBtn.Size=UDim2.fromScale(1,1); rowBtn.Text=""
+    rowBtn.AutoButtonColor=false; rowBtn.ZIndex=30
+    local swBtn=Instance.new("TextButton",sw)
+    swBtn.BackgroundTransparency=1; swBtn.Size=UDim2.fromScale(1,1); swBtn.Text=""
+    swBtn.AutoButtonColor=false; swBtn.ZIndex=30
 
-    local function setHidden(v)
-        _G.UFOX_PROFILE.hiddenName=v
+    -- toggle core
+    local function setHidden(v, instant)
+        _G.UFOX_PROFILE.hiddenName = v
         swStroke.Color = v and THEME.GREEN or THEME.RED
-        TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {Position=UDim2.new(v and 1 or 0, v and -16 or 2, 0.5,-7)}):Play()
+        local target = UDim2.new(v and 1 or 0, v and -16 or 2, 0.5,-7)
+        if instant then
+            knob.Position = target
+        else
+            TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Position=target}):Play()
+        end
         refreshName()
     end
+    local function toggle() setHidden(not _G.UFOX_PROFILE.hiddenName, false) end
 
-    rowBtn.MouseButton1Click:Connect(function() setHidden(not _G.UFOX_PROFILE.hiddenName) end)
+    rowBtn.MouseButton1Click:Connect(toggle)
+    swBtn.MouseButton1Click:Connect(toggle)
+    nameBar.MouseButton1Click:Connect(toggle)
+    if rowBtn.Activated then rowBtn.Activated:Connect(toggle) end
+    if swBtn.Activated then swBtn.Activated:Connect(toggle) end
+    if nameBar.Activated then nameBar.Activated:Connect(toggle) end
+
+    -- init
+    setHidden(_G.UFOX_PROFILE.hiddenName, true)
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
