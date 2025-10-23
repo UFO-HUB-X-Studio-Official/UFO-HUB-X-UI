@@ -607,12 +607,12 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile + Hide Name (compact, paste-once) =====
+-- ===== Player tab (Right) — Profile + Hide Name (extra-compact, row-wide toggle) =====
 registerRight("Player", function(scroll)
-    local Players = game:GetService("Players")
-    local Content = game:GetService("ContentProvider")
-    local TweenService = game:GetService("TweenService")
-    local lp = Players.LocalPlayer
+    local Players       = game:GetService("Players")
+    local Content       = game:GetService("ContentProvider")
+    local TweenService  = game:GetService("TweenService")
+    local lp            = Players.LocalPlayer
 
     _G.UFOX_PROFILE = _G.UFOX_PROFILE or { hiddenName = false }
 
@@ -624,7 +624,7 @@ registerRight("Player", function(scroll)
         RED      = Color3.fromRGB(255,40,40),
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.6 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.4 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
     -- rebuild section
     local old=scroll:FindFirstChild("Section_Profile"); if old then old:Destroy() end
@@ -647,12 +647,10 @@ registerRight("Player", function(scroll)
     local avatarImg=Instance.new("ImageLabel",avatarWrap)
     avatarImg.BackgroundTransparency=1; avatarImg.Size=UDim2.fromScale(1,1); avatarImg.ImageTransparency=1
     task.spawn(function()
-        if lp then
-            local ok,url=pcall(function()
-                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-            end)
-            if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
-        end
+        local ok,url=pcall(function()
+            return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+        end)
+        if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
     end)
 
     -- Name bar
@@ -668,44 +666,46 @@ registerRight("Player", function(scroll)
         if _G.UFOX_PROFILE.hiddenName then
             nameLbl.Text = '<font color="#FFFFFF">UFO </font><font color="#19FF7D">HUB X</font>'
         else
-            nameLbl.Text = (lp and lp.DisplayName) or "Player"
+            nameLbl.Text = lp.DisplayName or "Player"
         end
     end
     refreshName()
 
-    -- Hide Name toggle (compact)
+    -- Hide Name (EXTRA compact) + row-wide clickable
     local row=Instance.new("Frame",section)
-    row.Size=UDim2.fromOffset(200,40)          -- เล็กกว่ากรอบชื่อ (220x36)
+    row.Size=UDim2.fromOffset(160,28)                 -- เล็กลงมากๆ
     row.BackgroundColor3=THEME.BG_INNER
-    corner(row,10); stroke(row,1.3,THEME.GREEN)
+    corner(row,8); stroke(row,1.2,THEME.GREEN)
 
     local lab=Instance.new("TextLabel",row)
-    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,14,0,0); lab.Size=UDim2.new(1,-120,1,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=12; lab.TextColor3=THEME.WHITE
+    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,10,0,0); lab.Size=UDim2.new(1,-90,1,0)
+    lab.Font=Enum.Font.GothamBold; lab.TextSize=11; lab.TextColor3=THEME.WHITE
     lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"
 
     local sw=Instance.new("Frame",row)
-    sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0)
-    sw.Size=UDim2.fromOffset(48,22); sw.BackgroundColor3=THEME.BG_INNER
-    corner(sw,11)
-    local swStroke=stroke(sw,1.3,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
+    sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-8,0.5,0)
+    sw.Size=UDim2.fromOffset(36,18)                   -- สวิตช์เล็กมาก
+    sw.BackgroundColor3=THEME.BG_INNER; corner(sw,9)
+    local swStroke=stroke(sw,1.1,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
 
     local knob=Instance.new("Frame",sw)
-    knob.Size=UDim2.fromOffset(18,18)
-    knob.Position=UDim2.new(_G.UFOX_PROFILE.hiddenName and 1 or 0, _G.UFOX_PROFILE.hiddenName and -20 or 2, 0.5,-9)
-    knob.BackgroundColor3=THEME.WHITE; corner(knob,9)
+    knob.Size=UDim2.fromOffset(14,14)
+    knob.Position=UDim2.new(_G.UFOX_PROFILE.hiddenName and 1 or 0, _G.UFOX_PROFILE.hiddenName and -16 or 2, 0.5,-7)
+    knob.BackgroundColor3=THEME.WHITE; corner(knob,7)
 
-    local btn=Instance.new("TextButton",sw)
-    btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+    -- ปุ่มโปร่งใสคลุมทั้งแถว (แก้ปัญหากดไม่ทำงาน)
+    local rowBtn=Instance.new("TextButton",row)
+    rowBtn.BackgroundTransparency=1; rowBtn.Size=UDim2.fromScale(1,1); rowBtn.Text=""; rowBtn.ZIndex=10
 
     local function setHidden(v)
         _G.UFOX_PROFILE.hiddenName=v
         swStroke.Color = v and THEME.GREEN or THEME.RED
         TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {Position=UDim2.new(v and 1 or 0, v and -20 or 2, 0.5,-9)}):Play()
+            {Position=UDim2.new(v and 1 or 0, v and -16 or 2, 0.5,-7)}):Play()
         refreshName()
     end
-    btn.MouseButton1Click:Connect(function() setHidden(not _G.UFOX_PROFILE.hiddenName) end)
+
+    rowBtn.MouseButton1Click:Connect(function() setHidden(not _G.UFOX_PROFILE.hiddenName) end)
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
