@@ -1053,13 +1053,12 @@ registerRight("Player", function(scroll)
     if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
     syncVisual(true)
 end)
--- ===== UFO HUB X • Player — SPEED & JUMP • Model A V1 (FULL BAR + SMOOTH DRAG + TAP) =====
--- Full-width bar • Thin vertical metal knob • Tap-to-set + smooth drag • 500 cap • freeze-safe
+-- ===== UFO HUB X • Player — SPEED & JUMP • Model A V1 (FULL BAR + TRUE-SMOOTH DRAG + TAP) =====
+-- Full-width bar • Thin vertical metal knob • Tap-to-set + true-smooth drag (mouse & touch/TouchId) • 500 cap
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
     local UIS=game:GetService("UserInputService")
-    local RS=game:GetService("RunService")
     local TweenService=game:GetService("TweenService")
     local lp=Players.LocalPlayer
 
@@ -1071,16 +1070,16 @@ registerRight("Player", function(scroll)
     local function stopAllTemp() disconnectAll(RJ.tempConns); scroll.ScrollingEnabled=true end
     disconnectAll(RJ.uiConns)
 
-    -- state (start at 0%)
-    RJ.remember.enabled=(RJ.remember.enabled==nil) and false or RJ.remember.enabled
-    RJ.remember.infJump=(RJ.remember.infJump==nil) and false or RJ.remember.infJump
-    RJ.remember.runRel =(RJ.remember.runRel ==nil) and 0 or RJ.remember.runRel
-    RJ.remember.jumpRel=(RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel
+    -- state (start at 0)
+    RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
+    RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
+    RJ.remember.runRel  = (RJ.remember.runRel==nil)  and 0 or RJ.remember.runRel
+    RJ.remember.jumpRel = (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel
 
     local RUN_MIN,RUN_MAX   = 16,500
     local JUMP_MIN,JUMP_MAX = 50,500
     local runRel,jumpRel = RJ.remember.runRel, RJ.remember.jumpRel
-    local masterOn,infJumpOn = RJ.remember.enabled,RJ.remember.infJump
+    local masterOn,infJumpOn = RJ.remember.enabled, RJ.remember.infJump
     RJ.defaults = RJ.defaults or {WalkSpeed=nil,JumpPower=nil,UseJumpPower=nil,JumpHeight=nil}
 
     local function getHum() local ch=lp.Character return ch and ch:FindFirstChildOfClass("Humanoid") end
@@ -1089,7 +1088,7 @@ registerRight("Player", function(scroll)
 
     local function snapshotDefaults()
         local h=getHum(); if not h then return end
-        if RJ.defaults.WalkSpeed==nil   then RJ.defaults.WalkSpeed=h.WalkSpeed end
+        if RJ.defaults.WalkSpeed==nil then RJ.defaults.WalkSpeed=h.WalkSpeed end
         if RJ.defaults.UseJumpPower==nil then RJ.defaults.UseJumpPower=h.UseJumpPower end
         if RJ.defaults.JumpPower==nil   then RJ.defaults.JumpPower=h.JumpPower end
         if RJ.defaults.JumpHeight==nil  then RJ.defaults.JumpHeight=h.JumpHeight end
@@ -1107,43 +1106,27 @@ registerRight("Player", function(scroll)
             end)
         else
             pcall(function()
-                if RJ.defaults.WalkSpeed then h.WalkSpeed=RJ.defaults.WalkSpeed end
+                if RJ.defaults.WalkSpeed  then h.WalkSpeed = RJ.defaults.WalkSpeed end
                 if RJ.defaults.UseJumpPower~=nil then
                     if RJ.defaults.UseJumpPower then
-                        if RJ.defaults.JumpPower then h.JumpPower=RJ.defaults.JumpPower end
+                        if RJ.defaults.JumpPower  then h.JumpPower  = RJ.defaults.JumpPower  end
                     else
-                        if RJ.defaults.JumpHeight then h.JumpHeight=RJ.defaults.JumpHeight end
+                        if RJ.defaults.JumpHeight then h.JumpHeight = RJ.defaults.JumpHeight end
                     end
                 end
             end)
         end
     end
 
-    -- inf jump
-    stopAllTemp()
-    local function bindInfJump()
-        stopAllTemp()
-        if not infJumpOn then return end
-        keepTmp(UIS.JumpRequest:Connect(function()
-            local h=getHum(); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Jumping) end) end
-        end))
-    end
-    keepUI(lp.CharacterAdded:Connect(function()
-        RJ.defaults={WalkSpeed=nil,JumpPower=nil,UseJumpPower=nil,JumpHeight=nil}
-        task.defer(function() applyStats(); bindInfJump() end)
-    end))
-
-    -- THEME
-    local THEME={
-        GREEN=Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40),
-        WHITE=Color3.fromRGB(255,255,255), BLACK=Color3.fromRGB(0,0,0),
-        GREY=Color3.fromRGB(180,180,185), DARK=Color3.fromRGB(60,60,65)
-    }
+    -- theme helpers
+    local THEME={GREEN=Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40),
+                 WHITE=Color3.fromRGB(255,255,255), BLACK=Color3.fromRGB(0,0,0),
+                 GREY=Color3.fromRGB(180,180,185), DARK=Color3.fromRGB(60,60,65)}
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.08,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- rebuild UI
+    -- rebuild
     for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Jump","RJ_Inf"}) do local o=scroll:FindFirstChild(n) if o then o:Destroy() end end
     local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12) vlist.SortOrder=Enum.SortOrder.LayoutOrder
@@ -1172,7 +1155,7 @@ registerRight("Player", function(scroll)
     local function setMaster(v) masterOn=v RJ.remember.enabled=v local st=mSw:FindFirstChildOfClass("UIStroke") if st then st.Color=v and THEME.GREEN or THEME.RED end tween(mKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08) applyStats() end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
-    -- ===== Slider builder (FULL bar, metal thin vertical knob, TAP + SMOOTH DRAG) =====
+    -- ===== Slider builder (FULL bar + tap + true-smooth drag) =====
     local function createSlider(name, order, title, getRel, setRel)
         local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70) row.BackgroundColor3=THEME.BLACK corner(row,12) stroke(row,2.2,THEME.GREEN)
@@ -1182,7 +1165,7 @@ registerRight("Player", function(scroll)
         lab.Font=Enum.Font.GothamBold lab.TextSize=13 lab.TextColor3=THEME.WHITE lab.TextXAlignment=Enum.TextXAlignment.Left
         lab.Text=title
 
-        -- FULL WIDTH (เหมือนตอนเดิม)
+        -- full width bar
         local bar=Instance.new("Frame",row)
         bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
         bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true; bar.ZIndex=1
@@ -1216,56 +1199,69 @@ registerRight("Player", function(scroll)
         val.Font=Enum.Font.GothamBlack; val.TextSize=16; val.TextColor3=THEME.WHITE
         val.TextXAlignment=Enum.TextXAlignment.Center; val.Text=string.format("%d%%", math.floor(getRel()*100+0.5)); val.ZIndex=1
 
-        -- full overlay button for TAP-TO-SET
+        -- overlay for tap-to-set
         local hit=Instance.new("TextButton",bar)
         hit.BackgroundTransparency=1; hit.Size=UDim2.fromScale(1,1); hit.Text=""; hit.ZIndex=4
 
         -- helpers
         local function relFromX(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
-        local function sync()
-            local r=getRel()
+        local function sync(r)
+            r = r or getRel()
             fill.Size=UDim2.fromScale(r,1)
             knob.Position=UDim2.new(r,0,0.5,0)
             knobShadow.Position=UDim2.new(r,0,0.5,2)
             val.Text=string.format("%d%%", math.floor(r*100+0.5))
         end
 
-        -- smooth drag: follow ONLY the active input (no RenderStepped jitter)
+        -- TRUE-SMOOTH drag (lock to active input; lock TouchId; light rate-limit)
         local dragging=false
-        local changeConn,endConn
+        local activeType=nil; local activeTouchId=nil
+        local changeConn,endConn; local lastTick=0
         local function stopDrag()
             if changeConn then changeConn:Disconnect() changeConn=nil end
-            if endConn then endConn:Disconnect() endConn=nil end
-            dragging=false; stopAllTemp()
-            setRel(getRel()); applyStats()
+            if endConn   then endConn:Disconnect()   endConn=nil   end
+            dragging=false; activeType=nil; activeTouchId=nil; stopAllTemp()
+            setRel(getRel()); sync(); applyStats()
         end
-        local function startDrag(startIO)
+        local function startDrag(ioStart)
             stopAllTemp()
             dragging=true; scroll.ScrollingEnabled=false
-            setRel(relFromX(startIO.Position.X)); sync()
+            activeType = ioStart.UserInputType
+            activeTouchId = (activeType==Enum.UserInputType.Touch) and ioStart.TouchId or nil
+            setRel(relFromX(ioStart.Position.X)); sync()
 
             changeConn=keepTmp(UIS.InputChanged:Connect(function(io)
                 if not dragging then return end
-                if io == startIO or io.UserInputType==Enum.UserInputType.MouseMovement then
-                    local x=(io.Position and io.Position.X) or UIS:GetMouseLocation().X
+                local now=os.clock()
+                if now-lastTick<1/120 then return end -- ~120Hz
+                lastTick=now
+
+                if activeType==Enum.UserInputType.MouseButton1 then
+                    local x=UIS:GetMouseLocation().X
                     setRel(relFromX(x)); sync()
+                elseif activeType==Enum.UserInputType.Touch then
+                    if io.UserInputType==Enum.UserInputType.Touch and (not activeTouchId or io.TouchId==activeTouchId) then
+                        setRel(relFromX(io.Position.X)); sync()
+                    end
                 end
             end))
             endConn=keepTmp(UIS.InputEnded:Connect(function(io)
-                if io.UserInputType==startIO.UserInputType then stopDrag() end
+                if (activeType==Enum.UserInputType.MouseButton1 and io.UserInputType==Enum.UserInputType.MouseButton1)
+                or (activeType==Enum.UserInputType.Touch and io.UserInputType==Enum.UserInputType.Touch and (not activeTouchId or io.TouchId==activeTouchId)) then
+                    stopDrag()
+                end
             end))
         end
 
-        -- tap-to-set (mouse & touch)
+        -- tap to set
         keepUI(hit.InputBegan:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
                 stopAllTemp()
-                local x=(io.Position and io.Position.X) or UIS:GetMouseLocation().X
-                setRel(relFromX(x)); sync(); applyStats()
+                setRel(relFromX(io.Position.X)); sync(); applyStats()
             end
         end))
 
-        -- drag start from bar or knob
+        -- start drag from bar or knob
         local function maybeStart(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
                 startDrag(io)
@@ -1281,7 +1277,7 @@ registerRight("Player", function(scroll)
     createSlider("RJ_Run",  baseOrder+2, "Run Speed",  function() return runRel end,  function(r) runRel = math.clamp(r,0,1); RJ.remember.runRel = runRel end)
     createSlider("RJ_Jump", baseOrder+3, "Jump Power", function() return jumpRel end, function(r) jumpRel = math.clamp(r,0,1); RJ.remember.jumpRel = jumpRel end)
 
-    -- Infinite Jump toggle
+    -- Infinite Jump toggle (เดิม)
     local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+4
     inf.Size=UDim2.new(1,-6,0,46); inf.BackgroundColor3=THEME.BLACK; corner(inf,12); stroke(inf,2.2,THEME.GREEN)
     local iLab=Instance.new("TextLabel",inf); iLab.BackgroundTransparency=1; iLab.Size=UDim2.new(1,-140,1,0); iLab.Position=UDim2.new(0,16,0,0)
@@ -1291,10 +1287,10 @@ registerRight("Player", function(scroll)
     local iKnob=Instance.new("Frame",iSw); iKnob.Size=UDim2.fromOffset(22,22); iKnob.Position=UDim2.new(infJumpOn and 1 or 0, infJumpOn and -24 or 2, 0.5,-11)
     iKnob.BackgroundColor3=THEME.WHITE; corner(iKnob,11)
     local iBtn=Instance.new("TextButton",iSw); iBtn.BackgroundTransparency=1; iBtn.Size=UDim2.fromScale(1,1); iBtn.Text=""
-    local function setInf(v) infJumpOn=v; RJ.remember.infJump=v; local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end; tween(iKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08); bindInfJump() end
+    local function setInf(v) infJumpOn=v; RJ.remember.infJump=v; local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end; TweenService:Create(iKnob,TweenInfo.new(0.08,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)}):Play(); end
     keepUI(iBtn.MouseButton1Click:Connect(function() setInf(not infJumpOn) end))
 
-    applyStats(); bindInfJump()
+    applyStats()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
