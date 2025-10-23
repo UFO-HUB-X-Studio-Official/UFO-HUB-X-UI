@@ -708,11 +708,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9h (FINAL PASTE-AND-GO) =====
--- ✅ Flight toggle + Noclip (เฉพาะตอนเปิด)
--- ✅ Slider ลื่น (RenderStepped + visual lerp), เมาส์/ทัช
--- ✅ จดจำค่าความไวที่ตั้งไว้ (ครั้งแรก = 0 เท่านั้น)
--- ✅ Joypad มือถือ + ฮอตคีย์ PC | Layout ตายตัว | Cleanup ปลอดภัย
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9i (FIXED) =====
+-- ✅ แก้บัค: เปิดโหมดบินแล้วสไลเดอร์ลากไม่ได้ (แยก UI conns ออกจาก temp conns)
+-- ✅ Flight toggle + Noclip(ON only) | Joypad มือถือ | ฮอตคีย์ PC
+-- ✅ Slider ลื่น (RenderStepped + visual lerp) | จำค่าความไว | Layout ตายตัว | Cleanup ปลอดภัย
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -722,13 +721,23 @@ registerRight("Player", function(scroll)
     local PhysicsService=game:GetService("PhysicsService")
     local lp=Players.LocalPlayer
 
-    -- ---------- SAFE CLEANUP ----------
-    if _G.UFOX and typeof(_G.UFOX.cleanupAll)=="function" then pcall(_G.UFOX.cleanupAll) end
-    _G.UFOX={conns={},movers={},gui=nil,noclipPulse=nil}
-    local function keep(c) table.insert(_G.UFOX.conns,c) return c end
-    _G.UFOX.cleanupAll=function()
-        for _,c in ipairs(_G.UFOX.conns) do pcall(function() c:Disconnect() end) end
-        _G.UFOX.conns={}
+    -- ---------- SAFE STATE / CONNECTION MANAGER ----------
+    _G.UFOX = _G.UFOX or {}
+    _G.UFOX.tempConns = _G.UFOX.tempConns or {}  -- runtime (บิน/ลาก)
+    _G.UFOX.uiConns   = _G.UFOX.uiConns   or {}  -- UI ถาวร (ไม่ล้างตอนสลับบิน)
+    _G.UFOX.movers    = _G.UFOX.movers    or {}
+    _G.UFOX.gui       = _G.UFOX.gui or nil
+    _G.UFOX.noclipPulse = _G.UFOX.noclipPulse or nil
+
+    local function keepTemp(c) table.insert(_G.UFOX.tempConns,c) return c end
+    local function keepUI(c)   table.insert(_G.UFOX.uiConns,c)   return c end
+
+    local function disconnectAll(list)
+        for i=#list,1,-1 do local c=list[i]; pcall(function() c:Disconnect() end); list[i]=nil end
+    end
+
+    local function cleanupRuntime() -- ไม่ยุ่งกับ UI
+        disconnectAll(_G.UFOX.tempConns)
         if _G.UFOX.noclipPulse then pcall(function() _G.UFOX.noclipPulse:Disconnect() end) _G.UFOX.noclipPulse=nil end
         if _G.UFOX.gui then pcall(function() _G.UFOX.gui:Destroy() end) _G.UFOX.gui=nil end
         local ch=lp.Character
@@ -743,7 +752,11 @@ registerRight("Player", function(scroll)
             local hrp=ch:FindFirstChild("HumanoidRootPart")
             if hrp then hrp.Velocity=Vector3.zero; hrp.RotVelocity=Vector3.zero end
         end
+        _G.UFOX.movers={}
     end
+
+    -- ถ้าหน้าต่างนี้ถูกสร้างใหม่ ให้เคลียร์ UI เดิมก่อน กันซ้ำซ้อน
+    disconnectAll(_G.UFOX.uiConns)
 
     -- ---------- THEME / HELPERS ----------
     local THEME={GREEN=Color3.fromRGB(25,255,125),RED=Color3.fromRGB(255,40,40),WHITE=Color3.fromRGB(255,255,255),BLACK=Color3.fromRGB(0,0,0)}
@@ -758,19 +771,19 @@ registerRight("Player", function(scroll)
     local S_MIN,S_MAX=0.0,2.0
     local MIN_MULT,MAX_MULT=0.9,3.0
 
-    -- ---------- STATE (จำค่าไว้ระหว่างเปิดเมนู) ----------
+    -- ---------- STATE ----------
     local flightOn=false
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
     local sensTarget,sensApplied=0,0
 
-    -- อ่านค่าความไวที่เคยตั้งไว้ (ถ้ายังไม่เคย ให้เป็น 0)
     local firstRun = (_G.UFOX_sensRel == nil)
-    local currentRel = _G.UFOX_sensRel or 0    -- 0..1 ตรรกะ
-    local visRel     = currentRel              -- 0..1 สำหรับแสดง (lerp)
+    local currentRel = _G.UFOX_sensRel or 0
+    local visRel     = currentRel
     local sliderCenterLabel
     local dragging=false
-    local RSdragConn, EndDragConn, TouchPosConn
+    local RSdragConn, EndDragConn
+    local lastTouchX
 
     local function speeds()
         local norm=(S_MAX>0) and (sensApplied/S_MAX) or 0
@@ -794,7 +807,7 @@ registerRight("Player", function(scroll)
     local function forceNoclipLoop(enable)
         if _G.UFOX.noclipPulse then _G.UFOX.noclipPulse:Disconnect() _G.UFOX.noclipPulse=nil end
         if not enable then return end
-        _G.UFOX.noclipPulse=keep(RunService.Stepped:Connect(function()
+        _G.UFOX.noclipPulse=keepTemp(RunService.Stepped:Connect(function()
             local _,_,char=getHRP(); if not char then return end
             for _,p in ipairs(char:GetDescendants()) do
                 if p:IsA("BasePart") then p.CanCollide=false; p.CanTouch=false; p.CanQuery=false end
@@ -825,23 +838,24 @@ registerRight("Player", function(scroll)
         rw.Size=UDim2.fromOffset(64,64*2+GAP); rw.BackgroundTransparency=1
         local u=btn(rw,0,0,"⬆️"); local d=btn(rw,0,64+GAP,"⬇️")
         local function bind(but,key)
-            keep(but.InputBegan:Connect(function(io)
+            keepUI(but.InputBegan:Connect(function(io)
                 if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end
             end))
-            keep(but.InputEnded:Connect(function(io)
+            keepUI(but.InputEnded:Connect(function(io)
                 if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end
             end))
         end
         bind(f,"fwd"); bind(bb,"back"); bind(l,"left"); bind(r,"right"); bind(u,"up"); bind(d,"down")
-    end
+    }
 
     -- ---------- FLIGHT ----------
     local function startFly()
-        _G.UFOX.cleanupAll()
+        cleanupRuntime() -- ล้างเฉพาะ runtime, ไม่ไปยุ่ง UI
         local hrp,hum,char=getHRP(); if not hrp or not hum then return end
         flightOn=true; hum.AutoRotate=false
         local an=char:FindFirstChild("Animate"); if an and an:IsA("LocalScript") then an.Enabled=false; savedAnimate=an end
         hrp.Anchored=false; hum.PlatformStand=false
+
         local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"; bp.MaxForce=Vector3.new(1e7,1e7,1e7)
         bp.P=9e4; bp.D=dampFactor; bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
         local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
@@ -849,14 +863,14 @@ registerRight("Player", function(scroll)
         ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true
         ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
+
         createPad(); setPartsClip(char,true); forceNoclipLoop(true)
 
-        keep(RunService.Heartbeat:Connect(function(dt)
+        keepTemp(RunService.Heartbeat:Connect(function(dt)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
             local cam=workspace.CurrentCamera; if not cam then return end
             local camCF=cam.CFrame; local fwd=camCF.LookVector
-            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
-            rightH=(rightH.Magnitude>0) and rightH.Unit or Vector3.new()
+            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); rightH=(rightH.Magnitude>0) and rightH.Unit or Vector3.new()
             local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
             if hold.fwd  then pos+=fwd*(MOVE*dt) end
             if hold.back then pos-=fwd*(MOVE*dt) end
@@ -868,10 +882,11 @@ registerRight("Player", function(scroll)
             ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
         end))
     end
+
     local function stopFly()
-        flightOn=false; forceNoclipLoop(false)
+        flightOn=false
         local hrp,hum,char=getHRP(); if char then setPartsClip(char,false) end
-        _G.UFOX.cleanupAll()
+        cleanupRuntime() -- ไม่ไปตัด UI
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
@@ -881,12 +896,13 @@ registerRight("Player", function(scroll)
     local function applyRel(rel,instant)
         rel=math.clamp(rel,0,1)
         currentRel=rel
-        _G.UFOX_sensRel = currentRel  -- << บันทึกไว้ให้ใช้ครั้งถัดไป
+        _G.UFOX_sensRel = currentRel
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
     end
-    keep(UserInputService.InputBegan:Connect(function(io,gp)
+
+    keepUI(UserInputService.InputBegan:Connect(function(io,gp)
         if gp then return end
         local k=io.KeyCode
         if k==Enum.KeyCode.W then hold.fwd=true end
@@ -899,7 +915,7 @@ registerRight("Player", function(scroll)
         if k==Enum.KeyCode.LeftBracket then applyRel(currentRel-0.05,true)
         elseif k==Enum.KeyCode.RightBracket then applyRel(currentRel+0.05,true) end
     end))
-    keep(UserInputService.InputEnded:Connect(function(io,gp)
+    keepUI(UserInputService.InputEnded:Connect(function(io,gp)
         if gp then return end
         local k=io.KeyCode
         if k==Enum.KeyCode.W then hold.fwd=false end
@@ -909,13 +925,15 @@ registerRight("Player", function(scroll)
         if k==Enum.KeyCode.Space or k==Enum.KeyCode.E then hold.up=false end
         if k==Enum.KeyCode.LeftShift or k==Enum.KeyCode.Q then hold.down=false end
     end))
-    keep(UserInputService.InputChanged:Connect(function(io)
+    keepUI(UserInputService.InputChanged:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseWheel then
             applyRel(currentRel + math.clamp(io.Position.Z,-1,1)*0.05, true)
+        elseif io.UserInputType==Enum.UserInputType.Touch then
+            lastTouchX = io.Position.X
         end
     end))
 
-    -- ---------- UI ----------
+    -- ---------- UI BUILD ----------
     for _,n in ipairs({"Section_FlightHeader","Row_FlightToggle","Row_Sens"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
     local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12); vlist.SortOrder=Enum.SortOrder.LayoutOrder
@@ -942,9 +960,9 @@ registerRight("Player", function(scroll)
         if v then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly()
         else     swStroke.Color=THEME.RED;   tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly() end
     end
-    btn.MouseButton1Click:Connect(function() setState(not on) end)
+    keepUI(btn.MouseButton1Click:Connect(function() setState(not on) end))
 
-    -- ---------- SLIDER (SMOOTH DRAG) ----------
+    -- ---------- SLIDER ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
     sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4)
@@ -958,51 +976,45 @@ registerRight("Player", function(scroll)
     centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
     sliderCenterLabel=centerVal
 
-    local lastTouchX
-    TouchPosConn = keep(UserInputService.InputChanged:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.Touch then lastTouchX = io.Position.X end
-    end))
-
     local function relFrom(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
     local function syncVisual(now)
-        if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.30 end -- ความเร็ว lerp
+        if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.30 end
         visRel = math.clamp(visRel,0,1)
         fill.Size=UDim2.fromScale(visRel,1)
         knobBtn.Position=UDim2.new(visRel,-14,0.5,-14)
         centerVal.Text=string.format("%d%%",math.floor(visRel*100+0.5))
     end
+
     local function stopDrag()
         dragging=false
         if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
         if EndDragConn then EndDragConn:Disconnect() EndDragConn=nil end
         scroll.ScrollingEnabled=true
     end
+
     local function startDrag(px)
         dragging=true; scroll.ScrollingEnabled=false
         applyRel(relFrom(px), true); syncVisual(true)
-        RSdragConn = keep(RunService.RenderStepped:Connect(function()
+        RSdragConn = keepTemp(RunService.RenderStepped:Connect(function()
             local mx = UserInputService:GetMouseLocation().X
             local x = lastTouchX or mx
             if dragging then applyRel(relFrom(x), false) end
             syncVisual(false)
         end))
-        EndDragConn = keep(UserInputService.InputEnded:Connect(function(io)
+        EndDragConn = keepTemp(UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then stopDrag() end
         end))
     end
-    keep(bar.InputBegan:Connect(function(io)
+
+    keepUI(bar.InputBegan:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
     end))
-    keep(knobBtn.InputBegan:Connect(function(io)
+    keepUI(knobBtn.InputBegan:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
     end))
 
     -- ---------- INIT ----------
-    if firstRun then
-        applyRel(0,true)          -- ครั้งแรก = 0 จริง
-    else
-        applyRel(currentRel,true) -- ครั้งต่อไปใช้ค่าที่เคยบันทึก
-    end
+    if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
     syncVisual(true)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
