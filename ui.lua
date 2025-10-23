@@ -710,7 +710,7 @@ registerRight("Player", function(scroll)
 end)
 -- ===== Player tab (Right) — Model A V2 — Flight Mode 🛸
 -- Hover Toggle + Mini Control Pad (hold) + Swipe Strafe + Noclip
--- Fixed pad order + Screen Steering (velocity-based) + Camera-Driven Facing =====
+-- Fixed pad order + Camera-Facing (no camera control) =====
 registerRight("Player", function(scroll)
     -- Services / Theme
     local Players     = game:GetService("Players")
@@ -812,32 +812,17 @@ registerRight("Player", function(scroll)
     button.Text = ""
 
     ----------------------------------------------------------------
-    -- Flight core
+    -- Flight core (no camera control; face camera direction)
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    -- >>> เร่งความเร็วตามคำขอ <<<
-    local moveSpeed     = 52  -- forward/back (เดิม 38)
-    local strafeSpeed   = 44  -- left/right
-    local ascendSpeed   = 40  -- up/down (เดิม 28) เร็วขึ้นชัดเจน
-
-    -- Steering sensitivity (ตาม "ความเร็วมือจริง")
-    local STEER = {
-        pxPerFull    = 140,                -- พิกเซล/วินาที ที่เทียบเป็นอัตราเลี้ยวมาตรฐาน
-        maxTurnRate  = math.rad(300),      -- rad/s เมื่อเลื่อนเร็วมาก
-    }
+    local moveSpeed     = 52  -- forward/back (faster)
+    local strafeSpeed   = 44  -- left/right  (faster)
+    local ascendSpeed   = 40  -- up/down     (faster)
 
     local movers = {bp=nil, bg=nil}
     local loopConn, noclipConn
     local controlsGui
     local hold = {fwd=false, back=false, left=false, right=false, up=false, down=false}
-
-    -- screen steering state
-    local steerTouch, lastX, lastT = nil, 0, 0
-    local steerVel = 0    -- พิกเซลต่อวินาที (+ขวา / -ซ้าย)
-
-    -- camera
-    local cam = workspace.CurrentCamera
-    local savedCamType, savedSubject, savedRelCF
 
     local function getHRP()
         local char = lp and lp.Character
@@ -851,7 +836,7 @@ registerRight("Player", function(scroll)
         return game:GetService("CoreGui")
     end
 
-    -- Mini pad (ตำแหน่งเดิม)
+    -- Mini pad (fixed order)
     local function ensureControlsGui()
         if controlsGui and controlsGui.Parent then return controlsGui end
         controlsGui = Instance.new("ScreenGui")
@@ -937,7 +922,7 @@ registerRight("Player", function(scroll)
             end
         end)
 
-        -- swipe strafe in pad
+        -- swipe in pad => strafe (หน้าตรง)
         local swipeTouch, lastPos
         local dead = 12
         swipeZone.InputBegan:Connect(function(io)
@@ -977,33 +962,6 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- Global screen steering: คิด “ความเร็วการเลื่อน” จริง (px/s)
-    UserInputService.InputBegan:Connect(function(io, gp)
-        if gp then return end
-        if io.UserInputType == Enum.UserInputType.Touch and not steerTouch then
-            steerTouch = io
-            lastX = io.Position.X
-            lastT = os.clock()
-            steerVel = 0
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(io, gp)
-        if gp then return end
-        if steerTouch and io == steerTouch and io.UserInputType == Enum.UserInputType.Touch then
-            local x = io.Position.X
-            local t = os.clock()
-            local dt = math.max(t - lastT, 1/240)  -- ป้องกันหารศูนย์
-            steerVel = (x - lastX) / dt            -- px/s (+ขวา -ซ้าย)
-            lastX, lastT = x, t
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(io, gp)
-        if steerTouch and io == steerTouch then
-            steerTouch = nil
-            steerVel = 0
-        end
-    end)
-
     local function startHover()
         local hrp, hum = getHRP(); if not hrp or not hum then return end
         hrp.Anchored = false
@@ -1023,45 +981,28 @@ registerRight("Player", function(scroll)
 
         movers.bp, movers.bg = bp, bg
 
-        -- กล้องนำ: เก็บออฟเซ็ตกล้องจาก HRP
-        local cam = workspace.CurrentCamera
-        savedCamType   = cam.CameraType
-        savedSubject   = cam.CameraSubject
-        savedRelCF     = hrp.CFrame:ToObjectSpace(cam.CFrame)
-        cam.CameraType = Enum.CameraType.Scriptable
-        cam.CameraSubject = nil
-
         ensureControlsGui().Enabled = true
         setNoclipEnabled(true)
 
         loopConn = RunService.Heartbeat:Connect(function(dt)
             if not (movers.bp and movers.bg and hrp.Parent) then return end
 
-            -- หมุนกล้องตามความเร็วการเลื่อนนิ้ว (แรงขึ้น/ไวขึ้น)
-            if steerVel ~= 0 then
-                local rate = math.clamp(steerVel / STEER.pxPerFull, -3, 3)   -- scale
-                local yaw  = rate * STEER.maxTurnRate * dt
-                savedRelCF = savedRelCF * CFrame.Angles(0, yaw, 0)           -- หมุนกล้องรอบ HRP
-            end
-
-            -- กล้องใหม่
-            local camCF = hrp.CFrame * savedRelCF
-            workspace.CurrentCamera.CFrame = camCF
-
-            -- การเคลื่อนที่ “ยึดทิศจากกล้อง”
+            -- ใช้มุมกล้องของ Roblox (กล้อง native หมุนตามนิ้ว = ไวตามนิ้วอยู่แล้ว)
+            local camCF = workspace.CurrentCamera.CFrame
             local fwd   = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z); if fwd.Magnitude>0 then fwd=fwd.Unit end
             local right = Vector3.new(camCF.RightVector.X,0, camCF.RightVector.Z); if right.Magnitude>0 then right=right.Unit end
 
+            -- เดินอิงกล้อง + สปีดเร็วขึ้น
             local pos = movers.bp.Position
-            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end   -- ไปหน้า เร็วขึ้น
-            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end   -- ถอยหลัง
-            if hold.left then  pos = pos - right * (strafeSpeed * dt) end   -- เลื่อนซ้าย (หันหน้าเดิม)
-            if hold.right then pos = pos + right * (strafeSpeed * dt) end   -- เลื่อนขวา
+            if hold.fwd  then pos = pos + fwd    * (moveSpeed   * dt) end
+            if hold.back then pos = pos - fwd    * (moveSpeed   * dt) end
+            if hold.left then  pos = pos - right * (strafeSpeed * dt) end
+            if hold.right then pos = pos + right * (strafeSpeed * dt) end
             if hold.up   then  pos = pos + Vector3.new(0, ascendSpeed*dt, 0) end
             if hold.down then  pos = pos - Vector3.new(0, ascendSpeed*dt, 0) end
             movers.bp.Position = pos
 
-            -- ให้ตัวละคร “หันตามมุมกล้อง” เสมอ (ไม่หมุนเองคนละทิศ)
+            -- ให้ตัวละคร “หันตามมุมกล้อง” เสมอ (หน้าตรงไปทิศเดียวกับกล้อง)
             movers.bg.CFrame = CFrame.new(hrp.Position, hrp.Position + fwd)
         end)
     end
@@ -1070,13 +1011,6 @@ registerRight("Player", function(scroll)
         if loopConn   then loopConn:Disconnect(); loopConn = nil end
         if controlsGui then controlsGui.Enabled = false end
         setNoclipEnabled(false)
-
-        if savedCamType then
-            local cam = workspace.CurrentCamera
-            cam.CameraType    = savedCamType
-            cam.CameraSubject = savedSubject
-            savedCamType, savedSubject, savedRelCF = nil, nil, nil
-        end
 
         local hrp, hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp = nil end
