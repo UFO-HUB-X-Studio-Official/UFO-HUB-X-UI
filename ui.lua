@@ -1053,8 +1053,8 @@ registerRight("Player", function(scroll)
     if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
     syncVisual(true)
 end)
--- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (METAL THIN KNOB + TAP & DRAG + 500 CAP) =====
--- One-at-a-time drag, tap-to-set, thin metal square knob, shorter bar, max 500
+-- ===== UFO HUB X • Player Tab — SPEED & JUMP • Model A V1 (METAL KNOB BIG + CENTER % + FREEZE FIX) =====
+-- Bars back to original length, % centered, bigger thin-metal square knob, drag/tap, 500 cap, no-freeze.
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -1069,11 +1069,11 @@ registerRight("Player", function(scroll)
     local function keepUI(c) table.insert(RJ.uiConns,c) return c end
     local function keepTmp(c) table.insert(RJ.tempConns,c) return c end
     local function disconnectAll(t) for i=#t,1,-1 do local c=t[i] pcall(function() c:Disconnect() end) t[i]=nil end end
+    local function stopAllTemp() disconnectAll(RJ.tempConns); scroll.ScrollingEnabled=true end
 
-    -- รีบิลด์เฉพาะ UI ของโมดูลนี้
     disconnectAll(RJ.uiConns)
 
-    -- เริ่มครั้งแรก = 0%
+    -- remember (เริ่มต้น 0%)
     RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
     RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
     RJ.remember.runRel  = (RJ.remember.runRel==nil) and 0 or RJ.remember.runRel
@@ -1092,7 +1092,7 @@ registerRight("Player", function(scroll)
         return ch and ch:FindFirstChildOfClass("Humanoid"), ch
     end
     local function lerp(a,b,t) return a+(b-a)*t end
-    local function mapRel(rel, mn, mx) rel=math.clamp(rel,0,1) return lerp(mn,mx,rel) end
+    local function mapRel(rel,mn,mx) rel=math.clamp(rel,0,1) return lerp(mn,mx,rel) end
 
     local function snapshotDefaults()
         local hum=getHum(); if not hum then return end
@@ -1127,9 +1127,9 @@ registerRight("Player", function(scroll)
     end
 
     -- Infinite Jump
-    disconnectAll(RJ.tempConns)
+    stopAllTemp()
     local function bindInfJump()
-        disconnectAll(RJ.tempConns)
+        stopAllTemp()
         if not infJumpOn then return end
         keepTmp(UserInputService.JumpRequest:Connect(function()
             local hum=getHum()
@@ -1142,13 +1142,13 @@ registerRight("Player", function(scroll)
         task.defer(function() applyStats(); bindInfJump() end)
     end))
 
-    -- ---------- THEME / HELPERS ----------
+    -- ---------- THEME ----------
     local THEME={
         GREEN=Color3.fromRGB(25,255,125),
         RED  =Color3.fromRGB(255,40,40),
         WHITE=Color3.fromRGB(255,255,255),
         BLACK=Color3.fromRGB(0,0,0),
-        GREY =Color3.fromRGB(180,180,185), -- base grey
+        GREY =Color3.fromRGB(180,180,185),
         DARK =Color3.fromRGB(60,60,65)
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
@@ -1169,7 +1169,7 @@ registerRight("Player", function(scroll)
     header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="Fast Run & High Jump 🏃‍♂️💨🦘"
 
-    -- Master toggle (ทรงกลมเดิม)
+    -- Master switch (เดิม)
     local master=Instance.new("Frame",scroll); master.Name="RJ_Master"; master.LayoutOrder=baseOrder+1
     master.Size=UDim2.new(1,-6,0,46); master.BackgroundColor3=THEME.BLACK; corner(master,12); stroke(master,2.2,THEME.GREEN)
     local mLab=Instance.new("TextLabel",master); mLab.BackgroundTransparency=1; mLab.Size=UDim2.new(1,-140,1,0); mLab.Position=UDim2.new(0,16,0,0)
@@ -1188,7 +1188,7 @@ registerRight("Player", function(scroll)
     end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
-    -- ---------- Slider builder (thin metal knob, shorter bar, tap & drag) ----------
+    -- ---------- Slider builder (bar length = เดิม, % กลางแถบ, ปุ่มใหญ่ 26x26) ----------
     local function createSlider(name, order, title, getRel, setRel)
         local row=Instance.new("Frame",scroll); row.Name=name; row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN)
@@ -1198,52 +1198,52 @@ registerRight("Player", function(scroll)
         lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left
         lab.Text=title
 
-        -- แถบสั้นลงด้านขวา (-80)
+        -- ความยาวแถบ "เท่าเดิม"
         local bar=Instance.new("Frame",row)
-        bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-80,0,16)
+        bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
         bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true; bar.ZIndex=1
 
         local fill=Instance.new("Frame",bar)
         fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(getRel(),1); fill.ZIndex=1
 
-        -- ปุ่มสี่เหลี่ยม “บาง” สีเหล็ก + เงา + gradient
+        -- ปุ่ม “สี่เหลี่ยมเมทัล” ใหญ่ขึ้น + เงา
         local knobShadow=Instance.new("Frame",bar)
-        knobShadow.Size=UDim2.fromOffset(20,20); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
+        knobShadow.Size=UDim2.fromOffset(28,28); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
         knobShadow.Position=UDim2.new(getRel(),0,0.5,2); knobShadow.BackgroundColor3=THEME.DARK
         knobShadow.BorderSizePixel=0; knobShadow.BackgroundTransparency=0.35; knobShadow.ZIndex=2
 
         local knob=Instance.new("ImageButton",bar)
         knob.AutoButtonColor=false; knob.BackgroundColor3=THEME.GREY
-        knob.Size=UDim2.fromOffset(18,18)  -- บางลง
+        knob.Size=UDim2.fromOffset(26,26)       -- ↑ ใหญ่ขึ้น
         knob.AnchorPoint=Vector2.new(0.5,0.5)
         knob.Position=UDim2.new(getRel(),0,0.5,0)
         knob.BorderSizePixel=0; knob.ZIndex=3
-        stroke(knob,1.2,Color3.fromRGB(210,210,215)) -- ขอบสว่างแบบโลหะ
-
+        stroke(knob,1.4,Color3.fromRGB(210,210,215))
         local grad=Instance.new("UIGradient",knob)
         grad.Color=ColorSequence.new{
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235,235,240)),
-            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(180,180,185)),
+            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(185,185,190)),
             ColorSequenceKeypoint.new(0.55, Color3.fromRGB(150,150,155)),
             ColorSequenceKeypoint.new(1.00, Color3.fromRGB(215,215,220))
         }
         grad.Rotation=90
 
-        local val=Instance.new("TextLabel",row)
-        val.BackgroundTransparency=1; val.Position=UDim2.new(1,-56,0,30); val.Size=UDim2.fromOffset(48,20)
-        val.Font=Enum.Font.GothamBlack; val.TextSize=14; val.TextColor3=THEME.WHITE; val.TextXAlignment=Enum.TextXAlignment.Right
-        val.Text=string.format("%d%%", math.floor(getRel()*100+0.5)); val.ZIndex=1
+        -- % กลางแถบ
+        local val=Instance.new("TextLabel",bar)
+        val.BackgroundTransparency=1; val.Size=UDim2.fromScale(1,1)
+        val.Font=Enum.Font.GothamBlack; val.TextSize=16; val.TextColor3=THEME.WHITE
+        val.TextXAlignment=Enum.TextXAlignment.Center; val.Text=string.format("%d%%", math.floor(getRel()*100+0.5)); val.ZIndex=1
 
-        -- overlay ปุ่มโปร่งใสสำหรับ “แตะเพื่อเซ็ต”
+        -- ปุ่มโปร่งใสสำหรับแตะเพื่อเซ็ต
         local hit=Instance.new("TextButton",bar)
         hit.BackgroundTransparency=1; hit.Size=UDim2.fromScale(1,1); hit.Text=""; hit.ZIndex=4
 
-        local RSconn, EndConn, lastTouchX
+        local RSconn, EndConn, OutsideConn, FailTimer, lastTouchX
         keepUI(UserInputService.InputChanged:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.Touch then lastTouchX = io.Position.X end
         end))
 
-        local function relFromXOnBar(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
+        local function relFromX(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
         local function sync()
             local r=getRel()
             fill.Size=UDim2.fromScale(r,1)
@@ -1253,33 +1253,42 @@ registerRight("Player", function(scroll)
         end
 
         local function stopDrag()
-            if RSconn then RSconn:Disconnect() RSconn=nil end
-            if EndConn then EndConn:Disconnect() EndConn=nil end
-            scroll.ScrollingEnabled=true
+            if FailTimer then FailTimer:Disconnect(); FailTimer=nil end
+            if RSconn then RSconn:Disconnect(); RSconn=nil end
+            if EndConn then EndConn:Disconnect(); EndConn=nil end
+            if OutsideConn then OutsideConn:Disconnect(); OutsideConn=nil end
+            stopAllTemp()
             setRel(getRel()); applyStats()
         end
 
         local function startDrag(px)
-            -- กันลากพร้อมกัน: ตัดทุก temp conn ก่อน
-            disconnectAll(RJ.tempConns)
+            stopAllTemp()                     -- กันลากหลายอัน
             scroll.ScrollingEnabled=false
-            setRel(relFromXOnBar(px)); sync()
+            setRel(relFromX(px)); sync()
+
+            -- failsafe: กันค้าง
+            FailTimer=keepTmp(RunService.Heartbeat:Connect(function(dt)
+                -- ถ้าไม่มีการขยับเกิน ~5 วิ ให้คืนค่า
+                FailTimer.t=(FailTimer.t or 0)+dt
+                if FailTimer.t>5 then stopDrag() end
+            end))
+
             RSconn=keepTmp(RunService.RenderStepped:Connect(function()
                 local mx=UserInputService:GetMouseLocation().X
                 local x=lastTouchX or mx
-                setRel(relFromXOnBar(x)); sync()
+                setRel(relFromX(x)); sync()
             end))
-            EndConn=keepTmp(UserInputService.InputEnded:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then stopDrag() end
+            EndConn=keepTmp(UserInputService.InputEnded:Connect(function(_) stopDrag() end))
+            -- แตะนอกสไลเดอร์ก็หยุด
+            OutsideConn=keepTmp(UserInputService.InputBegan:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton2 or io.UserInputType==Enum.UserInputType.MouseButton3 then stopDrag() end
             end))
         end
 
-        -- แตะเพื่อเซ็ตทันที (ไม่ต้องลาก)
-        keepUI(hit.MouseButton1Click:Connect(function(x,y)
-            disconnectAll(RJ.tempConns)
-            setRel(relFromXOnBar(x)); sync(); applyStats()
+        -- แตะเพื่อเซ็ต
+        keepUI(hit.MouseButton1Click:Connect(function(x,_)
+            stopAllTemp(); setRel(relFromX(x)); sync(); applyStats()
         end))
-
         keepUI(bar.InputBegan:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
         end))
@@ -1290,7 +1299,7 @@ registerRight("Player", function(scroll)
         sync(); return row
     end
 
-    -- สไลเดอร์
+    -- sliders
     createSlider("RJ_Run",  baseOrder+2, "Run Speed",  function() return runRel end,  function(r) runRel = math.clamp(r,0,1); RJ.remember.runRel = runRel end)
     createSlider("RJ_Jump", baseOrder+3, "Jump Power", function() return jumpRel end, function(r) jumpRel = math.clamp(r,0,1); RJ.remember.jumpRel = jumpRel end)
 
