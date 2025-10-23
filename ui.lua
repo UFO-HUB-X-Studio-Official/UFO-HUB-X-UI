@@ -708,7 +708,7 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.4.7b =====
+-- ===== Player tab (Right) — Model A V2.4.7c =====
 -- Safe for LocalScript (no PhysicsService permission crash)
 -- Fix: Noclip restores instantly when turned off
 registerRight("Player", function(scroll)
@@ -786,7 +786,6 @@ registerRight("Player", function(scroll)
     local flightOn, noclipWanted = false, true
     local movers={bp=nil,ao=nil,att=nil}
     local loopConn, noclipConn
-    local controlsGui
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
     local origGroup = {}
@@ -931,10 +930,25 @@ registerRight("Player", function(scroll)
     local function setState(v)
         if v==flightOn then return end
         flightOn=v
-        if flightOn then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.12); startFly()
-        else swStroke.Color=THEME.RED; tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.12); stopFly() end
+        if flightOn then
+            swStroke.Color=THEME.GREEN
+            tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.12)
+            startFly()
+        else
+            swStroke.Color=THEME.RED
+            tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.12)
+            stopFly()
+        end
     end
-    btn.MouseButton1Click:Connect(function() set
+
+    btn.MouseButton1Click:Connect(function()
+        setState(not flightOn)
+    end)
+
+    lp.CharacterAdded:Connect(function()
+        setState(false)
+    end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
