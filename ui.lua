@@ -708,8 +708,11 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9f (STABLE) =====
--- Fixed: LayoutOrder ตายตัว (ไม่ลอย), Slider ลากได้ซ้ำไม่พัง (mouse/touch), joypad + hotkeys ครบ
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9g (FINAL PASTE-AND-GO) =====
+-- ✅ Flight toggle + Noclip (เฉพาะตอนเปิด)
+-- ✅ Slider ลื่นมาก (RenderStepped + visual lerp), เมาส์/ทัช
+-- ✅ Joypad มือถือ + ฮอตคีย์ PC (F, WASD, Space/E, Shift/Q, [ ])
+-- ✅ Layout ตายตัว, ลากสไลเดอร์กี่รอบก็ไม่พัง, cleanup คืนค่าปลอดภัย
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -747,6 +750,7 @@ registerRight("Player", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
+    local function guiRoot() return lp:WaitForChild("PlayerGui") end
 
     -- ---------- CONFIG ----------
     local hoverHeight, BASE_MOVE, BASE_STRAFE, BASE_ASCEND = 6,150,100,100
@@ -759,9 +763,11 @@ registerRight("Player", function(scroll)
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
     local sensTarget,sensApplied=0,0
-    local currentRel=0
+    local currentRel=0                -- 0..1 โดยตรรกะ
+    local visRel=0                    -- 0..1 ค่าที่แสดง (lerp ให้ลื่น)
     local sliderCenterLabel
     local dragging=false
+    local RSdragConn, EndDragConn, TouchPosConn
 
     local function speeds()
         local norm=(S_MAX>0) and (sensApplied/S_MAX) or 0
@@ -798,7 +804,7 @@ registerRight("Player", function(scroll)
         if _G.UFOX.gui then _G.UFOX.gui:Destroy() end
         local gui=Instance.new("ScreenGui")
         gui.Name="UFO_FlyPad"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true
-        gui.DisplayOrder=999999; gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=lp:WaitForChild("PlayerGui")
+        gui.DisplayOrder=999999; gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=guiRoot()
         _G.UFOX.gui=gui
         local SIZE,GAP=64,10
         local pad=Instance.new("Frame",gui); pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,100,1,-140)
@@ -934,7 +940,7 @@ registerRight("Player", function(scroll)
     end
     btn.MouseButton1Click:Connect(function() setState(not on) end)
 
-    -- Slider (dragging state, ไม่มีการสร้าง/ลบวัตถุเพิ่มทุกครั้ง)
+    -- ---------- SLIDER (SMOOTH DRAG) ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
     sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4)
@@ -948,38 +954,48 @@ registerRight("Player", function(scroll)
     centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
     sliderCenterLabel=centerVal
 
-    local function syncVisual()
-        fill.Size=UDim2.fromScale(currentRel,1)
-        knobBtn.Position=UDim2.new(currentRel,-14,0.5,-14)
-        if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(currentRel*100+0.5)) end
-    end
+    local lastTouchX
+    TouchPosConn = keep(UserInputService.InputChanged:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.Touch then lastTouchX = io.Position.X end
+    end))
+
     local function relFrom(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
-
-    keep(UserInputService.InputChanged:Connect(function(io)
-        if not dragging then return end
-        if io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch then
-            applyRel(relFrom(io.Position.X), true); syncVisual()
-        end
-    end))
-    keep(UserInputService.InputEnded:Connect(function(io)
-        if not dragging then return end
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            dragging=false; scroll.ScrollingEnabled=true
-        end
-    end))
-    local function beginDrag(px)
-        dragging=true; scroll.ScrollingEnabled=false
-        applyRel(relFrom(px), true); syncVisual()
+    local function syncVisual(now)
+        -- lerp ให้ลื่น (เพิ่มค่านี้ให้ตอบสนองเร็วขึ้น: 0.25 -> 0.35 ก็ได้)
+        if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.25 end
+        visRel = math.clamp(visRel,0,1)
+        fill.Size=UDim2.fromScale(visRel,1)
+        knobBtn.Position=UDim2.new(visRel,-14,0.5,-14)
+        centerVal.Text=string.format("%d%%",math.floor(visRel*100+0.5))
     end
-    bar.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then beginDrag(io.Position.X) end
-    end)
-    knobBtn.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then beginDrag(io.Position.X) end
-    end)
+    local function stopDrag()
+        dragging=false
+        if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
+        if EndDragConn then EndDragConn:Disconnect() EndDragConn=nil end
+        scroll.ScrollingEnabled=true
+    end
+    local function startDrag(px)
+        dragging=true; scroll.ScrollingEnabled=false
+        applyRel(relFrom(px), true); syncVisual(true)
+        RSdragConn = keep(RunService.RenderStepped:Connect(function()
+            local mx = UserInputService:GetMouseLocation().X
+            local x = lastTouchX or mx
+            if dragging then applyRel(relFrom(x), false) end
+            syncVisual(false)
+        end))
+        EndDragConn = keep(UserInputService.InputEnded:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then stopDrag() end
+        end))
+    end
+    keep(bar.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
+    end))
+    keep(knobBtn.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startDrag(io.Position.X) end
+    end))
 
-    -- เริ่มที่ 0%
-    applyRel(0,true); syncVisual()
+    -- ---------- INIT ----------
+    applyRel(0,true); syncVisual(true)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
