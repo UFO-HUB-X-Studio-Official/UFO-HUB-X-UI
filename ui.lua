@@ -708,10 +708,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A LEGACY 2.3.9b-Fix (Rebind Safe + Speed Boost) =====
--- ✅ Fix: ปุ่มกดไม่ทำงานหลังเปิดปิดใหม่
--- ✅ 0% ยังบินได้, 100% เร็ว x3
--- ✅ ทุกครั้งที่เปิดใหม่จะ rebind ปุ่มทั้งหมดอัตโนมัติ
+-- ===== Player tab (Right) — Model A LEGACY 2.3.9b-Final (Rebind Safe + Speed Slider) =====
+-- ✅ Fix ปุ่มกดไม่ทำงานหลังเปิดปิดใหม่
+-- ✅ มีสไลเดอร์ปรับความไว (0% = 90%, 100% = 300%)
+-- ✅ เปิดใหม่ rebind auto ทุกครั้ง
 
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
@@ -826,6 +826,7 @@ registerRight("Player", function(scroll)
         return gui
     end
 
+    -- ---------- Keyboard ----------
     local function bindKeyboard()
         keep(UserInputService.InputBegan:Connect(function(io,gp)
             if gp then return end
@@ -847,22 +848,6 @@ registerRight("Player", function(scroll)
         end))
     end
 
-    -- ---------- Noclip ----------
-    local noclipPulse
-    local function setPartsClip(char,noclip)
-        for _,p in ipairs(char:GetDescendants()) do
-            if p:IsA("BasePart") then
-                p.CanCollide=not noclip; p.CanTouch=not noclip; p.CanQuery=not noclip
-                if not noclip then pcall(function() PhysicsService:SetPartCollisionGroup(p,"Default") end) end
-            end
-        end
-    end
-    local function forceNoclipLoop(enable)
-        if noclipPulse then noclipPulse:Disconnect(); noclipPulse=nil end
-        if not enable then return end
-        noclipPulse=keep(RunService.Stepped:Connect(function() local _,_,char=getHRP(); if char then setPartsClip(char,true) end end))
-    end
-
     -- ---------- Flight ----------
     local function startFly()
         _G.UFOX.cleanupAll()
@@ -871,17 +856,17 @@ registerRight("Player", function(scroll)
         local an=char:FindFirstChild("Animate"); if an and an:IsA("LocalScript") then an.Enabled=false; savedAnimate=an end
         hrp.Anchored=false; hum.PlatformStand=false
 
-        local bp=Instance.new("BodyPosition",hrp); bp.Name="UFO_BP"; bp.MaxForce=Vector3.new(1e7,1e7,1e7)
+        local bp=Instance.new("BodyPosition",hrp); bp.MaxForce=Vector3.new(1e7,1e7,1e7)
         bp.P=9e4; bp.D=dampFactor; bp.Position=hrp.Position+Vector3.new(0,hoverHeight,0)
-        local att=Instance.new("Attachment",hrp); att.Name="UFO_Att"
-        local ao=Instance.new("AlignOrientation",hrp); ao.Name="UFO_AO"; ao.Attachment0=att
+        local att=Instance.new("Attachment",hrp)
+        local ao=Instance.new("AlignOrientation",hrp); ao.Attachment0=att
         ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true
         ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
 
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
         local gui=createPad(); gui.Enabled=true
-        bindKeyboard(); setPartsClip(char,true); forceNoclipLoop(true)
+        bindKeyboard(); setPartsClip(char,true)
 
         keep(RunService.Heartbeat:Connect(function(dt)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
@@ -931,7 +916,53 @@ registerRight("Player", function(scroll)
         return row
     end
     makeSwitch("Flight Mode",nextOrder+1,function()end)
-end)
+
+    -- ---------- Sensitivity Slider ----------
+    local sRow=Instance.new("Frame",scroll)
+    sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK
+    corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
+
+    local sLab=Instance.new("TextLabel",sRow)
+    sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24)
+    sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left; sLab.TextColor3=THEME.WHITE
+    sLab.Text="Sensitivity"
+
+    local bar=Instance.new("Frame",sRow)
+    bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16)
+    bar.BackgroundColor3=THEME.BLACK; bar.Active=true; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
+
+    local fill=Instance.new("Frame",bar)
+    fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
+
+    local knobBtn=Instance.new("ImageButton",bar)
+    knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.WHITE
+    knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14)
+    knobBtn.BorderSizePixel=0; corner(knobBtn,14)
+
+    local centerVal=Instance.new("TextLabel",bar)
+    centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
+    centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2
+    centerVal.Text="0%"
+
+    local function applyRel(rel)
+        rel=math.clamp(rel,0,1)
+        sensTarget=S_MIN+(S_MAX-S_MIN)*rel
+        fill.Size=UDim2.fromScale(rel,1)
+        knobBtn.Position=UDim2.new(rel,-14,0.5,-14)
+        centerVal.Text=string.format("%d%%",math.floor(rel*100+0.5))
+    end
+
+    local dragConn,endConn
+    local function beginDrag(px)
+        applyRel((px-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X))
+        dragConn=UserInputService.InputChanged:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseMovement then
+                applyRel((io.Position.X-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X))
+            end
+        end)
+        endConn=UserInputService.InputEnded:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+                if dragConn then dragConn:Disconnect() dragConn
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
