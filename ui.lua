@@ -607,27 +607,24 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile + Hide Name
--- ultra-compact • click row OR name bar to toggle • pretty pill switch • high ZIndex
+-- ===== Player tab (Right) — Profile + Hide Name (extra-compact, row-wide toggle) =====
 registerRight("Player", function(scroll)
-    local Players      = game:GetService("Players")
-    local Content      = game:GetService("ContentProvider")
-    local TweenService = game:GetService("TweenService")
-    local lp           = Players.LocalPlayer
+    local Players       = game:GetService("Players")
+    local Content       = game:GetService("ContentProvider")
+    local TweenService  = game:GetService("TweenService")
+    local lp            = Players.LocalPlayer
 
     _G.UFOX_PROFILE = _G.UFOX_PROFILE or { hiddenName = false }
 
-    -- THEME
     local BASE  = rawget(_G,"THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
         GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
         WHITE    = Color3.fromRGB(255,255,255),
         RED      = Color3.fromRGB(255,40,40),
-        DARK     = Color3.fromRGB(30,30,35),
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.4 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
     -- rebuild section
     local old=scroll:FindFirstChild("Section_Profile"); if old then old:Destroy() end
@@ -646,11 +643,9 @@ registerRight("Player", function(scroll)
     -- Avatar
     local avatarWrap=Instance.new("Frame",section)
     avatarWrap.BackgroundColor3=THEME.BG_INNER
-    avatarWrap.Size=UDim2.fromOffset(150,150); corner(avatarWrap,12); stroke(avatarWrap,1.0,THEME.GREEN)
-    avatarWrap.ZIndex=1000
+    avatarWrap.Size=UDim2.fromOffset(150,150); corner(avatarWrap,12); stroke(avatarWrap,1.6,THEME.GREEN)
     local avatarImg=Instance.new("ImageLabel",avatarWrap)
     avatarImg.BackgroundTransparency=1; avatarImg.Size=UDim2.fromScale(1,1); avatarImg.ImageTransparency=1
-    avatarImg.ZIndex=1001
     task.spawn(function()
         local ok,url=pcall(function()
             return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
@@ -658,71 +653,59 @@ registerRight("Player", function(scroll)
         if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
     end)
 
-    -- Name bar (TextButton เพื่อให้กดได้ทั้งแผง)
-    local nameBar=Instance.new("TextButton",section)
-    nameBar.AutoButtonColor=false; nameBar.Text=""
+    -- Name bar
+    local nameBar=Instance.new("Frame",section)
     nameBar.BackgroundColor3=THEME.BG_INNER
-    nameBar.Size=UDim2.fromOffset(220,36); corner(nameBar,8); stroke(nameBar,1.0,THEME.GREEN)
-    nameBar.ZIndex=1000
+    nameBar.Size=UDim2.fromOffset(220,36); corner(nameBar,8); stroke(nameBar,1.3,THEME.GREEN)
     local nameLbl=Instance.new("TextLabel",nameBar)
     nameLbl.BackgroundTransparency=1; nameLbl.Size=UDim2.fromScale(1,1)
     nameLbl.Font=Enum.Font.GothamBold; nameLbl.TextSize=16; nameLbl.TextColor3=THEME.WHITE
     nameLbl.TextXAlignment=Enum.TextXAlignment.Center; nameLbl.RichText=true
-    nameLbl.ZIndex=1001
 
     local function refreshName()
         if _G.UFOX_PROFILE.hiddenName then
             nameLbl.Text = '<font color="#FFFFFF">UFO </font><font color="#19FF7D">HUB X</font>'
         else
-            nameLbl.Text = (lp and lp.DisplayName) or "Player"
+            nameLbl.Text = lp.DisplayName or "Player"
         end
     end
+    refreshName()
 
-    -- Row toggle (ทั้งแถวเป็นปุ่ม) + pill switch สวยๆ
-    local row=Instance.new("TextButton",section)
-    row.Name="HideRow"; row.AutoButtonColor=false; row.Text=""
+    -- Hide Name (EXTRA compact) + row-wide clickable
+    local row=Instance.new("Frame",section)
+    row.Size=UDim2.fromOffset(160,28)                 -- เล็กลงมากๆ
     row.BackgroundColor3=THEME.BG_INNER
-    row.Size=UDim2.fromOffset(112,22)            -- เล็กมาก
-    row.ZIndex=1000; corner(row,7); stroke(row,1.0,THEME.GREEN)
+    corner(row,8); stroke(row,1.2,THEME.GREEN)
 
     local lab=Instance.new("TextLabel",row)
-    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,8,0,0); lab.Size=UDim2.new(1,-64,1,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=10; lab.TextColor3=THEME.WHITE
-    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"; lab.ZIndex=1001
+    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,10,0,0); lab.Size=UDim2.new(1,-90,1,0)
+    lab.Font=Enum.Font.GothamBold; lab.TextSize=11; lab.TextColor3=THEME.WHITE
+    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"
 
-    local pill=Instance.new("Frame",row)                    -- พื้นหลังเม็ดยา
-    pill.AnchorPoint=Vector2.new(1,0.5); pill.Position=UDim2.new(1,-6,0.5,0)
-    pill.Size=UDim2.fromOffset(32,14); pill.BackgroundColor3=THEME.DARK
-    pill.ZIndex=1001; corner(pill,7)
-    local pillStroke=stroke(pill,1.0,THEME.RED)
+    local sw=Instance.new("Frame",row)
+    sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-8,0.5,0)
+    sw.Size=UDim2.fromOffset(36,18)                   -- สวิตช์เล็กมาก
+    sw.BackgroundColor3=THEME.BG_INNER; corner(sw,9)
+    local swStroke=stroke(sw,1.1,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
 
-    local knob=Instance.new("Frame",pill)                   -- ปุ่มกลม
-    knob.Size=UDim2.fromOffset(12,12); knob.BackgroundColor3=THEME.WHITE
-    knob.ZIndex=1002; corner(knob,6)
+    local knob=Instance.new("Frame",sw)
+    knob.Size=UDim2.fromOffset(14,14)
+    knob.Position=UDim2.new(_G.UFOX_PROFILE.hiddenName and 1 or 0, _G.UFOX_PROFILE.hiddenName and -16 or 2, 0.5,-7)
+    knob.BackgroundColor3=THEME.WHITE; corner(knob,7)
 
-    -- toggle core
-    local function setHidden(v, instant)
-        _G.UFOX_PROFILE.hiddenName = v
-        pillStroke.Color = v and THEME.GREEN or THEME.RED
-        pill.BackgroundColor3 = v and Color3.fromRGB(16,40,24) or THEME.DARK
-        local target = UDim2.new(v and 1 or 0, v and -13 or 1, 0.5, -6)
-        if instant then
-            knob.Position = target
-        else
-            TweenService:Create(knob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play()
-        end
+    -- ปุ่มโปร่งใสคลุมทั้งแถว (แก้ปัญหากดไม่ทำงาน)
+    local rowBtn=Instance.new("TextButton",row)
+    rowBtn.BackgroundTransparency=1; rowBtn.Size=UDim2.fromScale(1,1); rowBtn.Text=""; rowBtn.ZIndex=10
+
+    local function setHidden(v)
+        _G.UFOX_PROFILE.hiddenName=v
+        swStroke.Color = v and THEME.GREEN or THEME.RED
+        TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position=UDim2.new(v and 1 or 0, v and -16 or 2, 0.5,-7)}):Play()
         refreshName()
     end
-    local function toggle() setHidden(not _G.UFOX_PROFILE.hiddenName, false) end
 
-    -- กดตรงไหนก็ได้ในแถว = toggle | กดที่กรอบชื่อก็ toggle
-    row.MouseButton1Click:Connect(toggle)
-    nameBar.MouseButton1Click:Connect(toggle)
-    if row.Activated then row.Activated:Connect(toggle) end
-    if nameBar.Activated then nameBar.Activated:Connect(toggle) end
-
-    -- init
-    setHidden(_G.UFOX_PROFILE.hiddenName, true)
+    rowBtn.MouseButton1Click:Connect(function() setHidden(not _G.UFOX_PROFILE.hiddenName) end)
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
