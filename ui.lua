@@ -709,6 +709,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== Player tab (Right) — Model A LEGACY 2.3.9b — PC Ready: Toggle (F) + MouseWheel Speed =====
+-- ✅ เริ่มต้น Sensitivity = 0%
 -- ✅ PC: กด F เปิด/ปิดบิน, ล้อเมาส์/[/] ปรับความไว
 -- ✅ Mobile: ปุ่มจอยบนจออัตโนมัติ (PC จะซ่อน)
 -- ✅ เปิด = บิน+Noclip (ย้ำทุกเฟรม) / ปิด = หยุด+คืนชนครบ
@@ -770,7 +771,7 @@ registerRight("Player", function(scroll)
     local flightOn=false
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
-    local currentRel=0 -- 0..1 ใช้กับสไลเดอร์/เมาส์
+    local currentRel=0 -- เริ่มที่ 0 (0%)
 
     local function getHRP()
         local c=lp.Character
@@ -803,57 +804,13 @@ registerRight("Player", function(scroll)
         end))
     end
 
-    -- ---------- Controls (GUI: แสดงเฉพาะมือถือ) ----------
-    local function createPad()
-        if _G.UFOX.gui then _G.UFOX.gui:Destroy() end
-        local gui=Instance.new("ScreenGui")
-        gui.Name="UFO_FlyPad"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999; gui.Enabled=UserInputService.TouchEnabled
-        gui.Parent=getGuiParent()
-        _G.UFOX.gui=gui
-
-        if not UserInputService.TouchEnabled then return gui end -- PC ซ่อนแผง
-
-        local SIZE,GAP=64,10
-        local pad=Instance.new("Frame",gui); pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,100,1,-140)
-        pad.Size=UDim2.fromOffset(SIZE*3+GAP*2,SIZE*3+GAP*2); pad.BackgroundTransparency=1
-
-        local function btn(p,x,y,t)
-            local b=Instance.new("TextButton",p); b.Size=UDim2.fromOffset(SIZE,SIZE); b.Position=UDim2.new(0,x,0,y)
-            b.BackgroundColor3=THEME.BLACK; b.Text=t; b.Font=Enum.Font.GothamBold; b.TextSize=28
-            b.TextColor3=THEME.WHITE; b.AutoButtonColor=false; corner(b,10); stroke(b,2,THEME.GREEN); return b
-        end
-
-        local f=btn(pad,SIZE+GAP,0,"🔼")
-        local bb=btn(pad,SIZE+GAP,SIZE*2+GAP*2,"🔽")
-        local l=btn(pad,0,SIZE+GAP,"◀️")
-        local r=btn(pad,(SIZE+GAP)*2,SIZE+GAP,"▶️")
-        local rwrap=Instance.new("Frame",gui); rwrap.AnchorPoint=Vector2.new(1,0.5); rwrap.Position=UDim2.new(1,-120,0.5,0)
-        rwrap.Size=UDim2.fromOffset(64,64*2+GAP); rwrap.BackgroundTransparency=1
-        local u=btn(rwrap,0,0,"⬆️")
-        local d=btn(rwrap,0,64+GAP,"⬇️")
-
-        local function bindTouch(but,key)
-            keep(but.InputBegan:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end
-            end))
-            keep(but.InputEnded:Connect(function(io)
-                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end
-            end))
-        end
-        bindTouch(f,"fwd"); bindTouch(bb,"back"); bindTouch(l,"left"); bindTouch(r,"right"); bindTouch(u,"up"); bindTouch(d,"down")
-        return gui
-    end
-
-    -- ---------- Keyboard / Mouse (PC) ----------
-    local sliderCenterLabel -- จะตั้งทีหลัง
+    -- ---------- PC Keyboard & Mouse ----------
+    local sliderCenterLabel
     local function applyRel(rel,instant)
         rel=math.clamp(rel,0,1)
         currentRel=rel
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
-        if sliderCenterLabel then
-            sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5))
-        end
+        if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
     end
 
@@ -867,20 +824,10 @@ registerRight("Player", function(scroll)
             if kc==Enum.KeyCode.D then hold.right=true end
             if kc==Enum.KeyCode.Space or kc==Enum.KeyCode.E then hold.up=true end
             if kc==Enum.KeyCode.LeftShift or kc==Enum.KeyCode.Q then hold.down=true end
-
-            -- Toggle flight (F)
-            if kc==Enum.KeyCode.F then
-                if flightOn then stopFly() else startFly() end
-            end
-
-            -- Sensitivity hotkeys: [ / ]
-            if kc==Enum.KeyCode.LeftBracket then
-                applyRel(currentRel-0.05,true)
-            elseif kc==Enum.KeyCode.RightBracket then
-                applyRel(currentRel+0.05,true)
-            end
+            if kc==Enum.KeyCode.F then if flightOn then stopFly() else startFly() end end
+            if kc==Enum.KeyCode.LeftBracket then applyRel(currentRel-0.05,true)
+            elseif kc==Enum.KeyCode.RightBracket then applyRel(currentRel+0.05,true) end
         end))
-
         keep(UserInputService.InputEnded:Connect(function(io,gp)
             if gp then return end
             local kc=io.KeyCode
@@ -891,8 +838,6 @@ registerRight("Player", function(scroll)
             if kc==Enum.KeyCode.Space or kc==Enum.KeyCode.E then hold.up=false end
             if kc==Enum.KeyCode.LeftShift or kc==Enum.KeyCode.Q then hold.down=false end
         end))
-
-        -- Mouse wheel ปรับความไว
         keep(UserInputService.InputChanged:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseWheel then
                 applyRel(currentRel + math.clamp(io.Position.Z, -1, 1)*0.05, true)
@@ -916,13 +861,7 @@ registerRight("Player", function(scroll)
         ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
-        local gui=createPad()
-        -- PC จะซ่อน gui อัตโนมัติ อยู่ที่ TouchEnabled
-        if gui then gui.Enabled=UserInputService.TouchEnabled end
-
         bindKeyboardAndMouse()
-
-        -- เปิด Noclip + ลูปย้ำ
         setPartsClip(char,true)
         forceNoclipLoop(true)
 
@@ -930,8 +869,8 @@ registerRight("Player", function(scroll)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
             local cam=workspace.CurrentCamera; if not cam then return end
             local camCF=cam.CFrame; local fwd=camCF.LookVector
-            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
-
+            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
+            if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
             local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
             if hold.fwd  then pos+=fwd*(MOVE*dt) end
             if hold.back then pos-=fwd*(MOVE*dt) end
@@ -939,7 +878,6 @@ registerRight("Player", function(scroll)
             if hold.right then pos+=rightH*(STRAFE*dt) end
             if hold.up   then pos+=Vector3.new(0,ASC*dt,0) end
             if hold.down then pos-=Vector3.new(0,ASC*dt,0) end
-
             bp.Position=pos
             ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
         end))
@@ -956,7 +894,7 @@ registerRight("Player", function(scroll)
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     end
 
-    -- ---------- UI: Toggle Switch ----------
+    -- ---------- UI Switch ----------
     local function makeSwitch(name,order)
         local row=Instance.new("Frame",scroll); row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=order
@@ -981,7 +919,7 @@ registerRight("Player", function(scroll)
     end
     makeSwitch("Flight Mode",nextOrder+1)
 
-    -- ---------- Sensitivity Slider (แชร์กับเมาส์/ปุ่ม) ----------
+    -- ---------- Sensitivity Slider ----------
     local sRow=Instance.new("Frame",scroll)
     sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK
     corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
@@ -1019,34 +957,8 @@ registerRight("Player", function(scroll)
         updateVisualFromRel(currentRel, instant)
     end
 
-    local function relFrom(px) return (px - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
-    local dragConn,endConn
-    local function beginDrag(px)
-        setRel(relFrom(px),true)
-        if dragConn then dragConn:Disconnect() end
-        if endConn then endConn:Disconnect() end
-        dragConn=keep(UserInputService.InputChanged:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseMovement then
-                setRel(relFrom(io.Position.X),true)
-            end
-        end))
-        endConn=keep(UserInputService.InputEnded:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-                if dragConn then dragConn:Disconnect() dragConn=nil end
-                if endConn then endConn:Disconnect() endConn=nil end
-                setRel(relFrom(io.Position.X),false)
-            end
-        end))
-    end
-    bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 then beginDrag(io.Position.X) end end)
-    knobBtn.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            beginDrag(io.Position.X)
-        end
-    end)
-
-    -- ค่าเริ่มต้น (กลางๆ)
-    setRel(0.5,true)
+    -- เริ่มต้นที่ 0%
+    setRel(0,true)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
