@@ -708,11 +708,10 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A LEGACY 2.3.9b — Clean Toggle Noclip + Speed Slider =====
--- ✅ สวิตช์เปิด = บิน + Noclip (ย้ำทุกเฟรม) / ปิด = หยุดบิน + คืนชนครบ
--- ✅ แก้บั๊กปิด-เปิดใหม่แล้ว Noclip หาย: มี forceNoclipLoop เฉพาะตอน "เปิด"
--- ✅ ปุ่ม W A S D / ขึ้น (Space/E) / ลง (Shift/Q) + จอยบนจอ
--- ✅ สไลเดอร์ความไว: 0% = 0.9x, 100% = 3.0x
+-- ===== Player tab (Right) — Model A LEGACY 2.3.9b — PC Ready: Toggle (F) + MouseWheel Speed =====
+-- ✅ PC: กด F เปิด/ปิดบิน, ล้อเมาส์/[/] ปรับความไว
+-- ✅ Mobile: ปุ่มจอยบนจออัตโนมัติ (PC จะซ่อน)
+-- ✅ เปิด = บิน+Noclip (ย้ำทุกเฟรม) / ปิด = หยุด+คืนชนครบ
 
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
@@ -771,6 +770,7 @@ registerRight("Player", function(scroll)
     local flightOn=false
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
+    local currentRel=0 -- 0..1 ใช้กับสไลเดอร์/เมาส์
 
     local function getHRP()
         local c=lp.Character
@@ -783,7 +783,7 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- ---------- Noclip helpers (ผูกกับสวิตช์) ----------
+    -- ---------- Noclip ----------
     local function setPartsClip(char, noclip)
         for _,p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") then
@@ -803,13 +803,16 @@ registerRight("Player", function(scroll)
         end))
     end
 
-    -- ---------- Controls (GUI) ----------
+    -- ---------- Controls (GUI: แสดงเฉพาะมือถือ) ----------
     local function createPad()
         if _G.UFOX.gui then _G.UFOX.gui:Destroy() end
         local gui=Instance.new("ScreenGui")
         gui.Name="UFO_FlyPad"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999; gui.Enabled=false; gui.Parent=getGuiParent()
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999; gui.Enabled=UserInputService.TouchEnabled
+        gui.Parent=getGuiParent()
         _G.UFOX.gui=gui
+
+        if not UserInputService.TouchEnabled then return gui end -- PC ซ่อนแผง
 
         local SIZE,GAP=64,10
         local pad=Instance.new("Frame",gui); pad.AnchorPoint=Vector2.new(0,1); pad.Position=UDim2.new(0,100,1,-140)
@@ -842,25 +845,58 @@ registerRight("Player", function(scroll)
         return gui
     end
 
-    -- ---------- Keyboard ----------
-    local function bindKeyboard()
+    -- ---------- Keyboard / Mouse (PC) ----------
+    local sliderCenterLabel -- จะตั้งทีหลัง
+    local function applyRel(rel,instant)
+        rel=math.clamp(rel,0,1)
+        currentRel=rel
+        sensTarget=S_MIN+(S_MAX-S_MIN)*rel
+        if sliderCenterLabel then
+            sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5))
+        end
+        if instant then sensApplied=sensTarget end
+    end
+
+    local function bindKeyboardAndMouse()
         keep(UserInputService.InputBegan:Connect(function(io,gp)
             if gp then return end
-            if io.KeyCode==Enum.KeyCode.W then hold.fwd=true end
-            if io.KeyCode==Enum.KeyCode.S then hold.back=true end
-            if io.KeyCode==Enum.KeyCode.A then hold.left=true end
-            if io.KeyCode==Enum.KeyCode.D then hold.right=true end
-            if io.KeyCode==Enum.KeyCode.Space or io.KeyCode==Enum.KeyCode.E then hold.up=true end
-            if io.KeyCode==Enum.KeyCode.LeftShift or io.KeyCode==Enum.KeyCode.Q then hold.down=true end
+            local kc=io.KeyCode
+            if kc==Enum.KeyCode.W then hold.fwd=true end
+            if kc==Enum.KeyCode.S then hold.back=true end
+            if kc==Enum.KeyCode.A then hold.left=true end
+            if kc==Enum.KeyCode.D then hold.right=true end
+            if kc==Enum.KeyCode.Space or kc==Enum.KeyCode.E then hold.up=true end
+            if kc==Enum.KeyCode.LeftShift or kc==Enum.KeyCode.Q then hold.down=true end
+
+            -- Toggle flight (F)
+            if kc==Enum.KeyCode.F then
+                if flightOn then stopFly() else startFly() end
+            end
+
+            -- Sensitivity hotkeys: [ / ]
+            if kc==Enum.KeyCode.LeftBracket then
+                applyRel(currentRel-0.05,true)
+            elseif kc==Enum.KeyCode.RightBracket then
+                applyRel(currentRel+0.05,true)
+            end
         end))
+
         keep(UserInputService.InputEnded:Connect(function(io,gp)
             if gp then return end
-            if io.KeyCode==Enum.KeyCode.W then hold.fwd=false end
-            if io.KeyCode==Enum.KeyCode.S then hold.back=false end
-            if io.KeyCode==Enum.KeyCode.A then hold.left=false end
-            if io.KeyCode==Enum.KeyCode.D then hold.right=false end
-            if io.KeyCode==Enum.KeyCode.Space or io.KeyCode==Enum.KeyCode.E then hold.up=false end
-            if io.KeyCode==Enum.KeyCode.LeftShift or io.KeyCode==Enum.KeyCode.Q then hold.down=false end
+            local kc=io.KeyCode
+            if kc==Enum.KeyCode.W then hold.fwd=false end
+            if kc==Enum.KeyCode.S then hold.back=false end
+            if kc==Enum.KeyCode.A then hold.left=false end
+            if kc==Enum.KeyCode.D then hold.right=false end
+            if kc==Enum.KeyCode.Space or kc==Enum.KeyCode.E then hold.up=false end
+            if kc==Enum.KeyCode.LeftShift or kc==Enum.KeyCode.Q then hold.down=false end
+        end))
+
+        -- Mouse wheel ปรับความไว
+        keep(UserInputService.InputChanged:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.MouseWheel then
+                applyRel(currentRel + math.clamp(io.Position.Z, -1, 1)*0.05, true)
+            end
         end))
     end
 
@@ -880,10 +916,13 @@ registerRight("Player", function(scroll)
         ao.Mode=Enum.OrientationAlignmentMode.OneAttachment
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
-        local gui=createPad(); gui.Enabled=true
-        bindKeyboard()
+        local gui=createPad()
+        -- PC จะซ่อน gui อัตโนมัติ อยู่ที่ TouchEnabled
+        if gui then gui.Enabled=UserInputService.TouchEnabled end
 
-        -- เปิด Noclip ทันที + ย้ำทุกเฟรม (กันหลุด)
+        bindKeyboardAndMouse()
+
+        -- เปิด Noclip + ลูปย้ำ
         setPartsClip(char,true)
         forceNoclipLoop(true)
 
@@ -891,8 +930,7 @@ registerRight("Player", function(scroll)
             sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
             local cam=workspace.CurrentCamera; if not cam then return end
             local camCF=cam.CFrame; local fwd=camCF.LookVector
-            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
-            if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
+            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); if rightH.Magnitude>0 then rightH=rightH.Unit else rightH=Vector3.new() end
 
             local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
             if hold.fwd  then pos+=fwd*(MOVE*dt) end
@@ -909,11 +947,9 @@ registerRight("Player", function(scroll)
 
     local function stopFly()
         flightOn=false
-        -- ปิดลูป Noclip ก่อน แล้วคืนชน
         forceNoclipLoop(false)
         local hrp,hum,char=getHRP()
         if char then setPartsClip(char,false) end
-
         _G.UFOX.cleanupAll()
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
@@ -945,7 +981,7 @@ registerRight("Player", function(scroll)
     end
     makeSwitch("Flight Mode",nextOrder+1)
 
-    -- ---------- Sensitivity Slider ----------
+    -- ---------- Sensitivity Slider (แชร์กับเมาส์/ปุ่ม) ----------
     local sRow=Instance.new("Frame",scroll)
     sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK
     corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
@@ -964,36 +1000,41 @@ registerRight("Player", function(scroll)
     knobBtn.Size=UDim2.fromOffset(28,28); knobBtn.Position=UDim2.new(0,-14,0.5,-14); knobBtn.BorderSizePixel=0; corner(knobBtn,14)
     local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
     centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
+    sliderCenterLabel=centerVal
 
-    local function applyRel(rel,instant)
+    local function updateVisualFromRel(rel, instant)
         rel=math.clamp(rel,0,1)
-        sensTarget=S_MIN+(S_MAX-S_MIN)*rel
+        local x = UDim2.new(rel,-14,0.5,-14)
+        local w = UDim2.fromScale(rel,1)
         centerVal.Text=string.format("%d%%",math.floor(rel*100+0.5))
         if instant then
-            sensApplied=sensTarget
-            fill.Size=UDim2.fromScale(rel,1)
-            knobBtn.Position=UDim2.new(rel,-14,0.5,-14)
+            fill.Size=w; knobBtn.Position=x
         else
-            tween(fill,{Size=UDim2.fromScale(rel,1)},0.08)
-            tween(knobBtn,{Position=UDim2.new(rel,-14,0.5,-14)},0.08)
+            tween(fill,{Size=w},0.08); tween(knobBtn,{Position=x},0.08)
         end
     end
+
+    local function setRel(rel, instant)
+        applyRel(rel, instant)
+        updateVisualFromRel(currentRel, instant)
+    end
+
     local function relFrom(px) return (px - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
     local dragConn,endConn
     local function beginDrag(px)
-        applyRel(relFrom(px),true)
+        setRel(relFrom(px),true)
         if dragConn then dragConn:Disconnect() end
         if endConn then endConn:Disconnect() end
         dragConn=keep(UserInputService.InputChanged:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.Touch or io.UserInputType==Enum.UserInputType.MouseMovement then
-                applyRel(relFrom(io.Position.X),true)
+                setRel(relFrom(io.Position.X),true)
             end
         end))
         endConn=keep(UserInputService.InputEnded:Connect(function(io)
             if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
                 if dragConn then dragConn:Disconnect() dragConn=nil end
                 if endConn then endConn:Disconnect() endConn=nil end
-                applyRel(relFrom(io.Position.X),false)
+                setRel(relFrom(io.Position.X),false)
             end
         end))
     end
@@ -1003,6 +1044,9 @@ registerRight("Player", function(scroll)
             beginDrag(io.Position.X)
         end
     end)
+
+    -- ค่าเริ่มต้น (กลางๆ)
+    setRel(0.5,true)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
