@@ -708,17 +708,18 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.5.1 (Fix Noclip OFF Hard Lock) =====
--- ปิด Noclip = คืนชนทุกพาร์ตทันที + ยิงซ้ำ 0.6 วิ กันสคริปต์ทับ
+-- ===== Player tab (Right) — Model A LEGACY 2.3 (Simple Toggle) =====
+-- Noclip แบบเก่า: กด ON = ทะลุ (ตั้งค่า Part ครั้งเดียว), กด OFF = คืนชนทุกพาร์ตทันที
+-- ไม่ใช้ PhysicsService / ไม่ใช้ realtime loop เพื่อให้พฤติกรรมเหมือนเวอร์ชันก่อนหน้าเป๊ะ
+
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local TweenService = game:GetService("TweenService")
-    local PhysicsService = game:GetService("PhysicsService")
     local lp = Players.LocalPlayer
 
-    -- THEME
+    -- ===== THEME =====
     local BASE = rawget(_G, "THEME") or {}
     local THEME = {
         GREEN = BASE.GREEN or BASE.ACCENT or Color3.fromRGB(25,255,125),
@@ -730,20 +731,7 @@ registerRight("Player", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- PhysicsService (safe)
-    local CAN_USE_PHYSICS = pcall(function() PhysicsService:GetCollisionGroups() end)
-    local NOCLIP_GROUP = "UFO_NoClip"
-    if CAN_USE_PHYSICS then
-        pcall(function()
-            PhysicsService:CreateCollisionGroup(NOCLIP_GROUP)
-            for _,g in ipairs(PhysicsService:GetCollisionGroups()) do
-                PhysicsService:CollisionGroupSetCollidable(NOCLIP_GROUP, g.name, false)
-                PhysicsService:CollisionGroupSetCollidable(g.name, NOCLIP_GROUP, false)
-            end
-        end)
-    end
-
-    -- Layout
+    -- ===== Layout =====
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout", scroll)
@@ -756,26 +744,24 @@ registerRight("Player", function(scroll)
     local nextOrder=10; for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") and ch~=vlist then nextOrder=math.max(nextOrder,(ch.LayoutOrder or 0)+1) end end
     if scroll:FindFirstChild("Section_FlightHeader") then return end
 
-    -- Header
     local header = Instance.new("TextLabel")
     header.Name="Section_FlightHeader"; header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
     header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE; header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="Flight Mode 🛸"; header.LayoutOrder=nextOrder; header.Parent=scroll
 
-    -- Config
+    -- ===== Config (บิน) =====
     local hoverHeight, BASE_MOVE, BASE_STRAFE, BASE_ASCEND = 6,150,100,100
     local dampFactor = 4e3
     local sensTarget, sensApplied = 0, 0
     local S_MIN, S_MAX = 0.0, 2.0
     local function speeds() local m=1+sensApplied; return BASE_MOVE*m, BASE_STRAFE*m, BASE_ASCEND*m end
 
-    local flightOn, noclipWanted = false, true
+    local flightOn, noclipOn = false, true
     local movers={bp=nil,ao=nil,att=nil}
     local loopConn, keyBeginConn, keyEndConn
     local controlsGui
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
-    local origGroup = {}
 
     local function getHRP()
         local c=lp.Character
@@ -789,7 +775,7 @@ registerRight("Player", function(scroll)
         return (game:FindService("CoreGui") or lp:WaitForChild("PlayerGui"))
     end
 
-    -- Controls (mobile pad + keyboard)
+    -- ===== Controls (ปุ่มจอยบนจอ + คีย์บอร์ด) =====
     local function ensureControls()
         if controlsGui and controlsGui.Parent then controlsGui.Enabled=true; return controlsGui end
         controlsGui = Instance.new("ScreenGui")
@@ -804,8 +790,12 @@ registerRight("Player", function(scroll)
         local rwrap=Instance.new("Frame",controlsGui); rwrap.AnchorPoint=Vector2.new(1,0.5); rwrap.Position=UDim2.new(1,-120,0.5,0); rwrap.Size=UDim2.fromOffset(64,64*2+GAP); rwrap.BackgroundTransparency=1
         local u=btn(rwrap,0,0,"⬆️"); local d=btn(rwrap,0,64+GAP,"⬇️")
         local function bindTouch(but,key)
-            but.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end end)
-            but.InputEnded:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end end)
+            but.InputBegan:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=true end
+            end)
+            but.InputEnded:Connect(function(io)
+                if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then hold[key]=false end
+            end)
         end
         bindTouch(f,"fwd"); bindTouch(b,"back"); bindTouch(l,"left"); bindTouch(r,"right"); bindTouch(u,"up"); bindTouch(d,"down")
         return controlsGui
@@ -834,53 +824,32 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- Noclip (hard lock OFF)
-    local restorePulse
-    local function forceProps(p,on)
-        if on then p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
-        else p.CanCollide=true; p.CanTouch=true; p.CanQuery=true end
-    end
-    local function applyNoClip(char)
+    -- ===== Noclip (แบบเดิม ไม่ realtime/ไม่ใช้ CollisionGroup) =====
+    local function setPartsClip(char, on) -- on=false = เปิดชน / on=true = ทะลุ
         for _,p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") then
-                if CAN_USE_PHYSICS then
-                    pcall(function()
-                        if not origGroup[p] then origGroup[p]=PhysicsService:GetCollisionGroupName(p.CollisionGroupId) end
-                        PhysicsService:SetPartCollisionGroup(p, "UFO_NoClip")
-                    end)
-                end
-                forceProps(p,true)
-            end
-        end
-    end
-    local function restoreClip(char)
-        if restorePulse then restorePulse:Disconnect(); restorePulse=nil end
-        local function once()
-            for _,p in ipairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    if CAN_USE_PHYSICS then
-                        pcall(function() PhysicsService:SetPartCollisionGroup(p, origGroup[p] or "Default") end)
-                    end
-                    origGroup[p]=nil; forceProps(p,false)
+                if on then
+                    p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
+                else
+                    p.CanCollide=true;  p.CanTouch=true;  p.CanQuery=true
                 end
             end
         end
-        once()
-        local t0=tick()
-        restorePulse=RunService.Stepped:Connect(function()
-            if tick()-t0>0.6 then restorePulse:Disconnect(); restorePulse=nil else once() end
-        end)
-        local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then for i=1,5 do hrp.CFrame = hrp.CFrame + Vector3.new(0,2.2,0); task.wait() end end
     end
     local function setNoclipState(on)
         local _,_,char=getHRP(); if not char then return end
-        if on then applyNoClip(char) else restoreClip(char) end
+        noclipOn = on
+        setPartsClip(char, on)
+        if not on then
+            -- ดันตัวออกเล็กน้อยกันติดกำแพง
+            local hrp=char:FindFirstChild("HumanoidRootPart")
+            if hrp then for i=1,5 do hrp.CFrame = hrp.CFrame + Vector3.new(0,2.2,0); task.wait() end end
+        end
     end
 
-    -- Flight
+    -- ===== Flight =====
     local function stopAllAnimations(hum)
-        local animator=hum and hum:FindFirstChildOfClass("Animator")
+        local animator = hum and hum:FindFirstChildOfClass("Animator")
         if animator then for _,trk in ipairs(animator:GetPlayingAnimationTracks()) do trk:Stop(0) end end
     end
     local function startFly()
@@ -896,8 +865,11 @@ registerRight("Player", function(scroll)
         local att=hrp:FindFirstChild("AO_Att") or Instance.new("Attachment",hrp); att.Name="AO_Att"
         local ao=hrp:FindFirstChild("AO_Face") or Instance.new("AlignOrientation",hrp); ao.Name="AO_Face"; ao.Attachment0=att; ao.Responsiveness=240; ao.MaxAngularVelocity=math.huge; ao.RigidityEnabled=true; ao.Mode=Enum.OrientationAlignmentMode.OneAttachment; ao.Enabled=true
         movers.bp,movers.ao,movers.att=bp,ao,att
+
         ensureControls().Enabled=true; bindKeyboard(true)
-        setNoclipState(noclipWanted)
+        -- ใช้สถานะ noclip ปัจจุบันแบบครั้งเดียว (ไม่ realtime)
+        setNoclipState(noclipOn)
+
         loopConn=RunService.Heartbeat:Connect(function(dt)
             local lerp=math.clamp(dt*10,0,1); sensApplied=sensApplied+(sensTarget-sensApplied)*lerp
             local cam=workspace.CurrentCamera; if not cam then return end
@@ -926,10 +898,11 @@ registerRight("Player", function(scroll)
         if hum then hum.AutoRotate=true end
         if savedAnimate then savedAnimate.Enabled=true; savedAnimate=nil end
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
+        -- ปิดบินแล้วบังคับคืนชน (แบบเดิม)
         setNoclipState(false)
     end
 
-    -- UI
+    -- ===== UI =====
     local frame=Instance.new("Frame",scroll); frame.Size=UDim2.new(1,-6,0,46); frame.BackgroundColor3=THEME.BLACK; corner(frame,12); stroke(frame,2.2,THEME.GREEN); frame.LayoutOrder=nextOrder+1
     local lab=Instance.new("TextLabel",frame); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0); lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.TextColor3=THEME.WHITE; lab.Text="Flight Mode"
     local switch=Instance.new("Frame",frame); switch.AnchorPoint=Vector2.new(1,0.5); switch.Position=UDim2.new(1,-12,0.5,0); switch.Size=UDim2.fromOffset(52,26); switch.BackgroundColor3=THEME.BLACK; corner(switch,13)
@@ -945,6 +918,7 @@ registerRight("Player", function(scroll)
     btn.MouseButton1Click:Connect(function() setState(not flightOn) end)
     lp.CharacterAdded:Connect(function() setState(false) end)
 
+    -- Noclip switch (แบบเดิม)
     local ncRow=Instance.new("Frame",scroll); ncRow.Size=UDim2.new(1,-6,0,46); ncRow.BackgroundColor3=THEME.BLACK; corner(ncRow,12); stroke(ncRow,2.2,THEME.GREEN); ncRow.LayoutOrder=nextOrder+2
     local ncLab=Instance.new("TextLabel",ncRow); ncLab.BackgroundTransparency=1; ncLab.Size=UDim2.new(1,-140,1,0); ncLab.Position=UDim2.new(0,16,0,0); ncLab.Font=Enum.Font.GothamBold; ncLab.TextSize=13; ncLab.TextXAlignment=Enum.TextXAlignment.Left; ncLab.TextColor3=THEME.WHITE; ncLab.Text="Noclip Mode"
     local ncSwitch=Instance.new("Frame",ncRow); ncSwitch.AnchorPoint=Vector2.new(1,0.5); ncSwitch.Position=UDim2.new(1,-12,0.5,0); ncSwitch.Size=UDim2.fromOffset(52,26); ncSwitch.BackgroundColor3=THEME.BLACK; corner(ncSwitch,13)
@@ -952,23 +926,29 @@ registerRight("Player", function(scroll)
     local ncKnob=Instance.new("Frame",ncSwitch); ncKnob.Size=UDim2.fromOffset(22,22); ncKnob.Position=UDim2.new(1,-24,0.5,-11); ncKnob.BackgroundColor3=THEME.WHITE; corner(ncKnob,11)
     local ncBtn=Instance.new("TextButton",ncSwitch); ncBtn.BackgroundTransparency=1; ncBtn.Size=UDim2.fromScale(1,1); ncBtn.Text=""
     local function toggleNoclip(on)
-        noclipWanted=on
-        if on then ncStroke.Color=THEME.GREEN; tween(ncKnob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); setNoclipState(true)
-        else      ncStroke.Color=THEME.RED;   tween(ncKnob,{Position=UDim2.new(0,2,0.5,-11)},0.1); setNoclipState(false) end
+        noclipOn=on
+        if on then
+            ncStroke.Color=THEME.GREEN; tween(ncKnob,{Position=UDim2.new(1,-24,0.5,-11)},0.1)
+            setNoclipState(true)
+        else
+            ncStroke.Color=THEME.RED;   tween(ncKnob,{Position=UDim2.new(0,2,0.5,-11)},0.1)
+            setNoclipState(false)
+        end
     end
     toggleNoclip(true)
-    ncBtn.MouseButton1Click:Connect(function() toggleNoclip(not noclipWanted) end)
+    ncBtn.MouseButton1Click:Connect(function() toggleNoclip(not noclipOn) end)
 
-    -- Sensitivity
+    -- Sensitivity (แถบเลื่อน)
     local sRow=Instance.new("Frame",scroll); sRow.Size=UDim2.new(1,-6,0,70); sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+3
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4); sLab.Size=UDim2.new(1,-32,0,24); sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left; sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
     local bar=Instance.new("Frame",sRow); bar.Position=UDim2.new(0,16,0,34); bar.Size=UDim2.new(1,-32,0,16); bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN)
     local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
     local knob2=Instance.new("Frame",bar); knob2.Size=UDim2.fromOffset(24,24); knob2.Position=UDim2.new(0,-12,0.5,-12); knob2.BackgroundColor3=THEME.WHITE; corner(knob2,12)
-    local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1); centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.TextXAlignment=Enum.TextXAlignment.Center; centerVal.TextYAlignment=Enum.TextYAlignment.Center; centerVal.Text="0%"
+    local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1); centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
     local dragging=false
     local function uiFromRel(rel,instant)
-        rel=math.clamp(rel,0,1); sensTarget=S_MIN+(S_MAX-S_MIN)*rel
+        rel=math.clamp(rel,0,1)
+        sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         centerVal.Text=string.format("%d%%",math.floor(rel*100+0.5))
         if instant then fill.Size=UDim2.fromScale(rel,1); knob2.Position=UDim2.new(rel,-12,0.5,-12)
         else tween(fill,{Size=UDim2.fromScale(rel,1)},0.08); tween(knob2,{Position=UDim2.new(rel,-12,0.5,-12)},0.08) end
