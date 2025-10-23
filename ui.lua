@@ -708,11 +708,11 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9g (FINAL PASTE-AND-GO) =====
+-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9h (FINAL PASTE-AND-GO) =====
 -- ✅ Flight toggle + Noclip (เฉพาะตอนเปิด)
--- ✅ Slider ลื่นมาก (RenderStepped + visual lerp), เมาส์/ทัช
--- ✅ Joypad มือถือ + ฮอตคีย์ PC (F, WASD, Space/E, Shift/Q, [ ])
--- ✅ Layout ตายตัว, ลากสไลเดอร์กี่รอบก็ไม่พัง, cleanup คืนค่าปลอดภัย
+-- ✅ Slider ลื่น (RenderStepped + visual lerp), เมาส์/ทัช
+-- ✅ จดจำค่าความไวที่ตั้งไว้ (ครั้งแรก = 0 เท่านั้น)
+-- ✅ Joypad มือถือ + ฮอตคีย์ PC | Layout ตายตัว | Cleanup ปลอดภัย
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -758,13 +758,16 @@ registerRight("Player", function(scroll)
     local S_MIN,S_MAX=0.0,2.0
     local MIN_MULT,MAX_MULT=0.9,3.0
 
-    -- ---------- STATE ----------
+    -- ---------- STATE (จำค่าไว้ระหว่างเปิดเมนู) ----------
     local flightOn=false
     local hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     local savedAnimate
     local sensTarget,sensApplied=0,0
-    local currentRel=0                -- 0..1 โดยตรรกะ
-    local visRel=0                    -- 0..1 ค่าที่แสดง (lerp ให้ลื่น)
+
+    -- อ่านค่าความไวที่เคยตั้งไว้ (ถ้ายังไม่เคย ให้เป็น 0)
+    local firstRun = (_G.UFOX_sensRel == nil)
+    local currentRel = _G.UFOX_sensRel or 0    -- 0..1 ตรรกะ
+    local visRel     = currentRel              -- 0..1 สำหรับแสดง (lerp)
     local sliderCenterLabel
     local dragging=false
     local RSdragConn, EndDragConn, TouchPosConn
@@ -874,10 +877,11 @@ registerRight("Player", function(scroll)
         hold={fwd=false,back=false,left=false,right=false,up=false,down=false}
     end
 
-    -- ---------- HOTKEYS ----------
+    -- ---------- HOTKEYS / SENS ----------
     local function applyRel(rel,instant)
         rel=math.clamp(rel,0,1)
         currentRel=rel
+        _G.UFOX_sensRel = currentRel  -- << บันทึกไว้ให้ใช้ครั้งถัดไป
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
@@ -911,7 +915,7 @@ registerRight("Player", function(scroll)
         end
     end))
 
-    -- ---------- UI (fixed order so it stays put) ----------
+    -- ---------- UI ----------
     for _,n in ipairs({"Section_FlightHeader","Row_FlightToggle","Row_Sens"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
     local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12); vlist.SortOrder=Enum.SortOrder.LayoutOrder
@@ -961,8 +965,7 @@ registerRight("Player", function(scroll)
 
     local function relFrom(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
     local function syncVisual(now)
-        -- lerp ให้ลื่น (เพิ่มค่านี้ให้ตอบสนองเร็วขึ้น: 0.25 -> 0.35 ก็ได้)
-        if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.25 end
+        if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.30 end -- ความเร็ว lerp
         visRel = math.clamp(visRel,0,1)
         fill.Size=UDim2.fromScale(visRel,1)
         knobBtn.Position=UDim2.new(visRel,-14,0.5,-14)
@@ -995,7 +998,12 @@ registerRight("Player", function(scroll)
     end))
 
     -- ---------- INIT ----------
-    applyRel(0,true); syncVisual(true)
+    if firstRun then
+        applyRel(0,true)          -- ครั้งแรก = 0 จริง
+    else
+        applyRel(currentRel,true) -- ครั้งต่อไปใช้ค่าที่เคยบันทึก
+    end
+    syncVisual(true)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
