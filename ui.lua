@@ -708,7 +708,8 @@ registerRight("Player", function(scroll)
     nameLbl.TextYAlignment = Enum.TextYAlignment.Center
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
--- ===== Player tab (Right) — Model A V2.4.1 — Flight (Fast + Pitch Steering + PC/Mobile)
+-- ===== Player tab (Right) — Model A V2.4.2 — Flight (Fast + Pitch Steering + PC/Mobile)
+-- + Noclip toggle (โหมดทะลุ) + Sensitivity slider (Sensitivity)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -759,14 +760,22 @@ registerRight("Player", function(scroll)
     header.Parent=scroll
 
     ----------------------------------------------------------------
-    -- CONFIG (แรงขึ้น)
+    -- CONFIG (ฐาน)
     ----------------------------------------------------------------
     local hoverHeight   = 6
-    local moveSpeed     = 150   -- เร็วขึ้น
-    local strafeSpeed   = 100
-    local ascendSpeed   = 100
+    local BASE_MOVE     = 150   -- ค่าเริ่มต้นในสคริปต์
+    local BASE_STRAFE   = 100
+    local BASE_ASCEND   = 100
     local liftPower     = 1e7
     local dampFactor    = 4e3
+
+    -- runtime ที่คูณด้วย sensitivity
+    local sens          = 1.0  -- ค่าเริ่มต้น (1.0 = ตามสคริปต์เดิม)
+    local function getSpeeds()
+        return BASE_MOVE*sens, BASE_STRAFE*sens, BASE_ASCEND*sens
+    end
+
+    local noclipWanted  = true  -- โหมดทะลุ: เปิดตั้งแต่แรก
 
     local movers = {bp=nil, ao=nil, att=nil}
     local loopConn, noclipConn
@@ -846,18 +855,28 @@ registerRight("Player", function(scroll)
         return controlsGui
     end
 
-    -- ==== TRUE NOCLIP ====
-    local function setNoclip(enabled)
-        if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
-        if not enabled then return end
-        noclipConn = RunService.Stepped:Connect(function()
-            local _,_,char = getHRP()
-            if not char then return end
-            for _,p in ipairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then
+    -- ==== TRUE NOCLIP (ตามสวิตช์ "โหมดทะลุ") ====
+    local function applyCollision(on)
+        local _,_,char = getHRP()
+        if not char then return end
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                if on then
                     p.CanCollide=false; p.CanTouch=false; p.CanQuery=false
+                else
+                    p.CanCollide=true;  p.CanTouch=true;  p.CanQuery=true
                 end
             end
+        end
+    end
+    local function setNoclipLooper(enabled)
+        if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
+        if not enabled then
+            applyCollision(false)
+            return
+        end
+        noclipConn = RunService.Stepped:Connect(function()
+            if noclipWanted then applyCollision(true) end
         end)
     end
 
@@ -898,34 +917,32 @@ registerRight("Player", function(scroll)
         movers.bp, movers.ao, movers.att = bp, ao, att
 
         ensureControls().Enabled = true
-        setNoclip(true)
+        setNoclipLooper(true)
 
         loopConn = RunService.Heartbeat:Connect(function(dt)
             local cam = workspace.CurrentCamera; if not cam then return end
             local camCF = cam.CFrame
-
-            -- ใช้ LookVector ทั้งแกน Y: ก้ม = ดิ่งลง, เงย = พุ่งขึ้น
             local fwd3   = camCF.LookVector
             local rightH = Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z)
             if rightH.Magnitude > 0 then rightH = rightH.Unit end
 
+            local MOVE, STRAFE, ASC = getSpeeds()
             local pos = movers.bp.Position
-            if hold.fwd  then pos += fwd3  * (moveSpeed   * dt) end
-            if hold.back then pos -= fwd3  * (moveSpeed   * dt) end
-            if hold.left then  pos -= rightH* (strafeSpeed* dt) end
-            if hold.right then pos += rightH* (strafeSpeed* dt) end
-            if hold.up   then  pos += Vector3.new(0, ascendSpeed*dt, 0) end
-            if hold.down then  pos -= Vector3.new(0, ascendSpeed*dt, 0) end
+            if hold.fwd  then pos += fwd3  * (MOVE   * dt) end
+            if hold.back then pos -= fwd3  * (MOVE   * dt) end
+            if hold.left then  pos -= rightH* (STRAFE* dt) end
+            if hold.right then pos += rightH* (STRAFE* dt) end
+            if hold.up   then  pos += Vector3.new(0, ASC*dt, 0) end
+            if hold.down then  pos -= Vector3.new(0, ASC*dt, 0) end
             movers.bp.Position = pos
 
-            -- หันตามกล้องแบบรวมก้ม-เงย
             movers.ao.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + camCF.LookVector, camCF.UpVector)
-        end) -- <<< ตรงนี้ต้องเป็น end) ไม่ใช่ })
+        end)
     end
 
     local function stopFly()
         if loopConn then loopConn:Disconnect(); loopConn=nil end
-        setNoclip(false)
+        setNoclipLooper(false)
         local _,hum = getHRP()
         if movers.bp then movers.bp:Destroy(); movers.bp=nil end
         if movers.ao then movers.ao.Enabled=false end
@@ -934,7 +951,7 @@ registerRight("Player", function(scroll)
         if controlsGui then controlsGui.Enabled=false end
     end
 
-    -- Toggle UI
+    -- ========== UI: สวิตช์หลัก ==========
     local frame=Instance.new("Frame"); frame.Size=UDim2.new(1,-6,0,46); frame.BackgroundColor3=THEME.BLACK
     frame.LayoutOrder=nextOrder+1; corner(frame,12); stroke(frame,2.2,THEME.GREEN); frame.Parent=scroll
     local lab=Instance.new("TextLabel",frame); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0)
@@ -947,6 +964,80 @@ registerRight("Player", function(scroll)
     knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
     local btn=Instance.new("TextButton",switch); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
 
+    -- ========== UI 1: โหมดทะลุ (Noclip Toggle) ==========
+    local ncRow = Instance.new("Frame"); ncRow.Size=UDim2.new(1,-6,0,46); ncRow.BackgroundColor3=THEME.BLACK
+    ncRow.LayoutOrder=nextOrder+2; corner(ncRow,12); stroke(ncRow,2.2,THEME.GREEN); ncRow.Parent=scroll
+    local ncLab = Instance.new("TextLabel",ncRow)
+    ncLab.BackgroundTransparency=1; ncLab.Size=UDim2.new(1,-140,1,0); ncLab.Position=UDim2.new(0,16,0,0)
+    ncLab.Font=Enum.Font.GothamBold; ncLab.TextSize=13; ncLab.TextXAlignment=Enum.TextXAlignment.Left
+    ncLab.TextColor3=THEME.WHITE; ncLab.Text="โหมดทะลุ"
+    local ncSwitch = Instance.new("Frame",ncRow)
+    ncSwitch.AnchorPoint=Vector2.new(1,0.5); ncSwitch.Position=UDim2.new(1,-12,0.5,0)
+    ncSwitch.Size=UDim2.fromOffset(52,26); ncSwitch.BackgroundColor3=THEME.BLACK; corner(ncSwitch,13)
+    local ncStroke=stroke(ncSwitch,1.8,THEME.GREEN) -- เริ่มต้น ON
+    local ncKnob = Instance.new("Frame",ncSwitch); ncKnob.Size=UDim2.fromOffset(22,22); ncKnob.Position=UDim2.new(1,-24,0.5,-11)
+    ncKnob.BackgroundColor3=THEME.WHITE; corner(ncKnob,11)
+    local ncBtn = Instance.new("TextButton",ncSwitch); ncBtn.BackgroundTransparency=1; ncBtn.Size=UDim2.fromScale(1,1); ncBtn.Text=""
+    local function setNoclipState(on)
+        noclipWanted = on
+        if on then
+            ncStroke.Color = THEME.GREEN
+            ncKnob:TweenPosition(UDim2.new(1,-24,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
+        else
+            ncStroke.Color = THEME.RED
+            ncKnob:TweenPosition(UDim2.new(0,2,0.5,-11),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.12,true)
+            applyCollision(false)
+        end
+    end
+    setNoclipState(true)
+    ncBtn.MouseButton1Click:Connect(function() setNoclipState(not noclipWanted) end)
+
+    -- ========== UI 2: Sensitivity Slider ==========
+    local sRow = Instance.new("Frame"); sRow.Size=UDim2.new(1,-6,0,64); sRow.BackgroundColor3=THEME.BLACK
+    sRow.LayoutOrder=nextOrder+3; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.Parent=scroll
+    local sLab = Instance.new("TextLabel",sRow)
+    sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,0); sLab.Size=UDim2.new(1,-32,0,24)
+    sLab.Font=Enum.Font.GothamBold; sLab.TextSize=13; sLab.TextXAlignment=Enum.TextXAlignment.Left
+    sLab.TextColor3=THEME.WHITE; sLab.Text="Sensitivity"
+
+    local bar = Instance.new("Frame",sRow)
+    bar.Position=UDim2.new(0,16,0,30); bar.Size=UDim2.new(1,-32,0,10)
+    bar.BackgroundColor3=THEME.BLACK; corner(bar,5); stroke(bar,1.6,THEME.GREEN)
+    local fill = Instance.new("Frame",bar)
+    fill.BackgroundColor3=THEME.GREEN; fill.Size=UDim2.fromScale(sens,1); corner(fill,5)
+    local knob2 = Instance.new("Frame",bar)
+    knob2.Size=UDim2.fromOffset(20,20); knob2.Position=UDim2.new(sens, -10, 0.5, -10); knob2.BackgroundColor3=THEME.WHITE; corner(knob2,10)
+    local sVal = Instance.new("TextLabel",sRow)
+    sVal.BackgroundTransparency=1; sVal.Position=UDim2.new(1,-80,0,26); sVal.Size=UDim2.fromOffset(64,20)
+    sVal.Font=Enum.Font.GothamBold; sVal.TextSize=12; sVal.TextColor3=THEME.WHITE; sVal.TextXAlignment=Enum.TextXAlignment.Right
+    sVal.Text = string.format("x%.2f", sens)
+
+    local S_MIN,S_MAX = 0.5, 2.5
+    local dragging = false
+    local function setSensFromX(x)
+        local rel = math.clamp((x - bar.AbsolutePosition.X)/bar.AbsoluteSize.X, 0, 1)
+        sens = S_MIN + (S_MAX-S_MIN)*rel
+        local relNow = (sens - S_MIN)/(S_MAX-S_MIN)
+        fill.Size = UDim2.fromScale(relNow,1)
+        knob2.Position = UDim2.new(relNow,-10,0.5,-10)
+        sVal.Text = string.format("x%.2f", sens)
+    end
+    knob2.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=true end
+    end)
+    knob2.InputEnded:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then dragging=false end
+    end)
+    bar.InputBegan:Connect(function(io)
+        if io.UserInputType==Enum.UserInputType.MouseButton1 then setSensFromX(io.Position.X) end
+    end)
+    UserInputService.InputChanged:Connect(function(io)
+        if dragging and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
+            setSensFromX(io.Position.X)
+        end
+    end)
+
+    -- Toggle หลัก
     local isOn=false
     local function setState(v)
         isOn=v
