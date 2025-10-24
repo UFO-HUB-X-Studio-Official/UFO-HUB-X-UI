@@ -1322,6 +1322,296 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
+-- ===== UFO HUB X • Player Tab — AFK 💤 (Model A V1 • Paste-once) =====
+-- 1) โหมดหน้าจอมืด (ปิดทุกอย่างเต็มจอ)    [สวิตช์]
+-- 2) หน้าจอข่าว (เต็มจอ 100% เช่นกัน)        [สวิตช์]
+-- 3) กันโดนเตะทุก 20 นาที (Anti-Idle)         [สวิตช์ เปิดตลอดเวลา]
+-- 4) ตรวจจับผู้เล่นไม่ขยับ 10 นาที -> กระตุ้นกันเตะ [สวิตช์ เปิดตลอดเวลา]
+-- หมายเหตุ: สวิตช์ “กดได้เฉพาะตัวสวิตช์” ไม่คลุมทั้งแถว
+
+registerRight("Player", function(scroll)
+    local Players       = game:GetService("Players")
+    local RunService    = game:GetService("RunService")
+    local UIS           = game:GetService("UserInputService")
+    local TweenService  = game:GetService("TweenService")
+    local Content       = game:GetService("ContentProvider")
+    local lp            = Players.LocalPlayer
+
+    -- ========== GLOBAL STATE ==========
+    _G.UFOX_AFK = _G.UFOX_AFK or {
+        uiConns = {},
+        tempConns = {},
+        remember = {
+            darkOn = false,
+            newsOn = false,
+            antiIdleOn = true,   -- ข้อ 3 เปิดตลอดเวลา
+            watcherOn = true,    -- ข้อ 4 เปิดตลอดเวลา
+        },
+        gui = nil,
+        lastInput = tick(),
+        antiIdleLoop = nil,
+    }
+    local AFK = _G.UFOX_AFK
+    local function keepUI(c) table.insert(AFK.uiConns,c) return c end
+    local function keepTmp(c) table.insert(AFK.tempConns,c) return c end
+    local function disconnectAll(t) for i=#t,1,-1 do local c=t[i]; pcall(function() c:Disconnect() end); t[i]=nil end end
+
+    -- ========== THEME ==========
+    local BASE  = rawget(_G,"THEME") or {}
+    local THEME = {
+        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
+        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
+        WHITE    = Color3.fromRGB(255,255,255),
+        RED      = Color3.fromRGB(255,40,40),
+        DARK     = Color3.fromRGB(16,16,18)
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.3 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+
+    -- ========== CLEANUP / REBUILD ==========
+    disconnectAll(AFK.uiConns)
+    disconnectAll(AFK.tempConns)
+
+    -- ลบ Section เก่าเฉพาะของ AFK
+    local old = scroll:FindFirstChild("Section_AFK")
+    if old then old:Destroy() end
+
+    -- Layout
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    vlist.Padding = UDim.new(0, 12)
+    vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- ========== SCREEN GUI (OVERLAYs) ==========
+    local function guiRoot() return lp:WaitForChild("PlayerGui") end
+    if AFK.gui then pcall(function() AFK.gui:Destroy() end) AFK.gui=nil end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "UFOX_AFK_GUI"
+    gui.IgnoreGuiInset = true
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 999999
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = guiRoot()
+    AFK.gui = gui
+
+    -- ดำเต็มจอ
+    local black = Instance.new("Frame", gui)
+    black.Name = "BlackOverlay"
+    black.BackgroundColor3 = Color3.new(0,0,0)
+    black.Size = UDim2.fromScale(1,1)
+    black.Visible = AFK.remember.darkOn
+    black.ZIndex = 200
+    black.Active = true -- ดูดเมาส์/ทัช
+    corner(black, 0)
+
+    local blackBlock = Instance.new("TextButton", black)
+    blackBlock.BackgroundTransparency = 1
+    blackBlock.Text = ""
+    blackBlock.Size = UDim2.fromScale(1,1)
+    blackBlock.ZIndex = 201
+    blackBlock.AutoButtonColor = false
+
+    -- หน้าจอข่าวเต็มจอ (สไตล์เดียวกับดำ แต่มีหัวข้อ 📰)
+    local news = Instance.new("Frame", gui)
+    news.Name = "NewsOverlay"
+    news.BackgroundColor3 = THEME.DARK
+    news.Size = UDim2.fromScale(1,1)
+    news.Visible = AFK.remember.newsOn
+    news.ZIndex = 210
+    news.Active = true
+    corner(news, 0)
+    local newsBlock = Instance.new("TextButton", news)
+    newsBlock.BackgroundTransparency = 1
+    newsBlock.Text = ""
+    newsBlock.Size = UDim2.fromScale(1,1)
+    newsBlock.ZIndex = 211
+    newsBlock.AutoButtonColor = false
+    local newsTitle = Instance.new("TextLabel", news)
+    newsTitle.Size = UDim2.fromOffset(280, 40)
+    newsTitle.Position = UDim2.new(0.5, -140, 0, 18)
+    newsTitle.BackgroundTransparency = 1
+    newsTitle.Font = Enum.Font.GothamBlack
+    newsTitle.TextSize = 22
+    newsTitle.TextColor3 = THEME.WHITE
+    newsTitle.Text = "📰 NEWS MODE"
+    newsTitle.ZIndex = 212
+
+    -- ปิดซ้อนทับกัน: ถ้าเปิดข่าว ให้ปิดดำ (และกลับกัน) เพื่อไม่ทับ
+    local function syncOverlays()
+        black.Visible = AFK.remember.darkOn and not AFK.remember.newsOn
+        news.Visible  = AFK.remember.newsOn
+    end
+    syncOverlays()
+
+    -- ========== SECTION UI ==========
+    local section = Instance.new("Frame", scroll)
+    section.Name = "Section_AFK"
+    section.BackgroundTransparency = 1
+    section.Size = UDim2.new(1,0,0,0)
+    section.AutomaticSize = Enum.AutomaticSize.Y
+    section.LayoutOrder = 20
+
+    local layout = Instance.new("UIListLayout", section)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.Padding = UDim.new(0, 10)
+
+    -- Header
+    local header = Instance.new("TextLabel", section)
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, -6, 0, 32)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.WHITE
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "AFK 💤 — ระบบช่วยอยู่รอด"
+    header.LayoutOrder = 1
+
+    -- ช่วยสร้าง row + switch (กดได้แค่สวิตช์)
+    local function createSwitchRow(parent, title, defaultOn, onToggle)
+        local row = Instance.new("Frame", parent)
+        row.Size = UDim2.fromOffset(220, 34)
+        row.BackgroundColor3 = THEME.BG_INNER
+        corner(row, 8); stroke(row, 1.3, THEME.GREEN)
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0, 12, 0, 0)
+        lab.Size = UDim2.new(1, -120, 1, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 12
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = title
+
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1, 0.5)
+        sw.Position = UDim2.new(1, -10, 0.5, 0)
+        sw.Size = UDim2.fromOffset(46, 20)
+        sw.BackgroundColor3 = THEME.BG_INNER
+        corner(sw, 10)
+        local swStroke = stroke(sw, 1.3, defaultOn and THEME.GREEN or THEME.RED)
+
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(16,16)
+        knob.BackgroundColor3 = THEME.WHITE
+        corner(knob, 8)
+
+        local function setState(v, instant)
+            swStroke.Color = v and THEME.GREEN or THEME.RED
+            local target = UDim2.new(v and 1 or 0, v and -18 or 2, 0.5, -8)
+            if instant then
+                knob.Position = target
+            else
+                TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play()
+            end
+            if onToggle then onToggle(v) end
+        end
+        setState(defaultOn, true)
+
+        local btn = Instance.new("TextButton", sw)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
+        btn.Size = UDim2.fromScale(1,1)
+        btn.AutoButtonColor = false
+        btn.ZIndex = 50
+        keepUI(btn.MouseButton1Click:Connect(function()
+            setState(not defaultOn, false)
+            defaultOn = not defaultOn
+        end))
+        if btn.Activated then keepUI(btn.Activated:Connect(function()
+            setState(not defaultOn, false)
+            defaultOn = not defaultOn
+        end)) end
+        return row, setState
+    end
+
+    -- ========== FEATURE 1: หน้าจอมืด ==========
+    local darkRow, setDarkUI = createSwitchRow(section, "โหมดหน้าจอมืด", AFK.remember.darkOn, function(v)
+        AFK.remember.darkOn = v
+        if v then AFK.remember.newsOn = false end -- กันซ้อน
+        syncOverlays()
+    end)
+
+    -- ========== FEATURE 2: หน้าจอข่าว ==========
+    local newsRow, setNewsUI = createSwitchRow(section, "หน้าจอข่าว", AFK.remember.newsOn, function(v)
+        AFK.remember.newsOn = v
+        if v then AFK.remember.darkOn = false end -- กันซ้อน
+        syncOverlays()
+    end)
+
+    -- ========== FEATURE 3: Anti-Idle (กันโดนเตะ 20 นาที) ==========
+    -- วิธี 1: จับสัญญาณ Idled ของ Roblox และคลิกเสมือน
+    local VirtualUser = game:GetService("VirtualUser")
+    local function pulseOnce()
+        local cam = workspace.CurrentCamera
+        local cf = cam and cam.CFrame or CFrame.new()
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
+        end)
+    end
+    -- วิธี 2: loop ปลอดภัยทุก ~9 นาที (ต่ำกว่า 20 นาที)
+    local function startAntiIdleLoop()
+        if AFK.antiIdleLoop then return end
+        AFK.antiIdleLoop = task.spawn(function()
+            while AFK.remember.antiIdleOn do
+                pulseOnce()
+                for i=1, 540 do  -- 9 นาที = 540 วินาที
+                    if not AFK.remember.antiIdleOn then break end
+                    task.wait(1)
+                end
+            end
+            AFK.antiIdleLoop = nil
+        end)
+    end
+    local function stopAntiIdleLoop()
+        AFK.remember.antiIdleOn = false
+    end
+
+    -- Hook Roblox Idle สร้างครั้งเดียว
+    if not AFK._idleHooked then
+        AFK._idleHooked = true
+        keepUI(lp.Idled:Connect(function()
+            if AFK.remember.antiIdleOn then pulseOnce() end
+        end))
+    end
+
+    local antiRow, setAntiUI = createSwitchRow(section, "AFK กันโดนเตะ (20 นาที)", AFK.remember.antiIdleOn, function(v)
+        AFK.remember.antiIdleOn = v
+        if v then startAntiIdleLoop() end
+    end)
+
+    -- ========== FEATURE 4: Watcher (10 นาทีไม่ขยับ -> กระตุ้นกันเตะ) ==========
+    local INACTIVE_SEC = 10*60
+    local function markInput() AFK.lastInput = tick() end
+    -- ฟัง input เพื่อรีเซ็ต lastInput
+    keepUI(UIS.InputBegan:Connect(function() markInput() end))
+    keepUI(UIS.InputChanged:Connect(function(io)
+        if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end
+    end))
+
+    local function startWatcher()
+        keepTmp(RunService.Heartbeat:Connect(function()
+            if not AFK.remember.watcherOn then return end
+            if (tick() - AFK.lastInput) >= INACTIVE_SEC then
+                -- ครบ 10 นาทีไม่ขยับ: กระตุ้นกันเตะทันที แล้วรีเซ็ตนาฬิกา
+                if AFK.remember.antiIdleOn then pulseOnce() end
+                AFK.lastInput = tick()
+            end
+        end))
+    end
+
+    local watchRow, setWatchUI = createSwitchRow(section, "ตรวจจับไม่ขยับ (10 นาที)", AFK.remember.watcherOn, function(v)
+        AFK.remember.watcherOn = v
+    end)
+
+    -- ========== INIT FLOWS ==========
+    -- เริ่ม anti-idle หากเปิดอยู่
+    if AFK.remember.antiIdleOn then startAntiIdleLoop() end
+    -- เริ่ม watcher
+    startWatcher()
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
