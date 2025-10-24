@@ -483,7 +483,7 @@ pcall(function()
     if old then old:Destroy() end
 end)
 
--- 3) สร้าง ScrollingFrame ต่อแท็บ
+-- 3) สร้าง ScrollingFrame ต่อแท็บ  (PATCHED: ใช้ AutomaticCanvasSize=Y)
 local function makeTabFrame(tabName)
     local root = Instance.new("Frame")
     root.Name = "RightTab_"..tabName
@@ -496,11 +496,11 @@ local function makeTabFrame(tabName)
     sf.Name = "Scroll"
     sf.BackgroundTransparency = 1
     sf.Size = UDim2.fromScale(1,1)
-    sf.ScrollBarThickness = 0      -- ← ซ่อนสกรอลล์บาร์ (เดิม 4)
     sf.ScrollingDirection = Enum.ScrollingDirection.Y
-    sf.AutomaticCanvasSize = Enum.AutomaticSize.None
+    sf.ScrollBarThickness = 4                 -- ให้เห็นก่อน (มั่นใจว่าเลื่อนได้) ปรับเป็น 0 ทีหลังได้
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.CanvasSize = UDim2.new(0,0,0,0)        -- ปล่อยให้ Auto คุม
     sf.ElasticBehavior = Enum.ElasticBehavior.Never
-    sf.CanvasSize = UDim2.new(0,0,0,600)  -- เลื่อนได้ตั้งแต่เริ่ม
 
     local pad = Instance.new("UIPadding", sf)
     pad.PaddingTop    = UDim.new(0,12)
@@ -513,20 +513,7 @@ local function makeTabFrame(tabName)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     list.VerticalAlignment = Enum.VerticalAlignment.Top
 
-    local function refreshCanvas()
-        local h = list.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset
-        sf.CanvasSize = UDim2.new(0,0,0, math.max(h,600))
-    end
-
-    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        local yBefore = sf.CanvasPosition.Y
-        refreshCanvas()
-        local viewH = sf.AbsoluteSize.Y
-        local maxY  = math.max(0, sf.CanvasSize.Y.Offset - viewH)
-        sf.CanvasPosition = Vector2.new(0, math.clamp(yBefore, 0, maxY))
-    end)
-
-    task.defer(refreshCanvas)
+    -- ไม่ต้องคำนวณ CanvasSize เองแล้ว (ลบทิ้ง refreshCanvas และการ subscribe เดิม)
 
     RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
     return RSTATE.frames[tabName]
