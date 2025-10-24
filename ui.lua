@@ -1322,227 +1322,255 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
--- ===== UFO HUB X • Player Tab — AFK 💤 (Model A V1 • Paste-once, append under Run/Jump) =====
--- 1) โหมดหน้าจอมืด (ปิดทุกอย่างเต็มจอ)        [สวิตช์]
--- 2) หน้าจอข่าว (เต็มจอ 100% เช่นกัน)            [สวิตช์]
--- 3) กันโดนเตะทุก 20 นาที (Anti-Idle)             [สวิตช์ เปิดตลอดเวลา]
--- 4) ตรวจจับผู้เล่นไม่ขยับ 10 นาที -> กระตุ้นกันเตะ [สวิตช์ เปิดตลอดเวลา]
--- หมายเหตุ: แทรก “เป็นอันที่ 4” ใต้ระบบวิ่ง/กระโดดในแท็บ Player และกดได้เฉพาะตัวสวิตช์
+-- ===== UFO HUB X • Player Tab — AFK 💤 (Model A V1 • Right/append, switch-only, fail-safe) =====
+-- 1) โหมดหน้าจอมืด (เต็มจอ)     [สวิตช์]
+-- 2) หน้าจอข่าว (เต็มจอ)         [สวิตช์]
+-- 3) กันโดนเตะทุก 20 นาที        [สวิตช์ เปิดไว้เริ่มต้น]
+-- 4) ตรวจจับไม่ขยับ 10 นาที       [สวิตช์ เปิดไว้เริ่มต้น]
+-- อยู่แท็บ Player (Right) และวาง “ล่างสุด” ใต้ชุดวิ่งไว/กระโดดสูง
 
 registerRight("Player", function(scroll)
-    local Players      = game:GetService("Players")
-    local RunService   = game:GetService("RunService")
-    local UIS          = game:GetService("UserInputService")
-    local TweenService = game:GetService("TweenService")
-    local lp           = Players.LocalPlayer
+    local okMain, errMain = pcall(function()
+        local Players      = game:GetService("Players")
+        local RunService   = game:GetService("RunService")
+        local UIS          = game:GetService("UserInputService")
+        local TweenService = game:GetService("TweenService")
+        local VirtualUser  = game:GetService("VirtualUser")
+        local lp           = Players.LocalPlayer
 
-    -- ---------- GLOBAL STATE ----------
-    _G.UFOX_AFK = _G.UFOX_AFK or {
-        uiConns = {},
-        tempConns = {},
-        remember = {
-            darkOn    = false,
-            newsOn    = false,
-            antiIdleOn= true,   -- เปิดตลอดเวลา
-            watcherOn = true,   -- เปิดตลอดเวลา
-        },
-        gui = nil,
-        lastInput = tick(),
-        antiIdleLoop = nil,
-        _idleHooked = false,
-    }
-    local AFK = _G.UFOX_AFK
-    local function keepUI(c) table.insert(AFK.uiConns,c) return c end
-    local function keepTmp(c) table.insert(AFK.tempConns,c) return c end
-    local function disconnectAll(t) for i=#t,1,-1 do local c=t[i]; pcall(function() c:Disconnect() end); t[i]=nil end end
+        -- ---------- GLOBAL STATE ----------
+        _G.UFOX_AFK = _G.UFOX_AFK or {
+            uiConns = {},
+            tempConns = {},
+            remember = {
+                darkOn     = false,
+                newsOn     = false,
+                antiIdleOn = true,   -- default เปิด
+                watcherOn  = true,   -- default เปิด
+            },
+            gui          = nil,
+            lastInput    = tick(),
+            antiIdleLoop = nil,
+            _idleHooked  = false,
+        }
+        local AFK = _G.UFOX_AFK
+        local function keepUI(c) table.insert(AFK.uiConns, c) return c end
+        local function keepTmp(c) table.insert(AFK.tempConns, c) return c end
+        local function disconnectAll(t) for i=#t,1,-1 do local c=t[i]; pcall(function() c:Disconnect() end) t[i]=nil end end
 
-    -- ---------- THEME ----------
-    local BASE  = rawget(_G,"THEME") or {}
-    local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
-        WHITE    = Color3.fromRGB(255,255,255),
-        RED      = Color3.fromRGB(255,40,40),
-        DARK     = Color3.fromRGB(16,16,18),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+        -- ---------- THEME ----------
+        local BASE  = rawget(_G, "THEME") or {}
+        local THEME = {
+            BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
+            GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
+            WHITE    = Color3.fromRGB(255,255,255),
+            RED      = Color3.fromRGB(255,40,40),
+            DARK     = Color3.fromRGB(16,16,18),
+        }
+        local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
+        local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
-    -- ---------- CLEANUP เฉพาะของ AFK ----------
-    disconnectAll(AFK.uiConns)
-    disconnectAll(AFK.tempConns)
-    local old = scroll:FindFirstChild("Section_AFK"); if old then old:Destroy() end
+        -- ---------- CLEAN (เฉพาะของ AFK) ----------
+        disconnectAll(AFK.uiConns)
+        disconnectAll(AFK.tempConns)
+        local old = scroll:FindFirstChild("Section_AFK"); if old then old:Destroy() end
 
-    -- ---------- Layout: แทรกท้ายสุดใต้ Run/Jump ----------
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout", scroll)
-        vlist.Padding = UDim.new(0,12)
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
-    end
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local maxOrder = 0
-    for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, ch.LayoutOrder or 0) end
-    end
-
-    -- ---------- Overlay GUI (เต็มจอ) ----------
-    local function guiRoot() return lp:WaitForChild("PlayerGui") end
-    if AFK.gui then pcall(function() AFK.gui:Destroy() end) AFK.gui = nil end
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "UFOX_AFK_GUI"; gui.IgnoreGuiInset = true; gui.ResetOnSpawn = false
-    gui.DisplayOrder = 999999; gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.Parent = guiRoot(); AFK.gui = gui
-
-    -- ดำเต็มจอ
-    local black = Instance.new("Frame", gui)
-    black.Name="BlackOverlay"; black.BackgroundColor3=Color3.new(0,0,0)
-    black.Size=UDim2.fromScale(1,1); black.Visible=AFK.remember.darkOn
-    black.ZIndex=200; black.Active=true
-    local blackBtn = Instance.new("TextButton", black)
-    blackBtn.BackgroundTransparency=1; blackBtn.Size=UDim2.fromScale(1,1); blackBtn.Text=""; blackBtn.AutoButtonColor=false; blackBtn.ZIndex=201
-
-    -- ข่าวเต็มจอ
-    local news = Instance.new("Frame", gui)
-    news.Name="NewsOverlay"; news.BackgroundColor3=THEME.DARK
-    news.Size=UDim2.fromScale(1,1); news.Visible=AFK.remember.newsOn
-    news.ZIndex=210; news.Active=true
-    local newsBtn = Instance.new("TextButton", news)
-    newsBtn.BackgroundTransparency=1; newsBtn.Size=UDim2.fromScale(1,1); newsBtn.Text=""; newsBtn.AutoButtonColor=false; newsBtn.ZIndex=211
-    local newsTitle = Instance.new("TextLabel", news)
-    newsTitle.BackgroundTransparency=1; newsTitle.Size=UDim2.fromOffset(280,40)
-    newsTitle.Position=UDim2.new(0.5,-140,0,18)
-    newsTitle.Font=Enum.Font.GothamBlack; newsTitle.TextSize=22; newsTitle.TextColor3=THEME.WHITE
-    newsTitle.Text="📰 NEWS MODE"; newsTitle.ZIndex=212
-
-    local function syncOverlays()
-        black.Visible = AFK.remember.darkOn and not AFK.remember.newsOn
-        news.Visible  = AFK.remember.newsOn
-    end
-    syncOverlays()
-
-    -- ---------- SECTION UI ----------
-    local section = Instance.new("Frame", scroll)
-    section.Name="Section_AFK"; section.BackgroundTransparency=1
-    section.Size=UDim2.new(1,0,0,0); section.AutomaticSize=Enum.AutomaticSize.Y
-    section.LayoutOrder = maxOrder + 5   -- << แทรก “หลังสุด” ใต้ระบบวิ่ง/กระโดด
-    local layout = Instance.new("UIListLayout", section)
-    layout.HorizontalAlignment=Enum.HorizontalAlignment.Center
-    layout.Padding=UDim.new(0,10)
-
-    local header = Instance.new("TextLabel", section)
-    header.BackgroundTransparency=1; header.Size=UDim2.new(1,-6,0,32)
-    header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE
-    header.TextXAlignment=Enum.TextXAlignment.Left
-    header.Text="AFK 💤 — ระบบช่วยอยู่รอด"
-
-    -- helper: row + switch (กดได้เฉพาะสวิตช์)
-    local function createSwitchRow(parent, title, defaultOn, onToggle)
-        local row=Instance.new("Frame",parent)
-        row.Size=UDim2.fromOffset(220,34); row.BackgroundColor3=THEME.BG_INNER
-        corner(row,8); stroke(row,1.2,THEME.GREEN)
-
-        local lab=Instance.new("TextLabel",row)
-        lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,12,0,0); lab.Size=UDim2.new(1,-120,1,0)
-        lab.Font=Enum.Font.GothamBold; lab.TextSize=12; lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=title
-
-        local sw=Instance.new("Frame",row)
-        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0)
-        sw.Size=UDim2.fromOffset(46,20); sw.BackgroundColor3=THEME.BG_INNER
-        corner(sw,10)
-        local swStroke=stroke(sw,1.2, defaultOn and THEME.GREEN or THEME.RED)
-
-        local knob=Instance.new("Frame",sw)
-        knob.Size=UDim2.fromOffset(16,16); knob.BackgroundColor3=THEME.WHITE; corner(knob,8)
-
-        local function setState(v,instant)
-            swStroke.Color = v and THEME.GREEN or THEME.RED
-            local target = UDim2.new(v and 1 or 0, v and -18 or 2, 0.5,-8)
-            if instant then knob.Position = target
-            else TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play() end
-            if onToggle then onToggle(v) end
+        -- ---------- Layout: ให้ไป “ล่างสุด” ใต้ของวิ่ง/กระโดด ----------
+        local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+        if not vlist then
+            vlist = Instance.new("UIListLayout")
+            vlist.Padding = UDim.new(0,12)
+            vlist.SortOrder = Enum.SortOrder.LayoutOrder
+            vlist.Parent = scroll
         end
-        setState(defaultOn,true)
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        local maxOrder = 0
+        for _,ch in ipairs(scroll:GetChildren()) do
+            if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, ch.LayoutOrder or 0) end
+        end
 
-        local btn=Instance.new("TextButton",sw)
-        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""; btn.AutoButtonColor=false
-        keepUI(btn.MouseButton1Click:Connect(function()
-            defaultOn = not defaultOn
-            setState(defaultOn,false)
-        end))
-        if btn.Activated then keepUI(btn.Activated:Connect(function()
-            defaultOn = not defaultOn
-            setState(defaultOn,false)
-        end)) end
-        return row, setState
-    end
+        -- ---------- Overlay GUI (เต็มจอ) ----------
+        local function guiRoot() return lp:WaitForChild("PlayerGui") end
+        if AFK.gui then pcall(function() AFK.gui:Destroy() end) AFK.gui=nil end
 
-    -- 1) หน้าจอมืด
-    createSwitchRow(section, "โหมดหน้าจอมืด", AFK.remember.darkOn, function(v)
-        AFK.remember.darkOn = v
-        if v then AFK.remember.newsOn = false end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "UFOX_AFK_GUI"
+        gui.IgnoreGuiInset = true; gui.ResetOnSpawn = false
+        gui.DisplayOrder = 999999; gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.Parent = guiRoot()
+        AFK.gui = gui
+
+        -- ดำเต็มจอ
+        local black = Instance.new("Frame")
+        black.Name="BlackOverlay"; black.BackgroundColor3=Color3.new(0,0,0)
+        black.Size=UDim2.fromScale(1,1); black.Visible=AFK.remember.darkOn
+        black.ZIndex=200; black.Active=true; black.Parent=gui
+
+        local blackBtn = Instance.new("TextButton", black)
+        blackBtn.BackgroundTransparency=1; blackBtn.Size=UDim2.fromScale(1,1)
+        blackBtn.Text=""; blackBtn.AutoButtonColor=false; blackBtn.ZIndex=201
+
+        -- ข่าวเต็มจอ
+        local news = Instance.new("Frame")
+        news.Name="NewsOverlay"; news.BackgroundColor3=THEME.DARK
+        news.Size=UDim2.fromScale(1,1); news.Visible=AFK.remember.newsOn
+        news.ZIndex=210; news.Active=true; news.Parent=gui
+
+        local newsBtn = Instance.new("TextButton", news)
+        newsBtn.BackgroundTransparency=1; newsBtn.Size=UDim2.fromScale(1,1)
+        newsBtn.Text=""; newsBtn.AutoButtonColor=false; newsBtn.ZIndex=211
+
+        local newsTitle = Instance.new("TextLabel", news)
+        newsTitle.BackgroundTransparency=1; newsTitle.Size=UDim2.fromOffset(280,40)
+        newsTitle.Position=UDim2.new(0.5,-140,0,18)
+        newsTitle.Font=Enum.Font.GothamBlack; newsTitle.TextSize=22
+        newsTitle.TextColor3=THEME.WHITE; newsTitle.Text="📰 NEWS MODE"; newsTitle.ZIndex=212
+
+        local function syncOverlays()
+            black.Visible = AFK.remember.darkOn and not AFK.remember.newsOn
+            news.Visible  = AFK.remember.newsOn
+        end
         syncOverlays()
-    end)
 
-    -- 2) หน้าจอข่าว
-    createSwitchRow(section, "หน้าจอข่าว", AFK.remember.newsOn, function(v)
-        AFK.remember.newsOn = v
-        if v then AFK.remember.darkOn = false end
-        syncOverlays()
-    end)
+        -- ---------- SECTION UI (แทรกล่างสุด) ----------
+        local section = Instance.new("Frame")
+        section.Name="Section_AFK"; section.BackgroundTransparency=1
+        section.Size=UDim2.new(1,0,0,0); section.AutomaticSize=Enum.AutomaticSize.Y
+        section.LayoutOrder = maxOrder + 1000         -- ดันไปล่างสุดชัวร์
+        section.Parent = scroll
 
-    -- 3) Anti-Idle
-    local VirtualUser = game:GetService("VirtualUser")
-    local function pulseOnce()
-        local cam = workspace.CurrentCamera
-        local cf = cam and cam.CFrame or CFrame.new()
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
-        end)
-    end
-    local function startAntiIdleLoop()
-        if AFK.antiIdleLoop then return end
-        AFK.remember.antiIdleOn = true
-        AFK.antiIdleLoop = task.spawn(function()
-            while AFK.remember.antiIdleOn do
-                pulseOnce()
-                for i=1,540 do if not AFK.remember.antiIdleOn then break end task.wait(1) end
+        local layout2 = Instance.new("UIListLayout", section)
+        layout2.HorizontalAlignment=Enum.HorizontalAlignment.Center
+        layout2.Padding=UDim.new(0,10)
+
+        local header = Instance.new("TextLabel", section)
+        header.BackgroundTransparency=1; header.Size=UDim2.new(1,-6,0,32)
+        header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE
+        header.TextXAlignment=Enum.TextXAlignment.Left
+        header.Text="AFK 💤 — ระบบช่วยอยู่รอด"
+
+        -- ---------- helper: สร้างแถว + สวิตช์ (กดได้เฉพาะตัวสวิตช์) ----------
+        local function createSwitchRow(parent, title, defaultOn, onToggle)
+            local row=Instance.new("Frame",parent)
+            row.Size=UDim2.fromOffset(220,34); row.BackgroundColor3=THEME.BG_INNER
+            corner(row,8); stroke(row,1.2,THEME.GREEN)
+
+            local lab=Instance.new("TextLabel",row)
+            lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,12,0,0); lab.Size=UDim2.new(1,-120,1,0)
+            lab.Font=Enum.Font.GothamBold; lab.TextSize=12; lab.TextColor3=THEME.WHITE
+            lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=title
+
+            local sw=Instance.new("Frame",row)
+            sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0)
+            sw.Size=UDim2.fromOffset(46,20); sw.BackgroundColor3=THEME.BG_INNER
+            corner(sw,10)
+            local swStroke=stroke(sw,1.2, defaultOn and THEME.GREEN or THEME.RED)
+
+            local knob=Instance.new("Frame",sw)
+            knob.Size=UDim2.fromOffset(16,16); knob.BackgroundColor3=THEME.WHITE; corner(knob,8)
+
+            local state = defaultOn
+            local function setState(v,instant)
+                state = v
+                swStroke.Color = v and THEME.GREEN or THEME.RED
+                local target = UDim2.new(v and 1 or 0, v and -18 or 2, 0.5,-8)
+                if instant then knob.Position = target
+                else TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play() end
+                if onToggle then onToggle(v) end
             end
-            AFK.antiIdleLoop = nil
+            setState(state, true)
+
+            local btn=Instance.new("TextButton",sw)
+            btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""; btn.AutoButtonColor=false
+            keepUI(btn.MouseButton1Click:Connect(function()
+                setState(not state, false)
+            end))
+            if btn.Activated then keepUI(btn.Activated:Connect(function()
+                setState(not state, false)
+            end)) end
+
+            return row, setState
+        end
+
+        -- 1) หน้าจอมืด
+        createSwitchRow(section, "โหมดหน้าจอมืด", AFK.remember.darkOn, function(v)
+            AFK.remember.darkOn = v
+            if v then AFK.remember.newsOn = false end
+            syncOverlays()
         end)
-    end
-    if not AFK._idleHooked then
-        AFK._idleHooked = true
-        keepUI(lp.Idled:Connect(function() if AFK.remember.antiIdleOn then pulseOnce() end end))
-    end
-    createSwitchRow(section, "AFK กันโดนเตะ (20 นาที)", AFK.remember.antiIdleOn, function(v)
-        AFK.remember.antiIdleOn = v
-        if v then startAntiIdleLoop() end
+
+        -- 2) หน้าจอข่าว
+        createSwitchRow(section, "หน้าจอข่าว", AFK.remember.newsOn, function(v)
+            AFK.remember.newsOn = v
+            if v then AFK.remember.darkOn = false end
+            syncOverlays()
+        end)
+
+        -- 3) Anti-Idle
+        local function pulseOnce()
+            local cam = workspace.CurrentCamera
+            local cf = cam and cam.CFrame or CFrame.new()
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0,0), cf)
+            end)
+        end
+        local function startAntiIdleLoop()
+            if AFK.antiIdleLoop then return end
+            AFK.remember.antiIdleOn = true
+            AFK.antiIdleLoop = task.spawn(function()
+                while AFK.remember.antiIdleOn do
+                    pulseOnce()
+                    for i=1,540 do if not AFK.remember.antiIdleOn then break end task.wait(1) end
+                end
+                AFK.antiIdleLoop = nil
+            end)
+        end
+        if not AFK._idleHooked then
+            AFK._idleHooked = true
+            keepUI(lp.Idled:Connect(function() if AFK.remember.antiIdleOn then pulseOnce() end end))
+        end
+        createSwitchRow(section, "AFK กันโดนเตะ (20 นาที)", AFK.remember.antiIdleOn, function(v)
+            AFK.remember.antiIdleOn = v
+            if v then startAntiIdleLoop() end
+        end)
+
+        -- 4) Watcher 10 นาทีไม่ขยับ -> กระตุ้นกันเตะ
+        local INACTIVE_SEC = 10*60
+        local function markInput() AFK.lastInput = tick() end
+        keepUI(UIS.InputBegan:Connect(markInput))
+        keepUI(UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end))
+        local function startWatcher()
+            keepTmp(RunService.Heartbeat:Connect(function()
+                if not AFK.remember.watcherOn then return end
+                if (tick() - AFK.lastInput) >= INACTIVE_SEC then
+                    if AFK.remember.antiIdleOn then pcall(pulseOnce) end
+                    AFK.lastInput = tick()
+                end
+            end))
+        end
+        createSwitchRow(section, "ตรวจจับไม่ขยับ (10 นาที)", AFK.remember.watcherOn, function(v)
+            AFK.remember.watcherOn = v
+        end)
+
+        -- start background loops
+        if AFK.remember.antiIdleOn then startAntiIdleLoop() end
+        startWatcher()
     end)
 
-    -- 4) Watcher 10 นาทีไม่ขยับ -> กระตุ้นกันเตะ
-    local INACTIVE_SEC = 10*60
-    local function markInput() AFK.lastInput = tick() end
-    keepUI(UIS.InputBegan:Connect(markInput))
-    keepUI(UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end))
-    local function startWatcher()
-        keepTmp(RunService.Heartbeat:Connect(function()
-            if not AFK.remember.watcherOn then return end
-            if (tick() - AFK.lastInput) >= INACTIVE_SEC then
-                if AFK.remember.antiIdleOn then pulseOnce() end
-                AFK.lastInput = tick()
-            end
-        end))
+    -- ถ้ามี error เงียบๆ ให้ใส่กล่องแจ้งเตือนเล็กๆ เพื่อรู้ว่าโค้ดรันแล้ว
+    if not okMain then
+        local warnF = Instance.new("TextLabel")
+        warnF.BackgroundColor3 = Color3.fromRGB(40,0,0)
+        warnF.TextColor3 = Color3.fromRGB(255,180,180)
+        warnF.Font = Enum.Font.Code
+        warnF.TextSize = 14
+        warnF.TextWrapped = true
+        warnF.Text = "[AFK module error]\n"..tostring(errMain)
+        warnF.Size = UDim2.new(1, -12, 0, 48)
+        warnF.Position = UDim2.new(0, 6, 0, 6)
+        warnF.Parent = scroll
     end
-    createSwitchRow(section, "ตรวจจับไม่ขยับ (10 นาที)", AFK.remember.watcherOn, function(v)
-        AFK.remember.watcherOn = v
-    end)
-
-    -- Start background loops if enabled
-    if AFK.remember.antiIdleOn then startAntiIdleLoop() end
-    startWatcher()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
