@@ -607,7 +607,7 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
--- ===== Player tab (Right) — Profile + Hide Name (extra-compact, fixed toggle) =====
+-- ===== Player tab (Right) — Profile + Hide Name (compact, switch-only, fixed) =====
 registerRight("Player", function(scroll)
     local Players      = game:GetService("Players")
     local Content      = game:GetService("ContentProvider")
@@ -624,7 +624,7 @@ registerRight("Player", function(scroll)
         RED      = Color3.fromRGB(255,40,40),
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.4 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.6 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
     -- rebuild section
     local old=scroll:FindFirstChild("Section_Profile"); if old then old:Destroy() end
@@ -647,18 +647,19 @@ registerRight("Player", function(scroll)
     local avatarImg=Instance.new("ImageLabel",avatarWrap)
     avatarImg.BackgroundTransparency=1; avatarImg.Size=UDim2.fromScale(1,1); avatarImg.ImageTransparency=1
     task.spawn(function()
-        local ok,url=pcall(function()
-            return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+        if lp then
+            local ok,url=pcall(function()
+                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            end)
+            if ok and url then pcall(function() Content:PreloadAsync({url}) end)
+            avatarImg.Image=url; avatarImg.ImageTransparency=0
+            end
         end)
-        if ok and url then pcall(function() Content:PreloadAsync({url}) end); avatarImg.Image=url; avatarImg.ImageTransparency=0 end
-    end)
 
-    -- Name bar (กดได้ด้วย)
-    local nameBar=Instance.new("TextButton",section)
-    nameBar.AutoButtonColor=false; nameBar.Text=""
+    -- Name bar
+    local nameBar=Instance.new("Frame",section)
     nameBar.BackgroundColor3=THEME.BG_INNER
     nameBar.Size=UDim2.fromOffset(220,36); corner(nameBar,8); stroke(nameBar,1.3,THEME.GREEN)
-    nameBar.ZIndex=20
     local nameLbl=Instance.new("TextLabel",nameBar)
     nameLbl.BackgroundTransparency=1; nameLbl.Size=UDim2.fromScale(1,1)
     nameLbl.Font=Enum.Font.GothamBold; nameLbl.TextSize=16; nameLbl.TextColor3=THEME.WHITE
@@ -672,40 +673,39 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Hide Name (extra-compact) + row-wide clickable
+    -- Hide Name toggle (compact) — CLICKABLE = SWITCH ONLY
     local row=Instance.new("Frame",section)
-    row.Size=UDim2.fromOffset(160,28)
+    row.Size=UDim2.fromOffset(200,40)
     row.BackgroundColor3=THEME.BG_INNER
-    row.ZIndex=20; corner(row,8); stroke(row,1.2,THEME.GREEN)
+    corner(row,10); stroke(row,1.3,THEME.GREEN)
+    row.ZIndex = 20
 
     local lab=Instance.new("TextLabel",row)
-    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,10,0,0); lab.Size=UDim2.new(1,-90,1,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=11; lab.TextColor3=THEME.WHITE
-    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"; lab.ZIndex=21
+    lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,14,0,0); lab.Size=UDim2.new(1,-120,1,0)
+    lab.Font=Enum.Font.GothamBold; lab.TextSize=12; lab.TextColor3=THEME.WHITE
+    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"
+    lab.ZIndex = 21
 
     local sw=Instance.new("Frame",row)
-    sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-8,0.5,0)
-    sw.Size=UDim2.fromOffset(36,18); sw.BackgroundColor3=THEME.BG_INNER
-    sw.ZIndex=21; corner(sw,9)
-    local swStroke=stroke(sw,1.1,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
+    sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0)
+    sw.Size=UDim2.fromOffset(48,22); sw.BackgroundColor3=THEME.BG_INNER
+    corner(sw,11); sw.ZIndex = 22
+    local swStroke=stroke(sw,1.3,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
 
     local knob=Instance.new("Frame",sw)
-    knob.Size=UDim2.fromOffset(14,14); knob.BackgroundColor3=THEME.WHITE
-    knob.ZIndex=22; corner(knob,7)
+    knob.Size=UDim2.fromOffset(18,18)
+    knob.BackgroundColor3=THEME.WHITE; corner(knob,9); knob.ZIndex = 23
 
-    -- ปุ่มโปร่งใสคลุมทั้งแถว + ปุ่มบนสวิตช์ (กันกดไม่ติด)
-    local rowBtn=Instance.new("TextButton",row)
-    rowBtn.BackgroundTransparency=1; rowBtn.Size=UDim2.fromScale(1,1); rowBtn.Text=""
-    rowBtn.AutoButtonColor=false; rowBtn.ZIndex=30
-    local swBtn=Instance.new("TextButton",sw)
-    swBtn.BackgroundTransparency=1; swBtn.Size=UDim2.fromScale(1,1); swBtn.Text=""
-    swBtn.AutoButtonColor=false; swBtn.ZIndex=30
+    -- ปุ่มของสวิตช์เท่านั้น
+    local btn=Instance.new("TextButton",sw)
+    btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+    btn.AutoButtonColor=false; btn.ZIndex = 30
 
-    -- toggle core
+    -- toggle core + sync เริ่มต้น
     local function setHidden(v, instant)
         _G.UFOX_PROFILE.hiddenName = v
         swStroke.Color = v and THEME.GREEN or THEME.RED
-        local target = UDim2.new(v and 1 or 0, v and -16 or 2, 0.5,-7)
+        local target = UDim2.new(v and 1 or 0, v and -20 or 2, 0.5, -9)
         if instant then
             knob.Position = target
         else
@@ -714,14 +714,10 @@ registerRight("Player", function(scroll)
         end
         refreshName()
     end
-    local function toggle() setHidden(not _G.UFOX_PROFILE.hiddenName, false) end
 
-    rowBtn.MouseButton1Click:Connect(toggle)
-    swBtn.MouseButton1Click:Connect(toggle)
-    nameBar.MouseButton1Click:Connect(toggle)
-    if rowBtn.Activated then rowBtn.Activated:Connect(toggle) end
-    if swBtn.Activated then swBtn.Activated:Connect(toggle) end
-    if nameBar.Activated then nameBar.Activated:Connect(toggle) end
+    local function toggle() setHidden(not _G.UFOX_PROFILE.hiddenName, false) end
+    btn.MouseButton1Click:Connect(toggle)
+    if btn.Activated then btn.Activated:Connect(toggle) end -- รองรับทัช
 
     -- init
     setHidden(_G.UFOX_PROFILE.hiddenName, true)
