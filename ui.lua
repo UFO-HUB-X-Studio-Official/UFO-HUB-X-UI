@@ -651,10 +651,13 @@ registerRight("Player", function(scroll)
             local ok,url=pcall(function()
                 return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
             end)
-            if ok and url then pcall(function() Content:PreloadAsync({url}) end)
-            avatarImg.Image=url; avatarImg.ImageTransparency=0
+            if ok and url then
+                pcall(function() Content:PreloadAsync({url}) end)
+                avatarImg.Image=url
+                avatarImg.ImageTransparency=0
             end
-        end)
+        end
+    end) -- << ปิด task.spawn ครบ พร้อม end ของ if lp แล้ว
 
     -- Name bar
     local nameBar=Instance.new("Frame",section)
@@ -678,28 +681,26 @@ registerRight("Player", function(scroll)
     row.Size=UDim2.fromOffset(200,40)
     row.BackgroundColor3=THEME.BG_INNER
     corner(row,10); stroke(row,1.3,THEME.GREEN)
-    row.ZIndex = 20
 
     local lab=Instance.new("TextLabel",row)
     lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,14,0,0); lab.Size=UDim2.new(1,-120,1,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=12; lab.TextColor3=THEME.WHITE
     lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Hide Name"
-    lab.ZIndex = 21
 
     local sw=Instance.new("Frame",row)
     sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-10,0.5,0)
     sw.Size=UDim2.fromOffset(48,22); sw.BackgroundColor3=THEME.BG_INNER
-    corner(sw,11); sw.ZIndex = 22
+    corner(sw,11)
     local swStroke=stroke(sw,1.3,_G.UFOX_PROFILE.hiddenName and THEME.GREEN or THEME.RED)
 
     local knob=Instance.new("Frame",sw)
     knob.Size=UDim2.fromOffset(18,18)
-    knob.BackgroundColor3=THEME.WHITE; corner(knob,9); knob.ZIndex = 23
+    knob.BackgroundColor3=THEME.WHITE; corner(knob,9)
 
     -- ปุ่มของสวิตช์เท่านั้น
     local btn=Instance.new("TextButton",sw)
     btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    btn.AutoButtonColor=false; btn.ZIndex = 30
+    btn.AutoButtonColor=false
 
     -- toggle core + sync เริ่มต้น
     local function setHidden(v, instant)
@@ -709,15 +710,13 @@ registerRight("Player", function(scroll)
         if instant then
             knob.Position = target
         else
-            TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Position=target}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play()
         end
         refreshName()
     end
-
     local function toggle() setHidden(not _G.UFOX_PROFILE.hiddenName, false) end
     btn.MouseButton1Click:Connect(toggle)
-    if btn.Activated then btn.Activated:Connect(toggle) end -- รองรับทัช
+    if btn.Activated then btn.Activated:Connect(toggle) end -- ทัชมือถือ
 
     -- init
     setHidden(_G.UFOX_PROFILE.hiddenName, true)
