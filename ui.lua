@@ -1322,128 +1322,128 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
--- ===== UFO HUB X • Player • AFK 💤 (Model A V1 • Placeholder only) =====
--- แค่ “ตัวเตรียมที่ขึ้น UI” ยังไม่ใส่ระบบภายใน
--- อยู่แท็บ Player (Right) และดันไปล่างสุด (อันที่ 4) ใต้ระบบวิ่ง/กระโดด
+-- ===== AFK 💤 • Model A V1 (PLACEHOLDER-ONLY) — append under Run/Jump =====
+if typeof(registerRight) == "function" then
+    registerRight("Player", function(scroll)
+        -- theme จากของเดิม
+        local BASE  = rawget(_G,"THEME") or {}
+        local THEME = {
+            BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
+            GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
+            WHITE    = Color3.fromRGB(255,255,255),
+        }
+        local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
+        local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.3 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
-registerRight("Player", function(scroll)
-    -- THEME ให้เหมือนของเดิม
-    local BASE  = rawget(_G,"THEME") or {}
-    local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
-        WHITE    = Color3.fromRGB(255,255,255),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.3 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+        -- ให้มี UIListLayout เหมือนของเดิม
+        local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+        if not vlist then
+            vlist = Instance.new("UIListLayout", scroll)
+            vlist.Padding = UDim.new(0,12)
+            vlist.SortOrder = Enum.SortOrder.LayoutOrder
+        end
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- ลบเฉพาะ placeholder เดิม (กันซ้ำ)
-    local old = scroll:FindFirstChild("Section_AFK_A1"); if old then old:Destroy() end
+        -- ลบ placeholder เก่าถ้ามี
+        local old = scroll:FindFirstChild("Section_AFK_A1")
+        if old then old:Destroy() end
 
-    -- ให้มี UIListLayout (เหมือนแท็บอื่น)
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Padding = UDim.new(0,12)
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
-        vlist.Parent = scroll
-    end
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        -- หาค่า LayoutOrder สูงสุด เพื่อดัน “ล่างสุด” (เป็นอันที่ 4 ใต้ชุดวิ่ง/กระโดด)
+        local maxOrder = 0
+        for _,ch in ipairs(scroll:GetChildren()) do
+            if ch:IsA("GuiObject") then
+                maxOrder = math.max(maxOrder, ch.LayoutOrder or 0)
+            end
+        end
 
-    -- คำนวณ LayoutOrder สูงสุด เพื่อดันไปล่างสุด (อันที่ 4)
-    local maxOrder = 0
-    for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, ch.LayoutOrder or 0) end
-    end
+        -- section
+        local section = Instance.new("Frame")
+        section.Name = "Section_AFK_A1"
+        section.BackgroundTransparency = 1
+        section.Size = UDim2.new(1,0,0,0)
+        section.AutomaticSize = Enum.AutomaticSize.Y
+        section.LayoutOrder = maxOrder + 10
+        section.Parent = scroll
 
-    -- ===== SECTION: AFK (Model A V1) – Placeholder =====
-    local section = Instance.new("Frame")
-    section.Name = "Section_AFK_A1"
-    section.BackgroundTransparency = 1
-    section.Size = UDim2.new(1,0,0,0)
-    section.AutomaticSize = Enum.AutomaticSize.Y
-    section.LayoutOrder = maxOrder + 10   -- ดันไปล่างสุดใต้ชุดวิ่ง/กระโดด
-    section.Parent = scroll
+        local layout = Instance.new("UIListLayout", section)
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.Padding = UDim.new(0,10)
 
-    local layout = Instance.new("UIListLayout", section)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.Padding = UDim.new(0,10)
+        -- หัวเรื่อง
+        local header = Instance.new("TextLabel", section)
+        header.BackgroundTransparency = 1
+        header.Size = UDim2.new(1, -6, 0, 32)
+        header.Font = Enum.Font.GothamBold
+        header.TextSize = 16
+        header.TextColor3 = THEME.WHITE
+        header.TextXAlignment = Enum.TextXAlignment.Left
+        header.Text = "AFK 💤 — Model A V1 (Placeholder)"
 
-    -- หัวข้อ
-    local header = Instance.new("TextLabel", section)
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1, -6, 0, 32)
-    header.Font = Enum.Font.GothamBold
-    header.TextSize = 16
-    header.TextColor3 = THEME.WHITE
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "AFK 💤 — Model A V1 (Placeholder)"
+        -- แถวปุ่มทดสอบ (ยังไม่ใส่ระบบ แค่ให้เห็นว่าขึ้นจริง)
+        local row = Instance.new("Frame", section)
+        row.Size = UDim2.fromOffset(220, 34)
+        row.BackgroundColor3 = THEME.BG_INNER
+        corner(row, 8); stroke(row, 1.3, THEME.GREEN)
 
-    -- แถวปุ่มทดสอบ (ยังไม่ทำอะไร แค่เช็คว่าขึ้น)
-    local row = Instance.new("Frame", section)
-    row.Size = UDim2.fromOffset(220, 34)
-    row.BackgroundColor3 = THEME.BG_INNER
-    corner(row, 8); stroke(row, 1.3, THEME.GREEN)
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0, 12, 0, 0)
+        lab.Size = UDim2.new(1, -90, 1, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 12
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = "AFK 💤 (ทดสอบขึ้นก่อน)"
 
-    local lab = Instance.new("TextLabel", row)
-    lab.BackgroundTransparency = 1
-    lab.Position = UDim2.new(0, 12, 0, 0)
-    lab.Size = UDim2.new(1, -90, 1, 0)
-    lab.Font = Enum.Font.GothamBold
-    lab.TextSize = 12
-    lab.TextColor3 = THEME.WHITE
-    lab.TextXAlignment = Enum.TextXAlignment.Left
-    lab.Text = "AFK 💤 (กดปุ่มทดสอบ)"
+        local btnWrap = Instance.new("Frame", row)
+        btnWrap.AnchorPoint = Vector2.new(1,0.5)
+        btnWrap.Position = UDim2.new(1, -10, 0.5, 0)
+        btnWrap.Size = UDim2.fromOffset(70, 24)
+        btnWrap.BackgroundColor3 = THEME.BG_INNER
+        corner(btnWrap, 12); stroke(btnWrap, 1.1, THEME.GREEN)
 
-    -- ปุ่มทางขวา “OPEN”
-    local btnWrap = Instance.new("Frame", row)
-    btnWrap.AnchorPoint = Vector2.new(1,0.5)
-    btnWrap.Position = UDim2.new(1, -10, 0.5, 0)
-    btnWrap.Size = UDim2.fromOffset(70, 24)
-    btnWrap.BackgroundColor3 = THEME.BG_INNER
-    corner(btnWrap, 12); stroke(btnWrap, 1.1, THEME.GREEN)
+        local btn = Instance.new("TextButton", btnWrap)
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = "OPEN"
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.TextColor3 = THEME.WHITE
+        btn.AutoButtonColor = false
 
-    local btn = Instance.new("TextButton", btnWrap)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = "OPEN"
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
-    btn.TextColor3 = THEME.WHITE
-    btn.AutoButtonColor = false
+        -- กดแล้วแสดง toast เล็กๆ เพื่อยืนยันว่ามันทำงาน
+        btn.MouseButton1Click:Connect(function()
+            local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            if not pg then return end
+            local sg = Instance.new("ScreenGui")
+            sg.Name = "UFOX_AFK_Toast"
+            sg.ResetOnSpawn = false
+            sg.IgnoreGuiInset = true
+            sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            sg.Parent = pg
 
-    -- กดแล้วโชว์ toast เล็กๆ มุมขวาบน เพื่อยืนยันว่า “ขึ้นและคลิกได้”
-    local TweenService = game:GetService("TweenService")
-    btn.MouseButton1Click:Connect(function()
-        local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
-        if not pg then return end
-        local sg = Instance.new("ScreenGui")
-        sg.Name = "UFOX_AFK_Toast"
-        sg.ResetOnSpawn = false
-        sg.IgnoreGuiInset = true
-        sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        sg.Parent = pg
+            local toast = Instance.new("TextLabel", sg)
+            toast.BackgroundColor3 = Color3.fromRGB(0,40,0)
+            toast.TextColor3 = Color3.fromRGB(180,255,200)
+            toast.Font = Enum.Font.GothamBold
+            toast.TextSize = 14
+            toast.TextWrapped = true
+            toast.Text = "AFK Placeholder ขึ้นแล้ว ✔"
+            toast.Size = UDim2.fromOffset(240, 48)
+            toast.Position = UDim2.new(1, -250, 0, 10)
+            toast.AnchorPoint = Vector2.new(0,0)
 
-        local toast = Instance.new("TextLabel", sg)
-        toast.BackgroundColor3 = Color3.fromRGB(0,40,0)
-        toast.TextColor3 = Color3.fromRGB(180,255,200)
-        toast.Font = Enum.Font.GothamBold
-        toast.TextSize = 14
-        toast.TextWrapped = true
-        toast.Text = "AFK Placeholder ทำงานแล้ว ✔\n(ขึ้นแล้ว เดี๋ยวเติมระบบทีหลัง)"
-        toast.Size = UDim2.fromOffset(280, 56)
-        toast.Position = UDim2.new(1, -290, 0, -70)
-        toast.AnchorPoint = Vector2.new(0,0)
-        corner(toast, 10); stroke(toast, 1.0, THEME.GREEN)
-
-        TweenService:Create(toast, TweenInfo.new(0.15), {Position = UDim2.new(1, -290, 0, 10)}):Play()
-        task.delay(2.0, function()
-            TweenService:Create(toast, TweenInfo.new(0.25), {TextTransparency = 1, BackgroundTransparency = 1}):Play()
-            task.wait(0.3)
-            sg:Destroy()
+            task.delay(1.2, function()
+                pcall(function() sg:Destroy() end)
+            end)
         end)
     end)
-end)
+end
+
+-- บังคับเปิด UI หลักทันที (กันกรณีโซ่ Toast ไม่ยิง)
+if _G and _G.UFO_ShowMainUI then
+    pcall(_G.UFO_ShowMainUI)
+end
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
