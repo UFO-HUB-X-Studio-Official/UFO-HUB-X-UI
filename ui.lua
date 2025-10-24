@@ -607,107 +607,106 @@ registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
 -- ================= END RIGHT modular =================
- UFO สีขาวHUB X สีเขียว -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
+ -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
 registerRight("Player", function(scroll)
-local Players = game:GetService("Players")
-local Content = game:GetService("ContentProvider")
-local lp      = Players.LocalPlayer
+    local Players = game:GetService("Players")
+    local Content = game:GetService("ContentProvider")
+    local lp      = Players.LocalPlayer
 
--- THEME  
-local BASE = rawget(_G, "THEME") or {}  
-local THEME = {  
-    BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),  
-    GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),  
-    WHITE    = Color3.fromRGB(255, 255, 255),  
-}  
-local function corner(ui, r)  
-    local c = Instance.new("UICorner")  
-    c.CornerRadius = UDim.new(0, r or 10)  
-    c.Parent = ui  
-    return c  
-end  
-local function stroke(ui, th, col)  
-    local s = Instance.new("UIStroke")  
-    s.Thickness = th or 1.5  
-    s.Color = col or THEME.GREEN  
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border  
-    s.Parent = ui  
-    return s  
-end  
+    -- THEME
+    local BASE = rawget(_G, "THEME") or {}
+    local THEME = {
+        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
+        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
+        WHITE    = Color3.fromRGB(255, 255, 255),
+    }
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 10)
+        c.Parent = ui
+        return c
+    end
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 1.5
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
+    end
 
--- สร้าง layout กลางถ้ายังไม่มี (ไม่ลบของแท็บอื่น)  
-local vlist = scroll:FindFirstChildOfClass("UIListLayout")  
-if not vlist then  
-    vlist = Instance.new("UIListLayout")  
-    vlist.Padding = UDim.new(0, 12)  
-    vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center  
-    vlist.VerticalAlignment   = Enum.VerticalAlignment.Top  
-    vlist.SortOrder           = Enum.SortOrder.LayoutOrder  
-    vlist.Parent = scroll  
-end  
-scroll.ScrollingDirection  = Enum.ScrollingDirection.Y  
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y  
+    -- สร้าง layout กลางถ้ายังไม่มี (ไม่ลบของแท็บอื่น)
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Padding = UDim.new(0, 12)
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
+        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        vlist.Parent = scroll
+    end
+    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
--- ลบเฉพาะบล็อกโปรไฟล์ของตัวเอง (กันซ้ำ)  
-local old = scroll:FindFirstChild("Section_Profile")  
-if old then old:Destroy() end  
+    -- ลบเฉพาะบล็อกโปรไฟล์ของตัวเอง (กันซ้ำ)
+    local old = scroll:FindFirstChild("Section_Profile")
+    if old then old:Destroy() end
 
--- ===== Section: Profile =====  
-local section = Instance.new("Frame")  
-section.Name = "Section_Profile"  
-section.BackgroundTransparency = 1  
-section.Size = UDim2.new(1, 0, 0, 0)  
-section.AutomaticSize = Enum.AutomaticSize.Y  
-section.LayoutOrder = 10  
-section.Parent = scroll  
+    -- ===== Section: Profile =====
+    local section = Instance.new("Frame")
+    section.Name = "Section_Profile"
+    section.BackgroundTransparency = 1
+    section.Size = UDim2.new(1, 0, 0, 0)
+    section.AutomaticSize = Enum.AutomaticSize.Y
+    section.LayoutOrder = 10
+    section.Parent = scroll
 
-local layout = Instance.new("UIListLayout", section)  
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center  
-layout.VerticalAlignment   = Enum.VerticalAlignment.Top  
-layout.Padding             = UDim.new(0, 10)  
+    local layout = Instance.new("UIListLayout", section)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment   = Enum.VerticalAlignment.Top
+    layout.Padding             = UDim.new(0, 10)
 
--- Avatar  
-local avatarWrap = Instance.new("Frame", section)  
-avatarWrap.BackgroundColor3 = THEME.BG_INNER  
-avatarWrap.Size = UDim2.fromOffset(150, 150)  
-corner(avatarWrap, 12)  
-stroke(avatarWrap, 1.6, THEME.GREEN)  
+    -- Avatar
+    local avatarWrap = Instance.new("Frame", section)
+    avatarWrap.BackgroundColor3 = THEME.BG_INNER
+    avatarWrap.Size = UDim2.fromOffset(150, 150)
+    corner(avatarWrap, 12)
+    stroke(avatarWrap, 1.6, THEME.GREEN)
 
-local avatarImg = Instance.new("ImageLabel", avatarWrap)  
-avatarImg.BackgroundTransparency = 1  
-avatarImg.Size = UDim2.fromScale(1, 1)  
-avatarImg.ImageTransparency = 1  
+    local avatarImg = Instance.new("ImageLabel", avatarWrap)
+    avatarImg.BackgroundTransparency = 1
+    avatarImg.Size = UDim2.fromScale(1, 1)
+    avatarImg.ImageTransparency = 1
 
-task.spawn(function()  
-    if lp then  
-        local ok, url = pcall(function()  
-            return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)  
-        end)  
-        if ok and url then  
-            pcall(function() Content:PreloadAsync({url}) end)  
-            avatarImg.Image = url  
-            avatarImg.ImageTransparency = 0  
-        end  
-    end  
-end)  
+    task.spawn(function()
+        if lp then
+            local ok, url = pcall(function()
+                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            end)
+            if ok and url then
+                pcall(function() Content:PreloadAsync({url}) end)
+                avatarImg.Image = url
+                avatarImg.ImageTransparency = 0
+            end
+        end
+    end)
 
--- Name  
-local nameBar = Instance.new("Frame", section)  
-nameBar.BackgroundColor3 = THEME.BG_INNER  
-nameBar.Size = UDim2.fromOffset(220, 36)  
-corner(nameBar, 8)  
-stroke(nameBar, 1.3, THEME.GREEN)  
+    -- Name
+    local nameBar = Instance.new("Frame", section)
+    nameBar.BackgroundColor3 = THEME.BG_INNER
+    nameBar.Size = UDim2.fromOffset(220, 36)
+    corner(nameBar, 8)
+    stroke(nameBar, 1.3, THEME.GREEN)
 
-local nameLbl = Instance.new("TextLabel", nameBar)  
-nameLbl.BackgroundTransparency = 1  
-nameLbl.Size = UDim2.fromScale(1, 1)  
-nameLbl.Font = Enum.Font.GothamBold  
-nameLbl.TextSize = 16  
-nameLbl.TextColor3 = THEME.WHITE  
-nameLbl.TextXAlignment = Enum.TextXAlignment.Center  
-nameLbl.TextYAlignment = Enum.TextYAlignment.Center  
-nameLbl.Text = (lp and lp.DisplayName) or "Player"
-
+    local nameLbl = Instance.new("TextLabel", nameBar)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Size = UDim2.fromScale(1, 1)
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.TextSize = 16
+    nameLbl.TextColor3 = THEME.WHITE
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
+    nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
