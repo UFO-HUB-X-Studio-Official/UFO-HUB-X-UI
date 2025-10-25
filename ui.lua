@@ -522,10 +522,20 @@ local function makeTabFrame(tabName)
     return RSTATE.frames[tabName]
 end
     
--- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (รองรับหลายตัว)
-local function registerRight(tabName, builderFn)
-    RSTATE.builders[tabName] = RSTATE.builders[tabName] or {}
-    table.insert(RSTATE.builders[tabName], builderFn)
+-- ========== 4) ลงทะเบียนคอนเทนต์ต่อแท็บ (รองรับคีย์ภายใน) ==========
+-- ใช้: registerRight("player", function(scroll) ... end)
+--      showRight("player", "Player", 1234567890)
+local function _safeKey(s)
+    s = tostring(s or ""):lower()
+    -- เอาเฉพาะ a-z0-9 และ _ เพื่อให้คีย์นิ่ง ไม่พังเวลาแปล/มีอีโมจิ
+    s = s:gsub("[%s%p%c]", "_"):gsub("[^a-z0-9_]", "")
+    return s
+end
+
+local function registerRight(tabIdOrTitle, builderFn)
+    local key = _safeKey(tabIdOrTitle)
+    RSTATE.builders[key] = RSTATE.builders[key] or {}
+    table.insert(RSTATE.builders[key], builderFn)
 end
 
 -- 5) หัวเรื่อง
@@ -552,9 +562,16 @@ local function addHeader(parentScroll, titleText, iconId)
     head.Text = titleText
 end
 
--- 6) API หลัก (PATCH: remember/restore scroll per-tab)
-function showRight(titleText, iconId)
-    local tab = titleText
+-- ========== 6) API หลัก (PATCH: คีย์ภายใน + sticky restore scroll) ==========
+-- ใช้: showRight(tabId, titleText, iconId)
+-- ถ้าจะเข้ากันกับของเดิมที่เรียก showRight("Player"), ก็โอเค:
+--   - tabId = "Player", title = "Player"
+function showRight(tabId, titleText, iconId)
+    -- backward compat: ถ้า dev เรียกแบบเดิม showRight("Player"),
+    -- ให้ถือว่า tabId == titleText
+    if titleText == nil then titleText = tabId end
+
+    local key = _safeKey(tabId)
     RSTATE.scrollY = RSTATE.scrollY or {}
 
     -- เก็บตำแหน่งแท็บเดิม + ซ่อน
@@ -566,41 +583,55 @@ function showRight(titleText, iconId)
         cur.root.Visible = false
     end
 
-    -- เปิด/สร้างแท็บใหม่
-    local f = RSTATE.frames[tab] or makeTabFrame(tab)
+    -- เปิด/สร้างแท็บใหม่ตาม "key" ภายใน (คงสกรอลล์รายแท็บจริงๆ)
+    local f = RSTATE.frames[key] or (function()
+        local made = makeTabFrame(key)
+        RSTATE.frames[key] = made
+        return made
+    end)()
     f.root.Visible = true
 
     if not f.built then
         if addHeader then addHeader(f.scroll, titleText, iconId) end
-        local list = RSTATE.builders[tab] or {}
+        local list = RSTATE.builders[key] or {}
         for _,builder in ipairs(list) do pcall(builder, f.scroll) end
         f.built = true
     end
 
-    -- กู้ตำแหน่งเลื่อน
+    -- กู้ตำแหน่งเลื่อน (sticky หลายรอบ กันดีด/AutoCanvasปรับช้า)
     local function restoreY()
-        local y = RSTATE.scrollY[tab] or 0
+        local y = RSTATE.scrollY[key] or 0
         local viewH = f.scroll.AbsoluteSize.Y
         local maxY  = math.max(0, f.scroll.CanvasSize.Y.Offset - viewH)
         f.scroll.CanvasPosition = Vector2.new(0, math.clamp(y, 0, maxY))
     end
 
-    restoreY()                       -- กู้ทันที
-    task.defer(restoreY)             -- กันดีดเฟรมแรก
-    if f.list then                   -- กู้ซ้ำเมื่อคอนเทนต์คำนวณเสร็จ
-        f.list:GetPropertyChangedSignal("AbsoluteContentSize"):Once(restoreY)
+    restoreY()
+    -- ย้ำอีกหลายเฟรม (กันจังหวะ AutoCanvas/AbsoluteSize เปลี่ยน)
+    task.defer(restoreY)
+    task.spawn(function()
+        for _=1,5 do
+            task.wait()  -- ~5 เฟรม
+            restoreY()
+        end
+    end)
+
+    if f.list then
+        f.list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(restoreY)
     end
-    f.scroll:GetPropertyChangedSignal("CanvasSize"):Once(restoreY)
+    f.scroll:GetPropertyChangedSignal("CanvasSize"):Connect(restoreY)
+    f.scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(restoreY)
+    f.root:GetPropertyChangedSignal("Visible"):Connect(function(v) if v then restoreY() end end)
 
     -- เซฟตำแหน่งแบบเรียลไทม์
     if not f._saveYHooked then
         f._saveYHooked = true
         f.scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            RSTATE.scrollY[tab] = f.scroll.CanvasPosition.Y
+            RSTATE.scrollY[key] = f.scroll.CanvasPosition.Y
         end)
     end
 
-    RSTATE.current = tab
+    RSTATE.current = key
 end
 
 -- 7) ตัวอย่างแท็บ (ลบเดโมรายการออกแล้ว)
