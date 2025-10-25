@@ -483,41 +483,43 @@ pcall(function()
     if old then old:Destroy() end
 end)
 
--- 3) สร้าง ScrollingFrame ต่อแท็บ  (PATCHED: ใช้ AutomaticCanvasSize=Y)
+-- 3) สร้าง ScrollingFrame ต่อแท็บ  (PATCHED: ใช้ AutomaticCanvasSize=Y, ไม่มีเส้นขาว)
 local function makeTabFrame(tabName)
-local root = Instance.new("Frame")
-root.Name = "RightTab_"..tabName
-root.BackgroundTransparency = 1
-root.Size = UDim2.fromScale(1,1)
-root.Visible = false
-root.Parent = RightShell
+    local root = Instance.new("Frame")
+    root.Name = "RightTab_"..tabName
+    root.BackgroundTransparency = 1
+    root.Size = UDim2.fromScale(1,1)
+    root.Visible = false
+    root.Parent = RightShell
 
-local sf = Instance.new("ScrollingFrame", root)
-sf.Name = "Scroll"
-sf.BackgroundTransparency = 1
-sf.Size = UDim2.fromScale(1,1)
-sf.ScrollingDirection = Enum.ScrollingDirection.Y
-sf.ScrollBarThickness = 4                 -- ให้เห็นก่อน (มั่นใจว่าเลื่อนได้) ปรับเป็น 0 ทีหลังได้
-sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-sf.CanvasSize = UDim2.new(0,0,0,0)        -- ปล่อยให้ Auto คุม
-sf.ElasticBehavior = Enum.ElasticBehavior.Never
+    local sf = Instance.new("ScrollingFrame", root)
+    sf.Name = "Scroll"
+    sf.BackgroundTransparency = 1
+    sf.Size = UDim2.fromScale(1,1)
+    sf.ScrollingDirection = Enum.ScrollingDirection.Y
+    sf.ScrollBarThickness = 0                     -- ซ่อนแถบสกรอลล์
+    sf.ScrollBarImageTransparency = 1             -- ลบเงาสีขาว
+    sf.ScrollBarImageColor3 = Color3.new(0,0,0)   -- กันเส้นขาวค้าง
+    sf.BorderSizePixel = 0                        -- ไม่มีเส้นขอบ
+    sf.ClipsDescendants = true                    -- ป้องกันหลุดขอบตอนเลื่อน
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.CanvasSize = UDim2.new(0,0,0,0)
+    sf.ElasticBehavior = Enum.ElasticBehavior.Never
 
-local pad = Instance.new("UIPadding", sf)
-pad.PaddingTop    = UDim.new(0,12)
-pad.PaddingLeft   = UDim.new(0,12)
-pad.PaddingRight  = UDim.new(0,12)
-pad.PaddingBottom = UDim.new(0,12)
+    local pad = Instance.new("UIPadding", sf)
+    pad.PaddingTop    = UDim.new(0,12)
+    pad.PaddingLeft   = UDim.new(0,12)
+    pad.PaddingRight  = UDim.new(0,12)
+    pad.PaddingBottom = UDim.new(0,12)
 
-local list = Instance.new("UIListLayout", sf)
-list.Padding = UDim.new(0,10)
-list.SortOrder = Enum.SortOrder.LayoutOrder
-list.VerticalAlignment = Enum.VerticalAlignment.Top
+    local list = Instance.new("UIListLayout", sf)
+    list.Padding = UDim.new(0,10)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.VerticalAlignment = Enum.VerticalAlignment.Top
 
--- ไม่ต้องคำนวณ CanvasSize เองแล้ว (ลบทิ้ง refreshCanvas และการ subscribe เดิม)
-
-RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
-return RSTATE.frames[tabName]
-
+    -- ไม่ต้องคำนวณ CanvasSize เองแล้ว (Auto ทำให้)
+    RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
+    return RSTATE.frames[tabName]
 end
     
 -- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (รองรับหลายตัว)
@@ -594,8 +596,7 @@ registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
 
--- ================= END RIGHT modular =================-- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
--- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
+-- ================= END RIGHT modular =================
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
