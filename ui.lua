@@ -466,19 +466,19 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     local maxY  = math.max(0, RightScroll.CanvasSize.Y.Offset - viewH)
     RightScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore,0,maxY))
 end)
--- ================= RIGHT: Modular per-tab (Sticky Scroll • No White Line • Persist) =================
+-- ================= RIGHT: Modular per-tab (Sticky+Lock Scroll • No White Line • Persist) =================
 -- วางหลังสร้าง RightShell เสร็จ และก่อนผูกปุ่มกด showRight(...)
 
--- 1) Global state (persist ข้ามสคริปต์อื่น)
+-- 1) Global state
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
-RSTATE.frames    = RSTATE.frames    or {}   -- key -> {root, scroll, list, built, _saveYHooked}
-RSTATE.builders  = RSTATE.builders  or {}   -- key -> {fn, fn, ...}
-RSTATE.scrollY   = RSTATE.scrollY   or {}   -- key -> number
-RSTATE.keyAlias  = RSTATE.keyAlias  or {}   -- ชื่อโชว์ -> คีย์ภายใน (optional)
-RSTATE.current   = RSTATE.current
+RSTATE.frames   = RSTATE.frames   or {}   -- key -> {root, scroll, list, built, _saveYHooked}
+RSTATE.builders = RSTATE.builders or {}   -- key -> {fn, fn, ...}
+RSTATE.scrollY  = RSTATE.scrollY  or {}   -- key -> number
+RSTATE.current  = RSTATE.current
+RSTATE.alias    = RSTATE.alias    or {}   -- display -> key
 
--- 2) ฟังก์ชันช่วย: แปลงชื่อแท็บให้เป็นคีย์ภายในคงที่
+-- 2) key helper (คีย์ภายในคงที่)
 local function _safeKey(s)
     s = tostring(s or ""):lower()
     s = s:gsub("[%s%p%c]", "_"):gsub("[^a-z0-9_]", "")
@@ -486,11 +486,10 @@ local function _safeKey(s)
     return s
 end
 
--- 3) สร้าง/ดึงเฟรมแท็บ (ใช้ซ้ำถ้ามีอยู่แล้ว ไม่ลบทิ้ง)
+-- 3) สร้าง/ดึงเฟรมแท็บ (ใช้ซ้ำ)
 local function makeOrGetTabFrame(tabKey)
-    if RSTATE.frames[tabKey] and RSTATE.frames[tabKey].root and RSTATE.frames[tabKey].root.Parent then
-        return RSTATE.frames[tabKey]
-    end
+    local f = RSTATE.frames[tabKey]
+    if f and f.root and f.root.Parent then return f end
 
     local root = RightShell:FindFirstChild("RightTab_"..tabKey)
     if not root then
@@ -509,7 +508,7 @@ local function makeOrGetTabFrame(tabKey)
         sf.BackgroundTransparency = 1
         sf.Size = UDim2.fromScale(1,1)
         sf.ScrollingDirection = Enum.ScrollingDirection.Y
-        sf.ScrollBarThickness = 4               -- ให้เห็นก่อนว่าเลื่อนได้
+        sf.ScrollBarThickness = 4           -- เห็นก่อนว่าเลื่อนได้; จะซ่อนให้เองทีหลัง
         sf.ScrollBarImageTransparency = 1
         sf.ScrollBarImageColor3 = Color3.new(0,0,0)
         sf.BorderSizePixel = 0
@@ -530,32 +529,28 @@ local function makeOrGetTabFrame(tabKey)
         list.SortOrder = Enum.SortOrder.LayoutOrder
         list.VerticalAlignment = Enum.VerticalAlignment.Top
 
-        RSTATE.frames[tabKey] = { root = root, scroll = sf, list = list, built = false }
+        RSTATE.frames[tabKey] = {root=root, scroll=sf, list=list, built=false}
     else
-        -- มีอยู่แล้ว: อัปเดตอ้างอิง (กันโดนเก็บในครั้งก่อน)
         local list = sf:FindFirstChildOfClass("UIListLayout")
-        RSTATE.frames[tabKey] = { root = root, scroll = sf, list = list, built = RSTATE.frames[tabKey] and RSTATE.frames[tabKey].built or false }
+        RSTATE.frames[tabKey] = {root=root, scroll=sf, list=list, built=(f and f.built) or false}
     end
-
     return RSTATE.frames[tabKey]
 end
 
--- 4) ลงทะเบียนคอนเทนต์ต่อแท็บ
-local function registerRight(tabDisplayName, builderFn)
-    local key = RSTATE.keyAlias[tabDisplayName] or _safeKey(tabDisplayName)
-    RSTATE.builders[key] = RSTATE.builders[key] or {}
-    table.insert(RSTATE.builders[key], builderFn)
+-- 4) ลงทะเบียนคอนเทนต์ต่อแท็บ (ระบุ key ที่แน่นอน)
+-- ใช้: registerRight("player", function(scroll) ... end)
+local function registerRight(tabKey, builderFn)
+    tabKey = _safeKey(tabKey)
+    RSTATE.builders[tabKey] = RSTATE.builders[tabKey] or {}
+    table.insert(RSTATE.builders[tabKey], builderFn)
 end
 getgenv().registerRight = registerRight
 
--- 5) Header แท็บ
+-- 5) Header
 local BASE_THEME = rawget(_G, "THEME") or {}
 local TEXT_COLOR = BASE_THEME.TEXT or Color3.fromRGB(255,255,255)
 local function addHeader(parentScroll, titleText, iconId)
-    -- ลบหัวเก่าถ้ามี (กันซ้อน)
-    local existing = parentScroll:FindFirstChild("___TabHeader")
-    if existing then existing:Destroy() end
-
+    local old = parentScroll:FindFirstChild("___TabHeader"); if old then old:Destroy() end
     local row = Instance.new("Frame")
     row.Name = "___TabHeader"
     row.BackgroundTransparency = 1
@@ -577,17 +572,17 @@ local function addHeader(parentScroll, titleText, iconId)
     head.TextXAlignment = Enum.TextXAlignment.Left
     head.TextColor3 = TEXT_COLOR
     head.Position = UDim2.new(0, iconId and 26 or 0, 0, 0)
-    head.Size = UDim2.new(1, iconId and -26 or 0, 1, 0)
+    head.Size     = UDim2.new(1, iconId and -26 or 0, 1, 0)
     head.Text = tostring(titleText or "")
 end
 
--- 6) showRight: sticky scroll + persist attribute
-function showRight(titleText, iconId)
-    -- ทำคีย์ภายในให้คงที่เสมอ (กันอีโมจิ/เว้นวรรคทำคีย์เปลี่ยน)
-    local key = RSTATE.keyAlias[titleText] or _safeKey(titleText)
+-- 6) showRightByKey: เรียกด้วย "key ภายใน" + ชื่อโชว์
+-- ใช้: showRightByKey("player", "Player", 12345)
+local function showRightByKey(tabKey, titleText, iconId)
+    tabKey = _safeKey(tabKey)
     RSTATE.scrollY = RSTATE.scrollY or {}
 
-    -- เก็บแท็บเดิม + เซฟตำแหน่งลง Attribute ของ root เดิมด้วย
+    -- เก็บแท็บเดิม + เซฟ Attribute
     if RSTATE.current and RSTATE.frames[RSTATE.current] then
         local cur = RSTATE.frames[RSTATE.current]
         if cur.scroll then
@@ -598,32 +593,33 @@ function showRight(titleText, iconId)
         cur.root.Visible = false
     end
 
-    -- เอาแท็บใหม่ (สร้างถ้าไม่มี) + อ่านตำแหน่งที่เคยเซฟ (ทั้งในหน่วยความจำและ Attribute)
-    local f = makeOrGetTabFrame(key)
+    -- เอาแท็บใหม่
+    local f = makeOrGetTabFrame(tabKey)
     f.root.Visible = true
 
     if not f.built then
         addHeader(f.scroll, titleText, iconId)
-        local list = RSTATE.builders[key] or {}
+        local list = RSTATE.builders[tabKey] or {}
         for _, builder in ipairs(list) do pcall(builder, f.scroll) end
         f.built = true
     end
 
     -- โหลดตำแหน่งเก่า
-    local savedY = RSTATE.scrollY[key]
-    if savedY == nil then
-        savedY = f.root:GetAttribute("SavedScrollY") or 0
-        RSTATE.scrollY[key] = savedY
+    if RSTATE.scrollY[tabKey] == nil then
+        RSTATE.scrollY[tabKey] = f.root:GetAttribute("SavedScrollY") or 0
     end
 
-    -- ฟังก์ชันกู้ตำแหน่ง (เรียกหลายรอบกันดีด)
-    local function restoreY()
-        local y = RSTATE.scrollY[key] or 0
+    -- ฟังก์ชันกู้ตำแหน่ง
+    local function restoreY(y)
+        y = (y ~= nil) and y or (RSTATE.scrollY[tabKey] or 0)
         local viewH = f.scroll.AbsoluteSize.Y
         local maxY  = math.max(0, f.scroll.CanvasSize.Y.Offset - viewH)
-        y = math.clamp(y, 0, maxY)
-        f.scroll.CanvasPosition = Vector2.new(0, y)
+        f.scroll.CanvasPosition = Vector2.new(0, math.clamp(y, 0, maxY))
     end
+
+    -- ล็อคตำแหน่ง 0.6 วินาทีแรก (กันใครมารีเซ็ต)
+    local lock = true
+    task.delay(0.6, function() lock = false end)
 
     restoreY()
     task.defer(restoreY)
@@ -631,41 +627,47 @@ function showRight(titleText, iconId)
         for _=1,6 do task.wait(); restoreY() end
     end)
 
-    -- กู้ซ้ำเมื่อเลย์เอาต์/ขนาดเปลี่ยน
-    if f.list then f.list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(restoreY) end
-    f.scroll:GetPropertyChangedSignal("CanvasSize"):Connect(restoreY)
-    f.scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(restoreY)
+    if f.list then f.list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if lock then restoreY() end end) end
+    f.scroll:GetPropertyChangedSignal("CanvasSize"):Connect(function() if lock then restoreY() end end)
+    f.scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() if lock then restoreY() end end)
     f.root:GetPropertyChangedSignal("Visible"):Connect(function()
         if f.root.Visible then restoreY() end
     end)
 
-    -- เซฟตำแหน่งแบบเรียลไทม์ (ทั้งในหน่วยความจำและ Attribute)
+    -- เซฟแบบเรียลไทม์
     if not f._saveYHooked then
         f._saveYHooked = true
         f.scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             local y = f.scroll.CanvasPosition.Y
-            RSTATE.scrollY[key] = y
+            RSTATE.scrollY[tabKey] = y
             if f.root then f.root:SetAttribute("SavedScrollY", y) end
         end)
     end
 
-    -- ซ่อนสกรอลล์บาร์หลังนิ่ง (กันเส้นขาว) แต่ยังเลื่อนได้
+    -- ซ่อนแถบสกรอลล์หลังนิ่ง
     task.defer(function() if f.scroll then f.scroll.ScrollBarThickness = 0 end end)
 
-    RSTATE.current = key
+    RSTATE.current = tabKey
+end
+getgenv().showRightByKey = showRightByKey
+
+-- 7) Helper: showRight แบบเดิม แต่ map ไปที่ key ให้
+-- ใช้: showRight("Player", 12345)  -- key = "player"
+function showRight(titleText, iconId)
+    local key = _safeKey(titleText)
+    RSTATE.alias[titleText] = key
+    showRightByKey(key, titleText, iconId)
 end
 getgenv().showRight = showRight
 
--- 7) ตัวอย่างแท็บ (ลงทะเบียนแบบเดิม ใช้ชื่อโชว์เป็น key โดยอัตโนมัติ)
-registerRight("Player", function(scroll)
-    -- วาง UI ของ Player ที่นี่
-end)
-registerRight("Home", function(scroll) end)
-registerRight("Quest", function(scroll) end)
-registerRight("Shop", function(scroll) end)
-registerRight("Update", function(scroll) end)
-registerRight("Server", function(scroll) end)
-registerRight("Settings", function(scroll) end)
+-- 8) ตัวอย่างลงทะเบียน (ใช้ key คงที่)
+registerRight("player",  function(scroll) end)
+registerRight("home",    function(scroll) end)
+registerRight("quest",   function(scroll) end)
+registerRight("shop",    function(scroll) end)
+registerRight("update",  function(scroll) end)
+registerRight("server",  function(scroll) end)
+registerRight("settings",function(scroll) end)
  -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
