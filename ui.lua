@@ -483,7 +483,7 @@ pcall(function()
     if old then old:Destroy() end
 end)
 
--- 3) สร้าง ScrollingFrame ต่อแท็บ  (PATCHED: ใช้ AutomaticCanvasSize=Y, ไม่มีเส้นขาว)
+-- 3) สร้าง ScrollingFrame ต่อแท็บ
 local function makeTabFrame(tabName)
     local root = Instance.new("Frame")
     root.Name = "RightTab_"..tabName
@@ -496,15 +496,11 @@ local function makeTabFrame(tabName)
     sf.Name = "Scroll"
     sf.BackgroundTransparency = 1
     sf.Size = UDim2.fromScale(1,1)
+    sf.ScrollBarThickness = 0      -- ← ซ่อนสกรอลล์บาร์ (เดิม 4)
     sf.ScrollingDirection = Enum.ScrollingDirection.Y
-    sf.ScrollBarThickness = 0                     -- ซ่อนแถบสกรอลล์
-    sf.ScrollBarImageTransparency = 1             -- ลบเงาสีขาว
-    sf.ScrollBarImageColor3 = Color3.new(0,0,0)   -- กันเส้นขาวค้าง
-    sf.BorderSizePixel = 0                        -- ไม่มีเส้นขอบ
-    sf.ClipsDescendants = true                    -- ป้องกันหลุดขอบตอนเลื่อน
-    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    sf.CanvasSize = UDim2.new(0,0,0,0)
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.None
     sf.ElasticBehavior = Enum.ElasticBehavior.Never
+    sf.CanvasSize = UDim2.new(0,0,0,600)  -- เลื่อนได้ตั้งแต่เริ่ม
 
     local pad = Instance.new("UIPadding", sf)
     pad.PaddingTop    = UDim.new(0,12)
@@ -517,11 +513,25 @@ local function makeTabFrame(tabName)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     list.VerticalAlignment = Enum.VerticalAlignment.Top
 
-    -- ไม่ต้องคำนวณ CanvasSize เองแล้ว (Auto ทำให้)
+    local function refreshCanvas()
+        local h = list.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset
+        sf.CanvasSize = UDim2.new(0,0,0, math.max(h,600))
+    end
+
+    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local yBefore = sf.CanvasPosition.Y
+        refreshCanvas()
+        local viewH = sf.AbsoluteSize.Y
+        local maxY  = math.max(0, sf.CanvasSize.Y.Offset - viewH)
+        sf.CanvasPosition = Vector2.new(0, math.clamp(yBefore, 0, maxY))
+    end)
+
+    task.defer(refreshCanvas)
+
     RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
     return RSTATE.frames[tabName]
 end
-    
+
 -- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (รองรับหลายตัว)
 local function registerRight(tabName, builderFn)
     RSTATE.builders[tabName] = RSTATE.builders[tabName] or {}
@@ -595,8 +605,6 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
-
--- ================= END RIGHT modular =================
  -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
