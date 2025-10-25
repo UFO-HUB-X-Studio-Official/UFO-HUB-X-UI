@@ -552,34 +552,53 @@ local function addHeader(parentScroll, titleText, iconId)
     head.Text = titleText
 end
 
--- 6) API หลัก
+-- 6) API หลัก (PATCH: remember/restore scroll per-tab)
 function showRight(titleText, iconId)
     local tab = titleText
+    RSTATE.scrollY = RSTATE.scrollY or {}
 
+    -- เก็บตำแหน่งแท็บเดิม + ซ่อน
     if RSTATE.current and RSTATE.frames[RSTATE.current] then
-        RSTATE.scrollY[RSTATE.current] = RSTATE.frames[RSTATE.current].scroll.CanvasPosition.Y
-        RSTATE.frames[RSTATE.current].root.Visible = false
+        local cur = RSTATE.frames[RSTATE.current]
+        if cur.scroll then
+            RSTATE.scrollY[RSTATE.current] = cur.scroll.CanvasPosition.Y
+        end
+        cur.root.Visible = false
     end
 
+    -- เปิด/สร้างแท็บใหม่
     local f = RSTATE.frames[tab] or makeTabFrame(tab)
     f.root.Visible = true
 
     if not f.built then
-        addHeader(f.scroll, titleText, iconId)
-        -- เรียกทุก builder ของแท็บนี้ (เรียงตามที่ register เข้ามา)
+        if addHeader then addHeader(f.scroll, titleText, iconId) end
         local list = RSTATE.builders[tab] or {}
-        for _, builder in ipairs(list) do
-            pcall(builder, f.scroll)
-        end
+        for _,builder in ipairs(list) do pcall(builder, f.scroll) end
         f.built = true
     end
 
-    task.defer(function()
+    -- กู้ตำแหน่งเลื่อน
+    local function restoreY()
         local y = RSTATE.scrollY[tab] or 0
         local viewH = f.scroll.AbsoluteSize.Y
         local maxY  = math.max(0, f.scroll.CanvasSize.Y.Offset - viewH)
         f.scroll.CanvasPosition = Vector2.new(0, math.clamp(y, 0, maxY))
-    end)
+    end
+
+    restoreY()                       -- กู้ทันที
+    task.defer(restoreY)             -- กันดีดเฟรมแรก
+    if f.list then                   -- กู้ซ้ำเมื่อคอนเทนต์คำนวณเสร็จ
+        f.list:GetPropertyChangedSignal("AbsoluteContentSize"):Once(restoreY)
+    end
+    f.scroll:GetPropertyChangedSignal("CanvasSize"):Once(restoreY)
+
+    -- เซฟตำแหน่งแบบเรียลไทม์
+    if not f._saveYHooked then
+        f._saveYHooked = true
+        f.scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            RSTATE.scrollY[tab] = f.scroll.CanvasPosition.Y
+        end)
+    end
 
     RSTATE.current = tab
 end
