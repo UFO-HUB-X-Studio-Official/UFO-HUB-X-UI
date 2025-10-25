@@ -1533,6 +1533,240 @@ registerRight("Player", function(scroll)
     if S.antiIdleOn then startAntiIdle() end
     startWatcher()
 end)
+-- ===== UFO HUB X • Settings — Language Picker (MODEL A V1) =====
+-- • เปลี่ยนภาษาได้ทันที, มีช่องค้นหา, มีรายการ “ทุกภาษาใน Roblox Enum.LanguageCode”
+-- • โครง i18n กลาง (_G.UFOX_I18N) สำหรับผูกข้อความที่จะต้องแปลในอนาคต
+-- • ใช้สไตล์เดียวกับ A LEGACY: กรอบดำเส้นเขียว ขนาดแถว 46px
+
+-- ---------- i18n core (หนึ่งครั้งทั่วระบบ) ----------
+do
+    _G.UFOX_I18N = _G.UFOX_I18N or {
+        current = "en",      -- ค่าตั้งต้น
+        dict    = {},        -- dict[key][lang] = text
+        labels  = {},        -- { {obj=TextLabel, key="..."} , ... }
+        evt     = Instance.new("BindableEvent")
+    }
+    local I=_G.UFOX_I18N
+
+    function I.setLanguage(code:string)
+        I.current = code
+        I.evt:Fire(code)
+        -- อัปเดตข้อความทุก label ที่ผูกไว้
+        for _,rec in ipairs(I.labels) do
+            local key, obj = rec.key, rec.obj
+            local pack = I.dict[key]
+            if obj and obj.Parent and pack then
+                local txt = pack[code] or pack.en or obj:GetAttribute("I18N_Default") or obj.Text
+                obj.Text = txt
+            end
+        end
+    end
+
+    function I.register(key:string, lang:string, text:string)
+        I.dict[key] = I.dict[key] or {}
+        I.dict[key][lang] = text
+    end
+
+    -- ผูก TextLabel กับ key (จะอัปเดตอัตโนมัติเมื่อเปลี่ยนภาษา)
+    function I.bind(obj:TextLabel, key:string, defaultText:string?)
+        table.insert(I.labels, {obj=obj, key=key})
+        if defaultText then obj:SetAttribute("I18N_Default", defaultText) end
+        -- แสดงข้อความตามภาษาปัจจุบัน
+        local pack = I.dict[key]
+        if pack then
+            obj.Text = pack[I.current] or pack.en or defaultText or obj.Text
+        elseif defaultText then
+            obj.Text = defaultText
+        end
+        -- ฟัง event เปลี่ยนภาษา
+        I.evt.Event:Connect(function(code)
+            if not obj or not obj.Parent then return end
+            local p = I.dict[key]
+            if p then obj.Text = p[code] or p.en or obj:GetAttribute("I18N_Default") or obj.Text end
+        end)
+    end
+
+    -- ✨ ตัวอย่างคีย์ไว้ก่อน (เดี๋ยวคุณค่อยเพิ่มคีย์จริงๆ ของทุกระบบที่ต้องแปล)
+    I.register("settings.header.language",     "en", "Language 🌐")
+    I.register("settings.header.language",     "th", "ภาษา 🌐")
+    I.register("settings.row.language",        "en", "Language")
+    I.register("settings.row.language",        "th", "เลือกภาษา")
+    I.register("settings.search.placeholder",  "en", "Search language…")
+    I.register("settings.search.placeholder",  "th", "ค้นหาภาษา…")
+    I.register("settings.note.applied",        "en", "Applied instantly")
+    I.register("settings.note.applied",        "th", "เปลี่ยนทันที")
+end
+
+-- ---------- Settings tab: Language Picker UI ----------
+registerRight("Settings", function(scroll)
+    local UIS = game:GetService("UserInputService")
+    local THEME = {
+        GREEN=Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40),
+        WHITE=Color3.fromRGB(255,255,255), BLACK=Color3.fromRGB(0,0,0),
+        MINT =Color3.fromRGB(120,255,220)
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col,tr)
+        local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN
+        s.Transparency=tr or 0; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui
+    end
+    local I = _G.UFOX_I18N
+
+    -- เคลียร์ของเดิม (เฉพาะส่วนของ Settings Language)
+    for _,n in ipairs({"Lang_Header","Lang_Row","Lang_Drop","Lang_Note"}) do
+        local o=scroll:FindFirstChild(n); if o then o:Destroy() end
+    end
+
+    -- layout/canvas ตามมาตรฐานแท็บ
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local nextOrder = 10
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
+    end
+
+    -- ===== Header =====
+    local header = Instance.new("TextLabel", scroll)
+    header.Name="Lang_Header"; header.BackgroundTransparency=1
+    header.Size=UDim2.new(1,0,0,36); header.LayoutOrder=nextOrder
+    header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.WHITE
+    header.TextXAlignment=Enum.TextXAlignment.Left
+    _G.UFOX_I18N.bind(header, "settings.header.language", "Language 🌐")
+
+    -- ===== Row: Language (ปุ่มเปิด dropdown ทางขวา) =====
+    local row = Instance.new("Frame", scroll)
+    row.Name="Lang_Row"; row.LayoutOrder=nextOrder+1
+    row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+    corner(row,12); stroke(row,2.2,THEME.GREEN)
+
+    local lab = Instance.new("TextLabel", row)
+    lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
+    lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left
+    _G.UFOX_I18N.bind(lab, "settings.row.language", "Language")
+
+    local chip = Instance.new("TextButton", row) -- ปุ่มตัวเลือกปัจจุบัน (ขวา)
+    chip.AutoButtonColor=false; chip.AnchorPoint=Vector2.new(1,0.5); chip.Position=UDim2.new(1,-12,0.5,0)
+    chip.Size=UDim2.fromOffset(160,26); chip.Text=""; chip.BackgroundColor3=Color3.fromRGB(20,20,20)
+    corner(chip,13); stroke(chip,1.8,THEME.MINT,0.35)
+
+    local chipTxt = Instance.new("TextLabel", chip)
+    chipTxt.BackgroundTransparency=1; chipTxt.Size=UDim2.fromScale(1,1)
+    chipTxt.Font=Enum.Font.GothamBold; chipTxt.TextSize=12; chipTxt.TextColor3=THEME.WHITE
+    chipTxt.TextXAlignment=Enum.TextXAlignment.Center; chipTxt.TextYAlignment=Enum.TextYAlignment.Center
+
+    local function codeToNice(c)
+        -- ชื่อสวยๆ เฉพาะที่รู้จัก (เพิ่มได้เรื่อยๆ)
+        local map = {
+            en="English", th="ไทย", es="Español", ja="日本語", ko="한국어", zh_cn="简体中文",
+            zh_tw="繁體中文", fr="Français", de="Deutsch", ru="Русский", pt_br="Português (Brasil)",
+            ar="العربية", hi="हिन्दी", id="Bahasa Indonesia", ms="Bahasa Melayu", vi="Tiếng Việt",
+            tr="Türkçe", it="Italiano", pl="Polski", nl="Nederlands"
+        }
+        return map[string.lower(c)] or c
+    end
+    local function refreshChip() chipTxt.Text = codeToNice(I.current).."  ("..I.current..")" end
+    refreshChip()
+    I.evt.Event:Connect(refreshChip)
+
+    -- ===== Dropdown (ค้นหา + รายการภาษา) =====
+    local drop = Instance.new("Frame", scroll)
+    drop.Name="Lang_Drop"; drop.Visible=false; drop.BackgroundTransparency=1; drop.LayoutOrder=nextOrder+2
+    drop.Size=UDim2.new(1,-6,0,220) -- สูงพอให้เลื่อน
+    -- กล่องจริง
+    local box = Instance.new("Frame", drop)
+    box.Size=UDim2.new(1,0,1,0); box.BackgroundColor3=Color3.fromRGB(12,12,12)
+    corner(box,12); stroke(box,2.0,THEME.GREEN,0)
+
+    -- ช่องค้นหา
+    local search = Instance.new("TextBox", box)
+    search.PlaceholderText = "" -- จะใส่ผ่าน i18n ด้านล่าง
+    search.ClearTextOnFocus = false
+    search.Font=Enum.Font.Gotham; search.TextSize=13; search.TextColor3=THEME.WHITE
+    search.BackgroundColor3=Color3.fromRGB(18,18,18)
+    search.Size=UDim2.new(1,-20,0,28); search.Position=UDim2.new(0,10,0,10)
+    corner(search,8); stroke(search,1.2,THEME.MINT,0.35)
+
+    local ph = Instance.new("TextLabel", search)
+    ph.BackgroundTransparency=1; ph.TextColor3=Color3.fromRGB(160,160,160); ph.Font=Enum.Font.Gotham
+    ph.TextSize=12; ph.TextXAlignment=Enum.TextXAlignment.Left; ph.TextYAlignment=Enum.TextYAlignment.Center
+    ph.Size=UDim2.fromScale(1,1); ph.Text = "Search language…"
+    ph.ZIndex = search.ZIndex - 1
+    ph.Visible = (search.Text == "")
+    search:GetPropertyChangedSignal("Text"):Connect(function() ph.Visible = (search.Text == "") end)
+    _G.UFOX_I18N.bind(ph, "settings.search.placeholder", "Search language…")
+
+    -- รายการเลื่อน
+    local listWrap = Instance.new("ScrollingFrame", box)
+    listWrap.BackgroundTransparency=1; listWrap.Position=UDim2.new(0,10,0,48)
+    listWrap.Size=UDim2.new(1,-20,1,-58)
+    listWrap.ScrollBarThickness=0; listWrap.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    listWrap.ScrollingDirection=Enum.ScrollingDirection.Y; listWrap.ElasticBehavior=Enum.ElasticBehavior.Never
+    local pad = Instance.new("UIPadding", listWrap); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,10)
+    local v = Instance.new("UIListLayout", listWrap); v.Padding=UDim.new(0,6); v.SortOrder=Enum.SortOrder.LayoutOrder
+
+    -- โหลด “ทุกภาษา” จาก Roblox Enum.LanguageCode
+    local all = {}
+    for _,it in ipairs(Enum.LanguageCode:GetEnumItems()) do
+        local code = string.lower(it.Name) -- เช่น "en", "th", "pt_br" ...
+        table.insert(all, {code=code, name=(codeToNice(code) or it.Name)})
+    end
+    table.sort(all, function(a,b) return a.name:lower() < b.name:lower() end)
+
+    local itemButtons = {}  -- เก็บไว้เพื่อ filter
+    local function makeItem(lang)
+        local b = Instance.new("TextButton", listWrap)
+        b.AutoButtonColor=false; b.Size=UDim2.new(1,-0,0,30); b.Text=""
+        b.BackgroundColor3=Color3.fromRGB(18,18,18); corner(b,8); stroke(b,1.1,THEME.MINT,0.35)
+        local t = Instance.new("TextLabel", b)
+        t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
+        t.Font=Enum.Font.Gotham; t.TextSize=12; t.TextColor3=THEME.WHITE
+        t.TextXAlignment=Enum.TextXAlignment.Left; t.Text = string.format("%s  (%s)", lang.name, lang.code)
+        t.Position=UDim2.new(0,10,0,0)
+
+        b.MouseButton1Click:Connect(function()
+            _G.UFOX_I18N.setLanguage(lang.code)
+            drop.Visible=false
+        end)
+        table.insert(itemButtons, {btn=b, text=t.Text:lower()})
+    end
+    for _,L in ipairs(all) do makeItem(L) end
+
+    -- filter ค้นหา
+    local function applyFilter()
+        local q = (search.Text or ""):lower()
+        for _,rec in ipairs(itemButtons) do
+            rec.btn.Visible = (q == "" or string.find(rec.text, q, 1, true) ~= nil)
+        end
+    end
+    search:GetPropertyChangedSignal("Text"):Connect(applyFilter)
+
+    -- หมายเหตุเล็กๆ ใต้แถว
+    local note = Instance.new("TextLabel", scroll)
+    note.Name="Lang_Note"; note.BackgroundTransparency=1; note.LayoutOrder=nextOrder+3
+    note.TextXAlignment=Enum.TextXAlignment.Left; note.Font=Enum.Font.Gotham; note.TextSize=12
+    note.TextColor3=Color3.fromRGB(190,190,190); note.Size=UDim2.new(1,-6,0,18)
+    _G.UFOX_I18N.bind(note, "settings.note.applied", "Applied instantly")
+
+    -- เปิด/ปิด dropdown
+    chip.MouseButton1Click:Connect(function()
+        drop.Visible = not drop.Visible
+        if drop.Visible then search:CaptureFocus() end
+    end)
+    -- ปิดเมื่อคลิกนอก
+    UIS.InputBegan:Connect(function(io,gp)
+        if not drop.Visible or gp then return end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+            local p = io.Position
+            local abs = box.AbsolutePosition
+            local sz  = box.AbsoluteSize
+            local inside = (p.X>=abs.X and p.X<=abs.X+sz.X and p.Y>=abs.Y and p.Y<=abs.Y+sz.Y)
+            if not inside and io.UserInputType==Enum.UserInputType.MouseButton1 then
+                drop.Visible=false
+            end
+        end
+    end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
