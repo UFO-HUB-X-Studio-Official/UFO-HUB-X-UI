@@ -466,130 +466,169 @@ RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     local maxY  = math.max(0, RightScroll.CanvasSize.Y.Offset - viewH)
     RightScroll.CanvasPosition = Vector2.new(0, math.clamp(yBefore,0,maxY))
 end)
--- ================= RIGHT: Modular per-tab (drop-in • sticky scroll fixed) =================
--- วางหลังจากสร้าง RightShell เสร็จ (และก่อนผูกปุ่มกด)
+-- ================= RIGHT: Modular per-tab (Sticky Scroll • No White Line • Persist) =================
+-- วางหลังสร้าง RightShell เสร็จ และก่อนผูกปุ่มกด showRight(...)
 
--- 1) เก็บ/ใช้ state กลาง
+-- 1) Global state (persist ข้ามสคริปต์อื่น)
 if not getgenv().UFO_RIGHT then getgenv().UFO_RIGHT = {} end
 local RSTATE = getgenv().UFO_RIGHT
-RSTATE.frames   = RSTATE.frames   or {}
-RSTATE.builders = RSTATE.builders or {}
-RSTATE.scrollY  = RSTATE.scrollY  or {}
-RSTATE.current  = RSTATE.current
+RSTATE.frames    = RSTATE.frames    or {}   -- key -> {root, scroll, list, built, _saveYHooked}
+RSTATE.builders  = RSTATE.builders  or {}   -- key -> {fn, fn, ...}
+RSTATE.scrollY   = RSTATE.scrollY   or {}   -- key -> number
+RSTATE.keyAlias  = RSTATE.keyAlias  or {}   -- ชื่อโชว์ -> คีย์ภายใน (optional)
+RSTATE.current   = RSTATE.current
 
--- 2) ถ้ามี RightScroll เก่าอยู่ ให้ลบทิ้ง
-pcall(function()
-    local old = RightShell:FindFirstChildWhichIsA("ScrollingFrame")
-    if old then old:Destroy() end
-end)
-
--- 3) สร้าง ScrollingFrame ต่อแท็บ  (PATCHED: ใช้ AutomaticCanvasSize=Y, ไม่มีเส้นขาว)
-local function makeTabFrame(tabName)
-    local root = Instance.new("Frame")
-    root.Name = "RightTab_"..tostring(tabName)
-    root.BackgroundTransparency = 1
-    root.Size = UDim2.fromScale(1,1)
-    root.Visible = false
-    root.Parent = RightShell
-
-    local sf = Instance.new("ScrollingFrame", root)
-    sf.Name = "Scroll"
-    sf.BackgroundTransparency = 1
-    sf.Size = UDim2.fromScale(1,1)
-    sf.ScrollingDirection = Enum.ScrollingDirection.Y
-    sf.ScrollBarThickness = 4            -- ให้เห็นก่อนว่าเลื่อนได้ เดี๋ยวซ่อนให้เอง
-    sf.ScrollBarImageTransparency = 1
-    sf.ScrollBarImageColor3 = Color3.new(0,0,0)
-    sf.BorderSizePixel = 0
-    sf.ClipsDescendants = true
-    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    sf.CanvasSize = UDim2.new(0,0,0,0)
-    sf.ElasticBehavior = Enum.ElasticBehavior.Never
-
-    local pad = Instance.new("UIPadding", sf)
-    pad.PaddingTop    = UDim.new(0,12)
-    pad.PaddingLeft   = UDim.new(0,12)
-    pad.PaddingRight  = UDim.new(0,12)
-    pad.PaddingBottom = UDim.new(0,12)
-
-    local list = Instance.new("UIListLayout", sf)
-    list.Padding = UDim.new(0,10)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    list.VerticalAlignment = Enum.VerticalAlignment.Top
-
-    RSTATE.frames[tabName] = {root=root, scroll=sf, list=list, built=false}
-    return RSTATE.frames[tabName]
+-- 2) ฟังก์ชันช่วย: แปลงชื่อแท็บให้เป็นคีย์ภายในคงที่
+local function _safeKey(s)
+    s = tostring(s or ""):lower()
+    s = s:gsub("[%s%p%c]", "_"):gsub("[^a-z0-9_]", "")
+    if #s == 0 then s = "tab" end
+    return s
 end
-    
--- 4) ลงทะเบียนฟังก์ชันสร้างคอนเทนต์ต่อแท็บ (รองรับหลายตัว)
-local function registerRight(tabName, builderFn)
-    RSTATE.builders[tabName] = RSTATE.builders[tabName] or {}
-    table.insert(RSTATE.builders[tabName], builderFn)
+
+-- 3) สร้าง/ดึงเฟรมแท็บ (ใช้ซ้ำถ้ามีอยู่แล้ว ไม่ลบทิ้ง)
+local function makeOrGetTabFrame(tabKey)
+    if RSTATE.frames[tabKey] and RSTATE.frames[tabKey].root and RSTATE.frames[tabKey].root.Parent then
+        return RSTATE.frames[tabKey]
+    end
+
+    local root = RightShell:FindFirstChild("RightTab_"..tabKey)
+    if not root then
+        root = Instance.new("Frame")
+        root.Name = "RightTab_"..tabKey
+        root.BackgroundTransparency = 1
+        root.Size = UDim2.fromScale(1,1)
+        root.Visible = false
+        root.Parent = RightShell
+    end
+
+    local sf = root:FindFirstChildWhichIsA("ScrollingFrame")
+    if not sf then
+        sf = Instance.new("ScrollingFrame")
+        sf.Name = "Scroll"
+        sf.BackgroundTransparency = 1
+        sf.Size = UDim2.fromScale(1,1)
+        sf.ScrollingDirection = Enum.ScrollingDirection.Y
+        sf.ScrollBarThickness = 4               -- ให้เห็นก่อนว่าเลื่อนได้
+        sf.ScrollBarImageTransparency = 1
+        sf.ScrollBarImageColor3 = Color3.new(0,0,0)
+        sf.BorderSizePixel = 0
+        sf.ClipsDescendants = true
+        sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        sf.CanvasSize = UDim2.new(0,0,0,0)
+        sf.ElasticBehavior = Enum.ElasticBehavior.Never
+        sf.Parent = root
+
+        local pad = Instance.new("UIPadding", sf)
+        pad.PaddingTop    = UDim.new(0,12)
+        pad.PaddingLeft   = UDim.new(0,12)
+        pad.PaddingRight  = UDim.new(0,12)
+        pad.PaddingBottom = UDim.new(0,12)
+
+        local list = Instance.new("UIListLayout", sf)
+        list.Padding = UDim.new(0,10)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        list.VerticalAlignment = Enum.VerticalAlignment.Top
+
+        RSTATE.frames[tabKey] = { root = root, scroll = sf, list = list, built = false }
+    else
+        -- มีอยู่แล้ว: อัปเดตอ้างอิง (กันโดนเก็บในครั้งก่อน)
+        local list = sf:FindFirstChildOfClass("UIListLayout")
+        RSTATE.frames[tabKey] = { root = root, scroll = sf, list = list, built = RSTATE.frames[tabKey] and RSTATE.frames[tabKey].built or false }
+    end
+
+    return RSTATE.frames[tabKey]
+end
+
+-- 4) ลงทะเบียนคอนเทนต์ต่อแท็บ
+local function registerRight(tabDisplayName, builderFn)
+    local key = RSTATE.keyAlias[tabDisplayName] or _safeKey(tabDisplayName)
+    RSTATE.builders[key] = RSTATE.builders[key] or {}
+    table.insert(RSTATE.builders[key], builderFn)
 end
 getgenv().registerRight = registerRight
 
--- 5) หัวเรื่อง
+-- 5) Header แท็บ
+local BASE_THEME = rawget(_G, "THEME") or {}
+local TEXT_COLOR = BASE_THEME.TEXT or Color3.fromRGB(255,255,255)
 local function addHeader(parentScroll, titleText, iconId)
-    local THEME   = rawget(_G,"THEME") or {}
-    local TEXTCOL = THEME.TEXT or Color3.fromRGB(255,255,255)
+    -- ลบหัวเก่าถ้ามี (กันซ้อน)
+    local existing = parentScroll:FindFirstChild("___TabHeader")
+    if existing then existing:Destroy() end
 
     local row = Instance.new("Frame")
+    row.Name = "___TabHeader"
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1,0,0,28)
     row.Parent = parentScroll
 
-    local icon = Instance.new("ImageLabel", row)
-    icon.BackgroundTransparency = 1
-    icon.Image = iconId and ("rbxassetid://"..tostring(iconId)) or ""
-    icon.Size = UDim2.fromOffset(20,20)
-    icon.Position = UDim2.new(0,0,0.5,-10)
+    if iconId then
+        local icon = Instance.new("ImageLabel", row)
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://"..tostring(iconId)
+        icon.Size = UDim2.fromOffset(20,20)
+        icon.Position = UDim2.new(0,0,0.5,-10)
+    end
 
     local head = Instance.new("TextLabel", row)
     head.BackgroundTransparency = 1
     head.Font = Enum.Font.GothamBold
     head.TextSize = 18
     head.TextXAlignment = Enum.TextXAlignment.Left
-    head.TextColor3 = TEXTCOL
-    head.Position = UDim2.new(0, (iconId and 26 or 0), 0, 0)
-    head.Size = UDim2.new(1, (iconId and -26 or 0), 1, 0)
+    head.TextColor3 = TEXT_COLOR
+    head.Position = UDim2.new(0, iconId and 26 or 0, 0, 0)
+    head.Size = UDim2.new(1, iconId and -26 or 0, 1, 0)
     head.Text = tostring(titleText or "")
 end
 
--- 6) API หลัก (PATCH: sticky scroll แน่น • เรียกซ้ำหลายเฟรม • hook layout/size)
+-- 6) showRight: sticky scroll + persist attribute
 function showRight(titleText, iconId)
-    local tab = tostring(titleText or "Tab")   -- ใช้ชื่อแท็บเป็น key
+    -- ทำคีย์ภายในให้คงที่เสมอ (กันอีโมจิ/เว้นวรรคทำคีย์เปลี่ยน)
+    local key = RSTATE.keyAlias[titleText] or _safeKey(titleText)
     RSTATE.scrollY = RSTATE.scrollY or {}
 
-    -- เก็บตำแหน่งแท็บเดิม + ซ่อน
+    -- เก็บแท็บเดิม + เซฟตำแหน่งลง Attribute ของ root เดิมด้วย
     if RSTATE.current and RSTATE.frames[RSTATE.current] then
         local cur = RSTATE.frames[RSTATE.current]
-        if cur.scroll then RSTATE.scrollY[RSTATE.current] = cur.scroll.CanvasPosition.Y end
+        if cur.scroll then
+            local y = cur.scroll.CanvasPosition.Y
+            RSTATE.scrollY[RSTATE.current] = y
+            if cur.root then cur.root:SetAttribute("SavedScrollY", y) end
+        end
         cur.root.Visible = false
     end
 
-    -- เปิด/สร้างแท็บใหม่
-    local f = RSTATE.frames[tab] or makeTabFrame(tab)
+    -- เอาแท็บใหม่ (สร้างถ้าไม่มี) + อ่านตำแหน่งที่เคยเซฟ (ทั้งในหน่วยความจำและ Attribute)
+    local f = makeOrGetTabFrame(key)
     f.root.Visible = true
 
     if not f.built then
         addHeader(f.scroll, titleText, iconId)
-        local list = RSTATE.builders[tab] or {}
+        local list = RSTATE.builders[key] or {}
         for _, builder in ipairs(list) do pcall(builder, f.scroll) end
         f.built = true
     end
 
+    -- โหลดตำแหน่งเก่า
+    local savedY = RSTATE.scrollY[key]
+    if savedY == nil then
+        savedY = f.root:GetAttribute("SavedScrollY") or 0
+        RSTATE.scrollY[key] = savedY
+    end
+
     -- ฟังก์ชันกู้ตำแหน่ง (เรียกหลายรอบกันดีด)
     local function restoreY()
-        local y = RSTATE.scrollY[tab] or 0
+        local y = RSTATE.scrollY[key] or 0
         local viewH = f.scroll.AbsoluteSize.Y
         local maxY  = math.max(0, f.scroll.CanvasSize.Y.Offset - viewH)
-        f.scroll.CanvasPosition = Vector2.new(0, math.clamp(y, 0, maxY))
+        y = math.clamp(y, 0, maxY)
+        f.scroll.CanvasPosition = Vector2.new(0, y)
     end
 
     restoreY()
     task.defer(restoreY)
     task.spawn(function()
-        for _=1,6 do task.wait() ; restoreY() end   -- ย้ำหลายเฟรมให้ติดชัวร์
+        for _=1,6 do task.wait(); restoreY() end
     end)
 
     -- กู้ซ้ำเมื่อเลย์เอาต์/ขนาดเปลี่ยน
@@ -600,26 +639,27 @@ function showRight(titleText, iconId)
         if f.root.Visible then restoreY() end
     end)
 
-    -- เซฟตำแหน่งแบบเรียลไทม์
+    -- เซฟตำแหน่งแบบเรียลไทม์ (ทั้งในหน่วยความจำและ Attribute)
     if not f._saveYHooked then
         f._saveYHooked = true
         f.scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            RSTATE.scrollY[tab] = f.scroll.CanvasPosition.Y
+            local y = f.scroll.CanvasPosition.Y
+            RSTATE.scrollY[key] = y
+            if f.root then f.root:SetAttribute("SavedScrollY", y) end
         end)
     end
 
-    -- ซ่อนแถบสกรอลล์หลังนิ่ง (กันเส้นขาว)
+    -- ซ่อนสกรอลล์บาร์หลังนิ่ง (กันเส้นขาว) แต่ยังเลื่อนได้
     task.defer(function() if f.scroll then f.scroll.ScrollBarThickness = 0 end end)
 
-    RSTATE.current = tab
+    RSTATE.current = key
 end
 getgenv().showRight = showRight
 
--- 7) ตัวอย่างแท็บ (ลบเดโมรายการออกแล้ว)
+-- 7) ตัวอย่างแท็บ (ลงทะเบียนแบบเดิม ใช้ชื่อโชว์เป็น key โดยอัตโนมัติ)
 registerRight("Player", function(scroll)
-    -- วาง UI ของ Player ที่นี่ (ตอนนี้ปล่อยว่าง ไม่มี Item#)
+    -- วาง UI ของ Player ที่นี่
 end)
-
 registerRight("Home", function(scroll) end)
 registerRight("Quest", function(scroll) end)
 registerRight("Shop", function(scroll) end)
