@@ -1311,11 +1311,11 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
--- ===== Player (Right) • AFK 💤 — Model A V1 (exact look, switch-only) =====
--- 1) Black Screen (Performance AFK) — full black overlay, toggle
--- 2) White Screen (Performance AFK) — full white overlay, toggle
--- 3) AFK Anti-Kick (20 min)         — ON by default (prevents Roblox idle kick)
--- 4) Activity Watcher (5 min)       — ON by default (enables #3 if inactive 5m)
+-- ===== Player (Right) • AFK zZ — A V1 exact look / switch-only =====
+-- 1) Black Screen (Performance AFK)  — full black overlay, toggle
+-- 2) White Screen (Performance AFK)  — full white overlay, toggle
+-- 3) AFK Anti-Kick (20 min)          — ON by default
+-- 4) Activity Watcher (5 min -> #3)  — ON by default
 
 registerRight("Player", function(scroll)
     local Players      = game:GetService("Players")
@@ -1325,53 +1325,64 @@ registerRight("Player", function(scroll)
     local VirtualUser  = game:GetService("VirtualUser")
     local lp           = Players.LocalPlayer
 
-    -- === THEME (same palette as A V1) ===
+    -- THEME like A V1
     local BASE  = rawget(_G,"THEME") or {}
     local THEME = {
         BG_INNER = BASE.BG_INNER or Color3.fromRGB(0,0,0),
         GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25,255,125),
         WHITE    = Color3.fromRGB(255,255,255),
         RED      = Color3.fromRGB(255,40,40),
-        DARK     = Color3.fromRGB(16,16,18),
     }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.3 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 1.6 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
-    -- === GLOBAL AFK STATE ===
+    -- global AFK state
     _G.UFOX_AFK = _G.UFOX_AFK or {
         blackOn=false, whiteOn=false,
-        antiIdleOn=true, watcherOn=true,      -- #3 #4 default ON
+        antiIdleOn=true, watcherOn=true,       -- #3,#4 default ON
         lastInput=tick(), antiIdleLoop=nil, watcherConn=nil, idleHooked=false,
         gui=nil,
     }
     local S = _G.UFOX_AFK
 
-    -- === SECTION (place under the arrow; same look as A V1 rows) ===
+    -- remove old section & create new group like A V1
     local old = scroll:FindFirstChild("Section_AFK"); if old then old:Destroy() end
-    local section = Instance.new("Frame", scroll)
-    section.Name="Section_AFK"
-    section.BackgroundTransparency=1
-    section.Size=UDim2.new(1,0,0,0)
-    section.AutomaticSize=Enum.AutomaticSize.Y
-    section.LayoutOrder = 4000  -- push below existing content (like your arrow spot)
+    local group = Instance.new("Frame", scroll)
+    group.Name="Section_AFK"; group.BackgroundTransparency=1
+    group.Size=UDim2.new(1,0,0,0); group.AutomaticSize=Enum.AutomaticSize.Y
+    group.LayoutOrder = 4000
 
-    local layout = Instance.new("UIListLayout", section)
-    layout.HorizontalAlignment=Enum.HorizontalAlignment.Center
-    layout.Padding=UDim.new(0,10)
+    local gList = Instance.new("UIListLayout", group)
+    gList.Padding = UDim.new(0,8)
+    gList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    local header = Instance.new("TextLabel", section)
-    header.BackgroundTransparency=1
-    header.Size=UDim2.new(1,-6,0,28)
-    header.Font=Enum.Font.GothamBold
-    header.TextSize=16
-    header.TextColor3=THEME.WHITE
-    header.TextXAlignment=Enum.TextXAlignment.Left
-    header.Text = "AFK 💤"
+    -- title (same style height as other section titles)
+    local title = Instance.new("TextLabel", group)
+    title.BackgroundTransparency=1
+    title.Size=UDim2.new(1,-6,0,24)
+    title.Font=Enum.Font.GothamBold; title.TextSize=16
+    title.TextColor3=THEME.WHITE; title.TextXAlignment=Enum.TextXAlignment.Left
+    title.Text = "AFK zZ"
 
-    -- === helper: make one A V1 row with right switch (CLICKABLE = switch only) ===
-    local function makeRow(parent, title, init, onToggle)
-        local row = Instance.new("Frame", parent)
-        row.Size = UDim2.fromOffset(520,48)     -- same card width as your panel rows
+    -- card container like your other panels
+    local card = Instance.new("Frame", group)
+    card.Size = UDim2.fromOffset(560, 0)  -- width follows your A V1 inner card
+    card.AutomaticSize = Enum.AutomaticSize.Y
+    card.BackgroundColor3 = THEME.BG_INNER
+    corner(card,14); stroke(card,1.6,THEME.GREEN)
+
+    local cPad = Instance.new("UIPadding", card)
+    cPad.PaddingTop = UDim.new(0,10); cPad.PaddingBottom = UDim.new(0,10)
+    cPad.PaddingLeft = UDim.new(0,10); cPad.PaddingRight = UDim.new(0,10)
+    local cList = Instance.new("UIListLayout", card)
+    cList.Padding = UDim.new(0,10)
+    cList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    -- helper: exact A V1 row (520x48) with switch-only
+    local ROW_W, ROW_H = 520, 48
+    local function makeRow(textLabel, init, onToggle)
+        local row = Instance.new("Frame", card)
+        row.Size = UDim2.fromOffset(ROW_W, ROW_H)
         row.BackgroundColor3 = THEME.BG_INNER
         corner(row,12); stroke(row,1.6,THEME.GREEN)
 
@@ -1379,144 +1390,97 @@ registerRight("Player", function(scroll)
         lab.BackgroundTransparency=1
         lab.Position=UDim2.new(0,16,0,0)
         lab.Size=UDim2.new(1,-150,1,0)
-        lab.Font=Enum.Font.GothamBold
-        lab.TextSize=14
-        lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left
-        lab.Text=title
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=14
+        lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left
+        lab.Text = textLabel
 
         local sw = Instance.new("Frame", row)
-        sw.AnchorPoint=Vector2.new(1,0.5)
-        sw.Position=UDim2.new(1,-16,0.5,0)
-        sw.Size=UDim2.fromOffset(48,22)
-        sw.BackgroundColor3=THEME.BG_INNER
-        corner(sw,11)
-        local swStroke = stroke(sw,1.3, init and THEME.GREEN or THEME.RED)
+        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-16,0.5,0)
+        sw.Size=UDim2.fromOffset(48,22); sw.BackgroundColor3=THEME.BG_INNER
+        corner(sw,11); local swStroke=stroke(sw,1.6, init and THEME.GREEN or THEME.RED)
 
         local knob = Instance.new("Frame", sw)
-        knob.Size=UDim2.fromOffset(18,18)
-        knob.BackgroundColor3=THEME.WHITE
-        corner(knob,9)
+        knob.Size=UDim2.fromOffset(18,18); knob.BackgroundColor3=THEME.WHITE; corner(knob,9)
 
         local state = init
         local function setState(v, instant)
-            state = v
-            swStroke.Color = v and THEME.GREEN or THEME.RED
-            local target = UDim2.new(v and 1 or 0, v and -20 or 2, 0.5, -9)
-            if instant then knob.Position = target
-            else TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=target}):Play() end
+            state=v; swStroke.Color = v and THEME.GREEN or THEME.RED
+            local tgt=UDim2.new(v and 1 or 0, v and -20 or 2, 0.5,-9)
+            if instant then knob.Position=tgt else
+                TweenService:Create(knob, TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=tgt}):Play()
+            end
             if onToggle then onToggle(v) end
         end
-        setState(state, true)
+        setState(state,true)
 
-        local btn = Instance.new("TextButton", sw)
-        btn.BackgroundTransparency=1
-        btn.Size=UDim2.fromScale(1,1)
-        btn.Text=""
-        btn.AutoButtonColor=false
+        local btn=Instance.new("TextButton", sw)
+        btn.BackgroundTransparency=1; btn.Text=""; btn.Size=UDim2.fromScale(1,1); btn.AutoButtonColor=false
         btn.MouseButton1Click:Connect(function() setState(not state,false) end)
 
         return setState
     end
 
-    -- === Overlays (match full-screen behavior) ===
+    -- overlay helpers (full screen)
     local function ensureGui()
         if S.gui and S.gui.Parent then return S.gui end
         local g=Instance.new("ScreenGui")
         g.Name="UFOX_AFK_GUI"; g.IgnoreGuiInset=true; g.ResetOnSpawn=false
         g.DisplayOrder=999999; g.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-        g.Parent = lp:WaitForChild("PlayerGui")
-        S.gui=g; return g
+        g.Parent = lp:WaitForChild("PlayerGui"); S.gui=g; return g
     end
-    local function clearOverlay(name)
-        if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end
-    end
-    local function showBlack(v)
-        clearOverlay("WhiteOverlay"); clearOverlay("BlackOverlay")
-        if not v then return end
-        local g=ensureGui()
-        local f=Instance.new("Frame",g)
-        f.Name="BlackOverlay"; f.BackgroundColor3=Color3.new(0,0,0)
-        f.Size=UDim2.fromScale(1,1); f.ZIndex=200; f.Active=true
-    end
-    local function showWhite(v)
-        clearOverlay("BlackOverlay"); clearOverlay("WhiteOverlay")
-        if not v then return end
-        local g=ensureGui()
-        local f=Instance.new("Frame",g)
-        f.Name="WhiteOverlay"; f.BackgroundColor3=Color3.new(1,1,1)
-        f.Size=UDim2.fromScale(1,1); f.ZIndex=200; f.Active=true
-    end
+    local function clearOverlay(name) if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end end
+    local function showBlack(v) clearOverlay("WhiteOverlay"); clearOverlay("BlackOverlay"); if not v then return end
+        local g=ensureGui(); local f=Instance.new("Frame",g); f.Name="BlackOverlay"; f.BackgroundColor3=Color3.new(0,0,0); f.Size=UDim2.fromScale(1,1); f.ZIndex=200; f.Active=true end
+    local function showWhite(v) clearOverlay("BlackOverlay"); clearOverlay("WhiteOverlay"); if not v then return end
+        local g=ensureGui(); local f=Instance.new("Frame",g); f.Name="WhiteOverlay"; f.BackgroundColor3=Color3.new(1,1,1); f.Size=UDim2.fromScale(1,1); f.ZIndex=200; f.Active=true end
 
-    -- === 1) Black Screen (Performance AFK) ===
-    makeRow(section, "Black Screen (Performance AFK)", S.blackOn, function(v)
-        S.blackOn=v; if v then S.whiteOn=false; showWhite(false) end
-        showBlack(v)
-    end)
-
-    -- === 2) White Screen (Performance AFK) ===
-    makeRow(section, "White Screen (Performance AFK)", S.whiteOn, function(v)
-        S.whiteOn=v; if v then S.blackOn=false; showBlack(false) end
-        showWhite(v)
-    end)
-
-    -- === Anti-idle helpers used by #3 and #4 ===
+    -- anti-idle helpers
     local function pulseOnce()
-        local cam = workspace.CurrentCamera
-        local cf  = cam and cam.CFrame or CFrame.new()
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
-        end)
+        local cam=workspace.CurrentCamera; local cf=cam and cam.CFrame or CFrame.new()
+        pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new(0,0), cf) end)
     end
     local function startAntiIdle()
         if S.antiIdleLoop then return end
         S.antiIdleLoop = task.spawn(function()
             while S.antiIdleOn do
                 pulseOnce()
-                for i=1,540 do if not S.antiIdleOn then break end task.wait(1) end -- ~9 min < 20
+                for i=1,540 do if not S.antiIdleOn then break end task.wait(1) end -- ~9m < 20m
             end
             S.antiIdleLoop=nil
         end)
     end
-    if not S.idleHooked then
-        S.idleHooked=true
-        lp.Idled:Connect(function() if S.antiIdleOn then pulseOnce() end end)
-    end
+    if not S.idleHooked then S.idleHooked=true; lp.Idled:Connect(function() if S.antiIdleOn then pulseOnce() end end) end
 
-    -- === 3) AFK Anti-Kick (20 min) — default ON ===
-    makeRow(section, "AFK Anti-Kick (20 min)", S.antiIdleOn, function(v)
-        S.antiIdleOn=v
-        if v then startAntiIdle() end
+    -- 1) Black Screen
+    makeRow("Black Screen (Performance AFK)", S.blackOn, function(v)
+        S.blackOn=v; if v then S.whiteOn=false; showWhite(false) end; showBlack(v)
     end)
+
+    -- 2) White Screen
+    makeRow("White Screen (Performance AFK)", S.whiteOn, function(v)
+        S.whiteOn=v; if v then S.blackOn=false; showBlack(false) end; showWhite(v)
+    end)
+
+    -- 3) Anti-Kick (20 min) — default ON
+    makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, function(v) S.antiIdleOn=v; if v then startAntiIdle() end end)
     if S.antiIdleOn then startAntiIdle() end
 
-    -- === 4) Activity Watcher (5 min -> enable AFK) — default ON ===
+    -- 4) Activity Watcher (5 min -> enable #3) — default ON
     local INACTIVE = 5*60
     local function markInput() S.lastInput = tick() end
     UIS.InputBegan:Connect(markInput)
     UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end)
-
     local function startWatcher()
-        if S.watcherConn then S.watcherConn:Disconnect() S.watcherConn=nil end
+        if S.watcherConn then S.watcherConn:Disconnect(); S.watcherConn=nil end
         S.watcherConn = RunService.Heartbeat:Connect(function()
             if not S.watcherOn then return end
             if tick() - S.lastInput >= INACTIVE then
-                -- No interaction for 5 minutes → ensure Anti-Idle is ON and pulse
-                if not S.antiIdleOn then
-                    S.antiIdleOn = true
-                    startAntiIdle()
-                end
-                pulseOnce()
-                S.lastInput = tick()
+                if not S.antiIdleOn then S.antiIdleOn=true; startAntiIdle() end
+                pulseOnce(); S.lastInput = tick()
             end
         end)
     end
-
-    makeRow(section, "Activity Watcher (5 min -> enable AFK)", S.watcherOn, function(v)
-        S.watcherOn = v
-        if v then startWatcher() end
-    end)
+    makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, function(v) S.watcherOn=v; if v then startWatcher() end end)
     startWatcher()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
