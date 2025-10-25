@@ -1734,39 +1734,6 @@ registerRight("Settings", function(scroll)
 
     -- filter ค้นหา
     local function applyFilter()
-        local q = (search.Text or ""):lower()
-        for _,rec in ipairs(itemButtons) do
-            rec.btn.Visible = (q == "" or string.find(rec.text, q, 1, true) ~= nil)
-        end
-    end
-    search:GetPropertyChangedSignal("Text"):Connect(applyFilter)
-
-    -- หมายเหตุเล็กๆ ใต้แถว
-    local note = Instance.new("TextLabel", scroll)
-    note.Name="Lang_Note"; note.BackgroundTransparency=1; note.LayoutOrder=nextOrder+3
-    note.TextXAlignment=Enum.TextXAlignment.Left; note.Font=Enum.Font.Gotham; note.TextSize=12
-    note.TextColor3=Color3.fromRGB(190,190,190); note.Size=UDim2.new(1,-6,0,18)
-    _G.UFOX_I18N.bind(note, "settings.note.applied", "Applied instantly")
-
-    -- เปิด/ปิด dropdown
-    chip.MouseButton1Click:Connect(function()
-        drop.Visible = not drop.Visible
-        if drop.Visible then search:CaptureFocus() end
-    end)
-    -- ปิดเมื่อคลิกนอก
-    UIS.InputBegan:Connect(function(io,gp)
-        if not drop.Visible or gp then return end
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            local p = io.Position
-            local abs = box.AbsolutePosition
-            local sz  = box.AbsoluteSize
-            local inside = (p.X>=abs.X and p.X<=abs.X+sz.X and p.Y>=abs.Y and p.Y<=abs.Y+sz.Y)
-            if not inside and io.UserInputType==Enum.UserInputType.MouseButton1 then
-                drop.Visible=false
-            end
-        end
-    end)
-end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
