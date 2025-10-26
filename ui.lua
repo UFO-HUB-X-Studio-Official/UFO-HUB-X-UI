@@ -1491,7 +1491,7 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (V1 + Safe Live-Catch) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (V1 + Safe Live-Catch • fixed SunRays Size error) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -1510,27 +1510,32 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- Ensure ListLayout (เหมือนเดิม)
+    -- Helpers สำหรับอ่าน property แบบปลอดภัย
+    local function getProp(obj, prop)
+        local ok, v = pcall(function() return obj[prop] end)
+        if ok then return v end
+        return nil
+    end
+
+    -- Layout (เดิม)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- STATE (เพิ่ม conns สำหรับ live-catch แต่ไม่ยุ่ง UI)
+    -- STATE
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
-    -- Header (เหมือนเดิม)
+    -- Header
     local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
     head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
     head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
     head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
 
-    -- ล้างแถวเก่าชื่อเดิม 3 ตัว (กันซ้อน)
-    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do
-        local old = scroll:FindFirstChild(n); if old then old:Destroy() end
-    end
+    -- ล้างชื่อแถวเดิม
+    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
 
-    -- Row factory (เหมือนเดิม)
+    -- Row factory
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
@@ -1543,8 +1548,7 @@ registerRight("Settings", function(scroll)
 
         local sw=Instance.new("Frame", row)
         sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK
-        corner(sw,13)
+        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
         local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
 
         local knob=Instance.new("Frame", sw)
@@ -1566,7 +1570,7 @@ registerRight("Settings", function(scroll)
         return setState
     end
 
-    -- ===== FX helpers (เหมือนเดิม) =====
+    -- FX/PP sets
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
@@ -1585,108 +1589,113 @@ registerRight("Settings", function(scroll)
     end
     for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
 
+    local function stashPP(obj)
+        if not PP[obj.ClassName] then return end
+        S._pp[obj] = S._pp[obj] or {
+            Enabled  = obj.Enabled,
+            Intensity= getProp(obj,"Intensity"),                         -- มีใน Bloom/ColorCorrection/DepthOfField/SunRays
+            Size     = (obj.ClassName=="BlurEffect") and getProp(obj,"Size") or nil -- มีเฉพาะ Blur
+        }
+    end
+
+    local function restoreAll()
+        for i,t in pairs(S._snap) do
+            if i and i.Parent then pcall(function() for k,v in pairs(t) do i[k]=v end end) end
+        end
+        for obj,t in pairs(S._pp) do
+            if obj and obj.Parent then
+                pcall(function()
+                    obj.Enabled = t.Enabled
+                    if obj.ClassName=="BlurEffect" and t.Size~=nil then obj.Size=t.Size end
+                    if t.Intensity~=nil then obj.Intensity=t.Intensity end
+                end)
+            end
+        end
+    end
+
     local function applyHalf()
-        for i,t in pairs(S._snap) do if i.Parent then pcall(function()
-            if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate=(t.Rate or 10)*0.5
-            elseif i:IsA("Trail") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Beam") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Smoke") then i.Enabled=true; i.Opacity=(t.Opacity or 1)*0.5
-            elseif i:IsA("Fire") then i.Enabled=true; i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
-            elseif i:IsA("Sparkles") then i.Enabled=false end
-        end) end end
+        for i,t in pairs(S._snap) do
+            if i and i.Parent then pcall(function()
+                if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate=(t.Rate or 10)*0.5
+                elseif i:IsA("Trail") or i:IsA("Beam") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5
+                elseif i:IsA("Smoke") then i.Enabled=true; i.Opacity=(t.Opacity or 1)*0.5
+                elseif i:IsA("Fire") then i.Enabled=true; i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
+                elseif i:IsA("Sparkles") then i.Enabled=false end
+            end) end
+        end
         for _,obj in ipairs(Lighting:GetChildren()) do
             if PP[obj.ClassName] then
-                S._pp[obj]=S._pp[obj] or {Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
-                obj.Enabled=true; if obj.Intensity then obj.Intensity=(S._pp[obj].Intensity or 1)*0.5 end
-                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((S._pp[obj].Size or 0)*0.5) end
+                stashPP(obj)
+                pcall(function()
+                    obj.Enabled = true
+                    if obj.ClassName=="BlurEffect" then
+                        local s = S._pp[obj] and S._pp[obj].Size or getProp(obj,"Size") or 0
+                        obj.Size = math.floor((s or 0)*0.5)
+                    end
+                    local it = S._pp[obj] and S._pp[obj].Intensity
+                    if it~=nil then obj.Intensity = it*0.5 end
+                end)
             end
         end
     end
+
     local function applyOff()
-        for i,_ in pairs(S._snap) do if i.Parent then pcall(function() if i.Enabled~=nil then i.Enabled=false end end) end end
-        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then obj.Enabled=false end end
-    end
-    local function restoreAll()
-        for i,t in pairs(S._snap) do if i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
-        for obj,t in pairs(S._pp)   do if obj.Parent then for k,v in pairs(t) do pcall(function() obj[k]=v end) end end end
+        for i,_ in pairs(S._snap) do if i and i.Parent then pcall(function() if i.Enabled~=nil then i.Enabled=false end end) end end
+        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then pcall(function() obj.Enabled=false end) end end
     end
 
-    local function plasticMode(on)
-        for _,p in ipairs(workspace:GetDescendants()) do
-            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
-                if on then
-                    if not p:GetAttribute("Mat0") then p:SetAttribute("Mat0",p.Material.Name); p:SetAttribute("Refl0",p.Reflectance) end
-                    p.Material=Enum.Material.SmoothPlastic; p.Reflectance=0
-                else
-                    local m=p:GetAttribute("Mat0"); local r=p:GetAttribute("Refl0")
-                    if m then pcall(function() p.Material=Enum.Material[m] end) p:SetAttribute("Mat0",nil) end
-                    if r~=nil then p.Reflectance=r; p:SetAttribute("Refl0",nil) end
-                end
-            end
-        end
-    end
-
-    -- ===== NEW: live-catch อย่างปลอดภัย (ไม่แตะ UI) =====
-    local function disconnectConns()
-        for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
-        S.conns = {}
-    end
+    -- Live-catch (ปลอดภัย)
+    local function disconnectConns() for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end S.conns={} end
     local function enableLiveCatch()
         disconnectConns()
         S.conns = {
             workspace.DescendantAdded:Connect(function(d)
                 if FX[d.ClassName] then capture(d)
-                    if S.mode==1 then pcall(function()
-                        local t=S._snap[d] or {}
-                        if d:IsA("ParticleEmitter") then d.Enabled=true; d.Rate=(t.Rate or d.Rate or 10)*0.5
-                        elseif d:IsA("Trail") or d:IsA("Beam") then d.Enabled=true; d.Brightness=(t.Brightness or d.Brightness or 1)*0.5
-                        elseif d:IsA("Smoke") then d.Enabled=true; d.Opacity=(t.Opacity or d.Opacity or 1)*0.5
-                        elseif d:IsA("Fire") then d.Enabled=true; d.Heat=(t.Heat or d.Heat or 5)*0.5; d.Size=(t.Size or d.Size or 5)*0.7
-                        elseif d:IsA("Sparkles") then d.Enabled=false end
-                    end)
-                    elseif S.mode==2 then pcall(function() if d.Enabled~=nil then d.Enabled=false end end)
-                    end
+                    if S.mode==1 then applyHalf()
+                    elseif S.mode==2 then pcall(function() if d.Enabled~=nil then d.Enabled=false end end) end
                 end
             end),
             Lighting.ChildAdded:Connect(function(o)
-                if PP[o.ClassName] then
-                    S._pp[o] = {Enabled=o.Enabled, Intensity=pcall(function()return o.Intensity end) and o.Intensity or nil, Size=pcall(function()return o.Size end) and o.Size or nil}
-                    if S.mode==1 then
-                        pcall(function()
-                            o.Enabled=true
-                            if o.ClassName=="BlurEffect" and o.Size then o.Size=math.floor((S._pp[o].Size or 0)*0.5) end
-                            if o.Intensity~=nil then o.Intensity=(S._pp[o].Intensity or 1)*0.5 end
-                        end)
-                    elseif S.mode==2 then pcall(function() o.Enabled=false end) end
-                end
+                if PP[o.ClassName] then stashPP(o); if S.mode==1 then applyHalf() elseif S.mode==2 then pcall(function() o.Enabled=false end) end end
             end)
         }
     end
-    local function maybeUpdateLiveCatch()
-        if S.mode==0 then disconnectConns() else enableLiveCatch() end
-    end
+    local function maybeLive() if S.mode==0 then disconnectConns() else enableLiveCatch() end end
 
-    -- ===== 3 switches (order 11/12/13) — เหมือนเดิมเป๊ะ =====
+    -- 3 switches (เหมือนเดิม)
     local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
-        if v then S.mode=1; applyHalf()
-            local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter"); if setter then setter(false) end
-        else if S.mode==1 then S.mode=0; restoreAll() end end
-        maybeUpdateLiveCatch()
+        if v then S.mode=1; applyHalf() else if S.mode==1 then S.mode=0; restoreAll() end end
+        local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        maybeLive()
     end)
 
     local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
-        if v then S.mode=2; applyOff()
-            local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter"); if setter then setter(false) end
-        else if S.mode==2 then S.mode=0; restoreAll() end end
-        maybeUpdateLiveCatch()
+        if v then S.mode=2; applyOff() else if S.mode==2 then S.mode=0; restoreAll() end end
+        local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        maybeLive()
     end)
 
     local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
-        S.plastic=v; plasticMode(v)
+        S.plastic=v
+        for _,p in ipairs(workspace:GetDescendants()) do
+            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
+                pcall(function()
+                    if v then
+                        if not p:GetAttribute("Mat0") then p:SetAttribute("Mat0",p.Material.Name); p:SetAttribute("Refl0",p.Reflectance) end
+                        p.Material = Enum.Material.SmoothPlastic; p.Reflectance=0
+                    else
+                        local m=p:GetAttribute("Mat0"); local r=p:GetAttribute("Refl0")
+                        if m then p.Material = Enum.Material[m] end
+                        if r~=nil then p.Reflectance=r end
+                        p:SetAttribute("Mat0",nil); p:SetAttribute("Refl0",nil)
+                    end
+                end)
+            end
+        end
     end)
 
-    -- เริ่มต้นปิด live-catch (โหมด 0) เพื่อความเสถียร
-    maybeUpdateLiveCatch()
+    -- เริ่มต้น
+    maybeLive()
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
