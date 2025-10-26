@@ -1501,200 +1501,89 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1, guaranteed show) =====
-registerRight("Settings", function(scroll)
-    local Players      = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
-    local Lighting     = game:GetService("Lighting")
-    local lp           = Players.LocalPlayer
+--===== UFO HUB X • SETTINGS — A V1 UI Smoke Test (show only) =====
+-- วางหลังระบบแท็บ แล้วจะไปโผล่ในแท็บ Settings ทันที
 
-    -- ===== A V1 THEME / helpers =====
+registerRight("Settings", function(scroll)
+    -- THEME (A V1)
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
     }
-    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
-    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
 
-    -- ===== Ensure layout & order =====
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    -- บังคับมี ListLayout + Canvas auto
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
     local function nextOrder()
-        local n=0
+        local o=0
         for _,ch in ipairs(scroll:GetChildren()) do
-            if ch:IsA("GuiObject") and ch~=vlist then n = math.max(n,(ch.LayoutOrder or 0)+1) end
+            if ch:IsA("GuiObject") and ch~=list then o = math.max(o,(ch.LayoutOrder or 0)+1) end
         end
-        return n
+        return o
     end
 
-    -- ===== STATE (global) =====
-    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or {mode=0, plastic=false, _snap={}, _pp={}, _connInit=false}
-    local S = _G.UFOX_SMOOTH
+    -- หัวข้อ (A V1)
+    local header = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
+    header.Name = "A1_Header"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Smoother 🚀 (A V1 • UI Test)"
+    header.LayoutOrder = header.LayoutOrder==0 and nextOrder() or header.LayoutOrder
 
-    -- ===== Header (A V1) =====
-    if not scroll:FindFirstChild("S_A1_HEADER") then
-        local h = Instance.new("TextLabel", scroll)
-        h.Name="S_A1_HEADER"; h.BackgroundTransparency=1; h.Size=UDim2.new(1,0,0,36)
-        h.Font=Enum.Font.GothamBold; h.TextSize=16; h.TextColor3=THEME.TEXT
-        h.TextXAlignment=Enum.TextXAlignment.Left; h.Text="Smoother 🚀"
-        h.LayoutOrder=nextOrder()
-    end
-
-    -- ===== A V1 Toggle row factory =====
-    local function makeRow(name, label, onToggle)
+    -- ฟังก์ชันสร้างแถวสไตล์ A V1 (โชว์อย่างเดียว)
+    local function makeRow(name, label)
         local row = scroll:FindFirstChild(name)
-        if not row then
-            row = Instance.new("Frame", scroll)
-            row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-            row.LayoutOrder=nextOrder(); corner(row,12); stroke(row,2.2,THEME.GREEN)
+        if row then return row end
 
-            local lab=Instance.new("TextLabel", row)
-            lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-            lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-            lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+        row = Instance.new("Frame", scroll)
+        row.Name = name
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        row.LayoutOrder = nextOrder()
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
 
-            local sw=Instance.new("Frame", row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-            sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-            local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,-160,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = label
 
-            local knob=Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
-            knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
+        -- สวิตช์ปลอม (ไม่ผูกระบบ ยังไม่ทำอะไร)
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1,-12,0.5,0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw,13); stroke(sw,1.8,THEME.GREEN)
 
-            local state=false
-            local function setState(v)
-                state=v; swStroke.Color = v and THEME.GREEN or THEME.RED
-                tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)})
-                if onToggle then onToggle(v, setState) end
-            end
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.Position = UDim2.new(0,2,0.5,-11) -- เริ่มปิด (แค่โชว์)
+        knob.BackgroundColor3 = THEME.WHITE
+        corner(knob,11)
 
-            local btn=Instance.new("TextButton", sw)
-            btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-            btn.MouseButton1Click:Connect(function() setState(not state) end)
-
-            row:SetAttribute("Setter", setState)
-        end
         return row
     end
 
-    -- ===== FX capture / apply =====
-    local FX = { ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true }
-    local PP = { BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true }
-
-    local function snap(inst)
-        if S._snap[inst] then return end
-        local t={}
-        if inst:IsA("ParticleEmitter") then t.Enabled=inst.Enabled; t.Rate=inst.Rate; t.Lifetime=inst.Lifetime
-        elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Lifetime=inst.Lifetime; t.Brightness=inst.Brightness
-        elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness; t.Width0=inst.Width0; t.Width1=inst.Width1
-        elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
-        elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
-        elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
-        S._snap[inst]=t
-        inst.AncestryChanged:Connect(function(_,p) if not p then S._snap[inst]=nil end end)
-    end
-
-    local function half(i) local o=S._snap[i]; if not o then return end
-        if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate=math.max(0,math.floor((o.Rate or 10)*0.5))
-            if typeof(o.Lifetime)=="NumberRange" then i.Lifetime=NumberRange(o.Lifetime.Min*0.5,o.Lifetime.Max*0.5) end
-        elseif i:IsA("Trail") then i.Enabled=true; i.Lifetime=(o.Lifetime or 1)*0.5; i.Brightness=(o.Brightness or 1)*0.5
-        elseif i:IsA("Beam") then i.Enabled=true; i.Brightness=(o.Brightness or 1)*0.5; i.Width0=(o.Width0 or 1)*0.7; i.Width1=(o.Width1 or 1)*0.7
-        elseif i:IsA("Smoke") then i.Enabled=true; i.Opacity=(o.Opacity or 1)*0.5
-        elseif i:IsA("Fire") then i.Enabled=true; i.Heat=(o.Heat or 5)*0.5; i.Size=(o.Size or 5)*0.7
-        elseif i:IsA("Sparkles") then i.Enabled=false end
-    end
-    local function off(i) if FX[i.ClassName] then i.Enabled=false end end
-    local function restore(i) local o=S._snap[i]; if not o then return end for k,v in pairs(o) do pcall(function() i[k]=v end) end end
-
-    local function applyPP(mode)
-        for _,obj in ipairs(Lighting:GetChildren()) do
-            if PP[obj.ClassName] then
-                S._pp[obj] = S._pp[obj] or {Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
-                local o=S._pp[obj]
-                if mode==0 then obj.Enabled=o.Enabled; if o.Intensity then obj.Intensity=o.Intensity end; if o.Size then obj.Size=o.Size end
-                elseif mode==1 then obj.Enabled=true; if obj.Intensity and o.Intensity then obj.Intensity=o.Intensity*0.5 end; if obj.ClassName=="BlurEffect" and o.Size then obj.Size=math.floor(o.Size*0.5) end
-                elseif mode==2 then obj.Enabled=false end
-            end
-        end
-    end
-
-    local function reapplyAll()
-        for inst,_ in pairs(S._snap) do
-            if inst.Parent then
-                if S.mode==1 then half(inst)
-                elseif S.mode==2 then off(inst)
-                else restore(inst) end
-            end
-        end
-        applyPP(S.mode)
-    end
-
-    -- initial scan + realtime hook (สกิลใหม่)
-    if not S._connInit then
-        S._connInit = true
-        for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then snap(d) end end
-        workspace.DescendantAdded:Connect(function(d)
-            if FX[d.ClassName] then task.defer(function() snap(d); reapplyAll() end) end
-        end)
-    end
-    reapplyAll()
-
-    -- ===== Plastic mode =====
-    local function setPlastic(on)
-        for _,p in ipairs(workspace:GetDescendants()) do
-            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
-                if on then
-                    if p:GetAttribute("S_A1_MAT")==nil then
-                        p:SetAttribute("S_A1_MAT", p.Material.Name)
-                        p:SetAttribute("S_A1_REFL", p.Reflectance)
-                    end
-                    p.Material = Enum.Material.SmoothPlastic
-                    p.Reflectance = 0
-                else
-                    local m=p:GetAttribute("S_A1_MAT"); local r=p:GetAttribute("S_A1_REFL")
-                    if m then pcall(function() p.Material=Enum.Material[m] end); p:SetAttribute("S_A1_MAT", nil) end
-                    if r~=nil then p.Reflectance=r; p:SetAttribute("S_A1_REFL", nil) end
-                end
-            end
-        end
-    end
-
-    -- ===== Three Rows (A V1) =====
-    local row50 = makeRow("S_A1_ROW50",  "Reduce Effects 50%", function(v, set)
-        if v then
-            S.mode=1
-            local r100 = scroll:FindFirstChild("S_A1_ROW100"); if r100 and r100:GetAttribute("Setter") then r100:GetAttribute("Setter")(false) end
-        else
-            if S.mode==1 then S.mode=0 end
-        end
-        reapplyAll()
-    end)
-
-    local row100= makeRow("S_A1_ROW100", "Remove Effects 100%", function(v, set)
-        if v then
-            S.mode=2
-            local r50 = scroll:FindFirstChild("S_A1_ROW50"); if r50 and r50:GetAttribute("Setter") then r50:GetAttribute("Setter")(false) end
-        else
-            if S.mode==2 then S.mode=0 end
-        end
-        reapplyAll()
-    end)
-
-    local rowPl = makeRow("S_A1_ROWPL",  "Plastic Map (Fast Mode)", function(v)
-        S.plastic = v; setPlastic(v)
-    end)
-
-    -- reflect persisted state to switches
-    local function applySwitches()
-        if row50 and row50:GetAttribute("Setter") then row50:GetAttribute("Setter")(S.mode==1) end
-        if row100 and row100:GetAttribute("Setter") then row100:GetAttribute("Setter")(S.mode==2) end
-        if rowPl and rowPl:GetAttribute("Setter") then rowPl:GetAttribute("Setter")(S.plastic) end
-    end
-    applySwitches()
+    -- แถวตัวอย่าง 3 อัน (ไว้เช็คว่าขึ้นจริง)
+    makeRow("A1_Row_Test1", "Reduce Effects 50%")
+    makeRow("A1_Row_Test2", "Remove Effects 100%")
+    makeRow("A1_Row_Test3", "Plastic Map (Fast Mode)")
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
