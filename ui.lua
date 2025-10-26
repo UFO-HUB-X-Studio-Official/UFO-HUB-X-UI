@@ -1340,10 +1340,10 @@ registerRight("Settings", function(scroll)
 
     -- ===== STATE (default OFF) =====
     _G.UFOX_FPS = _G.UFOX_FPS or {
-        enabled = false,         -- ⬅ เริ่มต้น "ปิด"
+        enabled = false,
         frame   = nil,
         alpha   = 0.15,          -- smoothing factor
-        tickInt = 0.25,          -- update every 0.25s
+        tickInt = 0.25,          -- update cadence
         smFPS   = nil,
         devT    = 48,
         cpuT    = 45,
@@ -1389,10 +1389,7 @@ registerRight("Settings", function(scroll)
     sw.BackgroundColor3 = THEME.BLACK
     corner(sw,13)
     local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
-    local knob = Instance.new("Frame", sw)
-    knob.Size = UDim2.fromOffset(22,22)
-    knob.BackgroundColor3 = THEME.WHITE
-    corner(knob,11)
+    local knob = Instance.new("Frame", sw); knob.Size = UDim2.fromOffset(22,22); knob.BackgroundColor3 = THEME.WHITE; corner(knob,11)
 
     local function setSwitch(v)
         S.enabled = v
@@ -1400,17 +1397,12 @@ registerRight("Settings", function(scroll)
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
-
-    -- initial OFF
-    knob.Position = UDim2.new(0,2,0.5,-11)
+    knob.Position = UDim2.new(0,2,0.5,-11) -- เริ่มปิด
     swStroke.Color = THEME.RED
-    local btn = Instance.new("TextButton", sw)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = ""
+    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== FPS HUD =====
+    -- ===== FPS HUD (เลื่อนทั้งหมดไปทางขวา) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
@@ -1428,32 +1420,34 @@ registerRight("Settings", function(scroll)
         box.Position = UDim2.new(0.5,-180,0,8)
         box.BackgroundColor3 = THEME.BLACK
         box.BorderSizePixel = 0
-        corner(box,10)
-        stroke(box,2,THEME.GREEN)
+        corner(box,10); stroke(box,2,THEME.GREEN)
+
+        -- shift ทั้งแถวไปทางขวา
+        local SHIFT = 24
 
         -- Icons
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
         iconFPS.Size = UDim2.fromOffset(20,20)
-        iconFPS.Position = UDim2.new(0,10,0.5,-10)
+        iconFPS.Position = UDim2.new(0,10+SHIFT,0.5,-10)
 
         local iconDev = Instance.new("ImageLabel", box)
         iconDev.BackgroundTransparency = 1
         iconDev.Image = "rbxassetid://71594498726379"
         iconDev.Size = UDim2.fromOffset(20,20)
-        iconDev.Position = UDim2.new(0,112,0.5,-10) -- ชิดขึ้น
+        iconDev.Position = UDim2.new(0,112+SHIFT,0.5,-10)
 
         local iconCPU = Instance.new("ImageLabel", box)
         iconCPU.BackgroundTransparency = 1
         iconCPU.Image = "rbxassetid://133491379992560"
         iconCPU.Size = UDim2.fromOffset(20,20)
-        iconCPU.Position = UDim2.new(0,240,0.5,-8) -- ลงนิดหน่อย
+        iconCPU.Position = UDim2.new(0,240+SHIFT,0.5,-8)
 
-        -- Texts
+        -- Texts (ขยับตาม)
         local txtFPS = Instance.new("TextLabel", box)
         txtFPS.BackgroundTransparency = 1
-        txtFPS.Position = UDim2.new(0,34,0,0)
+        txtFPS.Position = UDim2.new(0,34+SHIFT,0,0)
         txtFPS.Size = UDim2.new(0,76,1,0)
         txtFPS.Font = Enum.Font.GothamBold
         txtFPS.TextSize = 14
@@ -1463,7 +1457,7 @@ registerRight("Settings", function(scroll)
 
         local txtDev = Instance.new("TextLabel", box)
         txtDev.BackgroundTransparency = 1
-        txtDev.Position = UDim2.new(0,136,0,0)
+        txtDev.Position = UDim2.new(0,136+SHIFT,0,0)
         txtDev.Size = UDim2.new(0,92,1,0)
         txtDev.Font = Enum.Font.GothamBold
         txtDev.TextSize = 14
@@ -1473,7 +1467,7 @@ registerRight("Settings", function(scroll)
 
         local txtCPU = Instance.new("TextLabel", box)
         txtCPU.BackgroundTransparency = 1
-        txtCPU.Position = UDim2.new(0,264,0,0)
+        txtCPU.Position = UDim2.new(0,264+SHIFT,0,0)
         txtCPU.Size = UDim2.new(0,86,1,0)
         txtCPU.Font = Enum.Font.GothamBold
         txtCPU.TextSize = 14
@@ -1481,22 +1475,16 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
-        -- Update loop
+        -- Update loop (นิ่งด้วย smoothing)
         local acc = 0
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
-            if not S.smFPS then
-                S.smFPS = inst
-            else
-                S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS
-            end
-
+            if not S.smFPS then S.smFPS = inst else S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS end
             acc += dt
             if acc >= S.tickInt then
                 acc = 0
                 S.devT = math.clamp(S.devT + math.random(-1,1),35,60)
                 S.cpuT = math.clamp(S.cpuT + math.random(-1,1),40,75)
-
                 if S.enabled then
                     txtFPS.Text = string.format("FPS: %d", math.floor(S.smFPS + 0.5))
                     txtDev.Text = string.format("Device: %d°C", S.devT)
