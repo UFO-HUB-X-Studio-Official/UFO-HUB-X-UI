@@ -1319,75 +1319,88 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL METRICS • BIG ICONS) =====
--- ใช้ค่าจริง: FPS, Ping, Memory, Upload, Download  + ไอคอนใหญ่ชัดขึ้น
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL METRICS • RESPONSIVE + BIG ICONS) =====
+-- Uses real: FPS, Ping, Memory, Upload, Download
+-- Icons:
+--   FPS      -> rbxassetid://116103940304617
+--   Ping     -> rbxassetid://125226433995402
+--   Memory   -> rbxassetid://131794120624488
+--   Upload   -> rbxassetid://125701675927454
+--   Download -> rbxassetid://134953518153703
 
 registerRight("Settings", function(scroll)
-    local Players    = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local Tween      = game:GetService("TweenService")
-    local Stats      = game:GetService("Stats")
+    local Players      = game:GetService("Players")
+    local RunService   = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local Stats        = game:GetService("Stats")
+    local Camera       = workspace.CurrentCamera
 
-    -- ===== APPEARANCE TUNING (ปรับได้ง่าย) =====
-    local ICON_SIZE  = 28   -- ขนาดไอคอน (px)
-    local TEXT_SIZE  = 16   -- ฟอนต์ตัวเลข
-    local ROW_HEIGHT = 44   -- ความสูงแถบบน
-    local SLOT_STEP  = 152  -- ระยะห่างแต่ละช่อง
-    local BOX_WIDTH  = (SLOT_STEP * 5) - 14  -- auto กว้างตามจำนวนช่อง
-
+    -- ===== THEME / TUNING =====
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         RED   = Color3.fromRGB(255,40,40),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
+        DIM   = Color3.fromRGB(160,200,160),
     }
+    local ICON_SIZE   = 28
+    local TEXT_SIZE   = 16
+    local ROW_HEIGHT  = 44
+    local MIN_PADDING = 16   -- เว้นขอบจอซ้าย/ขวา
+
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
     -- ===== STATE =====
     _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil, smFPS=nil, smPing=nil, smMem=nil, smUp=nil, smDown=nil }
     local S = _G.UFOX_FPS
 
-    -- wrapper แยก
+    -- ===== WRAPPER แยกตัวเอง =====
     local WRAP = "UFOX_WRAP_UIFPS_ONLY"
     local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
-    local wrap = Instance.new("Frame", scroll); wrap.Name = WRAP; wrap.BackgroundTransparency = 1; wrap.AutomaticSize = Enum.AutomaticSize.Y; wrap.Size = UDim2.new(1,0,0,0)
+    local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.Size=UDim2.new(1,0,0,0); wrap.AutomaticSize=Enum.AutomaticSize.Y
     local maxOrder=0 for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder,(ch.LayoutOrder or 0)) end end
-    wrap.LayoutOrder = maxOrder+1
-    local list = Instance.new("UIListLayout", wrap); list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    wrap.LayoutOrder=maxOrder+1
+    local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
 
-    -- Header เดิม
+    -- Header (ตามเดิม)
     local header = Instance.new("TextLabel", wrap)
     header.Name="UFOX_Header_FPS"; header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
     header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.TEXT; header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="UI FPS ⚡"; header.LayoutOrder=1
 
-    -- Toggle เดิม
+    -- Toggle (ตามเดิม)
     local row = Instance.new("Frame", wrap)
     row.Name="UFOX_Row_FPS"; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=2
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="UI FPS Display"
     local sw = Instance.new("Frame", row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0); sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-    local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
-    local knob = Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
-    local function setSwitch(v) S.enabled=v; swStroke.Color = v and THEME.GREEN or THEME.RED; tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)}); if S.frame then S.frame.Visible=v end end
+    local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8
+    local knob=Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+    local function setSwitch(v) S.enabled=v; swStroke.Color=v and THEME.GREEN or THEME.RED; tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)}); if S.frame then S.frame.Visible=v end end
     knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
     local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""; btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== Helpers: real metrics =====
+    -- ===== REAL READERS =====
     local function getPingMs()
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
         item = item and item:FindFirstChild("Data Ping")
-        if item then local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
+        if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
         return 0
     end
-    local function getKbps(name)
+    local function getKbps(possibleNames)
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
-        item = item and item:FindFirstChild(name)
-        if item then local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
+        if not item then return 0 end
+        for _,name in ipairs(possibleNames) do
+            local nobj = item:FindFirstChild(name)
+            if nobj then
+                local n = tonumber(string.match(nobj:GetValueString(),"(%d+%.?%d*)"))
+                if n then return n end
+            end
+        end
         return 0
     end
     local function getMemMB()
@@ -1405,56 +1418,64 @@ registerRight("Settings", function(scroll)
         Download = "rbxassetid://134953518153703",
     }
 
-    -- ===== HUD สุดบน (ใหญ่ขึ้น) =====
+    -- ===== HUD (responsive) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
-        local gui = Instance.new("ScreenGui"); gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001; gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001; gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
         gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
         local box = Instance.new("Frame", gui)
-        box.Name="FPSBox"; box.Size=UDim2.new(0,BOX_WIDTH,0,ROW_HEIGHT); box.Position=UDim2.new(0.5,-BOX_WIDTH/2,0,8)
-        box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
+        box.Name="FPSBox"; box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
 
-        local function slot(idx, iconId, initText)
-            local x = 12 + (idx-1)*SLOT_STEP
-            local icon = Instance.new("ImageLabel", box)
-            icon.BackgroundTransparency=1; icon.Image=iconId
-            icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
-            icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
-
-            local txt = Instance.new("TextLabel", box)
-            txt.BackgroundTransparency=1
-            txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
-            txt.Size = UDim2.new(0, SLOT_STEP - (ICON_SIZE + 18), 1, 0)
-            txt.Font = Enum.Font.GothamBold
-            txt.TextSize = TEXT_SIZE
-            txt.TextColor3 = THEME.GREEN
-            txt.TextXAlignment = Enum.TextXAlignment.Left
-            txt.Text = initText
-            return txt
+        -- สร้าง 5 ช่อง (icon + text)
+        local function makeSlot(parent)
+            local g = {}
+            g.icon = Instance.new("ImageLabel", parent); g.icon.BackgroundTransparency=1; g.icon.Size=UDim2.fromOffset(ICON_SIZE,ICON_SIZE)
+            g.txt  = Instance.new("TextLabel", parent); g.txt.BackgroundTransparency=1; g.txt.Font=Enum.Font.GothamBold; g.txt.TextSize=TEXT_SIZE; g.txt.TextColor3=THEME.GREEN; g.txt.TextXAlignment=Enum.TextXAlignment.Left
+            return g
         end
+        local slots = { makeSlot(box), makeSlot(box), makeSlot(box), makeSlot(box), makeSlot(box) }
+        slots[1].icon.Image = ICONS.FPS     ; slots[1].txt.Text = "FPS: --"
+        slots[2].icon.Image = ICONS.Ping    ; slots[2].txt.Text = "Ping: --ms"
+        slots[3].icon.Image = ICONS.Memory  ; slots[3].txt.Text = "Mem: --MB"
+        slots[4].icon.Image = ICONS.Upload  ; slots[4].txt.Text = "Up: -- Kbps"
+        slots[5].icon.Image = ICONS.Download; slots[5].txt.Text = "Down: -- Kbps"
 
-        local tFPS   = slot(1, ICONS.FPS,      "FPS: --")
-        local tPing  = slot(2, ICONS.Ping,     "Ping: --ms")
-        local tMem   = slot(3, ICONS.Memory,   "Mem: --MB")
-        local tUp    = slot(4, ICONS.Upload,   "Up: -- Kbps")
-        local tDown  = slot(5, ICONS.Download, "Down: -- Kbps")
+        -- จัดวางแบบ responsive
+        local function layout()
+            local vw = (Camera and Camera.ViewportSize.X) or 1280
+            local maxW = math.max(600, math.min(vw - MIN_PADDING*2, 980)) -- ไม่ล้นขอบจอ
+            local step = math.floor((maxW - 24) / 5)                       -- ระยะต่อช่อง
+            local boxX = math.floor((vw - maxW)/2)
 
-        -- Update นิ่งตา (0.5s) แต่ยังเรียลไทม์
+            box.Size     = UDim2.new(0, maxW, 0, ROW_HEIGHT)
+            box.Position = UDim2.new(0, boxX, 0, 8)
+
+            for i,s in ipairs(slots) do
+                local x = 12 + (i-1)*step
+                s.icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
+                s.txt.Position  = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
+                s.txt.Size      = UDim2.new(0, step - (ICON_SIZE + 18), 1, 0)
+            end
+        end
+        layout()
+        if Camera then Camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) end
+
+        -- ===== Update (smooth but realtime) =====
         local acc, UPDATE_RATE = 0, 0.5
         local ALPHA_FPS, ALPHA = 0.08, 0.18
-
         RunService.RenderStepped:Connect(function(dt)
-            local inst = math.clamp(1/dt,1,240)
+            local inst = math.clamp(1/dt, 1, 240)
             S.smFPS = S.smFPS and (S.smFPS + (inst - S.smFPS)*ALPHA_FPS) or inst
-
             acc += dt
             if acc >= UPDATE_RATE then
                 acc = 0
-                local ping  = getPingMs()
-                local up    = getKbps("Data Send Kbps")
-                local down  = getKbps("Data Receive Kbps")
-                local mem   = getMemMB()
+                local ping = getPingMs()
+                local up   = getKbps({"Data Send Kbps","Data Send Rate","Data Send"})
+                local down = getKbps({"Data Receive Kbps","Data Receive Rate","Data Receive"})
+                local mem  = getMemMB()
 
                 S.smPing = S.smPing and (S.smPing + (ping - S.smPing)*ALPHA) or ping
                 S.smUp   = S.smUp   and (S.smUp   + (up   - S.smUp)  *ALPHA) or up
@@ -1462,11 +1483,17 @@ registerRight("Settings", function(scroll)
                 S.smMem  = S.smMem  and (S.smMem  + (mem  - S.smMem) *ALPHA) or mem
 
                 if S.enabled then
-                    tFPS.Text  = string.format("FPS: %d",    math.floor(S.smFPS + 0.5))
-                    tPing.Text = string.format("Ping: %dms", math.floor((S.smPing or 0)+0.5))
-                    tMem.Text  = string.format("Mem: %dMB",  math.floor((S.smMem  or 0)+0.5))
-                    tUp.Text   = string.format("Up: %d Kbps",   math.floor((S.smUp   or 0)+0.5))
-                    tDown.Text = string.format("Down: %d Kbps", math.floor((S.smDown or 0)+0.5))
+                    slots[1].txt.Text = string.format("FPS: %d", math.floor(S.smFPS + 0.5))
+                    slots[2].txt.Text = string.format("Ping: %dms", math.floor((S.smPing or 0)+0.5))
+                    slots[3].txt.Text = string.format("Mem: %dMB",  math.floor((S.smMem or 0)+0.5))
+                    slots[4].txt.Text = string.format("Up: %d Kbps",   math.max(0, math.floor((S.smUp or 0)+0.5)))
+                    slots[5].txt.Text = string.format("Down: %d Kbps", math.max(0, math.floor((S.smDown or 0)+0.5)))
+
+                    -- ถ้าข้อมูลเน็ต ~0 ให้สีจางเพื่อบอกว่าไม่มีทราฟฟิก (ไม่ได้พัง)
+                    local upZero   = (S.smUp or 0) < 0.5
+                    local downZero = (S.smDown or 0) < 0.5
+                    slots[4].txt.TextColor3 = upZero   and THEME.DIM or THEME.GREEN
+                    slots[5].txt.TextColor3 = downZero and THEME.DIM or THEME.GREEN
                 end
             end
         end)
