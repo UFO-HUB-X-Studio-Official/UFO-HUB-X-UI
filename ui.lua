@@ -1319,8 +1319,8 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL METRICS • BIG ICONS • EVEN SPACING) =====
--- 5 ช่องเว้นระยะ "เท่ากันทุกช่อง" ในความกว้างเดิม ดูเรียบเนียนพอดี
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL METRICS • BIG ICONS • EVEN SPACING + FIX) =====
+-- 5 ช่องเว้นระยะเท่ากัน, ขยับช่องแรกไปทางขวาเล็กน้อย, แก้ตัวเลขวาบด้วยการอัปเดตเฉพาะเมื่อค่าเปลี่ยน
 
 registerRight("Settings", function(scroll)
     local Players    = game:GetService("Players")
@@ -1333,9 +1333,10 @@ registerRight("Settings", function(scroll)
     local TEXT_SIZE   = 16
     local ROW_HEIGHT  = 44
 
-    local BOX_WIDTH   = 760      -- ความกว้างแทบด้านบน (ปรับได้ให้พอดีกับจอ/เกมของคุณ)
+    local BOX_WIDTH   = 760      -- ความกว้างแทบด้านบน
     local INNER_PAD   = 12       -- ขอบซ้าย/ขวาในกล่อง
-    local GAP_BETWEEN = 10       -- ช่องว่างระหว่าง "ช่อง" แต่ละอัน (เท่ากันทุกคู่)
+    local GAP_BETWEEN = 10       -- ช่องว่างระหว่างแต่ละช่อง
+    local FIRST_SHIFT = 10       -- ขยับช่องแรกไปทางขวา
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1408,7 +1409,7 @@ registerRight("Settings", function(scroll)
         Download = "rbxassetid://134953518153703",
     }
 
-    -- ===== HUD (5 ช่องระยะเท่ากัน) =====
+    -- ===== HUD (5 ช่องระยะเท่ากัน + ขยับช่องแรก) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
@@ -1420,11 +1421,11 @@ registerRight("Settings", function(scroll)
         box.Name="FPSBox"; box.Size=UDim2.new(0,BOX_WIDTH,0,ROW_HEIGHT); box.Position=UDim2.new(0.5,-BOX_WIDTH/2,0,8)
         box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- คำนวณความกว้าง/ตำแหน่งให้เท่ากันทุกช่อง
         local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
 
         local function makeSlot(i, iconId, initText)
-            local x = INNER_PAD + (i-1)*(SLOT_W + GAP_BETWEEN)
+            local extra = (i==1) and FIRST_SHIFT or 0
+            local x = INNER_PAD + extra + (i-1)*(SLOT_W + GAP_BETWEEN)
 
             local icon = Instance.new("ImageLabel", box)
             icon.BackgroundTransparency=1; icon.Image=iconId
@@ -1434,7 +1435,7 @@ registerRight("Settings", function(scroll)
             local txt = Instance.new("TextLabel", box)
             txt.BackgroundTransparency=1
             txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
-            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12), 1, 0) -- ความกว้างในแต่ละช่องเท่ากัน
+            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) - extra, 1, 0)
             txt.Font = Enum.Font.GothamBold
             txt.TextSize = TEXT_SIZE
             txt.TextColor3 = THEME.GREEN
@@ -1449,6 +1450,13 @@ registerRight("Settings", function(scroll)
         local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
         local tUp    = makeSlot(4, ICONS.Upload,   "Up: -- Kbps")
         local tDown  = makeSlot(5, ICONS.Download, "Down: -- Kbps")
+
+        -- ===== Anti-flicker helper =====
+        local function setText(label, newStr)
+            if label.Text ~= newStr then
+                label.Text = newStr
+            end
+        end
 
         -- ===== Update (smooth + realtime) =====
         local acc, UPDATE_RATE = 0, 0.5
@@ -1472,11 +1480,11 @@ registerRight("Settings", function(scroll)
                 S.smMem  = S.smMem  and (S.smMem  + (mem  - S.smMem) *ALPHA) or mem
 
                 if S.enabled then
-                    tFPS.Text  = string.format("FPS: %d",    math.floor(S.smFPS + 0.5))
-                    tPing.Text = string.format("Ping: %dms", math.floor((S.smPing or 0)+0.5))
-                    tMem.Text  = string.format("Mem: %dMB",  math.floor((S.smMem  or 0)+0.5))
-                    tUp.Text   = string.format("Up: %d Kbps",   math.floor((S.smUp   or 0)+0.5))
-                    tDown.Text = string.format("Down: %d Kbps", math.floor((S.smDown or 0)+0.5))
+                    setText(tFPS,  string.format("FPS: %d",    math.floor(S.smFPS + 0.5)))
+                    setText(tPing, string.format("Ping: %dms", math.floor((S.smPing or 0)+0.5)))
+                    setText(tMem,  string.format("Mem: %dMB",  math.floor((S.smMem  or 0)+0.5)))
+                    setText(tUp,   string.format("Up: %d Kbps",   math.floor((S.smUp   or 0)+0.5)))
+                    setText(tDown, string.format("Down: %d Kbps", math.floor((S.smDown or 0)+0.5)))
                 end
             end
         end)
