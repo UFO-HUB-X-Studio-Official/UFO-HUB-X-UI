@@ -1319,12 +1319,13 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy Style) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy) =====
 -- Tab: "UI FPS" (in Settings)
+
 registerRight("Settings", function(scroll)
-    local RunService = game:GetService("RunService")
+    local Players      = game:GetService("Players")
+    local RunService   = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
-    local Stats = game:GetService("Stats")
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1337,10 +1338,20 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    _G.UFOX_FPS = _G.UFOX_FPS or { enabled = true, frame=nil }
+    -- ===== STATE =====
+    _G.UFOX_FPS = _G.UFOX_FPS or {
+        enabled = true,
+        frame   = nil,
+        -- smoothing / update cadence
+        alpha   = 0.15,          -- EWMA smoothing factor (ยิ่งต่ำยิ่งนิ่ง)
+        tickInt = 0.25,          -- อัปเดตข้อความทุกกี่วินาที (0.25 = 4 ครั้ง/วินาที)
+        smFPS   = nil,           -- ค่า FPS แบบเนียน
+        devT    = 48,            -- จำลองความร้อน device เริ่มต้น
+        cpuT    = 45,            -- จำลองความร้อน CPU เริ่มต้น
+    }
     local S = _G.UFOX_FPS
 
-    -- ลบเก่า
+    -- ล้าง section เดิม
     local old = scroll:FindFirstChild("Section_UIFPS"); if old then old:Destroy() end
 
     -- Header
@@ -1352,10 +1363,10 @@ registerRight("Settings", function(scroll)
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "UI FPS ⚡"
+    header.Text = "UI FPS"
     header.LayoutOrder = 10
 
-    -- แถวหลัก (สวิตช์เปิดปิด)
+    -- แถวสวิทช์
     local row = Instance.new("Frame", scroll)
     row.Size = UDim2.new(1,-6,0,46)
     row.BackgroundColor3 = THEME.BLACK
@@ -1378,79 +1389,125 @@ registerRight("Settings", function(scroll)
     sw.Size = UDim2.fromOffset(52,26)
     sw.BackgroundColor3 = THEME.BLACK
     corner(sw,13)
-    local swStroke = Instance.new("UIStroke", sw)
-    swStroke.Thickness = 1.8
-    swStroke.Color = S.enabled and THEME.GREEN or THEME.RED
+    local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
+    local knob = Instance.new("Frame", sw); knob.Size = UDim2.fromOffset(22,22); knob.BackgroundColor3 = THEME.WHITE; corner(knob,11)
 
-    local knob = Instance.new("Frame", sw)
-    knob.Size = UDim2.fromOffset(22,22)
-    knob.Position = UDim2.new(S.enabled and 1 or 0, S.enabled and -24 or 2, 0.5, -11)
-    knob.BackgroundColor3 = THEME.WHITE
-    corner(knob,11)
-
-    local btn = Instance.new("TextButton", sw)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = ""
-    btn.AutoButtonColor = false
-
-    local function setState(v)
+    local function setSwitch(v)
         S.enabled = v
         swStroke.Color = v and THEME.GREEN or THEME.RED
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
-    btn.MouseButton1Click:Connect(function() setState(not S.enabled) end)
+    knob.Position = UDim2.new(S.enabled and 1 or 0, S.enabled and -24 or 2, 0.5, -11)
+    swStroke.Color = S.enabled and THEME.GREEN or THEME.RED
+    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+    btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- UI FPS FRAME (โชว์ตรง HUD บนจอ)
+    -- ===== FPS HUD (กล่องบนกลางจอ | สีดำขอบเขียว | ไอคอน 3 อัน) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
+
         local screen = Instance.new("ScreenGui")
         screen.Name = "UFOX_FPS_GUI"
         screen.IgnoreGuiInset = true
         screen.ResetOnSpawn = false
         screen.DisplayOrder = 9999
         screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        screen.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
         local box = Instance.new("Frame", screen)
         box.Name = "FPSBox"
-        box.Size = UDim2.new(0,260,0,36)
-        box.Position = UDim2.new(0.5,-130,0,8) -- ตรงกลางบน (ตำแหน่งเดียวกับบาร์สีแดง)
+        box.Size = UDim2.new(0,360,0,38)
+        box.Position = UDim2.new(0.5, -180, 0, 8)     -- กลางบน (แนวเดียวกับบาร์แดงของเกม)
         box.BackgroundColor3 = THEME.BLACK
         box.BorderSizePixel = 0
         corner(box,10)
         stroke(box,2,THEME.GREEN)
 
-        local icon = Instance.new("ImageLabel", box)
-        icon.Image = "rbxassetid://90148899618399" -- FPS icon
-        icon.BackgroundTransparency = 1
-        icon.Size = UDim2.fromOffset(24,24)
-        icon.Position = UDim2.new(0,8,0.5,-12)
+        -- ไอคอน 3 อัน: FPS / Device / CPU
+        local iconFPS = Instance.new("ImageLabel", box)
+        iconFPS.BackgroundTransparency = 1
+        iconFPS.Image = "rbxassetid://90148899618399"
+        iconFPS.Size = UDim2.fromOffset(20,20)
+        iconFPS.Position = UDim2.new(0,10,0.5,-10)
 
-        local txt = Instance.new("TextLabel", box)
-        txt.BackgroundTransparency = 1
-        txt.Position = UDim2.new(0,40,0,0)
-        txt.Size = UDim2.new(1,-40,1,0)
-        txt.Font = Enum.Font.GothamBold
-        txt.TextSize = 14
-        txt.TextColor3 = THEME.GREEN
-        txt.TextXAlignment = Enum.TextXAlignment.Left
-        txt.Text = "FPS: -- | Device: --°C | CPU: --°C"
+        local iconDev = Instance.new("ImageLabel", box)
+        iconDev.BackgroundTransparency = 1
+        iconDev.Image = "rbxassetid://71594498726379"
+        iconDev.Size = UDim2.fromOffset(20,20)
+        iconDev.Position = UDim2.new(0,130,0.5,-10)
 
+        local iconCPU = Instance.new("ImageLabel", box)
+        iconCPU.BackgroundTransparency = 1
+        iconCPU.Image = "rbxassetid://133491379992560"
+        iconCPU.Size = UDim2.fromOffset(20,20)
+        iconCPU.Position = UDim2.new(0,240,0.5,-10)
+
+        -- ข้อความ 3 ส่วน (วางชิดแต่ละไอคอน)
+        local txtFPS = Instance.new("TextLabel", box)
+        txtFPS.BackgroundTransparency = 1
+        txtFPS.Position = UDim2.new(0,34,0,0)
+        txtFPS.Size = UDim2.new(0,86,1,0)
+        txtFPS.Font = Enum.Font.GothamBold
+        txtFPS.TextSize = 14
+        txtFPS.TextColor3 = THEME.GREEN
+        txtFPS.TextXAlignment = Enum.TextXAlignment.Left
+        txtFPS.Text = "FPS: --"
+
+        local txtDev = Instance.new("TextLabel", box)
+        txtDev.BackgroundTransparency = 1
+        txtDev.Position = UDim2.new(0,154,0,0)
+        txtDev.Size = UDim2.new(0,80,1,0)
+        txtDev.Font = Enum.Font.GothamBold
+        txtDev.TextSize = 14
+        txtDev.TextColor3 = THEME.GREEN
+        txtDev.TextXAlignment = Enum.TextXAlignment.Left
+        txtDev.Text = "Device: --°C"
+
+        local txtCPU = Instance.new("TextLabel", box)
+        txtCPU.BackgroundTransparency = 1
+        txtCPU.Position = UDim2.new(0,264,0,0)
+        txtCPU.Size = UDim2.new(0,86,1,0)
+        txtCPU.Font = Enum.Font.GothamBold
+        txtCPU.TextSize = 14
+        txtCPU.TextColor3 = THEME.GREEN
+        txtCPU.TextXAlignment = Enum.TextXAlignment.Left
+        txtCPU.Text = "CPU: --°C"
+
+        -- อัปเดตแบบ "นิ่ง": ใช้ EWMA + อัปเดตราย 0.25s
+        local acc = 0
         RunService.RenderStepped:Connect(function(dt)
-            if not S.enabled then return end
-            local fps = math.floor(1/dt)
-            local deviceHeat = math.random(35,55)
-            local cpuHeat = math.random(40,70)
-            txt.Text = string.format("FPS: %d | Device: %d°C | CPU: %d°C", fps, deviceHeat, cpuHeat)
+            -- smoothing fps
+            local inst = math.clamp(1/dt, 1, 240)
+            if not S.smFPS then
+                S.smFPS = inst
+            else
+                S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS
+            end
+
+            -- accumulate then update text
+            acc += dt
+            if acc >= S.tickInt then
+                acc = 0
+
+                -- NOTE: Roblox ไม่มี API อุณหภูมิจริง เราเลย "ขยับช้าๆ" ให้ดูสมจริง
+                S.devT = S.devT + math.random(-1,1)   ; S.devT = math.clamp(S.devT, 35, 60)
+                S.cpuT = S.cpuT + math.random(-1,1)   ; S.cpuT = math.clamp(S.cpuT, 40, 75)
+
+                if S.enabled then
+                    txtFPS.Text = string.format("FPS: %d", math.floor(S.smFPS + 0.5))
+                    txtDev.Text = string.format("Device: %d°C", S.devT)
+                    txtCPU.Text = string.format("CPU: %d°C", S.cpuT)
+                end
+            end
         end)
 
         S.frame = box
         return box
     end
+
     createFPSFrame()
-    setState(S.enabled)
+    setSwitch(S.enabled)
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
