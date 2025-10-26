@@ -1319,8 +1319,8 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL • COMPACT 5 W/ LABELS) =====
--- Width ~360px, 5 items (icon + short label + value)
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL • MEDIUM 5 W/ LABELS) =====
+-- Medium width ~480px, readable spacing, icon + short label + value
 -- Icons: FPS 116103940304617, Ping 125226433995402, Mem 131794120624488, Up 125701675927454, Down 134953518153703
 
 registerRight("Settings", function(scroll)
@@ -1329,14 +1329,15 @@ registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Stats        = game:GetService("Stats")
 
-    -- === LOOK (COMPACT) ===
-    local BOX_WIDTH  = 360
-    local ROW_HEIGHT = 34
-    local ICON_SIZE  = 18
-    local TEXT_SIZE  = 13
+    -- === LOOK (MEDIUM) ===
+    local BOX_WIDTH  = 480   -- กว้างขึ้นแบบพอดี
+    local ROW_HEIGHT = 40
+    local ICON_SIZE  = 22
+    local TEXT_SIZE  = 14
     local LABEL_SIZE = 12
-    local PADDING_LR = 10
-    local GAP        = 4
+    local PADDING_LR = 12
+    local GAP        = 6
+    local LABEL_W    = 40    -- ความกว้างข้อความชื่อสั้น ๆ
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1344,7 +1345,7 @@ registerRight("Settings", function(scroll)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
-        DIM   = Color3.fromRGB(160,200,160), -- สำหรับ label/ค่าเน็ตเป็น 0
+        DIM   = Color3.fromRGB(160,200,160),
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 10) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
@@ -1411,7 +1412,7 @@ registerRight("Settings", function(scroll)
         Download = "rbxassetid://134953518153703",
     }
 
-    -- === HUD (compact fixed width + labels) ===
+    -- === HUD (medium width + labels) ===
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
         local gui = Instance.new("ScreenGui")
@@ -1431,31 +1432,27 @@ registerRight("Settings", function(scroll)
             icon.Size=UDim2.fromOffset(ICON_SIZE,ICON_SIZE)
             icon.Position=UDim2.new(0, x, 0.5, -ICON_SIZE/2)
 
-            -- label สั้น ๆ (จางกว่า)
             local lbl = Instance.new("TextLabel", box)
             lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.GothamBold; lbl.TextSize=LABEL_SIZE
             lbl.TextColor3 = THEME.DIM; lbl.TextXAlignment=Enum.TextXAlignment.Left
             lbl.Text = labelText
             lbl.Position = UDim2.new(0, x + ICON_SIZE + GAP, 0, 0)
-            lbl.Size     = UDim2.new(0, 36, 1, 0)  -- พื้นที่สั้น ๆ พอใส่ "FPS:" "Mem:" ฯลฯ
+            lbl.Size     = UDim2.new(0, LABEL_W, 1, 0)
 
-            -- value (เขียวชัด)
             local val = Instance.new("TextLabel", box)
             val.BackgroundTransparency=1; val.Font=Enum.Font.GothamBold; val.TextSize=TEXT_SIZE
             val.TextColor3 = THEME.GREEN; val.TextXAlignment=Enum.TextXAlignment.Left
             val.Text = initVal
-            val.Position = UDim2.new(0, x + ICON_SIZE + GAP + 36, 0, 0)
-            val.Size     = UDim2.new(0, SLOT_W - (ICON_SIZE + GAP + 36), 1, 0)
-
-            return val, lbl
+            val.Position = UDim2.new(0, x + ICON_SIZE + GAP + LABEL_W, 0, 0)
+            val.Size     = UDim2.new(0, SLOT_W - (ICON_SIZE + GAP + LABEL_W), 1, 0)
+            return val
         end
 
-        local vFPS  = nil
-        vFPS        = select(1, slot(1, ICONS.FPS,      "FPS:",   "--"))
-        local vPing = select(1, slot(2, ICONS.Ping,     "Ping:",  "--ms"))
-        local vMem  = select(1, slot(3, ICONS.Memory,   "Mem:",   "--MB"))
-        local vUp   = select(1, slot(4, ICONS.Upload,   "Up:",    "0"))
-        local vDown = select(1, slot(5, ICONS.Download, "Down:",  "0"))
+        local vFPS  = slot(1, ICONS.FPS,      "FPS:",   "--")
+        local vPing = slot(2, ICONS.Ping,     "Ping:",  "--ms")
+        local vMem  = slot(3, ICONS.Memory,   "Mem:",   "--MB")
+        local vUp   = slot(4, ICONS.Upload,   "Up:",    "0")
+        local vDown = slot(5, ICONS.Download, "Down:",  "0")
 
         -- Update smooth + realtime
         local acc, UPDATE = 0, 0.5
