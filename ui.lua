@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • SEPARATED, LOOK 100%) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1327,6 +1327,7 @@ registerRight("Settings", function(scroll)
     local RunService   = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
 
+    -- THEME (เหมือนเดิม)
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         RED   = Color3.fromRGB(255,40,40),
@@ -1338,7 +1339,7 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ===== STATE (default OFF) =====
+    -- STATE (เหมือนเดิม)
     _G.UFOX_FPS = _G.UFOX_FPS or {
         enabled = false,
         frame   = nil,
@@ -1350,12 +1351,26 @@ registerRight("Settings", function(scroll)
     }
     local S = _G.UFOX_FPS
 
-    -- ล้าง section เดิม
-    local old = scroll:FindFirstChild("Section_UIFPS"); if old then old:Destroy() end
+    -- ❗ลบเฉพาะกล่องของตัวเองเท่านั้น เพื่อไม่ไปรวม/ชนกับระบบอื่น
+    local WRAP_NAME = "UFOX_WRAP_UIFPS_ONLY"
+    local oldWrap = scroll:FindFirstChild(WRAP_NAME); if oldWrap then oldWrap:Destroy() end
 
-    -- Header
-    local header = Instance.new("TextLabel", scroll)
-    header.Name = "Section_UIFPS"
+    -- ✅ คอนเทนเนอร์โปร่งใส (ไม่แตะ layout/padding ของ scroll เดิม)
+    local wrap = Instance.new("Frame", scroll)
+    wrap.Name = WRAP_NAME
+    wrap.BackgroundTransparency = 1
+    wrap.Size = UDim2.new(1,0,0,0)
+    wrap.AutomaticSize = Enum.AutomaticSize.Y
+    -- ใช้ LayoutOrder ต่อท้ายอัตโนมัติ โดยไม่แก้ของเดิม
+    local maxOrder = 0
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, (ch.LayoutOrder or 0)) end
+    end
+    wrap.LayoutOrder = maxOrder + 1
+
+    -- ========= Header (เหมือนเดิมเป๊ะ) =========
+    local header = Instance.new("TextLabel", wrap)
+    header.Name = "Section_UIFPS" -- ชื่อนี้ใช้แค่ "ภายใน wrap" ไม่ชนคนอื่น
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,36)
     header.Font = Enum.Font.GothamBold
@@ -1363,14 +1378,15 @@ registerRight("Settings", function(scroll)
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
     header.Text = "UI FPS ⚡"
-    header.LayoutOrder = 10
+    header.LayoutOrder = 1
 
-    -- แถวสวิทช์
-    local row = Instance.new("Frame", scroll)
+    -- ========= แถวสวิตช์ (เหมือนเดิมเป๊ะ) =========
+    local row = Instance.new("Frame", wrap)
+    row.Name = "UIFPS_Row"
     row.Size = UDim2.new(1,-6,0,46)
     row.BackgroundColor3 = THEME.BLACK
+    row.LayoutOrder = 2
     corner(row,12); stroke(row,2.2,THEME.GREEN)
-    row.LayoutOrder = 11
 
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency = 1
@@ -1402,17 +1418,19 @@ registerRight("Settings", function(scroll)
     local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== FPS HUD (ปรับให้พอดี + มองเห็นทับหน้าจอดำ) =====
+    -- ========= FPS HUD (เหมือนเดิมเป๊ะ) =========
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
+        local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+        local old = pg:FindFirstChild("UFOX_FPS_GUI"); if old then old:Destroy() end
 
         local screen = Instance.new("ScreenGui")
         screen.Name = "UFOX_FPS_GUI"
         screen.IgnoreGuiInset = true
         screen.ResetOnSpawn = false
-        screen.DisplayOrder = 1000001   -- สูงกว่า AFK overlay (999999) ให้เห็นเสมอ
+        screen.DisplayOrder = 1000001
         screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+        screen.Parent = pg
 
         local box = Instance.new("Frame", screen)
         box.Name = "FPSBox"
@@ -1422,32 +1440,15 @@ registerRight("Settings", function(scroll)
         box.BorderSizePixel = 0
         corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- ปรับตำแหน่ง “พอดี” (ลด SHIFT ให้กลับมาซ้ายเล็กน้อย)
-        local SHIFT = 10
-
-        -- Icons
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
         iconFPS.Size = UDim2.fromOffset(20,20)
-        iconFPS.Position = UDim2.new(0,10+SHIFT,0.5,-10)
+        iconFPS.Position = UDim2.new(0,10,0.5,-10)
 
-        local iconDev = Instance.new("ImageLabel", box)
-        iconDev.BackgroundTransparency = 1
-        iconDev.Image = "rbxassetid://71594498726379"
-        iconDev.Size = UDim2.fromOffset(20,20)
-        iconDev.Position = UDim2.new(0,112+SHIFT,0.5,-10)
-
-        local iconCPU = Instance.new("ImageLabel", box)
-        iconCPU.BackgroundTransparency = 1
-        iconCPU.Image = "rbxassetid://133491379992560"
-        iconCPU.Size = UDim2.fromOffset(20,20)
-        iconCPU.Position = UDim2.new(0,240+SHIFT,0.5,-8)
-
-        -- Texts
         local txtFPS = Instance.new("TextLabel", box)
         txtFPS.BackgroundTransparency = 1
-        txtFPS.Position = UDim2.new(0,34+SHIFT,0,0)
+        txtFPS.Position = UDim2.new(0,34,0,0)
         txtFPS.Size = UDim2.new(0,76,1,0)
         txtFPS.Font = Enum.Font.GothamBold
         txtFPS.TextSize = 14
@@ -1455,9 +1456,15 @@ registerRight("Settings", function(scroll)
         txtFPS.TextXAlignment = Enum.TextXAlignment.Left
         txtFPS.Text = "FPS: --"
 
+        local iconDev = Instance.new("ImageLabel", box)
+        iconDev.BackgroundTransparency = 1
+        iconDev.Image = "rbxassetid://71594498726379"
+        iconDev.Size = UDim2.fromOffset(20,20)
+        iconDev.Position = UDim2.new(0,112,0.5,-10)
+
         local txtDev = Instance.new("TextLabel", box)
         txtDev.BackgroundTransparency = 1
-        txtDev.Position = UDim2.new(0,136+SHIFT,0,0)
+        txtDev.Position = UDim2.new(0,136,0,0)
         txtDev.Size = UDim2.new(0,92,1,0)
         txtDev.Font = Enum.Font.GothamBold
         txtDev.TextSize = 14
@@ -1465,9 +1472,15 @@ registerRight("Settings", function(scroll)
         txtDev.TextXAlignment = Enum.TextXAlignment.Left
         txtDev.Text = "Device: --°C"
 
+        local iconCPU = Instance.new("ImageLabel", box)
+        iconCPU.BackgroundTransparency = 1
+        iconCPU.Image = "rbxassetid://133491379992560"
+        iconCPU.Size = UDim2.fromOffset(20,20)
+        iconCPU.Position = UDim2.new(0,240,0.5,-8)
+
         local txtCPU = Instance.new("TextLabel", box)
         txtCPU.BackgroundTransparency = 1
-        txtCPU.Position = UDim2.new(0,264+SHIFT,0,0)
+        txtCPU.Position = UDim2.new(0,264,0,0)
         txtCPU.Size = UDim2.new(0,86,1,0)
         txtCPU.Font = Enum.Font.GothamBold
         txtCPU.TextSize = 14
@@ -1475,7 +1488,6 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
-        -- Update loop (นิ่งด้วย smoothing)
         local acc = 0
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
