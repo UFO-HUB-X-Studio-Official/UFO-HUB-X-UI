@@ -1501,6 +1501,305 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (Model A V1) =====
+-- Put under: registerRight("Settings", function(scroll) ... end)
+
+registerRight("Settings", function(scroll)
+    local Players      = game:GetService("Players")
+    local RunService   = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local Lighting     = game:GetService("Lighting")
+    local lp           = Players.LocalPlayer
+
+    -- ==== THEME / UI helpers (A V1) ====
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+
+    -- ==== STATE (persistent) ====
+    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or {
+        eff50 = false,     -- Reduce Effects 50%
+        eff100= false,     -- Remove Effects 100%
+        plastic = false,   -- Plastic Map
+        _snapFX = {},      -- original values for FX
+        _snapPP = {},      -- post effects
+        _snapMat = {},     -- original materials
+        _scanned = false,
+    }
+    local S = _G.UFOX_SMOOTH
+
+    -- clear old section if any
+    local old = scroll:FindFirstChild("Section_Smoother"); if old then old:Destroy() end
+
+    -- ===== Header =====
+    local header = Instance.new("TextLabel", scroll)
+    header.Name = "Section_Smoother"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Smoother 🚀"
+    header.LayoutOrder = 10
+
+    -- ===== Row helper (toggle style A V1) =====
+    local function makeToggleRow(label, order, defaultOn, onToggle)
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder = order
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,-160,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = label
+
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position    = UDim2.new(1,-12,0.5,0)
+        sw.Size        = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw,13)
+        local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
+
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(defaultOn and 1 or 0, defaultOn and -24 or 2, 0.5, -11)
+        corner(knob,11)
+
+        local function setState(v)
+            swStroke.Color = v and THEME.GREEN or THEME.RED
+            tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
+            if onToggle then onToggle(v) end
+        end
+        setState(defaultOn)
+
+        local btn = Instance.new("TextButton", sw)
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.MouseButton1Click:Connect(function() setState(not (knob.Position.X.Scale > 0)) end)
+
+        return setState
+    end
+
+    -- ===== Effect scanner & appliers =====
+    local EFFECT_CLASSES = {
+        "ParticleEmitter","Trail","Beam","Smoke","Fire","Sparkles"
+    }
+    local POST_CLASSES = { "BloomEffect","ColorCorrectionEffect","DepthOfFieldEffect","SunRaysEffect","BlurEffect" }
+
+    local function isCharacterDescendant(inst)
+        local p = inst
+        while p do
+            if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then return true end
+            p = p.Parent
+        end
+        return false
+    end
+
+    local function snapshotFX()
+        if S._scanned then return end
+        -- particle / trail / beam / etc.
+        for _,desc in ipairs(workspace:GetDescendants()) do
+            if isCharacterDescendant(desc) then
+                -- ignore characters
+            else
+                for _,cls in ipairs(EFFECT_CLASSES) do
+                    if desc.ClassName == cls then
+                        local t = {}
+                        if desc:IsA("ParticleEmitter") then
+                            t.Enabled = desc.Enabled
+                            t.Rate    = desc.Rate
+                            t.Lifetime= desc.Lifetime
+                        elseif desc:IsA("Trail") then
+                            t.Enabled = desc.Enabled
+                            t.Lifetime= desc.Lifetime
+                            t.Brightness = desc.Brightness
+                        elseif desc:IsA("Beam") then
+                            t.Enabled = desc.Enabled
+                            t.Brightness = desc.Brightness
+                            t.Width0 = desc.Width0; t.Width1 = desc.Width1
+                        elseif desc:IsA("Smoke") then
+                            t.Enabled = desc.Enabled
+                            t.Opacity = desc.Opacity
+                        elseif desc:IsA("Fire") then
+                            t.Enabled = desc.Enabled
+                            t.Heat = desc.Heat; t.Size = desc.Size
+                        elseif desc:IsA("Sparkles") then
+                            t.Enabled = desc.Enabled
+                        end
+                        S._snapFX[desc] = t
+                    end
+                end
+            end
+        end
+        -- post-processing in Lighting
+        for _,obj in ipairs(Lighting:GetChildren()) do
+            for _,cls in ipairs(POST_CLASSES) do
+                if obj.ClassName == cls then
+                    S._snapPP[obj] = { Enabled = obj.Enabled, Intensity = obj.Intensity or nil }
+                end
+            end
+        end
+        S._scanned = true
+    end
+
+    local function applyEffectsHalf()
+        snapshotFX()
+        for inst,orig in pairs(S._snapFX) do
+            if inst.Parent then
+                if inst:IsA("ParticleEmitter") then
+                    inst.Enabled = true
+                    inst.Rate    = math.max(0, math.floor((orig.Rate or 10)*0.5))
+                    if typeof(orig.Lifetime)=="NumberRange" then
+                        local mn,mx = orig.Lifetime.Min, orig.Lifetime.Max
+                        inst.Lifetime = NumberRange(mn*0.5, mx*0.5)
+                    end
+                elseif inst:IsA("Trail") then
+                    inst.Enabled   = true
+                    inst.Lifetime  = (orig.Lifetime or 1)*0.5
+                    inst.Brightness= (orig.Brightness or 1)*0.5
+                elseif inst:IsA("Beam") then
+                    inst.Enabled   = true
+                    inst.Brightness= (orig.Brightness or 1)*0.5
+                    inst.Width0    = (orig.Width0 or 1)*0.7
+                    inst.Width1    = (orig.Width1 or 1)*0.7
+                elseif inst:IsA("Smoke") then
+                    inst.Enabled   = true
+                    inst.Opacity   = (orig.Opacity or 1)*0.5
+                elseif inst:IsA("Fire") then
+                    inst.Enabled   = true
+                    inst.Heat      = (orig.Heat or 5)*0.5
+                    inst.Size      = (orig.Size or 5)*0.7
+                elseif inst:IsA("Sparkles") then
+                    inst.Enabled   = false  -- sparkle หนัก ปิดไป
+                end
+            end
+        end
+        for obj,orig in pairs(S._snapPP) do
+            if obj.Parent then
+                obj.Enabled = true
+                if obj.Intensity and orig.Intensity then
+                    obj.Intensity = orig.Intensity*0.5
+                end
+                if obj.ClassName=="BlurEffect" then obj.Size = math.floor((obj.Size or 0)*0.5) end
+            end
+        end
+    end
+
+    local function applyEffectsOff()
+        snapshotFX()
+        for inst,orig in pairs(S._snapFX) do
+            if inst.Parent then
+                if inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam")
+                or inst:IsA("Smoke") or inst:IsA("Fire") or inst:IsA("Sparkles") then
+                    inst.Enabled = false
+                end
+            end
+        end
+        for obj,_ in pairs(S._snapPP) do
+            if obj.Parent then obj.Enabled = false end
+        end
+    end
+
+    local function restoreEffects()
+        if not S._scanned then return end
+        for inst,orig in pairs(S._snapFX) do
+            if inst.Parent and orig then
+                for k,v in pairs(orig) do pcall(function() inst[k]=v end) end
+            end
+        end
+        for obj,orig in pairs(S._snapPP) do
+            if obj.Parent and orig then
+                for k,v in pairs(orig) do pcall(function() obj[k]=v end) end
+            end
+        end
+    end
+
+    -- ===== Map “Plastic” mode (Fast) =====
+    local function setPlasticMode(on)
+        -- snapshot only once per part via attributes to avoid double work
+        for _,d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("BasePart") and d.Parent ~= lp.Character and not d:IsDescendantOf(lp.Character) then
+                if on then
+                    if d:GetAttribute("UFOX_OrigMat")==nil then
+                        d:SetAttribute("UFOX_OrigMat", d.Material.Name)
+                        d:SetAttribute("UFOX_OrigRefl", d.Reflectance)
+                    end
+                    d.Material = Enum.Material.SmoothPlastic
+                    d.Reflectance = 0
+                else
+                    local matName = d:GetAttribute("UFOX_OrigMat")
+                    local refl    = d:GetAttribute("UFOX_OrigRefl")
+                    if matName then
+                        pcall(function() d.Material = Enum.Material[matName] end)
+                        d:SetAttribute("UFOX_OrigMat", nil)
+                    end
+                    if refl~=nil then d.Reflectance = refl; d:SetAttribute("UFOX_OrigRefl", nil) end
+                end
+            end
+        end
+    end
+
+    -- ===== Rows =====
+    local set50, set100, setPlastic
+
+    set50 = makeToggleRow("Reduce Effects 50%", 11, S.eff50, function(v)
+        S.eff50 = v
+        if v then
+            if S.eff100 then set100(false) end
+            applyEffectsHalf()
+        else
+            if not S.eff100 then restoreEffects() end
+        end
+    end)
+
+    set100 = makeToggleRow("Remove Effects 100%", 12, S.eff100, function(v)
+        S.eff100 = v
+        if v then
+            if S.eff50 then set50(false) end
+            applyEffectsOff()
+        else
+            if S.eff50 then
+                applyEffectsHalf()
+            else
+                restoreEffects()
+            end
+        end
+    end)
+
+    setPlastic = makeToggleRow("Plastic Map (Fast Mode)", 13, S.plastic, function(v)
+        S.plastic = v
+        setPlasticMode(v)
+    end)
+
+    -- ensure initial state is applied
+    if S.eff100 then
+        applyEffectsOff()
+    elseif S.eff50 then
+        applyEffectsHalf()
+    else
+        restoreEffects()
+    end
+    if S.plastic then setPlasticMode(true) end
+end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
 -- 2) White Screen (Performance AFK)  [toggle]
