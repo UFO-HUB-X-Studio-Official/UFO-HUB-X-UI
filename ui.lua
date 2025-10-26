@@ -1319,8 +1319,8 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (REAL METRICS • BIG ICONS • EVEN SPACING + FIX) =====
--- 5 ช่องเว้นระยะเท่ากัน, ขยับช่องแรกไปทางขวาเล็กน้อย, แก้ตัวเลขวาบด้วยการอัปเดตเฉพาะเมื่อค่าเปลี่ยน
+--===== UFO HUB X • SETTINGS — UI FPS Monitor
+-- REAL metrics • even spacing • move FPS further right • fix Mem flicker (ignore bad reads)
 
 registerRight("Settings", function(scroll)
     local Players    = game:GetService("Players")
@@ -1333,10 +1333,10 @@ registerRight("Settings", function(scroll)
     local TEXT_SIZE   = 16
     local ROW_HEIGHT  = 44
 
-    local BOX_WIDTH   = 760      -- ความกว้างแทบด้านบน
-    local INNER_PAD   = 12       -- ขอบซ้าย/ขวาในกล่อง
-    local GAP_BETWEEN = 10       -- ช่องว่างระหว่างแต่ละช่อง
-    local FIRST_SHIFT = 10       -- ขยับช่องแรกไปทางขวา
+    local BOX_WIDTH   = 760      -- top bar width
+    local INNER_PAD   = 12       -- left/right padding in the bar
+    local GAP_BETWEEN = 10       -- equal gap between slots
+    local FIRST_SHIFT = 24       -- <<< move the 1st slot (FPS) further right
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1381,7 +1381,7 @@ registerRight("Settings", function(scroll)
     knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
     local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""; btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== Readers (จริงทั้งหมด) =====
+    -- ===== Readers (REAL) =====
     local function getPingMs()
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
         item = item and item:FindFirstChild("Data Ping")
@@ -1409,7 +1409,7 @@ registerRight("Settings", function(scroll)
         Download = "rbxassetid://134953518153703",
     }
 
-    -- ===== HUD (5 ช่องระยะเท่ากัน + ขยับช่องแรก) =====
+    -- ===== HUD =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
@@ -1424,7 +1424,7 @@ registerRight("Settings", function(scroll)
         local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
 
         local function makeSlot(i, iconId, initText)
-            local extra = (i==1) and FIRST_SHIFT or 0
+            local extra = (i==1) and FIRST_SHIFT or 0                 -- shift FPS to the right
             local x = INNER_PAD + extra + (i-1)*(SLOT_W + GAP_BETWEEN)
 
             local icon = Instance.new("ImageLabel", box)
@@ -1435,7 +1435,7 @@ registerRight("Settings", function(scroll)
             local txt = Instance.new("TextLabel", box)
             txt.BackgroundTransparency=1
             txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
-            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) - extra, 1, 0)
+            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) - extra, 1, 0) -- equal width, account FIRST_SHIFT
             txt.Font = Enum.Font.GothamBold
             txt.TextSize = TEXT_SIZE
             txt.TextColor3 = THEME.GREEN
@@ -1451,11 +1451,15 @@ registerRight("Settings", function(scroll)
         local tUp    = makeSlot(4, ICONS.Upload,   "Up: -- Kbps")
         local tDown  = makeSlot(5, ICONS.Download, "Down: -- Kbps")
 
-        -- ===== Anti-flicker helper =====
+        -- ===== Anti-flicker =====
+        local lastGoodMem = nil
+        local function stableMem()
+            local m = getMemMB()
+            if m and m > 0 then lastGoodMem = m end         -- keep last valid; ignore 0/bad reads
+            return lastGoodMem or 0
+        end
         local function setText(label, newStr)
-            if label.Text ~= newStr then
-                label.Text = newStr
-            end
+            if label.Text ~= newStr then label.Text = newStr end
         end
 
         -- ===== Update (smooth + realtime) =====
@@ -1472,7 +1476,7 @@ registerRight("Settings", function(scroll)
                 local ping  = getPingMs()
                 local up    = getKbps("Data Send Kbps")
                 local down  = getKbps("Data Receive Kbps")
-                local mem   = getMemMB()
+                local mem   = stableMem()
 
                 S.smPing = S.smPing and (S.smPing + (ping - S.smPing)*ALPHA) or ping
                 S.smUp   = S.smUp   and (S.smUp   + (up   - S.smUp)  *ALPHA) or up
