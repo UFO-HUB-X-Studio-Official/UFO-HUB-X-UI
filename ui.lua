@@ -1491,7 +1491,7 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (Map-Aware • Effects-Only) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (Map-Aware • Effects-Only • fixed orders & ids) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -1509,45 +1509,77 @@ registerRight("Settings", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
-    local function gprop(o,k) local ok,v=pcall(function() return o[k] end); return ok and v or nil end
+    local function gprop(o,k) local ok,v=pcall(function() return o[k] end) return ok and v or nil end
 
-    -- Ensure ListLayout
+    -- Ensure ListLayout (อย่าแตะ AutomaticCanvasSize ของ scroll)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- helper: หา LayoutOrder ถัดไปแบบไดนามิก (กันชน)
+    local function nextOrder()
+        local top = 0
+        for _,ch in ipairs(scroll:GetChildren()) do
+            if ch:IsA("GuiObject") then
+                top = math.max(top, ch.LayoutOrder or 0)
+            end
+        end
+        return top + 1
+    end
 
     -- STATE (effects-only)
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, _snap={}, _pp={}, has={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
-    -- Header
-    local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
-    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
+    -- ลบเฉพาะของเราเอง (กันไปลบของแท็บอื่น)
+    for _,n in ipairs({"SM_Header","SM_Reduce","SM_Remove"}) do
+        local o = scroll:FindFirstChild(n); if o then o:Destroy() end
+    end
 
-    -- ลบแถวเก่าที่ชื่อซ้ำ
-    for _,n in ipairs({"A1_Reduce","A1_Remove"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    -- Header (id เฉพาะ)
+    local head = Instance.new("TextLabel", scroll)
+    head.Name="SM_Header"
+    head.BackgroundTransparency=1
+    head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold
+    head.TextSize=16
+    head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left
+    head.Text="Smoother 🚀"
+    head.LayoutOrder = nextOrder()
 
-    -- UI Row (2 แถวเท่านั้น: Reduce / Remove)
-    local function makeRow(name, label, order, onToggle)
+    -- Row factory (ชื่อเฉพาะ + order ไดนามิก)
+    local function makeRow(name, label, onToggle)
         local row = Instance.new("Frame", scroll)
-        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.Name=name
+        row.Size=UDim2.new(1,-6,0,46)
+        row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=nextOrder()
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
 
         local lab=Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+        lab.BackgroundTransparency=1
+        lab.Size=UDim2.new(1,-160,1,0)
+        lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold
+        lab.TextSize=13
+        lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left
+        lab.Text=label
 
         local sw=Instance.new("Frame", row)
-        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
+        sw.AnchorPoint=Vector2.new(1,0.5)
+        sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26)
+        sw.BackgroundColor3=THEME.BLACK
+        corner(sw,13)
         local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
 
         local knob=Instance.new("Frame", sw)
-        knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
-        knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
+        knob.Size=UDim2.fromOffset(22,22)
+        knob.BackgroundColor3=THEME.WHITE
+        knob.Position=UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
 
         local state=false
         local function setState(v)
@@ -1557,7 +1589,9 @@ registerRight("Settings", function(scroll)
             if onToggle then onToggle(v, setState) end
         end
         local btn=Instance.new("TextButton", sw)
-        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+        btn.BackgroundTransparency=1
+        btn.Size=UDim2.fromScale(1,1)
+        btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
         row:SetAttribute("Setter", setState)
@@ -1565,24 +1599,21 @@ registerRight("Settings", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- Map-aware: สแกนเฉพาะที่แมพใช้อยู่ (จากรายงานล่าสุด)
+    -- Map-aware: ใช้เฉพาะเอฟเฟกต์ที่มีจริง
     ----------------------------------------------------------------
-    local FX_OK = {ParticleEmitter=true, Trail=true, Beam=true}  -- มีจริงในแมพ
+    local FX_OK = {ParticleEmitter=true, Trail=true, Beam=true}
     local PP_OK = {SunRaysEffect=true, ColorCorrectionEffect=true, BloomEffect=true, BlurEffect=true}
 
-    -- snapshot FX
     local function snapFX(i)
         if S._snap[i] then return end
         local t={}
         pcall(function()
             if i:IsA("ParticleEmitter") then t.Enabled=i.Enabled; t.Rate=i.Rate
-            elseif i:IsA("Trail") or i:IsA("Beam") then t.Enabled=i.Enabled; t.Brightness=i.Brightness
-            end
+            elseif i:IsA("Trail") or i:IsA("Beam") then t.Enabled=i.Enabled; t.Brightness=i.Brightness end
         end)
         S._snap[i]=t
         i.AncestryChanged:Connect(function(_,p) if not p then S._snap[i]=nil end end)
     end
-    -- snapshot PP
     local function snapPP(o)
         if S._pp[o] then return end
         local t={Enabled=o.Enabled}
@@ -1594,7 +1625,6 @@ registerRight("Settings", function(scroll)
         o.AncestryChanged:Connect(function(_,p) if not p then S._pp[o]=nil end end)
     end
 
-    -- initial scan (เฉพาะที่เราจะยุ่ง)
     for _,d in ipairs(workspace:GetDescendants()) do
         if FX_OK[d.ClassName] then snapFX(d); S.has[d.ClassName]=true end
     end
@@ -1603,20 +1633,22 @@ registerRight("Settings", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- Apply / Restore (ทำงานเฉพาะของที่มีอยู่จริง)
+    -- Apply / Restore
     ----------------------------------------------------------------
     local function restoreAll()
-        -- FX
         for i,t in pairs(S._snap) do
             if i and i.Parent then
                 pcall(function()
-                    if i:IsA("ParticleEmitter") then if t.Enabled~=nil then i.Enabled=t.Enabled end; if t.Rate~=nil then i.Rate=t.Rate end
-                    elseif i:IsA("Trail") or i:IsA("Beam") then if t.Enabled~=nil then i.Enabled=t.Enabled end; if t.Brightness~=nil then i.Brightness=t.Brightness end
+                    if i:IsA("ParticleEmitter") then
+                        if t.Enabled~=nil then i.Enabled=t.Enabled end
+                        if t.Rate~=nil    then i.Rate=t.Rate end
+                    elseif i:IsA("Trail") or i:IsA("Beam") then
+                        if t.Enabled~=nil then i.Enabled=t.Enabled end
+                        if t.Brightness~=nil then i.Brightness=t.Brightness end
                     end
                 end)
             end
         end
-        -- PP
         for o,t in pairs(S._pp) do
             if o and o.Parent then
                 pcall(function()
@@ -1629,7 +1661,6 @@ registerRight("Settings", function(scroll)
     end
 
     local function applyHalf()
-        -- FX ทีละ batch ลดภาระ
         local batches = { {}, {}, {} }  -- 1=ParticleEmitter,2=Trail,3=Beam
         for i,_ in pairs(S._snap) do
             if i.Parent then
@@ -1638,67 +1669,64 @@ registerRight("Settings", function(scroll)
                 elseif i:IsA("Beam") then table.insert(batches[3], i) end
             end
         end
-        -- ParticleEmitter
-        for _,i in ipairs(batches[1]) do pcall(function() i.Enabled=true; i.Rate = math.max(0, math.floor((S._snap[i].Rate or i.Rate or 0)*0.5)) end) end
+        for _,i in ipairs(batches[1]) do pcall(function()
+            i.Enabled=true; i.Rate = math.max(0, math.floor((S._snap[i].Rate or i.Rate or 0)*0.5))
+        end) end
         task.wait(0.05)
-        -- Trail
-        for _,i in ipairs(batches[2]) do pcall(function() i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5 end) end
+        for _,i in ipairs(batches[2]) do pcall(function()
+            i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5
+        end) end
         task.wait(0.05)
-        -- Beam
-        for _,i in ipairs(batches[3]) do pcall(function() i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5 end) end
+        for _,i in ipairs(batches[3]) do pcall(function()
+            i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5
+        end) end
         task.wait(0.05)
-        -- PP
         for o,_ in pairs(S._pp) do
-            if o.Parent then
-                pcall(function()
-                    o.Enabled = true
-                    if o.ClassName=="BlurEffect" then
-                        if S._pp[o].Size~=nil then o.Size = math.floor((S._pp[o].Size or 0)*0.5) end
-                    else
-                        local it = S._pp[o].Intensity
-                        if it~=nil then o.Intensity = it*0.5 end
-                    end
-                end)
-            end
+            if o.Parent then pcall(function()
+                o.Enabled = true
+                if o.ClassName=="BlurEffect" then
+                    if S._pp[o].Size~=nil then o.Size = math.floor((S._pp[o].Size or 0)*0.5) end
+                else
+                    local it = S._pp[o].Intensity
+                    if it~=nil then o.Intensity = it*0.5 end
+                end
+            end) end
         end
     end
 
     local function applyOff()
-        -- FX
         for i,_ in pairs(S._snap) do
             if i and i.Parent then pcall(function()
                 if i:IsA("ParticleEmitter") then i.Rate = 0; i.Enabled=false
-                elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness = 0; i.Enabled=false
-                end
+                elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness = 0; i.Enabled=false end
             end) end
         end
-        -- PP
         for o,_ in pairs(S._pp) do if o and o.Parent then pcall(function() o.Enabled=false end) end end
     end
 
     ----------------------------------------------------------------
     -- UI callbacks (2 แถว)
     ----------------------------------------------------------------
-    local set50 = makeRow("A1_Reduce", "Reduce Effects 50% (map-aware)", 11, function(v)
+    local set50 = makeRow("SM_Reduce", "Reduce Effects 50% (map-aware)", function(v)
         if v then
             S.mode=1; applyHalf()
-            local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local other = scroll:FindFirstChild("SM_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else
             if S.mode==1 then S.mode=0; restoreAll() end
         end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100% (map-aware)", 12, function(v)
+    local set100 = makeRow("SM_Remove", "Remove Effects 100% (map-aware)", function(v)
         if v then
             S.mode=2; applyOff()
-            local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local other = scroll:FindFirstChild("SM_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else
             if S.mode==2 then S.mode=0; restoreAll() end
         end
     end)
 
     ----------------------------------------------------------------
-    -- Live-catch เฉพาะของที่เกี่ยว (เผื่อเกมสร้างเอฟเฟกต์ใหม่)
+    -- Live-catch
     ----------------------------------------------------------------
     for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
     S.conns = {
@@ -1708,11 +1736,9 @@ registerRight("Settings", function(scroll)
                 if S.mode==1 then pcall(function()
                     if d:IsA("ParticleEmitter") then d.Enabled=true; d.Rate = math.max(0, math.floor((S._snap[d].Rate or d.Rate or 0)*0.5))
                     elseif d:IsA("Trail") or d:IsA("Beam") then d.Enabled=true; d.Brightness = (S._snap[d].Brightness or d.Brightness or 1)*0.5
-                    end
                 end)
                 elseif S.mode==2 then pcall(function()
-                    if d:IsA("ParticleEmitter") then d.Rate=0; d.Enabled=false
-                    else d.Brightness=0; d.Enabled=false end
+                    if d:IsA("ParticleEmitter") then d.Rate=0; d.Enabled=false else d.Brightness=0; d.Enabled=false end
                 end) end
             end
         end),
@@ -1721,8 +1747,11 @@ registerRight("Settings", function(scroll)
                 snapPP(o)
                 if S.mode==1 then pcall(function()
                     o.Enabled=true
-                    if o.ClassName=="BlurEffect" then if S._pp[o].Size~=nil then o.Size=math.floor((S._pp[o].Size or 0)*0.5) end
-                    else if S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end end
+                    if o.ClassName=="BlurEffect" then
+                        if S._pp[o].Size~=nil then o.Size=math.floor((S._pp[o].Size or 0)*0.5) end
+                    else
+                        if S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end
+                    end
                 end)
                 elseif S.mode==2 then pcall(function() o.Enabled=false end) end
             end
