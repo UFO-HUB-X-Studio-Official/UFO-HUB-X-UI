@@ -1320,7 +1320,7 @@ registerRight("Player", function(scroll)
     applyStats(); bindInfJump()
 end)
 --===== UFO HUB X • SETTINGS — UI FPS Monitor
--- REAL metrics • even spacing • move FPS right • fix Mem flicker • fix Down "..."
+-- REAL metrics • even spacing • move FPS & Up right • fix Mem flicker • fix Down "..."
 
 registerRight("Settings", function(scroll)
     local Players    = game:GetService("Players")
@@ -1333,11 +1333,12 @@ registerRight("Settings", function(scroll)
     local TEXT_SIZE   = 16
     local ROW_HEIGHT  = 44
 
-    local BOX_WIDTH   = 760      -- top bar width
-    local INNER_PAD   = 12       -- left/right padding
-    local GAP_BETWEEN = 10       -- equal gap
-    local FIRST_SHIFT = 24       -- move FPS a bit to the right
-    local LAST_BONUS  = 12       -- <<< extra width for the last (Down) slot to avoid "..."
+    local BOX_WIDTH   = 760
+    local INNER_PAD   = 12
+    local GAP_BETWEEN = 10
+    local FIRST_SHIFT = 24    -- ขยับ FPS ไปขวา
+    local FOURTH_SHIFT= 10    -- <<< ขยับช่องที่ 4 (Up) ไปขวาอีกนิด
+    local LAST_BONUS  = 12    -- เพิ่มความกว้างของ Down กัน "..."
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1351,11 +1352,9 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ===== STATE =====
     _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil, smFPS=nil, smPing=nil, smMem=nil, smUp=nil, smDown=nil }
     local S = _G.UFOX_FPS
 
-    -- ===== Wrapper =====
     local WRAP = "UFOX_WRAP_UIFPS_ONLY"
     local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
     local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.AutomaticSize=Enum.AutomaticSize.Y; wrap.Size=UDim2.new(1,0,0,0)
@@ -1363,13 +1362,11 @@ registerRight("Settings", function(scroll)
     wrap.LayoutOrder = maxOrder+1
     local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
 
-    -- Header
     local header = Instance.new("TextLabel", wrap)
     header.Name="UFOX_Header_FPS"; header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
     header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.TEXT; header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="UI FPS ⚡"; header.LayoutOrder=1
 
-    -- Toggle
     local row = Instance.new("Frame", wrap)
     row.Name="UFOX_Row_FPS"; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=2
     local lab = Instance.new("TextLabel", row)
@@ -1382,7 +1379,6 @@ registerRight("Settings", function(scroll)
     knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
     local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""; btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== Readers (REAL) =====
     local function getPingMs()
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
         item = item and item:FindFirstChild("Data Ping")
@@ -1410,10 +1406,8 @@ registerRight("Settings", function(scroll)
         Download = "rbxassetid://134953518153703",
     }
 
-    -- ===== HUD =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
-
         local gui = Instance.new("ScreenGui")
         gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001; gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
         gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -1425,9 +1419,12 @@ registerRight("Settings", function(scroll)
         local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
 
         local function makeSlot(i, iconId, initText)
-            local extra = (i==1) and FIRST_SHIFT or 0
+            local extra = 0
+            if i==1 then extra = FIRST_SHIFT end
+            if i==4 then extra = FOURTH_SHIFT end  -- ขยับ "Up"
             local bonus = (i==5) and LAST_BONUS or 0
-            local x = INNER_PAD + extra + (i-1)*(SLOT_W + GAP_BETWEEN)
+
+            local x = INNER_PAD + (i-1)*(SLOT_W + GAP_BETWEEN) + ((i==1) and FIRST_SHIFT or 0) + ((i==4) and FOURTH_SHIFT or 0)
 
             local icon = Instance.new("ImageLabel", box)
             icon.BackgroundTransparency=1; icon.Image=iconId
@@ -1442,7 +1439,7 @@ registerRight("Settings", function(scroll)
             txt.TextSize = TEXT_SIZE
             txt.TextColor3 = THEME.GREEN
             txt.TextXAlignment = Enum.TextXAlignment.Left
-            txt.TextTruncate = Enum.TextTruncate.None   -- <<< no ellipsis
+            txt.TextTruncate = Enum.TextTruncate.None
             txt.Text = initText
             return txt
         end
@@ -1453,25 +1450,23 @@ registerRight("Settings", function(scroll)
         local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
         local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
 
-        -- ===== Anti-flicker =====
+        -- Anti-flicker for Mem
         local lastGoodMem = nil
         local function stableMem()
             local m = getMemMB()
             if m and m > 0 then lastGoodMem = m end
             return lastGoodMem or 0
         end
-        local function setText(label, newStr)
-            if label.Text ~= newStr then label.Text = newStr end
+        local function setText(label, s)
+            if label.Text ~= s then label.Text = s end
         end
 
-        -- ===== Update =====
         local acc, UPDATE_RATE = 0, 0.5
         local ALPHA_FPS, ALPHA = 0.08, 0.18
 
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
             S.smFPS = S.smFPS and (S.smFPS + (inst - S.smFPS)*ALPHA_FPS) or inst
-
             acc += dt
             if acc >= UPDATE_RATE then
                 acc = 0
