@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • SEPARATED, LOOK 100%) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • isolated, 100% same look) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1327,7 +1327,7 @@ registerRight("Settings", function(scroll)
     local RunService   = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
 
-    -- THEME (เหมือนเดิม)
+    -- THEME (เดิม)
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         RED   = Color3.fromRGB(255,40,40),
@@ -1339,54 +1339,53 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- STATE (เหมือนเดิม)
+    -- STATE (เดิม)
     _G.UFOX_FPS = _G.UFOX_FPS or {
         enabled = false,
         frame   = nil,
-        alpha   = 0.15,          -- smoothing factor
-        tickInt = 0.25,          -- update cadence
+        alpha   = 0.15,
+        tickInt = 0.25,
         smFPS   = nil,
         devT    = 48,
         cpuT    = 45,
     }
     local S = _G.UFOX_FPS
 
-    -- ❗ลบเฉพาะกล่องของตัวเองเท่านั้น เพื่อไม่ไปรวม/ชนกับระบบอื่น
+    -- ❗ลบเฉพาะของตัวเองเท่านั้น (กันชนกับระบบอื่น)
     local WRAP_NAME = "UFOX_WRAP_UIFPS_ONLY"
     local oldWrap = scroll:FindFirstChild(WRAP_NAME); if oldWrap then oldWrap:Destroy() end
 
-    -- ✅ คอนเทนเนอร์โปร่งใส (ไม่แตะ layout/padding ของ scroll เดิม)
+    -- คอนเทนเนอร์โปร่งใสของตัวเอง
     local wrap = Instance.new("Frame", scroll)
     wrap.Name = WRAP_NAME
     wrap.BackgroundTransparency = 1
     wrap.Size = UDim2.new(1,0,0,0)
     wrap.AutomaticSize = Enum.AutomaticSize.Y
-    -- ใช้ LayoutOrder ต่อท้ายอัตโนมัติ โดยไม่แก้ของเดิม
     local maxOrder = 0
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, (ch.LayoutOrder or 0)) end
     end
     wrap.LayoutOrder = maxOrder + 1
 
-    -- ========= Header (เหมือนเดิมเป๊ะ) =========
+    -- ===== Header (เหมือนเดิม 100% แต่เปลี่ยนชื่อ Instance กันโดนลบ) =====
     local header = Instance.new("TextLabel", wrap)
-    header.Name = "Section_UIFPS" -- ชื่อนี้ใช้แค่ "ภายใน wrap" ไม่ชนคนอื่น
+    header.Name = "UFOX_Header_FPS" -- เดิมชื่อ Section_UIFPS (อาจโดนสคริปต์อื่นลบ)
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,36)
     header.Font = Enum.Font.GothamBold
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "UI FPS ⚡"
+    header.Text = "UI FPS ⚡"  -- ใช้ต้นฉบับ มีอีโมจิครบ
     header.LayoutOrder = 1
 
-    -- ========= แถวสวิตช์ (เหมือนเดิมเป๊ะ) =========
+    -- ===== แถวสวิตช์ (เหมือนเดิม 100% แต่เปลี่ยนชื่อ Instance) =====
     local row = Instance.new("Frame", wrap)
-    row.Name = "UIFPS_Row"
+    row.Name = "UFOX_Row_FPS"
     row.Size = UDim2.new(1,-6,0,46)
     row.BackgroundColor3 = THEME.BLACK
-    row.LayoutOrder = 2
     corner(row,12); stroke(row,2.2,THEME.GREEN)
+    row.LayoutOrder = 2
 
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency = 1
@@ -1405,7 +1404,10 @@ registerRight("Settings", function(scroll)
     sw.BackgroundColor3 = THEME.BLACK
     corner(sw,13)
     local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
-    local knob = Instance.new("Frame", sw); knob.Size = UDim2.fromOffset(22,22); knob.BackgroundColor3 = THEME.WHITE; corner(knob,11)
+    local knob = Instance.new("Frame", sw)
+    knob.Size = UDim2.fromOffset(22,22)
+    knob.BackgroundColor3 = THEME.WHITE
+    corner(knob,11)
 
     local function setSwitch(v)
         S.enabled = v
@@ -1413,12 +1415,15 @@ registerRight("Settings", function(scroll)
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
-    knob.Position = UDim2.new(0,2,0.5,-11) -- เริ่มปิด
+    knob.Position = UDim2.new(0,2,0.5,-11)
     swStroke.Color = THEME.RED
-    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1
+    btn.Size = UDim2.fromScale(1,1)
+    btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ========= FPS HUD (เหมือนเดิมเป๊ะ) =========
+    -- ===== FPS HUD (เหมือนเดิม 100%) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
