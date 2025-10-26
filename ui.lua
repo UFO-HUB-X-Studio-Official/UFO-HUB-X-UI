@@ -1498,7 +1498,7 @@ registerRight("Settings", function(scroll)
     local Players      = game:GetService("Players")
     local lp           = Players.LocalPlayer
 
-    -- THEME (เหมือน V1)
+    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -1510,7 +1510,7 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- Layout (เหมือน V1)
+    -- Layout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -1525,10 +1525,10 @@ registerRight("Settings", function(scroll)
     head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
     head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder=10
 
-    -- เคลียร์เดิม
+    -- ล้างเดิม
     for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
 
-    -- Row factory (กันล้ม)
+    -- Row factory
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
@@ -1563,7 +1563,7 @@ registerRight("Settings", function(scroll)
         return setState
     end
 
-    -- ===== สร้าง 3 แถวก่อน (เหมือน V1) =====
+    -- 3 แถว (สร้างก่อน แล้วค่อยทำงานหนัก)
     local set50  = makeRow("A1_Reduce", "Reduce Effects 50% (live-catch)", 11, function(v)
         S.mode = v and 1 or 0
         task.defer(function() _G.__ufox_applyAllSafe(S.mode) end)
@@ -1581,7 +1581,7 @@ registerRight("Settings", function(scroll)
     end)
 
     ----------------------------------------------------------------
-    -- ส่วน “ทำงานหนัก” ใส่ไว้หลัง UI + หุ้ม pcall กันล้มทั้งหมด
+    -- ส่วนทำงาน (หุ้ม pcall เพื่อกันล้มเวลา GUI ยังโหลดไม่ครบ)
     ----------------------------------------------------------------
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
@@ -1665,7 +1665,7 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- สแกนครั้งแรก + live-catch หลัง UI เสร็จ
+    -- สแกนครั้งแรก + live-catch
     task.defer(function()
         for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
         for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
