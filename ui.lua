@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • same look, isolated) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • same look, smoother realtime) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1338,43 +1338,38 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ===== STATE (default OFF) =====
+    -- ===== STATE =====
     _G.UFOX_FPS = _G.UFOX_FPS or {
         enabled = false,
         frame   = nil,
-        alpha   = 0.15,          -- smoothing factor
-        tickInt = 0.25,          -- update cadence
         smFPS   = nil,
         devT    = 48,
         cpuT    = 45,
     }
     local S = _G.UFOX_FPS
 
-    -- ❗แยกของตัวเอง: เคลียร์เฉพาะ wrapper เดิม (ห้ามลบ Section_UIFPS ใน root)
+    -- ❗ แยกของตัวเอง
     local WRAP = "UFOX_WRAP_UIFPS_ONLY"
     local oldWrap = scroll:FindFirstChild(WRAP); if oldWrap then oldWrap:Destroy() end
 
-    -- คอนเทนเนอร์โปร่งใสของตัวเอง (กันชนกับสคริปต์อื่น)
     local wrap = Instance.new("Frame", scroll)
     wrap.Name = WRAP
     wrap.BackgroundTransparency = 1
     wrap.Size = UDim2.new(1,0,0,0)
     wrap.AutomaticSize = Enum.AutomaticSize.Y
-    -- วางท้ายสุดแบบปลอดภัย
     local maxOrder = 0
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder, (ch.LayoutOrder or 0)) end
     end
     wrap.LayoutOrder = maxOrder + 1
 
-    -- layout ภายใน (ไม่แตะ layout ของ scroll)
     local inner = Instance.new("UIListLayout", wrap)
     inner.Padding = UDim.new(0,12)
     inner.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- ===== Header (เหมือนเดิม 100% ชื่อ/อิโมจิเดิม) =====
+    -- Header
     local header = Instance.new("TextLabel", wrap)
-    header.Name = "UFOX_Header_FPS" -- เปลี่ยนชื่อ instance เพื่อไม่ให้สคริปต์อื่นลบทิ้ง
+    header.Name = "UFOX_Header_FPS"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,36)
     header.Font = Enum.Font.GothamBold
@@ -1384,7 +1379,7 @@ registerRight("Settings", function(scroll)
     header.Text = "UI FPS ⚡"
     header.LayoutOrder = 1
 
-    -- ===== แถวสวิทช์ (เหมือนเดิม 100%) =====
+    -- แถวสวิตช์
     local row = Instance.new("Frame", wrap)
     row.Name = "UFOX_Row_FPS"
     row.Size = UDim2.new(1,-6,0,46)
@@ -1417,12 +1412,13 @@ registerRight("Settings", function(scroll)
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
-    knob.Position = UDim2.new(0,2,0.5,-11) -- เริ่มปิด
+    knob.Position = UDim2.new(0,2,0.5,-11)
     swStroke.Color = THEME.RED
-    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== FPS HUD (เหมือนเดิม 100%) =====
+    -- ===== FPS HUD =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
@@ -1430,7 +1426,7 @@ registerRight("Settings", function(scroll)
         screen.Name = "UFOX_FPS_GUI"
         screen.IgnoreGuiInset = true
         screen.ResetOnSpawn = false
-        screen.DisplayOrder = 1000001   -- สูงกว่า AFK overlay (999999) ให้เห็นเสมอ
+        screen.DisplayOrder = 1000001
         screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -1442,9 +1438,7 @@ registerRight("Settings", function(scroll)
         box.BorderSizePixel = 0
         corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- SHIFT = 10 ตามต้นฉบับล่าสุด
         local SHIFT = 10
-
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
@@ -1493,19 +1487,32 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
+        -- ==== ลื่นขึ้นแต่ยังเรียลไทม์ ====
         local acc = 0
+        local smoothDev, smoothCPU = S.devT, S.cpuT
+        local SMOOTH_ALPHA = 0.1   -- ยิ่งน้อย = ยิ่งนิ่ง
+        local UPDATE_RATE = 0.5    -- วินาทีต่อการอัปเดต
+
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
-            if not S.smFPS then S.smFPS = inst else S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS end
+            if not S.smFPS then
+                S.smFPS = inst
+            else
+                S.smFPS = S.smFPS + (inst - S.smFPS) * 0.08
+            end
+
             acc += dt
-            if acc >= S.tickInt then
+            if acc >= UPDATE_RATE then
                 acc = 0
-                S.devT = math.clamp(S.devT + math.random(-1,1),35,60)
-                S.cpuT = math.clamp(S.cpuT + math.random(-1,1),40,75)
+                local targetDev = math.clamp(S.devT + math.random(-1,1),35,60)
+                local targetCPU = math.clamp(S.cpuT + math.random(-1,1),40,75)
+                smoothDev = smoothDev + (targetDev - smoothDev) * SMOOTH_ALPHA
+                smoothCPU = smoothCPU + (targetCPU - smoothCPU) * SMOOTH_ALPHA
+
                 if S.enabled then
                     txtFPS.Text = string.format("FPS: %d", math.floor(S.smFPS + 0.5))
-                    txtDev.Text = string.format("Device: %d°C", S.devT)
-                    txtCPU.Text = string.format("CPU: %d°C", S.cpuT)
+                    txtDev.Text = string.format("Device: %d°C", smoothDev)
+                    txtCPU.Text = string.format("CPU: %d°C", smoothCPU)
                 end
             end
         end)
