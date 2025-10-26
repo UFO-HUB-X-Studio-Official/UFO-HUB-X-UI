@@ -1319,14 +1319,14 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
--- ===== UFO HUB X • Player — AFK 💤 (MODEL A LEGACY, full systems) =====
+-- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
 -- 2) White Screen (Performance AFK)  [toggle]
 -- 3) AFK Anti-Kick (20 min)          [toggle default ON]
 -- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
 --  • หน้าตา/ขนาด/กรอบสวิตช์ = แบบ A Legacy เดิมทั้งหมด
 
-registerRight("Player", function(scroll)
+registerRight("Settings", function(scroll)
     local Players       = game:GetService("Players")
     local TweenService  = game:GetService("TweenService")
     local UIS           = game:GetService("UserInputService")
@@ -1367,7 +1367,7 @@ registerRight("Player", function(scroll)
         if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
     end
 
-    -- ====== Header ======
+    -- ===== Header =====
     local header = Instance.new("TextLabel", scroll)
     header.Name = "Section_AFK_Full"
     header.BackgroundTransparency = 1
@@ -1433,7 +1433,7 @@ registerRight("Player", function(scroll)
         S.antiIdleLoop = task.spawn(function()
             while S.antiIdleOn do
                 pulseOnce()
-                for i=1,540 do  -- ~9 นาที (< 20)
+                for i=1,540 do
                     if not S.antiIdleOn then break end
                     task.wait(1)
                 end
