@@ -1491,14 +1491,14 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (Stable UI + Live-Catch Safe) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (Group-safe + Live-Catch) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
     local Players      = game:GetService("Players")
     local lp           = Players.LocalPlayer
 
-    -- THEME
+    -- ===== THEME =====
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -1506,33 +1506,41 @@ registerRight("Settings", function(scroll)
         TEXT  = Color3.fromRGB(255,255,255),
         RED   = Color3.fromRGB(255,40,40),
     }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- Layout
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    -- ===== WRAP GROUP (ลบ/สร้างเฉพาะของเรา) =====
+    local GROUP_NAME = "UFOX_SMOOTHER_GROUP"
+    local old = scroll:FindFirstChild(GROUP_NAME); if old then old:Destroy() end
 
-    -- STATE
+    local group = Instance.new("Frame", scroll)
+    group.Name = GROUP_NAME
+    group.BackgroundTransparency = 1
+    group.Size = UDim2.new(1,0,0,0)
+    group.AutomaticSize = Enum.AutomaticSize.Y
+    group.LayoutOrder = 10
+
+    local gl = Instance.new("UIListLayout", group)
+    gl.Padding = UDim.new(0,12)
+    gl.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- ===== HEADER =====
+    local head = Instance.new("TextLabel", group)
+    head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 1
+
+    -- ===== STATE =====
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
-    -- Header
-    local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
-    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder=10
-
-    -- ล้างเดิม
-    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
-
-    -- Row factory
+    -- ===== ROW FACTORY (อยู่ภายใน group เท่านั้น) =====
     local function makeRow(name, label, order, onToggle)
-        local row = Instance.new("Frame", scroll)
-        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+        local row = Instance.new("Frame", group)
+        row.Name=name; row.LayoutOrder=order
+        row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
 
         local lab=Instance.new("TextLabel", row)
         lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
@@ -1563,26 +1571,24 @@ registerRight("Settings", function(scroll)
         return setState
     end
 
-    -- 3 แถว (สร้างก่อน แล้วค่อยทำงานหนัก)
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50% (live-catch)", 11, function(v)
+    -- ===== 3 ROWS (จะต้องเห็นครบเพราะอยู่ในกรุ๊ปเดียว) =====
+    makeRow("UFOX_Reduce", "Reduce Effects 50% (live-catch)", 2, function(v)
         S.mode = v and 1 or 0
         task.defer(function() _G.__ufox_applyAllSafe(S.mode) end)
-        local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        local other = group:FindFirstChild("UFOX_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100% (live-catch)", 12, function(v)
+    makeRow("UFOX_Remove", "Remove Effects 100% (live-catch)", 3, function(v)
         S.mode = v and 2 or 0
         task.defer(function() _G.__ufox_applyAllSafe(S.mode) end)
-        local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        local other = group:FindFirstChild("UFOX_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
     end)
 
-    local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
+    makeRow("UFOX_Plastic","Plastic Map (Fast Mode)", 4, function(v)
         S.plastic=v; task.defer(function() _G.__ufox_plasticSafe(v) end)
     end)
 
-    ----------------------------------------------------------------
-    -- ส่วนทำงาน (หุ้ม pcall เพื่อกันล้มเวลา GUI ยังโหลดไม่ครบ)
-    ----------------------------------------------------------------
+    -- ===== EFFECT ENGINE (เหมือนเดิม ย่อให้อยู่หลัง UI) =====
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
@@ -1601,28 +1607,18 @@ registerRight("Settings", function(scroll)
     end
 
     local function restoreAll()
-        for i,t in pairs(S._snap) do
-            if i and i.Parent then
-                pcall(function() for k,v in pairs(t) do i[k]=v end end)
-            end
-        end
-        for obj,t in pairs(S._pp) do
-            if obj and obj.Parent then
-                pcall(function() for k,v in pairs(t) do obj[k]=v end end)
-            end
-        end
+        for i,t in pairs(S._snap) do if i and i.Parent then pcall(function() for k,v in pairs(t) do i[k]=v end end) end end
+        for obj,t in pairs(S._pp) do if obj and obj.Parent then pcall(function() for k,v in pairs(t) do obj[k]=v end end) end end
     end
 
     local function applyHalf()
-        for i,t in pairs(S._snap) do
-            if i and i.Parent then pcall(function()
-                if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate=(t.Rate or 10)*0.5
-                elseif i:IsA("Trail") or i:IsA("Beam") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5
-                elseif i:IsA("Smoke") then i.Enabled=true; i.Opacity=(t.Opacity or 1)*0.5
-                elseif i:IsA("Fire") then i.Enabled=true; i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
-                elseif i:IsA("Sparkles") then i.Enabled=false end
-            end) end
-        end
+        for i,t in pairs(S._snap) do if i and i.Parent then pcall(function()
+            if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate=(t.Rate or 10)*0.5
+            elseif i:IsA("Trail") or i:IsA("Beam") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5
+            elseif i:IsA("Smoke") then i.Enabled=true; i.Opacity=(t.Opacity or 1)*0.5
+            elseif i:IsA("Fire") then i.Enabled=true; i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
+            elseif i:IsA("Sparkles") then i.Enabled=false end
+        end) end end
         for _,obj in ipairs(Lighting:GetChildren()) do
             if PP[obj.ClassName] then
                 S._pp[obj]=S._pp[obj] or {Enabled=obj.Enabled, Intensity=pcall(function()return obj.Intensity end) and obj.Intensity or nil, Size=pcall(function()return obj.Size end) and obj.Size or nil}
@@ -1640,7 +1636,6 @@ registerRight("Settings", function(scroll)
         for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then pcall(function() obj.Enabled=false end) end end
     end
 
-    -- safe wrappers
     _G.__ufox_applyAllSafe = function(mode)
         if mode==0 then restoreAll()
         elseif mode==1 then applyHalf()
@@ -1665,14 +1660,12 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- สแกนครั้งแรก + live-catch
+    -- สแกนครั้งแรก + live-catch (เฉพาะของเอฟเฟกต์)
     task.defer(function()
         for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
         for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
         S.conns = {
-            workspace.DescendantAdded:Connect(function(d)
-                if FX[d.ClassName] then capture(d); _G.__ufox_applyAllSafe(S.mode) end
-            end),
+            workspace.DescendantAdded:Connect(function(d) if FX[d.ClassName] then capture(d); _G.__ufox_applyAllSafe(S.mode) end end),
             Lighting.ChildAdded:Connect(function(o)
                 if PP[o.ClassName] then
                     S._pp[o]={Enabled=o.Enabled, Intensity=pcall(function()return o.Intensity end) and o.Intensity or nil, Size=pcall(function()return o.Size end) and o.Size or nil}
