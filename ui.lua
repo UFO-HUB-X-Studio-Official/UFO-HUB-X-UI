@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • isolated section card) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • separate group card) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1351,18 +1351,29 @@ registerRight("Settings", function(scroll)
     }
     local S = _G.UFOX_FPS
 
-    -- เคลียร์ของเก่าทั้งหมดที่เกี่ยวกับ UI FPS เพื่อกันชนกับส่วนอื่น
-    for _,n in ipairs({"UFOX_UIFPS_SECTION","Section_UIFPS","UIFPS_Row"}) do
-        local x = scroll:FindFirstChild(n); if x then x:Destroy() end
+    -- ล้างเฉพาะการ์ดของเรา (กันซ้อน/กันไปรวมกับการ์ดอื่น)
+    for _,n in ipairs({"UFOX_GROUP_UIFPS"}) do
+        local x=scroll:FindFirstChild(n); if x then x:Destroy() end
     end
 
-    -- ===== สร้าง "การ์ดส่วนตัว" ของ UI FPS (แยกออกจาก Smoother) =====
+    -- ช่วยจัดลำดับ
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    local function nextOrder()
+        local o=0
+        for _,ch in ipairs(scroll:GetChildren()) do
+            if ch:IsA("GuiObject") and ch~=vlist then o = math.max(o, (ch.LayoutOrder or 0) + 1) end
+        end
+        return o
+    end
+
+    -- ===== การ์ดกลุ่มของ UI FPS (เหมือนเดิมเป๊ะ ๆ แต่เป็นกล่องของตัวเอง) =====
     local card = Instance.new("Frame", scroll)
-    card.Name = "UFOX_UIFPS_SECTION"
+    card.Name = "UFOX_GROUP_UIFPS"
     card.Size = UDim2.new(1,-6,0,0)
     card.BackgroundColor3 = THEME.BLACK
     card.AutomaticSize = Enum.AutomaticSize.Y
-    card.LayoutOrder = 10
+    card.LayoutOrder = nextOrder()
     corner(card,12); stroke(card,2.2,THEME.GREEN)
 
     local pad = Instance.new("UIPadding", card)
@@ -1371,13 +1382,12 @@ registerRight("Settings", function(scroll)
     pad.PaddingLeft   = UDim.new(0,8)
     pad.PaddingRight  = UDim.new(0,8)
 
-    local vlist = Instance.new("UIListLayout", card)
-    vlist.Padding = UDim.new(0,8)
-    vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    local inner = Instance.new("UIListLayout", card)
+    inner.Padding = UDim.new(0,8)
+    inner.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Header ในการ์ด (เหมือนเดิมเป๊ะ)
+    -- หัวข้อย่อย
     local header = Instance.new("TextLabel", card)
-    header.Name = "Section_UIFPS"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,28)
     header.Font = Enum.Font.GothamBold
@@ -1387,13 +1397,12 @@ registerRight("Settings", function(scroll)
     header.Text = "UI FPS ⚡"
     header.LayoutOrder = 1
 
-    -- แถวสวิตช์ (อยู่ในการ์ดนี้เท่านั้น จึงไม่ไปอยู่ใต้ Smoother)
+    -- แถวสวิตช์ (สไตล์เดิม)
     local row = Instance.new("Frame", card)
-    row.Name = "UIFPS_Row"
     row.Size = UDim2.new(1,0,0,46)
     row.BackgroundColor3 = THEME.BLACK
-    corner(row,12); stroke(row,2.0,THEME.GREEN)
     row.LayoutOrder = 2
+    corner(row,12); stroke(row,2.0,THEME.GREEN)
 
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency = 1
@@ -1422,13 +1431,16 @@ registerRight("Settings", function(scroll)
     end
     knob.Position = UDim2.new(0,2,0.5,-11)
     swStroke.Color = THEME.RED
-    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1
+    btn.Size = UDim2.fromScale(1,1)
+    btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
     -- ===== HUD กล่องเดียวด้านบน (เหมือนเดิม) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
-
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
         local old = pg:FindFirstChild("UFOX_FPS_GUI"); if old then old:Destroy() end
 
@@ -1448,7 +1460,6 @@ registerRight("Settings", function(scroll)
         box.BorderSizePixel = 0
         corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- Icons + Texts (ตำแหน่งเดิม)
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
@@ -1497,7 +1508,6 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
-        -- Update
         local acc = 0
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
