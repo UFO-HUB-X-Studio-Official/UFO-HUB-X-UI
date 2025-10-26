@@ -1319,6 +1319,163 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
+-- ===== UFO HUB X • Settings — Special Settings (MODEL A V1) =====
+-- System #1: Heat Monitor UI (real-time)
+-- * หน้าตา: กรอบดำ เส้นเขียว มุมมน ตาม MODEL A Legacy
+-- * แสดง Heat %, สถานะ (Cool/Warm/Hot), ค่า FPS และ Lua Memory (MB)
+-- * หมายเหตุ: Roblox ไม่มี API อ่านอุณหภูมิอุปกรณ์จริง จึงคำนวณ "Heat Index"
+--   จาก FPS และ Lua memory เพื่อบอกแนวโน้มความร้อน/ภาระระบบ
+
+registerRight("Settings", function(scroll)
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+
+    -- THEME แบบ A V1
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+        DARK  = Color3.fromRGB(60,60,65),
+        YELL  = Color3.fromRGB(255,210,60),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p,t) TweenService:Create(o, TweenInfo.new(t or 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+
+    -- จัด layout แท็บ
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- ===== Header ชื่อหมวด =====
+    local header = Instance.new("TextLabel", scroll)
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Special Settings"
+    header.LayoutOrder = 10
+
+    -- ===== การ์ด: Heat Monitor =====
+    local card = Instance.new("Frame", scroll)
+    card.Size = UDim2.new(1,-6,0,110)              -- สูงกว่าปุ่มสวิตช์นิดหน่อย เพราะมีแถบ/ตัวเลข
+    card.BackgroundColor3 = THEME.BLACK
+    corner(card,12); stroke(card,2.2,THEME.GREEN)
+    card.LayoutOrder = 11
+
+    -- ชื่อฟีเจอร์
+    local title = Instance.new("TextLabel", card)
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0,16,0,8)
+    title.Size = UDim2.new(1,-32,0,20)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.TextColor3 = THEME.WHITE
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Text = "Device Heat Monitor (UI)"
+
+    -- พื้นที่แสดงค่า
+    local row = Instance.new("Frame", card)
+    row.BackgroundTransparency = 1
+    row.Position = UDim2.new(0,16,0,36)
+    row.Size = UDim2.new(1,-32,0,24)
+
+    local heatLabel = Instance.new("TextLabel", row)
+    heatLabel.BackgroundTransparency = 1
+    heatLabel.Size = UDim2.new(0.35,0,1,0)
+    heatLabel.Font = Enum.Font.Gotham
+    heatLabel.TextSize = 13
+    heatLabel.TextColor3 = THEME.WHITE
+    heatLabel.TextXAlignment = Enum.TextXAlignment.Left
+    heatLabel.Text = "Heat: 0%  (Cool)"
+
+    local statsLabel = Instance.new("TextLabel", row)
+    statsLabel.BackgroundTransparency = 1
+    statsLabel.AnchorPoint = Vector2.new(1,0)
+    statsLabel.Position = UDim2.new(1,0,0,0)
+    statsLabel.Size = UDim2.new(0.65,0,1,0)
+    statsLabel.Font = Enum.Font.Gotham
+    statsLabel.TextSize = 13
+    statsLabel.TextColor3 = THEME.WHITE
+    statsLabel.TextXAlignment = Enum.TextXAlignment.Right
+    statsLabel.Text = "FPS: --  •  Lua: -- MB"
+
+    -- แถบความร้อน
+    local bar = Instance.new("Frame", card)
+    bar.Position = UDim2.new(0,16,0,68)
+    bar.Size = UDim2.new(1,-32,0,18)
+    bar.BackgroundColor3 = THEME.DARK
+    corner(bar,9); stroke(bar,1.6,THEME.GREEN)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.fromScale(0,1)
+    fill.BackgroundColor3 = THEME.GREEN
+    corner(fill,9)
+
+    -- helper: map สีตาม heat (0=เขียว, 0.6=เหลือง, 1=แดง)
+    local function lerp(a,b,t) return a + (b-a)*t end
+    local function blend(c1,c2,t)
+        return Color3.new(lerp(c1.R,c2.R,t), lerp(c1.G,c2.G,t), lerp(c1.B,c2.B,t))
+    end
+    local function colorForHeat(h)
+        if h < 0.6 then
+            local t = h/0.6 -- 0..1 เขียว->เหลือง
+            return blend(THEME.GREEN, THEME.YELL, t)
+        else
+            local t = (h-0.6)/0.4 -- 0..1 เหลือง->แดง
+            return blend(THEME.YELL, THEME.RED, math.clamp(t,0,1))
+        end
+    end
+    local function statusText(h)
+        if h < 0.35 then return "Cool"
+        elseif h < 0.70 then return "Warm"
+        else return "Hot" end
+    end
+
+    -- ===== ตัวคำนวณ Heat Index =====
+    -- หมายเหตุ: ใช้ FPS + Lua memory เป็นตัวชี้วัดโดยประมาณ
+    --   heatFPS:  60 FPS = 0.0 (เย็น), 30 FPS ~ 0.67, 15 FPS ~ 1.0
+    --   heatMem:  0..300 MB แม็พไป 0..1
+    --   heat = 0.7*heatFPS + 0.3*heatMem  (clamp 0..1)
+    local emaFPS -- exponential moving average FPS
+    local lastTick = tick()
+
+    local function compute()
+        -- FPS จาก Heartbeat dt
+        local now = tick()
+        local dt = now - lastTick
+        lastTick = now
+        local instFPS = (dt > 0) and (1/dt) or 60
+        if not emaFPS then emaFPS = instFPS else emaFPS = emaFPS*0.9 + instFPS*0.1 end
+        local fps = math.clamp(emaFPS, 5, 240)
+
+        -- Lua memory (MB)
+        local luaMB = (collectgarbage("count") or 0)/1024
+
+        local heatFPS = math.clamp((60 - fps)/45, 0, 1)      -- 60->0, 15->1
+        local heatMem = math.clamp(luaMB/300, 0, 1)          -- 300MB ~ 1.0
+        local heat = math.clamp(0.7*heatFPS + 0.3*heatMem, 0, 1)
+
+        -- อัปเดต UI
+        local pct = math.floor(heat*100 + 0.5)
+        heatLabel.Text = string.format("Heat: %d%%  (%s)", pct, statusText(heat))
+        statsLabel.Text = string.format("FPS: %d  •  Lua: %.1f MB", math.floor(fps+0.5), luaMB)
+
+        tween(fill, {Size = UDim2.fromScale(heat,1), BackgroundColor3 = colorForHeat(heat)}, 0.12)
+    end
+
+    -- เริ่มอัปเดตเรียลไทม์
+    local hbConn; hbConn = RunService.Heartbeat:Connect(function()
+        compute()
+    end)
+    card.AncestryChanged:Connect(function(_, parent)
+        if not parent and hbConn then hbConn:Disconnect() hbConn=nil end
+    end)
+end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
 -- 2) White Screen (Performance AFK)  [toggle]
