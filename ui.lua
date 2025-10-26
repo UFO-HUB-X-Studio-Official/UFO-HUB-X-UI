@@ -1402,7 +1402,7 @@ registerRight("Settings", function(scroll)
     local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== FPS HUD (เลื่อนทั้งหมดไปทางขวา) =====
+    -- ===== FPS HUD (ปรับให้พอดี + มองเห็นทับหน้าจอดำ) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
@@ -1410,7 +1410,7 @@ registerRight("Settings", function(scroll)
         screen.Name = "UFOX_FPS_GUI"
         screen.IgnoreGuiInset = true
         screen.ResetOnSpawn = false
-        screen.DisplayOrder = 9999
+        screen.DisplayOrder = 1000001   -- สูงกว่า AFK overlay (999999) ให้เห็นเสมอ
         screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -1422,8 +1422,8 @@ registerRight("Settings", function(scroll)
         box.BorderSizePixel = 0
         corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- shift ทั้งแถวไปทางขวา
-        local SHIFT = 24
+        -- ปรับตำแหน่ง “พอดี” (ลด SHIFT ให้กลับมาซ้ายเล็กน้อย)
+        local SHIFT = 10
 
         -- Icons
         local iconFPS = Instance.new("ImageLabel", box)
@@ -1444,7 +1444,7 @@ registerRight("Settings", function(scroll)
         iconCPU.Size = UDim2.fromOffset(20,20)
         iconCPU.Position = UDim2.new(0,240+SHIFT,0.5,-8)
 
-        -- Texts (ขยับตาม)
+        -- Texts
         local txtFPS = Instance.new("TextLabel", box)
         txtFPS.BackgroundTransparency = 1
         txtFPS.Position = UDim2.new(0,34+SHIFT,0,0)
