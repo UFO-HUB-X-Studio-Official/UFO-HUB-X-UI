@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • single bar, isolated) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • isolated section card) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1343,38 +1343,57 @@ registerRight("Settings", function(scroll)
     _G.UFOX_FPS = _G.UFOX_FPS or {
         enabled = false,
         frame   = nil,
-        alpha   = 0.15,     -- smoothing
-        tickInt = 0.25,     -- update cadence
+        alpha   = 0.15,
+        tickInt = 0.25,
         smFPS   = nil,
         devT    = 48,
         cpuT    = 45,
     }
     local S = _G.UFOX_FPS
 
-    -- ล้างของเก่าที่ชื่อซ้ำ เพื่อไม่ไปรวมกับส่วนอื่น
-    for _,n in ipairs({"Section_UIFPS","UIFPS_Row"}) do
+    -- เคลียร์ของเก่าทั้งหมดที่เกี่ยวกับ UI FPS เพื่อกันชนกับส่วนอื่น
+    for _,n in ipairs({"UFOX_UIFPS_SECTION","Section_UIFPS","UIFPS_Row"}) do
         local x = scroll:FindFirstChild(n); if x then x:Destroy() end
     end
 
-    -- Header (เหมือนเดิม)
-    local header = Instance.new("TextLabel", scroll)
+    -- ===== สร้าง "การ์ดส่วนตัว" ของ UI FPS (แยกออกจาก Smoother) =====
+    local card = Instance.new("Frame", scroll)
+    card.Name = "UFOX_UIFPS_SECTION"
+    card.Size = UDim2.new(1,-6,0,0)
+    card.BackgroundColor3 = THEME.BLACK
+    card.AutomaticSize = Enum.AutomaticSize.Y
+    card.LayoutOrder = 10
+    corner(card,12); stroke(card,2.2,THEME.GREEN)
+
+    local pad = Instance.new("UIPadding", card)
+    pad.PaddingTop    = UDim.new(0,8)
+    pad.PaddingBottom = UDim.new(0,8)
+    pad.PaddingLeft   = UDim.new(0,8)
+    pad.PaddingRight  = UDim.new(0,8)
+
+    local vlist = Instance.new("UIListLayout", card)
+    vlist.Padding = UDim.new(0,8)
+    vlist.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- Header ในการ์ด (เหมือนเดิมเป๊ะ)
+    local header = Instance.new("TextLabel", card)
     header.Name = "Section_UIFPS"
     header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1,0,0,36)
+    header.Size = UDim2.new(1,0,0,28)
     header.Font = Enum.Font.GothamBold
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
     header.Text = "UI FPS ⚡"
-    header.LayoutOrder = 10
+    header.LayoutOrder = 1
 
-    -- แถวสวิตช์ (เหมือนเดิม)
-    local row = Instance.new("Frame", scroll)
+    -- แถวสวิตช์ (อยู่ในการ์ดนี้เท่านั้น จึงไม่ไปอยู่ใต้ Smoother)
+    local row = Instance.new("Frame", card)
     row.Name = "UIFPS_Row"
-    row.Size = UDim2.new(1,-6,0,46)
+    row.Size = UDim2.new(1,0,0,46)
     row.BackgroundColor3 = THEME.BLACK
-    corner(row,12); stroke(row,2.2,THEME.GREEN)
-    row.LayoutOrder = 11
+    corner(row,12); stroke(row,2.0,THEME.GREEN)
+    row.LayoutOrder = 2
 
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency = 1
@@ -1401,16 +1420,15 @@ registerRight("Settings", function(scroll)
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
-    knob.Position = UDim2.new(0,2,0.5,-11) -- เริ่มปิด
+    knob.Position = UDim2.new(0,2,0.5,-11)
     swStroke.Color = THEME.RED
     local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== HUD “กล่องเดียว” แบบเดิม (FPS | Device | CPU) =====
+    -- ===== HUD กล่องเดียวด้านบน (เหมือนเดิม) =====
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
 
-        -- เคลียร์ HUD แยก (ถ้ามีจากรอบก่อน)
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
         local old = pg:FindFirstChild("UFOX_FPS_GUI"); if old then old:Destroy() end
 
@@ -1425,12 +1443,12 @@ registerRight("Settings", function(scroll)
         local box = Instance.new("Frame", screen)
         box.Name = "FPSBox"
         box.Size = UDim2.new(0,360,0,38)
-        box.Position = UDim2.new(0.5,-180,0,8)  -- กลางบน
+        box.Position = UDim2.new(0.5,-180,0,8)
         box.BackgroundColor3 = THEME.BLACK
         box.BorderSizePixel = 0
         corner(box,10); stroke(box,2,THEME.GREEN)
 
-        -- ไอคอน + ข้อความ (ตำแหน่งเดิมเป๊ะ)
+        -- Icons + Texts (ตำแหน่งเดิม)
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
@@ -1479,7 +1497,7 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
-        -- อัปเดตแบบนิ่ง
+        -- Update
         local acc = 0
         RunService.RenderStepped:Connect(function(dt)
             local inst = math.clamp(1/dt,1,240)
@@ -1503,7 +1521,7 @@ registerRight("Settings", function(scroll)
     end
 
     createFPSFrame()
-    setSwitch(S.enabled) -- เริ่มปิดตามสวิตช์
+    setSwitch(S.enabled)
 end)
 --===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) =====
 registerRight("Settings", function(scroll)
