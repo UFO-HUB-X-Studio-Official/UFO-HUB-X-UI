@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME • FIRST) =====
 
 registerRight("Settings", function(scroll)
     local Players    = game:GetService("Players")
@@ -1355,13 +1355,21 @@ registerRight("Settings", function(scroll)
     _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
     local S = _G.UFOX_FPS
 
-    -- ===== Settings panel wrapper =====
+    -- ===== Settings panel wrapper (FIRST) =====
     local WRAP = "UFOX_WRAP_UIFPS_ONLY"
     local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
-    local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.AutomaticSize=Enum.AutomaticSize.Y; wrap.Size=UDim2.new(1,0,0,0)
-    local maxOrder=0 for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder,(ch.LayoutOrder or 0)) end end
-    wrap.LayoutOrder = maxOrder+1
-    local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
+    local wrap = Instance.new("Frame")
+    wrap.Name = WRAP
+    wrap.BackgroundTransparency = 1
+    wrap.AutomaticSize = Enum.AutomaticSize.Y
+    wrap.Size = UDim2.new(1,0,0,0)
+    -- ทำให้ขึ้น “อันแรก” โดยตั้ง LayoutOrder เป็นค่าติดลบมากๆ
+    wrap.LayoutOrder = -999999
+    wrap.Parent = scroll
+
+    local list = Instance.new("UIListLayout", wrap)
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
 
     local header = Instance.new("TextLabel", wrap)
     header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
@@ -1384,7 +1392,7 @@ registerRight("Settings", function(scroll)
     local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== Readers: ใช้แหล่งเดียวกับแถบ Roblox =====
+    -- ===== Readers =====
     local function getPingMs()
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
         item = item and item:FindFirstChild("Data Ping")
@@ -1455,19 +1463,17 @@ registerRight("Settings", function(scroll)
         local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
         local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
 
-        -- ===== REALTIME UPDATE (match Roblox) =====
+        -- ===== REALTIME UPDATE =====
         local lastMem = 0
-        local uiAcc, UI_RATE = 0, 0.10  -- รีเฟรชข้อความทุก 0.10s (ค่าคำนวณทำทุกเฟรม)
+        local uiAcc, UI_RATE = 0, 0.10
 
         RunService.Heartbeat:Connect(function(dt)
-            -- FPS: หลังเรนเดอร์ (สไตล์ Roblox perf stats) ไม่มีการ smooth
             local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
 
             uiAcc += dt
             if uiAcc >= UI_RATE then
                 uiAcc = 0
 
-                -- อ่านค่าที่ Roblox แสดงใน Perf Stats
                 local ping  = getPingMs()
                 local up    = getKbps("Data Send Kbps")
                 local down  = getKbps("Data Receive Kbps")
@@ -1491,7 +1497,7 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (Map-Aware • Effects-Only • fixed orders & ids) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (Map-Aware • Effects-Only • SECOND) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -1509,77 +1515,53 @@ registerRight("Settings", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
-    local function gprop(o,k) local ok,v=pcall(function() return o[k] end) return ok and v or nil end
+    local function gprop(o,k) local ok,v=pcall(function() return o[k] end); return ok and v or nil end
 
-    -- Ensure ListLayout (อย่าแตะ AutomaticCanvasSize ของ scroll)
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    -- ===== Wrap เฉพาะของ Smoother (ขึ้นเป็นอันที่ 2) =====
+    local WRAP = "UFOX_WRAP_SMOOTHER_ONLY"
+    local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
+
+    local wrap = Instance.new("Frame")
+    wrap.Name = WRAP
+    wrap.BackgroundTransparency = 1
+    wrap.AutomaticSize = Enum.AutomaticSize.Y
+    wrap.Size = UDim2.new(1,0,0,0)
+    wrap.LayoutOrder = -999998   -- เป็นอันที่ 2 (อันแรกใช้ -999999 แล้ว)
+    wrap.Parent = scroll
+
+    local list = Instance.new("UIListLayout", wrap)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
-
-    -- helper: หา LayoutOrder ถัดไปแบบไดนามิก (กันชน)
-    local function nextOrder()
-        local top = 0
-        for _,ch in ipairs(scroll:GetChildren()) do
-            if ch:IsA("GuiObject") then
-                top = math.max(top, ch.LayoutOrder or 0)
-            end
-        end
-        return top + 1
-    end
 
     -- STATE (effects-only)
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, _snap={}, _pp={}, has={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
-    -- ลบเฉพาะของเราเอง (กันไปลบของแท็บอื่น)
-    for _,n in ipairs({"SM_Header","SM_Reduce","SM_Remove"}) do
-        local o = scroll:FindFirstChild(n); if o then o:Destroy() end
-    end
+    -- Header (อยู่ใน wrap ของตัวเอง)
+    local head = Instance.new("TextLabel", wrap)
+    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 1
 
-    -- Header (id เฉพาะ)
-    local head = Instance.new("TextLabel", scroll)
-    head.Name="SM_Header"
-    head.BackgroundTransparency=1
-    head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold
-    head.TextSize=16
-    head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left
-    head.Text="Smoother 🚀"
-    head.LayoutOrder = nextOrder()
-
-    -- Row factory (ชื่อเฉพาะ + order ไดนามิก)
-    local function makeRow(name, label, onToggle)
-        local row = Instance.new("Frame", scroll)
-        row.Name=name
-        row.Size=UDim2.new(1,-6,0,46)
-        row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=nextOrder()
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
+    -- UI Row factory (ใส่ใน wrap)
+    local function makeRow(name, label, order, onToggle)
+        local row = Instance.new("Frame", wrap)
+        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
 
         local lab=Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1
-        lab.Size=UDim2.new(1,-160,1,0)
-        lab.Position=UDim2.new(0,16,0,0)
-        lab.Font=Enum.Font.GothamBold
-        lab.TextSize=13
-        lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left
-        lab.Text=label
+        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
 
         local sw=Instance.new("Frame", row)
-        sw.AnchorPoint=Vector2.new(1,0.5)
-        sw.Position=UDim2.new(1,-12,0.5,0)
-        sw.Size=UDim2.fromOffset(52,26)
-        sw.BackgroundColor3=THEME.BLACK
-        corner(sw,13)
+        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
         local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
 
         local knob=Instance.new("Frame", sw)
-        knob.Size=UDim2.fromOffset(22,22)
-        knob.BackgroundColor3=THEME.WHITE
-        knob.Position=UDim2.new(0,2,0.5,-11)
-        corner(knob,11)
+        knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
+        knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
 
         local state=false
         local function setState(v)
@@ -1589,9 +1571,7 @@ registerRight("Settings", function(scroll)
             if onToggle then onToggle(v, setState) end
         end
         local btn=Instance.new("TextButton", sw)
-        btn.BackgroundTransparency=1
-        btn.Size=UDim2.fromScale(1,1)
-        btn.Text=""
+        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
         row:SetAttribute("Setter", setState)
@@ -1599,7 +1579,7 @@ registerRight("Settings", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- Map-aware: ใช้เฉพาะเอฟเฟกต์ที่มีจริง
+    -- Map-aware: ใช้เฉพาะชนิดเอฟเฟกต์ที่พบในแมพคุณ
     ----------------------------------------------------------------
     local FX_OK = {ParticleEmitter=true, Trail=true, Beam=true}
     local PP_OK = {SunRaysEffect=true, ColorCorrectionEffect=true, BloomEffect=true, BlurEffect=true}
@@ -1609,22 +1589,25 @@ registerRight("Settings", function(scroll)
         local t={}
         pcall(function()
             if i:IsA("ParticleEmitter") then t.Enabled=i.Enabled; t.Rate=i.Rate
-            elseif i:IsA("Trail") or i:IsA("Beam") then t.Enabled=i.Enabled; t.Brightness=i.Brightness end
+            elseif i:IsA("Trail") or i:IsA("Beam") then t.Enabled=i.Enabled; t.Brightness=i.Brightness
+            end
         end)
         S._snap[i]=t
         i.AncestryChanged:Connect(function(_,p) if not p then S._snap[i]=nil end end)
     end
+
     local function snapPP(o)
         if S._pp[o] then return end
         local t={Enabled=o.Enabled}
         pcall(function()
             if o.ClassName=="BlurEffect" then t.Size=o.Size
-            else if o.Intensity~=nil then t.Intensity=o.Intensity end end
+            elseif o.Intensity~=nil then t.Intensity=o.Intensity end
         end)
         S._pp[o]=t
         o.AncestryChanged:Connect(function(_,p) if not p then S._pp[o]=nil end end)
     end
 
+    -- initial scan
     for _,d in ipairs(workspace:GetDescendants()) do
         if FX_OK[d.ClassName] then snapFX(d); S.has[d.ClassName]=true end
     end
@@ -1637,53 +1620,39 @@ registerRight("Settings", function(scroll)
     ----------------------------------------------------------------
     local function restoreAll()
         for i,t in pairs(S._snap) do
-            if i and i.Parent then
-                pcall(function()
-                    if i:IsA("ParticleEmitter") then
-                        if t.Enabled~=nil then i.Enabled=t.Enabled end
-                        if t.Rate~=nil    then i.Rate=t.Rate end
-                    elseif i:IsA("Trail") or i:IsA("Beam") then
-                        if t.Enabled~=nil then i.Enabled=t.Enabled end
-                        if t.Brightness~=nil then i.Brightness=t.Brightness end
-                    end
-                end)
-            end
+            if i and i.Parent then pcall(function()
+                if i:IsA("ParticleEmitter") then if t.Enabled~=nil then i.Enabled=t.Enabled end; if t.Rate~=nil then i.Rate=t.Rate end
+                elseif i:IsA("Trail") or i:IsA("Beam") then if t.Enabled~=nil then i.Enabled=t.Enabled end; if t.Brightness~=nil then i.Brightness=t.Brightness end
+                end
+            end) end
         end
         for o,t in pairs(S._pp) do
-            if o and o.Parent then
-                pcall(function()
-                    o.Enabled = t.Enabled
-                    if o.ClassName=="BlurEffect" and t.Size~=nil then o.Size=t.Size end
-                    if t.Intensity~=nil then o.Intensity=t.Intensity end
-                end)
-            end
+            if o and o.Parent then pcall(function()
+                o.Enabled=t.Enabled
+                if o.ClassName=="BlurEffect" and t.Size~=nil then o.Size=t.Size end
+                if t.Intensity~=nil then o.Intensity=t.Intensity end
+            end) end
         end
     end
 
     local function applyHalf()
-        local batches = { {}, {}, {} }  -- 1=ParticleEmitter,2=Trail,3=Beam
+        local batches = { {}, {}, {} } -- 1=PE, 2=Trail, 3=Beam
         for i,_ in pairs(S._snap) do
             if i.Parent then
                 if i:IsA("ParticleEmitter") then table.insert(batches[1], i)
                 elseif i:IsA("Trail") then table.insert(batches[2], i)
-                elseif i:IsA("Beam") then table.insert(batches[3], i) end
+                elseif i:IsA("Beam")  then table.insert(batches[3], i) end
             end
         end
-        for _,i in ipairs(batches[1]) do pcall(function()
-            i.Enabled=true; i.Rate = math.max(0, math.floor((S._snap[i].Rate or i.Rate or 0)*0.5))
-        end) end
+        for _,i in ipairs(batches[1]) do pcall(function() i.Enabled=true; i.Rate       = math.max(0, math.floor((S._snap[i].Rate or i.Rate or 0)*0.5)) end) end
         task.wait(0.05)
-        for _,i in ipairs(batches[2]) do pcall(function()
-            i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5
-        end) end
+        for _,i in ipairs(batches[2]) do pcall(function() i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5 end) end
         task.wait(0.05)
-        for _,i in ipairs(batches[3]) do pcall(function()
-            i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5
-        end) end
+        for _,i in ipairs(batches[3]) do pcall(function() i.Enabled=true; i.Brightness = (S._snap[i].Brightness or i.Brightness or 1)*0.5 end) end
         task.wait(0.05)
         for o,_ in pairs(S._pp) do
             if o.Parent then pcall(function()
-                o.Enabled = true
+                o.Enabled=true
                 if o.ClassName=="BlurEffect" then
                     if S._pp[o].Size~=nil then o.Size = math.floor((S._pp[o].Size or 0)*0.5) end
                 else
@@ -1697,36 +1666,36 @@ registerRight("Settings", function(scroll)
     local function applyOff()
         for i,_ in pairs(S._snap) do
             if i and i.Parent then pcall(function()
-                if i:IsA("ParticleEmitter") then i.Rate = 0; i.Enabled=false
-                elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness = 0; i.Enabled=false end
+                if i:IsA("ParticleEmitter") then i.Rate=0; i.Enabled=false
+                elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness=0; i.Enabled=false end
             end) end
         end
         for o,_ in pairs(S._pp) do if o and o.Parent then pcall(function() o.Enabled=false end) end end
     end
 
     ----------------------------------------------------------------
-    -- UI callbacks (2 แถว)
+    -- UI callbacks (อ้างอิงภายใน wrap เท่านั้น)
     ----------------------------------------------------------------
-    local set50 = makeRow("SM_Reduce", "Reduce Effects 50% (map-aware)", function(v)
+    local set50 = makeRow("A1_Reduce", "Reduce Effects 50% (map-aware)", 2, function(v)
         if v then
             S.mode=1; applyHalf()
-            local other = scroll:FindFirstChild("SM_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local other = wrap:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else
             if S.mode==1 then S.mode=0; restoreAll() end
         end
     end)
 
-    local set100 = makeRow("SM_Remove", "Remove Effects 100% (map-aware)", function(v)
+    local set100 = makeRow("A1_Remove", "Remove Effects 100% (map-aware)", 3, function(v)
         if v then
             S.mode=2; applyOff()
-            local other = scroll:FindFirstChild("SM_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local other = wrap:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else
             if S.mode==2 then S.mode=0; restoreAll() end
         end
     end)
 
     ----------------------------------------------------------------
-    -- Live-catch
+    -- Live-catch (ภายใน S เท่าเดิม)
     ----------------------------------------------------------------
     for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
     S.conns = {
@@ -1738,7 +1707,8 @@ registerRight("Settings", function(scroll)
                     elseif d:IsA("Trail") or d:IsA("Beam") then d.Enabled=true; d.Brightness = (S._snap[d].Brightness or d.Brightness or 1)*0.5
                 end)
                 elseif S.mode==2 then pcall(function()
-                    if d:IsA("ParticleEmitter") then d.Rate=0; d.Enabled=false else d.Brightness=0; d.Enabled=false end
+                    if d:IsA("ParticleEmitter") then d.Rate=0; d.Enabled=false
+                    else d.Brightness=0; d.Enabled=false end
                 end) end
             end
         end),
@@ -1747,33 +1717,26 @@ registerRight("Settings", function(scroll)
                 snapPP(o)
                 if S.mode==1 then pcall(function()
                     o.Enabled=true
-                    if o.ClassName=="BlurEffect" then
-                        if S._pp[o].Size~=nil then o.Size=math.floor((S._pp[o].Size or 0)*0.5) end
-                    else
-                        if S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end
-                    end
+                    if o.ClassName=="BlurEffect" then if S._pp[o].Size~=nil then o.Size=math.floor((S._pp[o].Size or 0)*0.5) end
+                    else if S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end end
                 end)
                 elseif S.mode==2 then pcall(function() o.Enabled=false end) end
             end
         end)
     }
 end)
--- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
--- 1) Black Screen (Performance AFK)  [toggle]
--- 2) White Screen (Performance AFK)  [toggle]
--- 3) AFK Anti-Kick (20 min)          [toggle default ON]
--- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
---  • หน้าตา/ขนาด/กรอบสวิตช์ = แบบ A Legacy เดิมทั้งหมด
+--===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) — THIRD =====
+-- Order: third in Settings (own wrapper, LayoutOrder = -999997)
 
 registerRight("Settings", function(scroll)
-    local Players       = game:GetService("Players")
-    local TweenService  = game:GetService("TweenService")
-    local UIS           = game:GetService("UserInputService")
-    local RunService    = game:GetService("RunService")
-    local VirtualUser   = game:GetService("VirtualUser")
-    local lp            = Players.LocalPlayer
+    local Players      = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local UIS          = game:GetService("UserInputService")
+    local RunService   = game:GetService("RunService")
+    local VirtualUser  = game:GetService("VirtualUser")
+    local lp           = Players.LocalPlayer
 
-    -- ===== THEME / HELPERS (A Legacy) =====
+    -- THEME / HELPERS (A Legacy)
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         RED   = Color3.fromRGB(255,40,40),
@@ -1785,30 +1748,33 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ===== STATE =====
+    -- STATE (persists across opens)
     _G.UFOX_AFK = _G.UFOX_AFK or {
         blackOn=false, whiteOn=false, antiIdleOn=true, watcherOn=true,
-        lastInput=tick(), antiIdleLoop=nil, idleHooked=false,
+        lastInput=tick(), antiIdleLoop=nil, idleHooked=false, watcherConn=nil,
         gui=nil,
     }
     local S = _G.UFOX_AFK
 
-    -- ===== CLEAN preview section if exists =====
-    local old = scroll:FindFirstChild("Section_AFK_Preview"); if old then old:Destroy() end
-    local old2 = scroll:FindFirstChild("Section_AFK_Full");    if old2 then old2:Destroy() end
+    -- ===== Wrap: isolate this section & force THIRD position =====
+    local WRAP = "UFOX_WRAP_AFK_ONLY"
+    local oldWrap = scroll:FindFirstChild(WRAP); if oldWrap then oldWrap:Destroy() end
 
-    -- list/canvas เหมือนเดิม
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local nextOrder = 10
-    for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
-    end
+    local wrap = Instance.new("Frame")
+    wrap.Name = WRAP
+    wrap.BackgroundTransparency = 1
+    wrap.AutomaticSize = Enum.AutomaticSize.Y
+    wrap.Size = UDim2.new(1,0,0,0)
+    wrap.LayoutOrder = -999997 -- THIRD
+    wrap.Parent = scroll
 
-    -- ===== Header =====
-    local header = Instance.new("TextLabel", scroll)
-    header.Name = "Section_AFK_Full"
+    local list = Instance.new("UIListLayout", wrap)
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- ===== Header (in this wrap only) =====
+    local header = Instance.new("TextLabel", wrap)
+    header.Name = "AFK_Header"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,36)
     header.Font = Enum.Font.GothamBold
@@ -1816,9 +1782,9 @@ registerRight("Settings", function(scroll)
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
     header.Text = "AFK 💤"
-    header.LayoutOrder = nextOrder
+    header.LayoutOrder = 1
 
-    -- ===== Overlay (Black/White full-screen) =====
+    -- ===== Overlay helpers =====
     local function ensureGui()
         if S.gui and S.gui.Parent then return S.gui end
         local gui = Instance.new("ScreenGui")
@@ -1835,8 +1801,7 @@ registerRight("Settings", function(scroll)
         if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end
     end
     local function showBlack(v)
-        clearOverlay("WhiteOverlay")
-        clearOverlay("BlackOverlay")
+        clearOverlay("WhiteOverlay"); clearOverlay("BlackOverlay")
         if not v then return end
         local gui=ensureGui()
         local black=Instance.new("Frame", gui)
@@ -1844,8 +1809,7 @@ registerRight("Settings", function(scroll)
         black.Size=UDim2.fromScale(1,1); black.ZIndex=200; black.Active=true
     end
     local function showWhite(v)
-        clearOverlay("BlackOverlay")
-        clearOverlay("WhiteOverlay")
+        clearOverlay("BlackOverlay"); clearOverlay("WhiteOverlay")
         if not v then return end
         local gui=ensureGui()
         local white=Instance.new("Frame", gui)
@@ -1872,7 +1836,7 @@ registerRight("Settings", function(scroll)
         S.antiIdleLoop = task.spawn(function()
             while S.antiIdleOn do
                 pulseOnce()
-                for i=1,540 do
+                for _=1, 20*60/1 do -- 20 นาที, step 1s (คล้ายของเดิม)
                     if not S.antiIdleOn then break end
                     task.wait(1)
                 end
@@ -1906,13 +1870,14 @@ registerRight("Settings", function(scroll)
         end)
     end
 
-    -- ===== UI Row helper (A Legacy switch) =====
-    local function makeRow(textLabel, defaultOn, onToggle)
-        local row = Instance.new("Frame", scroll)
+    -- ===== Row factory (A Legacy switch) =====
+    local function makeRow(textLabel, defaultOn, order, onToggle)
+        local row = Instance.new("Frame", wrap)
+        row.Name = "AFK_Row_"..order
         row.Size = UDim2.new(1,-6,0,46)
         row.BackgroundColor3 = THEME.BLACK
         corner(row,12); stroke(row,2.2,THEME.GREEN)
-        row.LayoutOrder = header.LayoutOrder + 1
+        row.LayoutOrder = order
 
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
@@ -1930,48 +1895,48 @@ registerRight("Settings", function(scroll)
         sw.Size = UDim2.fromOffset(52,26)
         sw.BackgroundColor3 = THEME.BLACK
         corner(sw,13)
-        local swStroke = Instance.new("UIStroke", sw)
-        swStroke.Thickness = 1.8
-        swStroke.Color = defaultOn and THEME.GREEN or THEME.RED
+        local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
 
         local knob = Instance.new("Frame", sw)
         knob.Size = UDim2.fromOffset(22,22)
-        knob.Position = UDim2.new(defaultOn and 1 or 0, defaultOn and -24 or 2, 0.5, -11)
         knob.BackgroundColor3 = THEME.WHITE
         corner(knob,11)
 
         local state = defaultOn
-        local function setState(v, instant)
+        local function setState(v)
             state = v
             swStroke.Color = v and THEME.GREEN or THEME.RED
             tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
             if onToggle then onToggle(v) end
         end
+        knob.Position = UDim2.new(state and 1 or 0, state and -24 or 2, 0.5, -11)
+        swStroke.Color = state and THEME.GREEN or THEME.RED
+
         local btn = Instance.new("TextButton", sw)
         btn.BackgroundTransparency = 1
         btn.Size = UDim2.fromScale(1,1)
         btn.Text = ""
         btn.AutoButtonColor = false
-        btn.MouseButton1Click:Connect(function() setState(not state, false) end)
+        btn.MouseButton1Click:Connect(function() setState(not state) end)
 
         return setState
     end
 
-    -- ===== Rows + bindings =====
-    local setBlack = makeRow("Black Screen (Performance AFK)", S.blackOn, function(v)
+    -- ===== Rows (orders inside wrap: 2..5) =====
+    local setBlack = makeRow("Black Screen (Performance AFK)", S.blackOn, 2, function(v)
         S.blackOn = v; if v then S.whiteOn=false end; syncOverlays()
     end)
 
-    local setWhite = makeRow("White Screen (Performance AFK)", S.whiteOn, function(v)
+    local setWhite = makeRow("White Screen (Performance AFK)", S.whiteOn, 3, function(v)
         S.whiteOn = v; if v then S.blackOn=false end; syncOverlays()
     end)
 
-    local setAnti  = makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, function(v)
+    local setAnti  = makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, 4, function(v)
         S.antiIdleOn = v
         if v then startAntiIdle() end
     end)
 
-    local setWatch = makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, function(v)
+    local setWatch = makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, 5, function(v)
         S.watcherOn = v
     end)
 
