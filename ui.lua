@@ -1320,7 +1320,7 @@ registerRight("Player", function(scroll)
     applyStats(); bindInfJump()
 end)
 --===== UFO HUB X • SETTINGS — UI FPS Monitor
--- REAL metrics • even spacing • move FPS further right • fix Mem flicker (ignore bad reads)
+-- REAL metrics • even spacing • move FPS right • fix Mem flicker • fix Down "..."
 
 registerRight("Settings", function(scroll)
     local Players    = game:GetService("Players")
@@ -1334,9 +1334,10 @@ registerRight("Settings", function(scroll)
     local ROW_HEIGHT  = 44
 
     local BOX_WIDTH   = 760      -- top bar width
-    local INNER_PAD   = 12       -- left/right padding in the bar
-    local GAP_BETWEEN = 10       -- equal gap between slots
-    local FIRST_SHIFT = 24       -- <<< move the 1st slot (FPS) further right
+    local INNER_PAD   = 12       -- left/right padding
+    local GAP_BETWEEN = 10       -- equal gap
+    local FIRST_SHIFT = 24       -- move FPS a bit to the right
+    local LAST_BONUS  = 12       -- <<< extra width for the last (Down) slot to avoid "..."
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1424,7 +1425,8 @@ registerRight("Settings", function(scroll)
         local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
 
         local function makeSlot(i, iconId, initText)
-            local extra = (i==1) and FIRST_SHIFT or 0                 -- shift FPS to the right
+            local extra = (i==1) and FIRST_SHIFT or 0
+            local bonus = (i==5) and LAST_BONUS or 0
             local x = INNER_PAD + extra + (i-1)*(SLOT_W + GAP_BETWEEN)
 
             local icon = Instance.new("ImageLabel", box)
@@ -1435,12 +1437,12 @@ registerRight("Settings", function(scroll)
             local txt = Instance.new("TextLabel", box)
             txt.BackgroundTransparency=1
             txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
-            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) - extra, 1, 0) -- equal width, account FIRST_SHIFT
+            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) - extra + bonus, 1, 0)
             txt.Font = Enum.Font.GothamBold
             txt.TextSize = TEXT_SIZE
             txt.TextColor3 = THEME.GREEN
             txt.TextXAlignment = Enum.TextXAlignment.Left
-            txt.TextTruncate = Enum.TextTruncate.AtEnd
+            txt.TextTruncate = Enum.TextTruncate.None   -- <<< no ellipsis
             txt.Text = initText
             return txt
         end
@@ -1448,21 +1450,21 @@ registerRight("Settings", function(scroll)
         local tFPS   = makeSlot(1, ICONS.FPS,      "FPS: --")
         local tPing  = makeSlot(2, ICONS.Ping,     "Ping: --ms")
         local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
-        local tUp    = makeSlot(4, ICONS.Upload,   "Up: -- Kbps")
-        local tDown  = makeSlot(5, ICONS.Download, "Down: -- Kbps")
+        local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
+        local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
 
         -- ===== Anti-flicker =====
         local lastGoodMem = nil
         local function stableMem()
             local m = getMemMB()
-            if m and m > 0 then lastGoodMem = m end         -- keep last valid; ignore 0/bad reads
+            if m and m > 0 then lastGoodMem = m end
             return lastGoodMem or 0
         end
         local function setText(label, newStr)
             if label.Text ~= newStr then label.Text = newStr end
         end
 
-        -- ===== Update (smooth + realtime) =====
+        -- ===== Update =====
         local acc, UPDATE_RATE = 0, 0.5
         local ALPHA_FPS, ALPHA = 0.08, 0.18
 
@@ -1487,8 +1489,8 @@ registerRight("Settings", function(scroll)
                     setText(tFPS,  string.format("FPS: %d",    math.floor(S.smFPS + 0.5)))
                     setText(tPing, string.format("Ping: %dms", math.floor((S.smPing or 0)+0.5)))
                     setText(tMem,  string.format("Mem: %dMB",  math.floor((S.smMem  or 0)+0.5)))
-                    setText(tUp,   string.format("Up: %d Kbps",   math.floor((S.smUp   or 0)+0.5)))
-                    setText(tDown, string.format("Down: %d Kbps", math.floor((S.smDown or 0)+0.5)))
+                    setText(tUp,   string.format("Up: %dKbps",   math.floor((S.smUp   or 0)+0.5)))
+                    setText(tDown, string.format("Down: %dKbps", math.floor((S.smDown or 0)+0.5)))
                 end
             end
         end)
