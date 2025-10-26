@@ -1319,7 +1319,7 @@ registerRight("Player", function(scroll)
 
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • separate group card) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy • SEPARATED CARD) =====
 -- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
@@ -1351,42 +1351,39 @@ registerRight("Settings", function(scroll)
     }
     local S = _G.UFOX_FPS
 
-    -- ล้างเฉพาะการ์ดของเรา (กันซ้อน/กันไปรวมกับการ์ดอื่น)
-    for _,n in ipairs({"UFOX_GROUP_UIFPS"}) do
-        local x=scroll:FindFirstChild(n); if x then x:Destroy() end
-    end
+    -- ล้างเฉพาะการ์ดของเรา เพื่อไม่ให้รวมกับอันอื่น
+    local old = scroll:FindFirstChild("UFOX_GROUP_UIFPS"); if old then old:Destroy() end
 
-    -- ช่วยจัดลำดับ
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    -- Ensure list layout
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    vlist.Padding = UDim.new(0,12)
+    vlist.SortOrder = Enum.SortOrder.LayoutOrder
     local function nextOrder()
         local o=0
         for _,ch in ipairs(scroll:GetChildren()) do
-            if ch:IsA("GuiObject") and ch~=vlist then o = math.max(o, (ch.LayoutOrder or 0) + 1) end
+            if ch:IsA("GuiObject") and ch~=vlist then o = math.max(o,(ch.LayoutOrder or 0)+1) end
         end
         return o
     end
 
-    -- ===== การ์ดกลุ่มของ UI FPS (เหมือนเดิมเป๊ะ ๆ แต่เป็นกล่องของตัวเอง) =====
+    -- ================== CARD แยกของ UI FPS ==================
     local card = Instance.new("Frame", scroll)
     card.Name = "UFOX_GROUP_UIFPS"
-    card.Size = UDim2.new(1,-6,0,0)
     card.BackgroundColor3 = THEME.BLACK
+    card.Size = UDim2.new(1,-6,0,0)
     card.AutomaticSize = Enum.AutomaticSize.Y
     card.LayoutOrder = nextOrder()
     corner(card,12); stroke(card,2.2,THEME.GREEN)
 
     local pad = Instance.new("UIPadding", card)
-    pad.PaddingTop    = UDim.new(0,8)
-    pad.PaddingBottom = UDim.new(0,8)
-    pad.PaddingLeft   = UDim.new(0,8)
-    pad.PaddingRight  = UDim.new(0,8)
+    pad.PaddingTop, pad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
+    pad.PaddingLeft, pad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
 
     local inner = Instance.new("UIListLayout", card)
     inner.Padding = UDim.new(0,8)
     inner.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- หัวข้อย่อย
+    -- Header (ย่อยในการ์ด)
     local header = Instance.new("TextLabel", card)
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,28)
@@ -1402,7 +1399,7 @@ registerRight("Settings", function(scroll)
     row.Size = UDim2.new(1,0,0,46)
     row.BackgroundColor3 = THEME.BLACK
     row.LayoutOrder = 2
-    corner(row,12); stroke(row,2.0,THEME.GREEN)
+    corner(row,12); stroke(row,2.2,THEME.GREEN)
 
     local lab = Instance.new("TextLabel", row)
     lab.BackgroundTransparency = 1
@@ -1433,16 +1430,14 @@ registerRight("Settings", function(scroll)
     swStroke.Color = THEME.RED
 
     local btn = Instance.new("TextButton", sw)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = ""
+    btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
-    -- ===== HUD กล่องเดียวด้านบน (เหมือนเดิม) =====
+    -- ================== FPS HUD (เหมือนเดิม) ==================
     local function createFPSFrame()
         if S.frame and S.frame.Parent then return S.frame end
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
-        local old = pg:FindFirstChild("UFOX_FPS_GUI"); if old then old:Destroy() end
+        local oldGui = pg:FindFirstChild("UFOX_FPS_GUI"); if oldGui then oldGui:Destroy() end
 
         local screen = Instance.new("ScreenGui")
         screen.Name = "UFOX_FPS_GUI"
