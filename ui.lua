@@ -1320,7 +1320,7 @@ registerRight("Player", function(scroll)
     applyStats(); bindInfJump()
 end)
 --===== UFO HUB X • SETTINGS — UI FPS Monitor (Model A Legacy) =====
--- Tab: "UI FPS" (in Settings)
+-- Tab: "UI FPS ⚡" (in Settings)
 
 registerRight("Settings", function(scroll)
     local Players      = game:GetService("Players")
@@ -1342,8 +1342,8 @@ registerRight("Settings", function(scroll)
     _G.UFOX_FPS = _G.UFOX_FPS or {
         enabled = false,         -- ⬅ เริ่มต้น "ปิด"
         frame   = nil,
-        alpha   = 0.15,          -- smoothing
-        tickInt = 0.25,          -- update cadence
+        alpha   = 0.15,          -- smoothing factor
+        tickInt = 0.25,          -- update every 0.25s
         smFPS   = nil,
         devT    = 48,
         cpuT    = 45,
@@ -1362,7 +1362,7 @@ registerRight("Settings", function(scroll)
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "UI FPS"
+    header.Text = "UI FPS ⚡"
     header.LayoutOrder = 10
 
     -- แถวสวิทช์
@@ -1389,7 +1389,10 @@ registerRight("Settings", function(scroll)
     sw.BackgroundColor3 = THEME.BLACK
     corner(sw,13)
     local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness = 1.8
-    local knob = Instance.new("Frame", sw); knob.Size = UDim2.fromOffset(22,22); knob.BackgroundColor3 = THEME.WHITE; corner(knob,11)
+    local knob = Instance.new("Frame", sw)
+    knob.Size = UDim2.fromOffset(22,22)
+    knob.BackgroundColor3 = THEME.WHITE
+    corner(knob,11)
 
     local function setSwitch(v)
         S.enabled = v
@@ -1397,10 +1400,14 @@ registerRight("Settings", function(scroll)
         tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
         if S.frame then S.frame.Visible = v end
     end
+
     -- initial OFF
     knob.Position = UDim2.new(0,2,0.5,-11)
     swStroke.Color = THEME.RED
-    local btn = Instance.new("TextButton", sw); btn.BackgroundTransparency = 1; btn.Size = UDim2.fromScale(1,1); btn.Text = ""
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1
+    btn.Size = UDim2.fromScale(1,1)
+    btn.Text = ""
     btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
 
     -- ===== FPS HUD =====
@@ -1418,13 +1425,13 @@ registerRight("Settings", function(scroll)
         local box = Instance.new("Frame", screen)
         box.Name = "FPSBox"
         box.Size = UDim2.new(0,360,0,38)
-        box.Position = UDim2.new(0.5, -180, 0, 8)
+        box.Position = UDim2.new(0.5,-180,0,8)
         box.BackgroundColor3 = THEME.BLACK
         box.BorderSizePixel = 0
         corner(box,10)
         stroke(box,2,THEME.GREEN)
 
-        -- ไอคอน 3 อัน: FPS / Device / CPU
+        -- Icons
         local iconFPS = Instance.new("ImageLabel", box)
         iconFPS.BackgroundTransparency = 1
         iconFPS.Image = "rbxassetid://90148899618399"
@@ -1435,21 +1442,18 @@ registerRight("Settings", function(scroll)
         iconDev.BackgroundTransparency = 1
         iconDev.Image = "rbxassetid://71594498726379"
         iconDev.Size = UDim2.fromOffset(20,20)
-        -- ลดระยะห่าง FPS ↔ Device (จาก 130 -> 112)
-        iconDev.Position = UDim2.new(0,112,0.5,-10)
+        iconDev.Position = UDim2.new(0,112,0.5,-10) -- ชิดขึ้น
 
         local iconCPU = Instance.new("ImageLabel", box)
         iconCPU.BackgroundTransparency = 1
         iconCPU.Image = "rbxassetid://133491379992560"
         iconCPU.Size = UDim2.fromOffset(20,20)
-        -- ขยับ "ลง" เล็กน้อยให้ดูอยู่กลาง (จาก -10 -> -8), X เดิม
-        iconCPU.Position = UDim2.new(0,240,0.5,-8)
+        iconCPU.Position = UDim2.new(0,240,0.5,-8) -- ลงนิดหน่อย
 
-        -- ข้อความ 3 ส่วน
+        -- Texts
         local txtFPS = Instance.new("TextLabel", box)
         txtFPS.BackgroundTransparency = 1
         txtFPS.Position = UDim2.new(0,34,0,0)
-        -- ให้สั้นลงเล็กน้อยเพื่อชิดไอคอนถัดไป
         txtFPS.Size = UDim2.new(0,76,1,0)
         txtFPS.Font = Enum.Font.GothamBold
         txtFPS.TextSize = 14
@@ -1459,7 +1463,6 @@ registerRight("Settings", function(scroll)
 
         local txtDev = Instance.new("TextLabel", box)
         txtDev.BackgroundTransparency = 1
-        -- ชิดตาม iconDev ใหม่ (จาก 154 -> 136)
         txtDev.Position = UDim2.new(0,136,0,0)
         txtDev.Size = UDim2.new(0,92,1,0)
         txtDev.Font = Enum.Font.GothamBold
@@ -1478,17 +1481,21 @@ registerRight("Settings", function(scroll)
         txtCPU.TextXAlignment = Enum.TextXAlignment.Left
         txtCPU.Text = "CPU: --°C"
 
-        -- อัปเดตแบบนิ่ง
+        -- Update loop
         local acc = 0
         RunService.RenderStepped:Connect(function(dt)
-            local inst = math.clamp(1/dt, 1, 240)
-            if not S.smFPS then S.smFPS = inst else S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS end
+            local inst = math.clamp(1/dt,1,240)
+            if not S.smFPS then
+                S.smFPS = inst
+            else
+                S.smFPS = S.alpha*inst + (1-S.alpha)*S.smFPS
+            end
 
             acc += dt
             if acc >= S.tickInt then
                 acc = 0
-                S.devT = math.clamp(S.devT + math.random(-1,1), 35, 60)
-                S.cpuT = math.clamp(S.cpuT + math.random(-1,1), 40, 75)
+                S.devT = math.clamp(S.devT + math.random(-1,1),35,60)
+                S.cpuT = math.clamp(S.cpuT + math.random(-1,1),40,75)
 
                 if S.enabled then
                     txtFPS.Text = string.format("FPS: %d", math.floor(S.smFPS + 0.5))
@@ -1498,13 +1505,13 @@ registerRight("Settings", function(scroll)
             end
         end)
 
-        box.Visible = S.enabled -- เริ่มปิดตามสวิตช์
+        box.Visible = S.enabled
         S.frame = box
         return box
     end
 
     createFPSFrame()
-    setSwitch(S.enabled) -- คงสถานะเริ่มต้น (OFF)
+    setSwitch(S.enabled)
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
