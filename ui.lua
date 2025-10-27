@@ -1517,6 +1517,15 @@ registerRight("Settings", function(scroll)
     local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
     local function gprop(o,k) local ok,v=pcall(function() return o[k] end); return ok and v or nil end
 
+    -- Ensure parent has a UIListLayout
+    local parentList = scroll:FindFirstChildOfClass("UIListLayout")
+    if not parentList then
+        parentList = Instance.new("UIListLayout")
+        parentList.Padding = UDim.new(0,12)
+        parentList.SortOrder = Enum.SortOrder.LayoutOrder
+        parentList.Parent = scroll
+    end
+
     -- ===== Wrap เฉพาะของ Smoother (ขึ้นเป็นอันที่ 2) =====
     local WRAP = "UFOX_WRAP_SMOOTHER_ONLY"
     local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
@@ -1526,7 +1535,17 @@ registerRight("Settings", function(scroll)
     wrap.BackgroundTransparency = 1
     wrap.AutomaticSize = Enum.AutomaticSize.Y
     wrap.Size = UDim2.new(1,0,0,0)
-    wrap.LayoutOrder = -999998   -- เป็นอันที่ 2 (อันแรกใช้ -999999 แล้ว)
+
+    -- จัดอันดับเป็น "อันที่ 2": หา min LayoutOrder ทั้งหมด แล้วตั้งเป็น (min-999)
+    -- (อันที่ 1 ใช้ min-1000 ไปแล้ว)
+    local minOrder = 0
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= wrap then
+            local lo = ch.LayoutOrder or 0
+            if lo < minOrder then minOrder = lo end
+        end
+    end
+    wrap.LayoutOrder = (minOrder or 0) - 999
     wrap.Parent = scroll
 
     local list = Instance.new("UIListLayout", wrap)
@@ -1736,6 +1755,17 @@ registerRight("Settings", function(scroll)
     local VirtualUser  = game:GetService("VirtualUser")
     local lp           = Players.LocalPlayer
 
+    -- ensure parent has a UIListLayout (สำคัญเพื่อให้ LayoutOrder ของแต่ละ wrap มีผลจริง)
+    do
+        local ll = scroll:FindFirstChildOfClass("UIListLayout")
+        if not ll then
+            ll = Instance.new("UIListLayout")
+            ll.Padding = UDim.new(0,12)
+            ll.SortOrder = Enum.SortOrder.LayoutOrder
+            ll.Parent = scroll
+        end
+    end
+
     -- THEME / HELPERS (A Legacy)
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -1765,7 +1795,7 @@ registerRight("Settings", function(scroll)
     wrap.BackgroundTransparency = 1
     wrap.AutomaticSize = Enum.AutomaticSize.Y
     wrap.Size = UDim2.new(1,0,0,0)
-    wrap.LayoutOrder = -999997 -- THIRD
+    wrap.LayoutOrder = -999997 -- THIRD (First=-999999, Second=-999998)
     wrap.Parent = scroll
 
     local list = Instance.new("UIListLayout", wrap)
@@ -1836,7 +1866,7 @@ registerRight("Settings", function(scroll)
         S.antiIdleLoop = task.spawn(function()
             while S.antiIdleOn do
                 pulseOnce()
-                for _=1, 20*60/1 do -- 20 นาที, step 1s (คล้ายของเดิม)
+                for _=1, 20*60/1 do -- 20 นาที
                     if not S.antiIdleOn then break end
                     task.wait(1)
                 end
