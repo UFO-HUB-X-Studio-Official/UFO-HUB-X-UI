@@ -1491,11 +1491,11 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) =====
+--===== UFO HUB X • SETTINGS — Smoother (A V1 • fixed 4 rows, sky-only) =====
 registerRight("Settings", function(scroll)
-    local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
     local Players      = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
     local lp           = Players.LocalPlayer
 
     -- THEME (A V1)
@@ -1508,30 +1508,35 @@ registerRight("Settings", function(scroll)
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
+    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- Ensure ListLayout
+    -- A V1: exactly one UIListLayout on scroll (ถ้ามีแล้วไม่สร้างใหม่)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- STATE
-    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
+    -- STATE (คงตัวเดิม และเพิ่มของ sky)
+    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or {
+        mode=0, plastic=false, _snap={}, _pp={},
+        _skyStore=nil, _savedClock=nil, blacksky=false
+    }
     local S = _G.UFOX_SMOOTH
 
-    -- Header
-    local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
-    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
-
-    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง)
-    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do
-        local old = scroll:FindFirstChild(n); if old then old:Destroy() end
+    ----------------------------------------------------------------
+    -- Header (ไม่ลบของเดิม ถ้าไม่มีค่อยสร้าง)
+    ----------------------------------------------------------------
+    if not scroll:FindFirstChild("A1_Header") then
+        local head = Instance.new("TextLabel", scroll)
+        head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+        head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+        head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
     end
 
-    -- Row factory (always create new)
+    ----------------------------------------------------------------
+    -- Row factory (A V1 switch) — สร้างเฉพาะถ้ายังไม่มี
+    ----------------------------------------------------------------
     local function makeRow(name, label, order, onToggle)
+        if scroll:FindFirstChild(name) then return end
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
         row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
@@ -1562,10 +1567,12 @@ registerRight("Settings", function(scroll)
         btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
-        return setState
+        row:SetAttribute("Setter", setState) -- สำหรับบังคับปิดอีกแถวแบบ A V1
     end
 
-    -- ===== FX helpers (ย่อ: เหมือนเดิม) =====
+    ----------------------------------------------------------------
+    -- FX helpers (เหมือนเดิม)
+    ----------------------------------------------------------------
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
@@ -1573,8 +1580,7 @@ registerRight("Settings", function(scroll)
         if S._snap[inst] then return end
         local t={}; pcall(function()
             if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
-            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
-            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Trail") or inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
             elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
             elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
             elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
@@ -1586,8 +1592,7 @@ registerRight("Settings", function(scroll)
     local function applyHalf()
         for i,t in pairs(S._snap) do if i.Parent then pcall(function()
             if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
-            elseif i:IsA("Trail") then i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
+            elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
             elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
             elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
             elseif i:IsA("Sparkles") then i.Enabled=false end
@@ -1595,8 +1600,9 @@ registerRight("Settings", function(scroll)
         for _,obj in ipairs(Lighting:GetChildren()) do
             if PP[obj.ClassName] then
                 S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
-                obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
-                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
+                obj.Enabled=true
+                if obj.Intensity~=nil then obj.Intensity=(obj.Intensity or 1)*0.5 end
+                if obj.ClassName=="BlurEffect" and obj.Size~=nil then obj.Size=math.floor((obj.Size or 0)*0.5) end
             end
         end
     end
@@ -1624,24 +1630,65 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- ===== 3 switches (fixed orders 11/12/13) =====
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v, set)
-        if v then S.mode=1; applyHalf()
-            -- force other off
-            local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==1 then S.mode=0; restoreAll() end end
+    ----------------------------------------------------------------
+    -- #1..#3: สร้างเฉพาะถ้ายังไม่มี (ชื่อ/ลำดับเดิม A V1)
+    ----------------------------------------------------------------
+    makeRow("A1_Reduce","Reduce Effects 50%", 11, function(v)
+        if v then
+            S.mode=1; applyHalf()
+            local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        else
+            if S.mode==1 then S.mode=0; restoreAll() end
+        end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v, set)
-        if v then S.mode=2; applyOff()
-            local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==2 then S.mode=0; restoreAll() end end
+    makeRow("A1_Remove","Remove Effects 100%", 12, function(v)
+        if v then
+            S.mode=2; applyOff()
+            local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        else
+            if S.mode==2 then S.mode=0; restoreAll() end
+        end
     end)
 
-    local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
+    makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
         S.plastic=v; plasticMode(v)
+    end)
+
+    ----------------------------------------------------------------
+    -- #4 Black Sky (Night Mode) — sky only (EN only, no emoji)
+    -- ไม่แตะ Ambient / Brightness / Exposure — ไม่ทำให้ทั้งจอดำ
+    ----------------------------------------------------------------
+    local function setBlackSky(on)
+        if on then
+            if not S._skyStore then
+                local store = Instance.new("Folder")
+                store.Name = "_UFOX_SKY_STORE"
+                store.Parent = Lighting
+                S._skyStore = store
+            end
+            if S._savedClock == nil then S._savedClock = Lighting.ClockTime end
+            -- ย้าย Sky ออก = ท้องฟ้าดำ, ไม่แตะค่าแสงฉาก
+            for _,s in ipairs(Lighting:GetChildren()) do
+                if s:IsA("Sky") then s.Parent = S._skyStore end
+            end
+            -- ไม่จำเป็นต้องเปลี่ยน ClockTime แต่ถ้าอยากกลางคืนจริง ๆ:
+            -- pcall(function() Lighting.ClockTime = 0 end)
+            S.blacksky = true
+        else
+            if S._savedClock ~= nil then pcall(function() Lighting.ClockTime = S._savedClock end) end
+            if S._skyStore then
+                for _,s in ipairs(S._skyStore:GetChildren()) do
+                    if s:IsA("Sky") then s.Parent = Lighting end
+                end
+                if #S._skyStore:GetChildren()==0 then S._skyStore:Destroy(); S._skyStore=nil end
+            end
+            S.blacksky = false
+        end
+    end
+
+    makeRow("A1_BlackSky","Black Sky (Night Mode)", 14, function(v)
+        setBlackSky(v)
     end)
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
