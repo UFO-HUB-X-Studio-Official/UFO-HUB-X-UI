@@ -1491,7 +1491,7 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 4 rows: + Black Sky) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 4 rows) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -1510,15 +1510,15 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- Ensure ListLayout (ไม่แตะ layout อื่น)
+    -- Ensure ListLayout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     -- STATE
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or {
-        mode=0, plastic=false, blacksky=false,
-        _snap={}, _pp={}, _lightSnap=nil, _skyStore=nil, _madeAtmos=nil
+        mode=0, plastic=false, _snap={}, _pp={},
+        _lightSnap=nil, _skyStore=nil, _madeAtmos=nil, blacksky=false
     }
     local S = _G.UFOX_SMOOTH
 
@@ -1528,12 +1528,12 @@ registerRight("Settings", function(scroll)
     head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
     head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
 
-    -- ลบของเก่าชื่อซ้ำ (เฉพาะ 4 แถวของเรา)
+    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง)
     for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic","A1_BlackSky"}) do
         local old = scroll:FindFirstChild(n); if old then old:Destroy() end
     end
 
-    -- Row factory (สวิตช์แบบ A V1 เดิม)
+    -- Row factory (always create new)
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
@@ -1565,11 +1565,10 @@ registerRight("Settings", function(scroll)
         btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
-        row:SetAttribute("Setter", setState)
         return setState
     end
 
-    -- ===== รองรับเอฟเฟกต์หลัก ๆ (เหมือนเดิม) =====
+    -- ===== FX helpers (เหมือนเดิม) =====
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
@@ -1627,7 +1626,7 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- ===== BLACK SKY (snapshot/restore Lighting + Sky) =====
+    -- ===== Black Sky (Night Mode) =====
     local function ensureLightSnapshot()
         if S._lightSnap then return end
         S._lightSnap = {
@@ -1640,7 +1639,6 @@ registerRight("Settings", function(scroll)
             FogStart = Lighting.FogStart,
             FogEnd = Lighting.FogEnd,
         }
-        -- เก็บ Sky เดิมทั้งหมดไว้ในโฟลเดอร์
         local store = Instance.new("Folder")
         store.Name = "_UFOX_SKY_STORE"
         store.Parent = Lighting
@@ -1649,12 +1647,10 @@ registerRight("Settings", function(scroll)
             if s:IsA("Sky") then s.Parent = store end
         end
     end
-
     local function setBlackSky(on)
         if on then
             ensureLightSnapshot()
-            -- ทำให้ท้องฟ้าดำ/กลางคืน
-            Lighting.ClockTime = 0        -- เที่ยงคืน
+            Lighting.ClockTime = 0
             Lighting.Brightness = 0
             Lighting.Ambient = Color3.new(0,0,0)
             Lighting.OutdoorAmbient = Color3.new(0,0,0)
@@ -1662,14 +1658,11 @@ registerRight("Settings", function(scroll)
             Lighting.FogColor = Color3.new(0,0,0)
             Lighting.FogStart = 0
             Lighting.FogEnd = 1000
-
-            -- เอา Sky ออกจาก Lighting ชั่วคราว
             if S._skyStore then
                 for _,s in ipairs(Lighting:GetChildren()) do
                     if s:IsA("Sky") then s.Parent = S._skyStore end
                 end
             end
-            -- ใส่ Atmosphere ทึบ ถ้ายังไม่มี
             local atm = Lighting:FindFirstChildOfClass("Atmosphere")
             if not atm then
                 atm = Instance.new("Atmosphere")
@@ -1677,21 +1670,14 @@ registerRight("Settings", function(scroll)
                 atm.Parent = Lighting
                 S._madeAtmos = atm
             end
-            atm.Density = 1
-            atm.Haze = 0
-            atm.Glare = 0
-            atm.Offset = 0
+            atm.Density = 1; atm.Haze = 0; atm.Glare = 0; atm.Offset = 0
             S.blacksky = true
         else
-            -- คืนค่าเดิมทั้งหมด
-            if S._lightSnap then
-                for k,v in pairs(S._lightSnap) do pcall(function() Lighting[k]=v end) end
-            end
+            if S._lightSnap then for k,v in pairs(S._lightSnap) do pcall(function() Lighting[k]=v end) end end
             if S._skyStore then
                 for _,s in ipairs(S._skyStore:GetChildren()) do
                     if s:IsA("Sky") then s.Parent = Lighting end
                 end
-                -- ไม่ลบ store เผื่อเปิด/ปิดบ่อย แต่เคลียร์ทิ้งถ้าค่าว่าง
                 if #S._skyStore:GetChildren()==0 then S._skyStore:Destroy(); S._skyStore=nil end
             end
             if S._madeAtmos and S._madeAtmos.Parent then S._madeAtmos:Destroy(); S._madeAtmos=nil end
@@ -1702,13 +1688,15 @@ registerRight("Settings", function(scroll)
     -- ===== 4 switches (orders 11/12/13/14) =====
     local set50  = makeRow("A1_Reduce", "Reduce Effects 50% 🚥", 11, function(v, set)
         if v then S.mode=1; applyHalf()
-            local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter")
+            if setter then setter(false) end
         else if S.mode==1 then S.mode=0; restoreAll() end end
     end)
 
     local set100 = makeRow("A1_Remove", "Remove Effects 100% 🧹", 12, function(v, set)
         if v then S.mode=2; applyOff()
-            local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+            local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter")
+            if setter then setter(false) end
         else if S.mode==2 then S.mode=0; restoreAll() end end
     end)
 
@@ -1716,62 +1704,10 @@ registerRight("Settings", function(scroll)
         S.plastic=v; plasticMode(v)
     end)
 
-    -- อันที่ 4: ท้องฟ้าสีดำ 🌑
-    local setBlackSky = makeRow("A1_BlackSky","ท้องฟ้าสีดำ (Night Mode) 🌑", 14, function(v)
-        setBlackSky = setBlackSky -- no-op to keep upvalue name unique in Luau
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        -- apply
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        -- เรียกฟังก์ชันหลัก
-        setBlackSky = nil
-        setBlackSky = nil
-        -- จริง ๆ แค่เรียก:
-        setBlackSky = nil
-        -- (เวอร์ชัน Luau ไม่ต้องสนใจบรรทัดข้างบน เป็น no-op safe)
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        setBlackSky = nil
-        -- ใช้ของจริง
-        setBlackSky = nil
-        setBlackSky = nil
-        -- call:
-        setBlackSky = nil
+    -- อันที่ 4
+    local setBk  = makeRow("A1_BlackSky","ท้องฟ้าสีดำ (Night Mode) 🌑", 14, function(v)
+        setBlackSky(v)
     end)
-
-    -- แก้บั๊กชื่อซ้ำจาก upvalue: ใช้โค้ดสั้น ๆ เรียกตรง ๆ แทน (อ่านง่าย)
-    scroll.A1_BlackSky:GetAttributeChangedSignal("Setter"):Connect(function() end)
-    do
-        local setter = scroll.A1_BlackSky:GetAttribute("Setter") -- keep attribute
-    end
-    -- ผูกใหม่ให้สั้น:
-    scroll.A1_BlackSky:GetAttribute("Setter")
-
-    -- ปุ่มท้องฟ้าสีดำแบบเรียกตรง (ปลอดภัยกว่า)
-    -- หา Setter ที่ row ใส่ไว้ แล้ว override callback ให้เรียก setBlackSky(v)
-    do
-        local row = scroll:FindFirstChild("A1_BlackSky")
-        if row then
-            local function bind(cb)
-                -- no use; kept minimal
-            end
-            local setter = row and row:GetAttribute("Setter")
-            if setter == nil then
-                -- attribute ถูกใส่ใน makeRow แล้ว; แต่เรียกซ้ำไว้ไม่เป็นไร
-            end
-            -- สร้างปุ่มใหม่ให้ง่าย: หา Frame สวิตช์แล้วผูกคลิกก็ได้
-            -- แต่เราแค่ต้องการให้ onToggle เรียก setBlackSky(v) ตั้งแต่แรก
-        end
-    end
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
