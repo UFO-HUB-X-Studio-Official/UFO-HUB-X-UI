@@ -1498,7 +1498,7 @@ registerRight("Settings", function(scroll)
     local Players      = game:GetService("Players")
     local lp           = Players.LocalPlayer
 
-    -- THEME (A V1)
+    -- THEME (A V1)  [ไม่แตะต้อง]
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -1510,27 +1510,27 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- Ensure ListLayout
+    -- Ensure ListLayout  [ไม่แตะต้อง]
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- STATE
+    -- STATE (เพิ่ม _pp และ conns)
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
-    -- Header
+    -- Header  [ไม่แตะต้อง]
     local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
     head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
     head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
     head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
 
-    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง)
+    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง) [ไม่แตะชื่อเดิม]
     for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do
         local old = scroll:FindFirstChild(n); if old then old:Destroy() end
     end
 
-    -- Row factory (always create new)
+    -- Row factory (always create new)  [หน้าตา/ข้อความ/ลำดับเหมือนเดิม]
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
@@ -1562,58 +1562,159 @@ registerRight("Settings", function(scroll)
         btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
-        -- [ADD] expose setter for mutual exclusion / external control
+        -- เผย setter ให้ปุ่มอื่นบังคับปิดกันได้
         row:SetAttribute("Setter", setState)
-
         return setState
     end
 
-    -- ===== FX helpers (ย่อ: เหมือนเดิม) =====
-    local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
-    local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
+    -- ===== [ขยาย] กลุ่มเอฟเฟ็กต์ที่ดูแล =====
+    local FX = {  -- Workspace
+        ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true,
+        Highlight=true, PointLight=true, SpotLight=true, SurfaceLight=true
+    }
+    local PP = {  -- Lighting
+        BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true
+    }
 
+    -- ===== Snapshot helpers =====
     local function capture(inst)
         if S._snap[inst] then return end
-        local t={}; pcall(function()
-            if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
-            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
-            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
-            elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
-            elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
-            elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
+        local t={}
+        pcall(function()
+            if inst:IsA("ParticleEmitter") then
+                t.Enabled=inst.Enabled; t.Rate=inst.Rate
+            elseif inst:IsA("Trail") or inst:IsA("Beam") then
+                t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Smoke") then
+                t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
+            elseif inst:IsA("Fire") then
+                t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
+            elseif inst:IsA("Sparkles") then
+                t.Enabled=inst.Enabled
+            elseif inst:IsA("Highlight") then
+                t.Enabled=inst.Enabled; t.FillTransparency=inst.FillTransparency; t.OutlineTransparency=inst.OutlineTransparency
+            elseif inst:IsA("PointLight") or inst:IsA("SpotLight") or inst:IsA("SurfaceLight") then
+                t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            end
         end)
         S._snap[inst]=t
-        -- [ADD] ถ้าถูกลบ ออก snapshot
+        -- ล้าง snapshot เมื่อของถูกลบ
         inst.AncestryChanged:Connect(function(_,p) if not p then S._snap[inst]=nil end end)
     end
+
+    -- สแกนเริ่มต้น
     for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
 
-    local function applyHalf()
-        for i,t in pairs(S._snap) do if i.Parent then pcall(function()
-            if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
-            elseif i:IsA("Trail") then i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
-            elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
-            elseif i:IsA("Sparkles") then i.Enabled=false end
-        end) end end
-        for _,obj in ipairs(Lighting:GetChildren()) do
-            if PP[obj.ClassName] then
-                if not S._pp[obj] then S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size} end
-                obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
-                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
+    local function capturePP(o)
+        if S._pp[o] then return end
+        local t={Enabled=o.Enabled}
+        pcall(function()
+            if o:IsA("BlurEffect") then t.Size=o.Size end
+            if o:IsA("BloomEffect") or o:IsA("SunRaysEffect") then t.Intensity=o.Intensity end
+            if o:IsA("DepthOfFieldEffect") then t.FarIntensity=o.FarIntensity; t.NearIntensity=o.NearIntensity end
+            if o:IsA("ColorCorrectionEffect") then t.Brightness=o.Brightness; t.Contrast=o.Contrast; t.Saturation=o.Saturation end
+        end)
+        S._pp[o]=t
+        o.AncestryChanged:Connect(function(_,p) if not p then S._pp[o]=nil end end)
+    end
+    for _,o in ipairs(Lighting:GetChildren()) do if PP[o.ClassName] then capturePP(o) end end
+
+    -- ===== Apply helpers =====
+    local function applyHalfOne(i,t)
+        pcall(function()
+            if i:IsA("ParticleEmitter") then
+                i.Enabled=true; i.Rate = math.max(0, math.floor((t.Rate or i.Rate or 0)*0.5))
+            elseif i:IsA("Trail") or i:IsA("Beam") then
+                i.Enabled=true; i.Brightness = (t.Brightness or i.Brightness or 1)*0.5
+            elseif i:IsA("Smoke") then
+                i.Enabled=true; i.Opacity = (t.Opacity or i.Opacity or 1)*0.5
+            elseif i:IsA("Fire") then
+                i.Enabled=true; i.Heat = (t.Heat or i.Heat or 5)*0.5; i.Size = (t.Size or i.Size or 5)*0.7
+            elseif i:IsA("Sparkles") then
+                i.Enabled=false
+            elseif i:IsA("Highlight") then
+                i.Enabled=true; i.FillTransparency = math.clamp((t.FillTransparency or i.FillTransparency or 0)+0.5,0,1)
+                i.OutlineTransparency = math.clamp((t.OutlineTransparency or i.OutlineTransparency or 0)+0.5,0,1)
+            elseif i:IsA("PointLight") or i:IsA("SpotLight") or i:IsA("SurfaceLight") then
+                i.Enabled=true; i.Brightness = (t.Brightness or i.Brightness or 1)*0.5
             end
-        end
-    end
-    local function applyOff()
-        for i,_ in pairs(S._snap) do if i.Parent then pcall(function() i.Enabled=false end) end end
-        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then obj.Enabled=false end end
-    end
-    local function restoreAll()
-        for i,t in pairs(S._snap) do if i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
-        for obj,t in pairs(S._pp)   do if obj.Parent then for k,v in pairs(t) do pcall(function() obj[k]=v end) end end end
+        end)
     end
 
+    local function applyOffOne(i,_t)
+        pcall(function()
+            if i:IsA("ParticleEmitter") then
+                i.Rate=0; i.Enabled=false
+            elseif i:IsA("Trail") or i:IsA("Beam") then
+                i.Brightness=0; i.Enabled=false
+            elseif i:IsA("Smoke") then
+                i.Opacity=0; i.Enabled=false
+            elseif i:IsA("Fire") then
+                i.Heat=0; i.Size=0; i.Enabled=false
+            elseif i:IsA("Sparkles") then
+                i.Enabled=false
+            elseif i:IsA("Highlight") then
+                i.Enabled=false
+            elseif i:IsA("PointLight") or i:IsA("SpotLight") or i:IsA("SurfaceLight") then
+                i.Brightness=0; i.Enabled=false
+            end
+        end)
+    end
+
+    local function restoreOne(i,t)
+        pcall(function()
+            for k,v in pairs(t) do
+                i[k]=v
+            end
+        end)
+    end
+
+    local function restoreAll()
+        for i,t in pairs(S._snap) do if i and i.Parent then restoreOne(i,t) end end
+        for o,t in pairs(S._pp) do if o and o.Parent then
+            pcall(function()
+                o.Enabled = t.Enabled
+                if o:IsA("BlurEffect") and t.Size~=nil then o.Size=t.Size end
+                if (o:IsA("BloomEffect") or o:IsA("SunRaysEffect")) and t.Intensity~=nil then o.Intensity=t.Intensity end
+                if o:IsA("DepthOfFieldEffect") then
+                    if t.FarIntensity~=nil then o.FarIntensity=t.FarIntensity end
+                    if t.NearIntensity~=nil then o.NearIntensity=t.NearIntensity end
+                end
+                if o:IsA("ColorCorrectionEffect") then
+                    if t.Brightness~=nil then o.Brightness=t.Brightness end
+                    if t.Contrast ~=nil then o.Contrast =t.Contrast  end
+                    if t.Saturation~=nil then o.Saturation=t.Saturation end
+                end
+            end)
+        end end
+    end
+
+    local function applyHalf()
+        for i,t in pairs(S._snap) do if i and i.Parent then applyHalfOne(i,t) end end
+        for o,t in pairs(S._pp) do if o and o.Parent then
+            pcall(function()
+                o.Enabled=true
+                if o:IsA("BlurEffect") and t.Size~=nil then o.Size = math.floor((t.Size or 0)*0.5) end
+                if (o:IsA("BloomEffect") or o:IsA("SunRaysEffect")) and t.Intensity~=nil then o.Intensity = t.Intensity*0.5 end
+                if o:IsA("DepthOfFieldEffect") then
+                    if t.FarIntensity~=nil  then o.FarIntensity  = t.FarIntensity*0.5 end
+                    if t.NearIntensity~=nil then o.NearIntensity = t.NearIntensity*0.5 end
+                end
+                if o:IsA("ColorCorrectionEffect") then
+                    if t.Brightness~=nil then o.Brightness = t.Brightness*0.5 end
+                    if t.Contrast ~=nil then o.Contrast  = t.Contrast *0.5 end
+                    if t.Saturation~=nil then o.Saturation= t.Saturation*0.5 end
+                end
+            end)
+        end end
+    end
+
+    local function applyOff()
+        for i,t in pairs(S._snap) do if i and i.Parent then applyOffOne(i,t) end end
+        for o,_t in pairs(S._pp) do if o and o.Parent then pcall(function() o.Enabled=false end) end end
+    end
+
+    -- ===== Plastic mode (เดิม) =====
     local function plasticMode(on)
         for _,p in ipairs(workspace:GetDescendants()) do
             if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
@@ -1629,53 +1730,58 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- ===== 3 switches (fixed orders 11/12/13) =====
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v, set)
-        if v then S.mode=1; applyHalf()
-            -- force other off
-            local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==1 then S.mode=0; restoreAll() end end
+    -- ===== 3 switches (ชื่อ/ลำดับ/ข้อความเหมือนเดิม) =====
+    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
+        if v then
+            S.mode=1; applyHalf()
+            local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        else
+            if S.mode==1 then S.mode=0; restoreAll() end
+        end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v, set)
-        if v then S.mode=2; applyOff()
-            local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==2 then S.mode=0; restoreAll() end end
+    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
+        if v then
+            S.mode=2; applyOff()
+            local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
+        else
+            if S.mode==2 then S.mode=0; restoreAll() end
+        end
     end)
 
     local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
         S.plastic=v; plasticMode(v)
     end)
 
-    -- ===== [ADD] Live-catch: จับของใหม่ที่ถูกสร้างหลังจากนี้ และ sync ตามโหมดปัจจุบัน =====
+    -- ===== Live-catch: ของใหม่ที่ถูกสร้างหลังจากนี้จะถูกลด/ปิดตามโหมด =====
     for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
     S.conns = {
         workspace.DescendantAdded:Connect(function(d)
             if d and FX[d.ClassName] then
                 capture(d)
-                if S.mode==1 then -- half
-                    pcall(function()
-                        if d:IsA("ParticleEmitter") then d.Enabled=true; d.Rate = math.floor(((S._snap[d] and S._snap[d].Rate) or d.Rate or 0)*0.5)
-                        elseif d:IsA("Trail") or d:IsA("Beam") then d.Enabled=true; d.Brightness = ((S._snap[d] and S._snap[d].Brightness) or d.Brightness or 1)*0.5
-                        elseif d:IsA("Smoke") then d.Enabled=true; d.Opacity = ((S._snap[d] and S._snap[d].Opacity) or d.Opacity or 1)*0.5
-                        elseif d:IsA("Fire") then d.Enabled=true; d.Heat = ((S._snap[d] and S._snap[d].Heat) or d.Heat or 5)*0.5; d.Size = ((S._snap[d] and S._snap[d].Size) or d.Size or 5)*0.7
-                        elseif d:IsA("Sparkles") then d.Enabled=false end
-                    end)
-                elseif S.mode==2 then -- off
-                    pcall(function() d.Enabled=false end)
-                end
+                if S.mode==1 then applyHalfOne(d, S._snap[d] or {}) end
+                if S.mode==2 then applyOffOne(d,  S._snap[d] or {}) end
             end
         end),
         Lighting.ChildAdded:Connect(function(o)
             if o and PP[o.ClassName] then
-                if not S._pp[o] then S._pp[o]={Enabled=o.Enabled, Intensity=o.Intensity, Size=o.Size} end
+                capturePP(o)
                 if S.mode==1 then
+                    -- ลดครึ่ง
                     pcall(function()
                         o.Enabled=true
-                        if o.ClassName=="BlurEffect" and S._pp[o].Size~=nil then o.Size = math.floor((S._pp[o].Size or 0)*0.5)
-                        elseif S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end
+                        local t=S._pp[o]
+                        if o:IsA("BlurEffect") and t.Size~=nil then o.Size = math.floor((t.Size or 0)*0.5) end
+                        if (o:IsA("BloomEffect") or o:IsA("SunRaysEffect")) and t.Intensity~=nil then o.Intensity = t.Intensity*0.5 end
+                        if o:IsA("DepthOfFieldEffect") then
+                            if t.FarIntensity~=nil  then o.FarIntensity  = t.FarIntensity*0.5 end
+                            if t.NearIntensity~=nil then o.NearIntensity = t.NearIntensity*0.5 end
+                        end
+                        if o:IsA("ColorCorrectionEffect") then
+                            if t.Brightness~=nil then o.Brightness = t.Brightness*0.5 end
+                            if t.Contrast ~=nil then o.Contrast  = t.Contrast *0.5 end
+                            if t.Saturation~=nil then o.Saturation= t.Saturation*0.5 end
+                        end
                     end)
                 elseif S.mode==2 then
                     pcall(function() o.Enabled=false end)
