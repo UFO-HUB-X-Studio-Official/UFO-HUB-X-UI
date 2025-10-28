@@ -1510,51 +1510,68 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- one ListLayout on scroll (A V1 rule)
+    -- === A V1 RULES: one UIListLayout on scroll, no wrappers ===
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- STATE
+    -- === STATE ===
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or {
-        mode=0, plastic=false,
-        _snap={}, _pp={},
-        -- black sky state
+        mode=0, plastic=false, _snap={}, _pp={},
         _skyStore=nil, _madeAtmos=nil, _savedClock=nil, blacksky=false
     }
     local S = _G.UFOX_SMOOTH
 
-    -- Header (unchanged)
+    -- === Header (fixed) ===
     local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
-    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother"; head.LayoutOrder = 10
+    head.Name="A1_Header"
+    head.BackgroundTransparency=1
+    head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold
+    head.TextSize=16
+    head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left
+    head.Text="Smoother"
+    head.LayoutOrder = 10
 
-    -- clear rows with same names
+    -- === Clean only our rows (don’t touch others) ===
     for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic","A1_BlackSky"}) do
         local old = scroll:FindFirstChild(n); if old then old:Destroy() end
     end
 
-    -- row factory (A V1 switch)
+    -- === Row factory (A V1 switch) ===
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
-        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.Name=name
+        row.Size=UDim2.new(1,-6,0,46)
+        row.BackgroundColor3=THEME.BLACK
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder=order
 
         local lab=Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+        lab.BackgroundTransparency=1
+        lab.Size=UDim2.new(1,-160,1,0)
+        lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold
+        lab.TextSize=13
+        lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left
+        lab.Text=label
 
         local sw=Instance.new("Frame", row)
-        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK
+        sw.AnchorPoint=Vector2.new(1,0.5)
+        sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26)
+        sw.BackgroundColor3=THEME.BLACK
         corner(sw,13)
         local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
 
         local knob=Instance.new("Frame", sw)
-        knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
-        knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
+        knob.Size=UDim2.fromOffset(22,22)
+        knob.BackgroundColor3=THEME.WHITE
+        corner(knob,11)
+        knob.Position=UDim2.new(0,2,0.5,-11)
 
         local state=false
         local function setState(v)
@@ -1564,14 +1581,16 @@ registerRight("Settings", function(scroll)
             if onToggle then onToggle(v, setState) end
         end
         local btn=Instance.new("TextButton", sw)
-        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+        btn.BackgroundTransparency=1
+        btn.Size=UDim2.fromScale(1,1)
+        btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
-        row:SetAttribute("Setter", setState) -- (A V1 helper)
+        row:SetAttribute("Setter", setState)
         return setState
     end
 
-    -- ===== FX helpers (same as before) =====
+    -- === FX helpers (full coverage) ===
     local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
     local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
@@ -1629,7 +1648,7 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- ===== Black Sky (Night Mode) — sky only =====
+    -- === Black Sky (Night Mode) — sky only ===
     local function setBlackSky(on)
         if on then
             if not S._skyStore then
@@ -1637,15 +1656,11 @@ registerRight("Settings", function(scroll)
                 S._skyStore.Name = "_UFOX_SKY_STORE"
                 S._skyStore.Parent = Lighting
             end
-            -- save current time once
             if S._savedClock == nil then S._savedClock = Lighting.ClockTime end
-            -- move all Sky to store (sky becomes black)
             for _,s in ipairs(Lighting:GetChildren()) do
                 if s:IsA("Sky") then s.Parent = S._skyStore end
             end
-            -- make it night but keep scene visible (no full black screen)
-            Lighting.ClockTime = 0 -- midnight sky
-            -- optional: ensure there is an Atmosphere but do not darken the world
+            Lighting.ClockTime = 0
             if not Lighting:FindFirstChildOfClass("Atmosphere") then
                 local atm = Instance.new("Atmosphere")
                 atm.Name = "UFOX_BlackSky_Atmos"
@@ -1654,41 +1669,36 @@ registerRight("Settings", function(scroll)
             end
             S.blacksky = true
         else
-            -- restore time
             if S._savedClock ~= nil then pcall(function() Lighting.ClockTime = S._savedClock end) end
-            -- bring Sky back
             if S._skyStore then
                 for _,s in ipairs(S._skyStore:GetChildren()) do
                     if s:IsA("Sky") then s.Parent = Lighting end
                 end
-                if #S._skyStore:GetChildren()==0 then S._skyStore:Destroy() S._skyStore=nil end
+                if #S._skyStore:GetChildren()==0 then S._skyStore:Destroy(); S._skyStore=nil end
             end
-            if S._madeAtmos and S._madeAtmos.Parent then S._madeAtmos:Destroy() S._madeAtmos=nil end
+            if S._madeAtmos and S._madeAtmos.Parent then S._madeAtmos:Destroy(); S._madeAtmos=nil end
             S.blacksky = false
         end
     end
 
-    -- ===== 4 switches (orders 11..14) =====
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
-        if v then
-            S.mode=1; applyHalf()
+    -- === 4 switches (fixed orders 11..14, English labels, no emoji) ===
+    local set50  = makeRow("A1_Reduce",  "Reduce Effects 50%",       11, function(v)
+        if v then S.mode=1; applyHalf()
             local other = scroll:FindFirstChild("A1_Remove"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else if S.mode==1 then S.mode=0; restoreAll() end end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
-        if v then
-            S.mode=2; applyOff()
+    local set100 = makeRow("A1_Remove",  "Remove Effects 100%",      12, function(v)
+        if v then S.mode=2; applyOff()
             local other = scroll:FindFirstChild("A1_Reduce"); if other then local s=other:GetAttribute("Setter"); if s then s(false) end end
         else if S.mode==2 then S.mode=0; restoreAll() end end
     end)
 
-    local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
+    local setPl  = makeRow("A1_Plastic", "Plastic Map (Fast Mode)",  13, function(v)
         S.plastic=v; plasticMode(v)
     end)
 
-    -- #4 in English, no emoji — sky only
-    local setBk  = makeRow("A1_BlackSky","Black Sky (Night Mode)", 14, function(v)
+    local setBk  = makeRow("A1_BlackSky","Black Sky (Night Mode)",   14, function(v)
         setBlackSky(v)
     end)
 end)
