@@ -1516,7 +1516,7 @@ registerRight("Settings", function(scroll)
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     -- STATE
-    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
+    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={}, conns={} }
     local S = _G.UFOX_SMOOTH
 
     -- Header
@@ -1562,6 +1562,9 @@ registerRight("Settings", function(scroll)
         btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
 
+        -- [ADD] expose setter for mutual exclusion / external control
+        row:SetAttribute("Setter", setState)
+
         return setState
     end
 
@@ -1580,6 +1583,8 @@ registerRight("Settings", function(scroll)
             elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
         end)
         S._snap[inst]=t
+        -- [ADD] ถ้าถูกลบ ออก snapshot
+        inst.AncestryChanged:Connect(function(_,p) if not p then S._snap[inst]=nil end end)
     end
     for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
 
@@ -1594,7 +1599,7 @@ registerRight("Settings", function(scroll)
         end) end end
         for _,obj in ipairs(Lighting:GetChildren()) do
             if PP[obj.ClassName] then
-                S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
+                if not S._pp[obj] then S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size} end
                 obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
                 if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
             end
@@ -1643,6 +1648,41 @@ registerRight("Settings", function(scroll)
     local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
         S.plastic=v; plasticMode(v)
     end)
+
+    -- ===== [ADD] Live-catch: จับของใหม่ที่ถูกสร้างหลังจากนี้ และ sync ตามโหมดปัจจุบัน =====
+    for _,c in ipairs(S.conns) do pcall(function() c:Disconnect() end) end
+    S.conns = {
+        workspace.DescendantAdded:Connect(function(d)
+            if d and FX[d.ClassName] then
+                capture(d)
+                if S.mode==1 then -- half
+                    pcall(function()
+                        if d:IsA("ParticleEmitter") then d.Enabled=true; d.Rate = math.floor(((S._snap[d] and S._snap[d].Rate) or d.Rate or 0)*0.5)
+                        elseif d:IsA("Trail") or d:IsA("Beam") then d.Enabled=true; d.Brightness = ((S._snap[d] and S._snap[d].Brightness) or d.Brightness or 1)*0.5
+                        elseif d:IsA("Smoke") then d.Enabled=true; d.Opacity = ((S._snap[d] and S._snap[d].Opacity) or d.Opacity or 1)*0.5
+                        elseif d:IsA("Fire") then d.Enabled=true; d.Heat = ((S._snap[d] and S._snap[d].Heat) or d.Heat or 5)*0.5; d.Size = ((S._snap[d] and S._snap[d].Size) or d.Size or 5)*0.7
+                        elseif d:IsA("Sparkles") then d.Enabled=false end
+                    end)
+                elseif S.mode==2 then -- off
+                    pcall(function() d.Enabled=false end)
+                end
+            end
+        end),
+        Lighting.ChildAdded:Connect(function(o)
+            if o and PP[o.ClassName] then
+                if not S._pp[o] then S._pp[o]={Enabled=o.Enabled, Intensity=o.Intensity, Size=o.Size} end
+                if S.mode==1 then
+                    pcall(function()
+                        o.Enabled=true
+                        if o.ClassName=="BlurEffect" and S._pp[o].Size~=nil then o.Size = math.floor((S._pp[o].Size or 0)*0.5)
+                        elseif S._pp[o].Intensity~=nil then o.Intensity = S._pp[o].Intensity*0.5 end
+                    end)
+                elseif S.mode==2 then
+                    pcall(function() o.Enabled=false end)
+                end
+            end
+        end),
+    }
 end)
 -- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
 -- 1) Black Screen (Performance AFK)  [toggle]
