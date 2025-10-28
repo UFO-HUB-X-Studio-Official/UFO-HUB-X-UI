@@ -1491,7 +1491,7 @@ registerRight("Settings", function(scroll)
     createFPSFrame()
     setSwitch(S.enabled)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows TRUE FX REDUCE) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -1510,11 +1510,12 @@ registerRight("Settings", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- Layout คงเดิม
+    -- Ensure ListLayout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
+    -- STATE
     _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
     local S = _G.UFOX_SMOOTH
 
@@ -1524,12 +1525,12 @@ registerRight("Settings", function(scroll)
     head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
     head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
 
-    -- clear old
+    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง)
     for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do
         local old = scroll:FindFirstChild(n); if old then old:Destroy() end
     end
 
-    -- Factory
+    -- Row factory (always create new)
     local function makeRow(name, label, order, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
@@ -1555,105 +1556,57 @@ registerRight("Settings", function(scroll)
             state=v
             swStroke.Color = v and THEME.GREEN or THEME.RED
             tween(knob, {Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
-            if onToggle then onToggle(v) end
+            if onToggle then onToggle(v, setState) end
         end
         local btn=Instance.new("TextButton", sw)
         btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
         btn.MouseButton1Click:Connect(function() setState(not state) end)
-        row:SetAttribute("Setter", setState)
+
         return setState
     end
 
-    -- รองรับทุกเอฟเฟกต์
-    local FX = {
-        ParticleEmitter=true, Trail=true, Beam=true,
-        Smoke=true, Fire=true, Sparkles=true,
-        PointLight=true, SpotLight=true, SurfaceLight=true, Highlight=true,
-    }
-    local PP = {
-        BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true,
-        SunRaysEffect=true, BlurEffect=true, Atmosphere=true,
-    }
+    -- ===== FX helpers (ย่อ: เหมือนเดิม) =====
+    local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
+    local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
 
-    -- เก็บสถานะเดิม
     local function capture(inst)
         if S._snap[inst] then return end
-        local t = {}
-        pcall(function()
-            if inst:IsA("ParticleEmitter") then t.Enabled=inst.Enabled; t.Rate=inst.Rate end
-            if inst:IsA("Trail") or inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness end
-            if inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity end
-            if inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size end
-            if inst:IsA("Sparkles") or inst:IsA("Highlight") then t.Enabled=inst.Enabled end
-            if inst:IsA("PointLight") or inst:IsA("SpotLight") or inst:IsA("SurfaceLight") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness end
+        local t={}; pcall(function()
+            if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
+            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
+            elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
+            elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
         end)
-        S._snap[inst] = t
+        S._snap[inst]=t
     end
-
     for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
-    for _,o in ipairs(Lighting:GetChildren()) do if PP[o.ClassName] then
-        local t = {}
-        pcall(function()
-            t.Enabled = o.Enabled
-            if o:IsA("BloomEffect") or o:IsA("SunRaysEffect") then t.Intensity = o.Intensity end
-            if o:IsA("BlurEffect") then t.Size=o.Size end
-            if o:IsA("ColorCorrectionEffect") then t.Brightness=o.Brightness; t.Contrast=o.Contrast; t.Saturation=o.Saturation end
-            if o:IsA("Atmosphere") then t.Density=o.Density; t.Haze=o.Haze; t.Glare=o.Glare end
-        end)
-        S._pp[o]=t
-    end end
 
     local function applyHalf()
-        for i,t in pairs(S._snap) do
-            if i and i.Parent then
-                pcall(function()
-                    if i:IsA("ParticleEmitter") then i.Enabled=true; i.Rate = math.floor((t.Rate or 10)*0.5) end
-                    if i:IsA("Trail") or i:IsA("Beam") then i.Enabled=true; i.Brightness = (t.Brightness or 1)*0.5 end
-                    if i:IsA("Smoke") then i.Enabled=true; i.Opacity = (t.Opacity or 1)*0.5 end
-                    if i:IsA("Fire") then i.Enabled=true; i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7 end
-                    if i:IsA("Sparkles") or i:IsA("Highlight") then i.Enabled=false end
-                    if i:IsA("PointLight") or i:IsA("SpotLight") or i:IsA("SurfaceLight") then i.Enabled=true; i.Brightness=(t.Brightness or 1)*0.5 end
-                end)
-            end
-        end
-        for o,t in pairs(S._pp) do
-            if o and o.Parent then
-                pcall(function()
-                    o.Enabled=true
-                    if o:IsA("BloomEffect") or o:IsA("SunRaysEffect") then o.Intensity=(t.Intensity or 1)*0.5 end
-                    if o:IsA("BlurEffect") then o.Size = math.floor((t.Size or 0)*0.5) end
-                    if o:IsA("ColorCorrectionEffect") then o.Brightness=(t.Brightness or 0)*0.5; o.Contrast=(t.Contrast or 0)*0.5; o.Saturation=(t.Saturation or 0)*0.5 end
-                    if o:IsA("Atmosphere") then o.Density=(t.Density or 0)*0.5; o.Haze=(t.Haze or 0)*0.5; o.Glare=(t.Glare or 0)*0.5 end
-                end)
+        for i,t in pairs(S._snap) do if i.Parent then pcall(function()
+            if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
+            elseif i:IsA("Trail") then i.Brightness=(t.Brightness or 1)*0.5
+            elseif i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
+            elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
+            elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
+            elseif i:IsA("Sparkles") then i.Enabled=false end
+        end) end end
+        for _,obj in ipairs(Lighting:GetChildren()) do
+            if PP[obj.ClassName] then
+                S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
+                obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
+                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
             end
         end
     end
-
     local function applyOff()
-        for i,_ in pairs(S._snap) do
-            if i and i.Parent then
-                pcall(function()
-                    if i:IsA("ParticleEmitter") then i.Enabled=false; i.Rate=0 end
-                    if i:IsA("Trail") or i:IsA("Beam") then i.Enabled=false; i.Brightness=0 end
-                    if i:IsA("Smoke") then i.Enabled=false; i.Opacity=0 end
-                    if i:IsA("Fire") then i.Enabled=false; i.Heat=0; i.Size=0 end
-                    if i:IsA("Sparkles") or i:IsA("Highlight") then i.Enabled=false end
-                    if i:IsA("PointLight") or i:IsA("SpotLight") or i:IsA("SurfaceLight") then i.Enabled=false; i.Brightness=0 end
-                end)
-            end
-        end
-        for o,_ in pairs(S._pp) do
-            if o and o.Parent then
-                pcall(function()
-                    if o:IsA("Atmosphere") then o.Density=0; o.Haze=0; o.Glare=0 else o.Enabled=false end
-                end)
-            end
-        end
+        for i,_ in pairs(S._snap) do if i.Parent then pcall(function() i.Enabled=false end) end end
+        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then obj.Enabled=false end end
     end
-
     local function restoreAll()
-        for i,t in pairs(S._snap) do if i and i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
-        for o,t in pairs(S._pp)   do if o and o.Parent then for k,v in pairs(t) do pcall(function() o[k]=v end) end end end
+        for i,t in pairs(S._snap) do if i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
+        for obj,t in pairs(S._pp)   do if obj.Parent then for k,v in pairs(t) do pcall(function() obj[k]=v end) end end end
     end
 
     local function plasticMode(on)
@@ -1671,15 +1624,16 @@ registerRight("Settings", function(scroll)
         end
     end
 
-    -- UI Switches
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
+    -- ===== 3 switches (fixed orders 11/12/13) =====
+    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v, set)
         if v then S.mode=1; applyHalf()
+            -- force other off
             local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter")
             if setter then setter(false) end
         else if S.mode==1 then S.mode=0; restoreAll() end end
     end)
 
-    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
+    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v, set)
         if v then S.mode=2; applyOff()
             local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter")
             if setter then setter(false) end
