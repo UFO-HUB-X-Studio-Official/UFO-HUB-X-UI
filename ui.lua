@@ -2156,6 +2156,65 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • single row) =====
+registerRight("Shop", function(scroll)
+    local TweenService = game:GetService("TweenService")
+
+    -- THEME (A V1)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+    local function corner(ui,r)
+        local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui
+    end
+    local function stroke(ui,th,col)
+        local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN
+        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui
+    end
+
+    -- A V1 rule: exactly one UIListLayout on scroll
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- Header (use emoji as requested)
+    if not scroll:FindFirstChild("MAX_Header") then
+        local head = Instance.new("TextLabel", scroll)
+        head.Name="MAX_Header"
+        head.BackgroundTransparency=1
+        head.Size=UDim2.new(1,0,0,36)
+        head.Font=Enum.Font.GothamBold
+        head.TextSize=16
+        head.TextColor3=THEME.TEXT
+        head.TextXAlignment=Enum.TextXAlignment.Left
+        head.Text = "MAX 🛸"
+        head.LayoutOrder = 10
+    end
+
+    -- Single row: text = "MAX" (no extra systems)
+    if not scroll:FindFirstChild("MAX_Row1") then
+        local row = Instance.new("Frame", scroll)
+        row.Name="MAX_Row1"
+        row.Size=UDim2.new(1,-6,0,46)
+        row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=11
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
+
+        local lab=Instance.new("TextLabel", row)
+        lab.BackgroundTransparency=1
+        lab.Position=UDim2.new(0,16,0,0)
+        lab.Size=UDim2.new(1,-32,1,0)
+        lab.Font=Enum.Font.GothamBold
+        lab.TextSize=13
+        lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left
+        lab.Text="MAX"
+    end
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
