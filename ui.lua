@@ -2014,12 +2014,12 @@ registerRight("Server", function(scroll)
     Players.PlayerAdded:Connect(updateCount)
     Players.PlayerRemoving:Connect(updateCount)
 end)
--- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1) =====
+-- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • enhanced join parser) =====
 registerRight("Server", function(scroll)
-    local Players        = game:GetService("Players")
-    local TeleportService= game:GetService("TeleportService")
-    local TweenService   = game:GetService("TweenService")
-    local lp             = Players.LocalPlayer
+    local Players         = game:GetService("Players")
+    local TeleportService = game:GetService("TeleportService")
+    local TweenService    = game:GetService("TweenService")
+    local lp              = Players.LocalPlayer
 
     -- THEME (A V1)
     local THEME = {
@@ -2035,12 +2035,12 @@ registerRight("Server", function(scroll)
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
     local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
 
-    -- A V1: ensure exactly one ListLayout on `scroll`
+    -- A V1: one ListLayout on scroll
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- ------ Header (Server ID 🔑) ------
+    -- Header
     if not scroll:FindFirstChild("SID_Header") then
         local head = Instance.new("TextLabel", scroll)
         head.Name="SID_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
@@ -2049,7 +2049,7 @@ registerRight("Server", function(scroll)
         head.LayoutOrder = 2000
     end
 
-    -- small helpers
+    -- Helpers
     local function makeRow(name, label, order)
         if scroll:FindFirstChild(name) then return scroll[name] end
         local row = Instance.new("Frame", scroll)
@@ -2074,38 +2074,78 @@ registerRight("Server", function(scroll)
     local function makeRightInput(parent, placeholder)
         local boxWrap = Instance.new("Frame", parent)
         boxWrap.AnchorPoint=Vector2.new(1,0.5); boxWrap.Position=UDim2.new(1,-12,0.5,0)
-        boxWrap.Size=UDim2.fromOffset(220,28); boxWrap.BackgroundColor3=THEME.BLACK; corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
+        boxWrap.Size=UDim2.fromOffset(300,28); boxWrap.BackgroundColor3=THEME.BLACK; corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
         local tb = Instance.new("TextBox", boxWrap)
         tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
         tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE; tb.ClearTextOnFocus=false
-        tb.PlaceholderText = placeholder or "Enter Server JobId…"
+        tb.PlaceholderText = placeholder or "Paste JobId / VIP link / roblox:// link…"
         tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         tb.TextXAlignment = Enum.TextXAlignment.Left
         return tb
     end
 
-    -- Keep a single shared input across rows
-    local inputRow = makeRow("SID_Input", "Server ID (JobId)", 2001)
-    local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
-    if not inputBox then inputBox = makeRightInput(inputRow, "e.g. 5c3e1c1a-xxxx-xxxx-xxxx-aaaaaaaaaaaa") end
+    -- Parser: accepts JobId, VIP/private link, or roblox:// deep-link
+    local function trim(s) return (s or ""):gsub("^%s+",""):gsub("%s+$","") end
+    local function parseInputToTeleport(infoText)
+        local t = trim(infoText)
 
-    -- Row #2: Confirm (Join by ID)
-    local joinRow = makeRow("SID_Join", "Join by this Server ID", 2002)
+        -- roblox deep-link: roblox://experiences/start?placeId=...&gameInstanceId=GUID
+        local deep_place = t:match("[?&]placeId=(%d+)")
+        local deep_job   = t:match("[?&]gameInstanceId=([%w%-]+)")
+
+        -- VIP/private link: ...?privateServerLinkCode=XXXX&placeId=12345
+        local priv_code  = t:match("[?&]privateServerLinkCode=([%w%-%_]+)")
+        local priv_place = t:match("[?&]placeId=(%d+)")
+
+        -- plain GUID (JobId)
+        local plain_job = t:match("(%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x)")
+        if not plain_job and deep_job and #deep_job >= 32 then plain_job = deep_job end
+
+        if priv_code then
+            return { mode="private", placeId = tonumber(priv_place) or game.PlaceId, code = priv_code }
+        elseif deep_job or plain_job then
+            local jobId = deep_job or plain_job
+            return { mode="public", placeId = tonumber(deep_place) or game.PlaceId, jobId = jobId }
+        else
+            return nil, "Invalid input. Paste a JobId, a VIP link (privateServerLinkCode=...), or a roblox:// link."
+        end
+    end
+
+    -- Row #1: input
+    local inputRow = makeRow("SID_Input", "Server ID / Link", 2001)
+    local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
+    if not inputBox then inputBox = makeRightInput(inputRow, "e.g. JobId or VIP link or roblox://...") end
+
+    -- Row #2: Confirm (Join by input)
+    local joinRow = makeRow("SID_Join", "Join by this Server", 2002)
     if not joinRow:FindFirstChildOfClass("TextButton") then
-        local joinBtn = makeActionButton(joinRow, "Join by ID")
+        local joinBtn = makeActionButton(joinRow, "Join")
         joinBtn.MouseButton1Click:Connect(function()
-            local jobId = (inputBox.Text or ""):gsub("%s","")
-            if jobId == "" then
-                notify("Server ID", "Please enter a valid JobId first.")
-                return
+            local raw = inputBox.Text or ""
+            local target, err = parseInputToTeleport(raw)
+            if not target then notify("Server ID", err); return end
+
+            if target.mode=="public" and tostring(target.jobId)==tostring(game.JobId) then
+                notify("Server ID", "You are already in this server."); return
             end
-            local ok,err = pcall(function()
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, lp)
-            end)
-            if not ok then
-                notify("Teleport Failed", tostring(err))
+
+            local ok, msg = false, nil
+            if target.mode=="private" then
+                ok, msg = pcall(function()
+                    TeleportService:TeleportToPrivateServer(target.placeId, target.code, {lp})
+                end)
             else
-                notify("Teleporting…","Joining server: "..string.sub(jobId,1,8).."…")
+                ok, msg = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(target.placeId, target.jobId, lp)
+                end)
+            end
+
+            if not ok then
+                notify("Teleport Failed", tostring(msg))
+            else
+                local tip = (target.mode=="private") and ("privateCode:"..string.sub(target.code,1,6).."…")
+                                                   or  ("JobId:"..string.sub(target.jobId,1,8).."…")
+                notify("Teleporting…", tip)
             end
         end)
     end
@@ -2116,14 +2156,13 @@ registerRight("Server", function(scroll)
         local copyBtn = makeActionButton(copyRow, "Copy ID")
         copyBtn.MouseButton1Click:Connect(function()
             local id = tostring(game.JobId or "")
-            local ok = pcall(function() setclipboard(id) end) -- will work if environment permits
+            local ok = pcall(function() setclipboard(id) end)
             if ok then
                 notify("Copied","Server ID copied:\n"..id)
             else
-                notify("Server ID", "Current ID:\n"..id.."\n(copy manually)")
+                notify("Server ID","Current ID:\n"..id.."\n(copy manually)")
             end
-            -- auto put into input box for convenience
-            if inputBox and id ~= "" then inputBox.Text = id end
+            if inputBox and id~="" then inputBox.Text = id end
         end)
     end
 end)
