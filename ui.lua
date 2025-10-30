@@ -2157,7 +2157,8 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • fixed side panel, MAX 1..10, sticky multi-select FX, text-safe labels, search works on labels
+-- A V1 • fixed right panel, MAX 1..10, sticky multi-select FX (no white glow), text-safe labels,
+--        end-of-list NOT clipped (canvas size includes bottom padding)
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
@@ -2266,17 +2267,16 @@ registerRight("Shop", function(scroll)
         local v=Instance.new("UIListLayout",listWrap)
         v.Padding=UDim.new(0,GAP) v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        -- ===== Item factory (TEXT SAFE) =====
+        -- ===== Item factory (TEXT SAFE)  — no “white” FX (no UIGradient/white highlight) =====
         local function makeItem(txt)
             local btn=Instance.new("TextButton", listWrap)
             btn.AutoButtonColor=false
             btn.Size=UDim2.new(1,0,0,SLOT_HEIGHT)
             btn.BackgroundColor3=THEME.BLACK
-            btn.Text=""  -- ป้องกันตัวหนังสือโดนเอฟเฟกต์
+            btn.Text=""  -- text moved to label
             btn.ZIndex=2
             corner(btn,8)
 
-            -- label อยู่บนสุด
             local lbl=Instance.new("TextLabel", btn)
             lbl.Name="Label" lbl.BackgroundTransparency=1
             lbl.Size=UDim2.fromScale(1,1) lbl.Position=UDim2.fromScale(0,0)
@@ -2284,7 +2284,7 @@ registerRight("Shop", function(scroll)
             lbl.TextColor3=THEME.WHITE lbl.TextXAlignment=Enum.TextXAlignment.Center lbl.TextYAlignment=Enum.TextYAlignment.Center
             lbl.ZIndex=10 lbl.Text=txt
 
-            -- base border (บาง/หม่น)
+            -- base border (start thin+dim)
             local base=stroke(btn,1.4,THEME.GREEN,0.35)
 
             -- left indicator bar
@@ -2293,26 +2293,20 @@ registerRight("Shop", function(scroll)
             bar.Position=UDim2.new(0,2,0,2) bar.Size=UDim2.new(0,4,1,-4) bar.Visible=false
             corner(bar,3)
 
-            -- inner subtle line
+            -- subtle inner line (green, not white)
             local inset=Instance.new("UIStroke", btn)
             inset.Thickness=1.0 inset.Color=THEME.GREEN inset.Transparency=0.55
             inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- outer glow
+            -- outer green glow (no white)
             local glow=Instance.new("UIStroke", btn)
             glow.Thickness=5.2 glow.Color=THEME.GREEN glow.Transparency=1
             glow.LineJoinMode=Enum.LineJoinMode.Round glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- bg แยก (อยู่ใต้ label)
+            -- solid dark selected bg (no gradient/white)
             local bg=Instance.new("Frame", btn)
             bg.Name="SelBg" bg.BackgroundColor3=THEME.SELBG bg.Visible=false bg.ZIndex=1
             bg.Size=UDim2.fromScale(1,1) bg.Position=UDim2.new(0,0,0,0) corner(bg,8)
-            local grad=Instance.new("UIGradient", bg)
-            grad.Color=ColorSequence.new{
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(10,30,10)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))
-            }
-            grad.Rotation=90
 
             -- state + visuals
             btn:SetAttribute("Selected", false)
@@ -2320,13 +2314,13 @@ registerRight("Shop", function(scroll)
                 if sel then
                     bar.Visible=true
                     bg.Visible=true
-                    tween(base,{Thickness=1.8,Transparency=0},0.08)   -- ชัดแบบปุ่มซ้าย
+                    tween(base,{Thickness=1.8,Transparency=0},0.08)
                     glow.Transparency=0.08
                     tween(glow,{Thickness=6.0},0.08); tween(glow,{Thickness=5.2},0.10)
                 else
                     bar.Visible=false
                     bg.Visible=false
-                    tween(base,{Thickness=1.4,Transparency=0.35},0.08) -- กลับบาง/หม่น
+                    tween(base,{Thickness=1.4,Transparency=0.35},0.08)
                     tween(glow,{Transparency=1},0.08)
                 end
             end
@@ -2334,9 +2328,10 @@ registerRight("Shop", function(scroll)
             btn.MouseButton1Click:Connect(function()
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
-                setVisual(sel) -- ติดค้าง/ปลดค้าง
+                setVisual(sel)
             end)
 
+            -- no white hover flash
             btn.MouseEnter:Connect(function()
                 if not btn:GetAttribute("Selected") then tween(btn,{BackgroundColor3=THEME.GREY},0.08) end
             end)
@@ -2351,15 +2346,21 @@ registerRight("Shop", function(scroll)
         local ITEMS={}
         for i=1,10 do ITEMS[i]=makeItem(("MAX %d"):format(i)) end
 
-        -- Canvas auto
-        local function recalc() task.defer(function() listWrap.CanvasSize=UDim2.new(0,0,0,v.AbsoluteContentSize.Y+SLOT_TOP) end) end
+        -- Canvas auto (includes top+bottom padding so the last item is NOT clipped)
+        local function recalc()
+            task.defer(function()
+                local topPad   = pad.PaddingTop.Offset
+                local bottomPad= pad.PaddingBottom.Offset
+                listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + topPad + bottomPad)
+            end)
+        end
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc) recalc()
 
-        -- Search on label text (คงสถานะเลือก)
+        -- Search on label text (keeps selection)
         local function applySearch(q)
             q=string.lower(q or "")
             for _,b in ipairs(ITEMS) do
-                local t = b:FindFirstChild("Label") and b.Label.Text or ""
+                local t = (b:FindFirstChild("Label") and b.Label.Text) or ""
                 b.Visible = (q=="" or string.find(string.lower(t), q, 1, true))
             end
             recalc()
