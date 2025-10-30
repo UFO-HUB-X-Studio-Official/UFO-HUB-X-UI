@@ -2014,7 +2014,7 @@ registerRight("Server", function(scroll)
     Players.PlayerAdded:Connect(updateCount)
     Players.PlayerRemoving:Connect(updateCount)
 end)
--- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • enhanced join parser) =====
+-- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • black button style) =====
 registerRight("Server", function(scroll)
     local Players         = game:GetService("Players")
     local TeleportService = game:GetService("TeleportService")
@@ -2035,7 +2035,7 @@ registerRight("Server", function(scroll)
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
     local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
 
-    -- A V1: one ListLayout on scroll
+    -- Layout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -2064,11 +2064,11 @@ registerRight("Server", function(scroll)
     local function makeActionButton(parent, text)
         local btn = Instance.new("TextButton", parent)
         btn.AutoButtonColor=false; btn.Text=text; btn.Font=Enum.Font.GothamBold; btn.TextSize=13
-        btn.TextColor3=THEME.BLACK; btn.BackgroundColor3=THEME.GREEN
+        btn.TextColor3=THEME.WHITE; btn.BackgroundColor3=THEME.BLACK
         btn.Size=UDim2.fromOffset(120,28); btn.AnchorPoint=Vector2.new(1,0.5); btn.Position=UDim2.new(1,-12,0.5,0)
         corner(btn,10); stroke(btn,1.6,THEME.GREEN)
-        btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=Color3.fromRGB(35,255,165)},0.08) end)
-        btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=THEME.GREEN},0.08) end)
+        btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=THEME.GREY},0.08) end)
+        btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=THEME.BLACK},0.08) end)
         return btn
     end
     local function makeRightInput(parent, placeholder)
@@ -2084,23 +2084,16 @@ registerRight("Server", function(scroll)
         return tb
     end
 
-    -- Parser: accepts JobId, VIP/private link, or roblox:// deep-link
+    -- Parser
     local function trim(s) return (s or ""):gsub("^%s+",""):gsub("%s+$","") end
     local function parseInputToTeleport(infoText)
         local t = trim(infoText)
-
-        -- roblox deep-link: roblox://experiences/start?placeId=...&gameInstanceId=GUID
         local deep_place = t:match("[?&]placeId=(%d+)")
         local deep_job   = t:match("[?&]gameInstanceId=([%w%-]+)")
-
-        -- VIP/private link: ...?privateServerLinkCode=XXXX&placeId=12345
         local priv_code  = t:match("[?&]privateServerLinkCode=([%w%-%_]+)")
         local priv_place = t:match("[?&]placeId=(%d+)")
-
-        -- plain GUID (JobId)
-        local plain_job = t:match("(%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x)")
+        local plain_job  = t:match("(%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x)")
         if not plain_job and deep_job and #deep_job >= 32 then plain_job = deep_job end
-
         if priv_code then
             return { mode="private", placeId = tonumber(priv_place) or game.PlaceId, code = priv_code }
         elseif deep_job or plain_job then
@@ -2116,7 +2109,7 @@ registerRight("Server", function(scroll)
     local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
     if not inputBox then inputBox = makeRightInput(inputRow, "e.g. JobId or VIP link or roblox://...") end
 
-    -- Row #2: Confirm (Join by input)
+    -- Row #2: Join
     local joinRow = makeRow("SID_Join", "Join by this Server", 2002)
     if not joinRow:FindFirstChildOfClass("TextButton") then
         local joinBtn = makeActionButton(joinRow, "Join")
@@ -2124,11 +2117,9 @@ registerRight("Server", function(scroll)
             local raw = inputBox.Text or ""
             local target, err = parseInputToTeleport(raw)
             if not target then notify("Server ID", err); return end
-
             if target.mode=="public" and tostring(target.jobId)==tostring(game.JobId) then
                 notify("Server ID", "You are already in this server."); return
             end
-
             local ok, msg = false, nil
             if target.mode=="private" then
                 ok, msg = pcall(function()
@@ -2139,7 +2130,6 @@ registerRight("Server", function(scroll)
                     TeleportService:TeleportToPlaceInstance(target.placeId, target.jobId, lp)
                 end)
             end
-
             if not ok then
                 notify("Teleport Failed", tostring(msg))
             else
@@ -2150,7 +2140,7 @@ registerRight("Server", function(scroll)
         end)
     end
 
-    -- Row #3: Copy current Server ID
+    -- Row #3: Copy ID
     local copyRow = makeRow("SID_Copy", "Copy current Server ID", 2003)
     if not copyRow:FindFirstChildOfClass("TextButton") then
         local copyBtn = makeActionButton(copyRow, "Copy ID")
