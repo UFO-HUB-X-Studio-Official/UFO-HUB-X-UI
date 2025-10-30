@@ -2156,7 +2156,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Server — System #3: Server Player 🧭 (A V1 • join by player) =====
+-- ===== UFO HUB X • Server — System #3: Server Player 🧭 (A V1 • clean textbox + Thai label) =====
 registerRight("Server", function(scroll)
     local Players          = game:GetService("Players")
     local TeleportService  = game:GetService("TeleportService")
@@ -2174,15 +2174,15 @@ registerRight("Server", function(scroll)
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad,Enum.EasingDirection.Out), p):Play() end
     local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
 
-    -- A V1: exactly one ListLayout on scroll
+    -- Layout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- ---------- Header ----------
+    -- Header
     if not scroll:FindFirstChild("SP_Header") then
         local head = Instance.new("TextLabel", scroll)
         head.Name="SP_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
@@ -2191,7 +2191,7 @@ registerRight("Server", function(scroll)
         head.LayoutOrder = 2100
     end
 
-    -- ---------- Helpers ----------
+    -- Helpers
     local function makeRow(name, label, order)
         if scroll:FindFirstChild(name) then return scroll[name] end
         local row = Instance.new("Frame", scroll)
@@ -2216,54 +2216,56 @@ registerRight("Server", function(scroll)
     local function makeRightInput(parent, placeholder)
         local boxWrap = Instance.new("Frame", parent)
         boxWrap.AnchorPoint=Vector2.new(1,0.5); boxWrap.Position=UDim2.new(1,-12,0.5,0)
-        boxWrap.Size=UDim2.fromOffset(300,28); boxWrap.BackgroundColor3=THEME.BLACK; corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
+        boxWrap.Size=UDim2.fromOffset(300,28); boxWrap.BackgroundColor3=THEME.BLACK
+        corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
         local tb = Instance.new("TextBox", boxWrap)
         tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
-        tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE; tb.ClearTextOnFocus=false
-        tb.PlaceholderText = placeholder or "Enter username (@name) or UserId"
+        tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE
+        tb.ClearTextOnFocus=false
+        tb.Text = "" -- ลบค่า TextBox เริ่มต้น
+        tb.PlaceholderText = placeholder or "Enter username (English only)"
         tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         tb.TextXAlignment = Enum.TextXAlignment.Left
         return tb
     end
 
-    -- ---------- Resolve name -> userId ----------
+    -- Convert name → userId
     local function toUserId(text)
         local s = tostring(text or ""):gsub("^%s+",""):gsub("%s+$","")
         if s == "" then return nil, "Please enter a player name or UserId." end
-        -- numeric?
         if tonumber(s) then return tonumber(s) end
-        -- allow "@username"
         s = s:gsub("^@","")
         local ok, uid = pcall(function() return Players:GetUserIdFromNameAsync(s) end)
         if ok and uid then return uid else return nil, "Username not found." end
     end
 
-    -- ---------- Rows ----------
-    -- Row 1: input player name
-    local inputRow = makeRow("SP_Input", "Player Name / UserId", 2101)
+    -- Row 1: input
+    local inputRow = makeRow("SP_Input", "ใส่ชื่อ (ภาษาอังกฤษ)", 2101)
     local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
-    if not inputBox then inputBox = makeRightInput(inputRow) end
+    if not inputBox then
+        inputBox = makeRightInput(inputRow)
+    else
+        if inputBox.Text == "TextBox" then inputBox.Text = "" end
+    end
 
     -- Row 2: confirm join
-    local joinRow = makeRow("SP_Join", "Go to this Player's server", 2102)
+    local joinRow = makeRow("SP_Join", "ไปยังเซิร์ฟเวอร์ของผู้เล่นนี้", 2102)
     if not joinRow:FindFirstChildOfClass("TextButton") then
         local goBtn = makeBlackButton(joinRow, "Go to Player")
         goBtn.MouseButton1Click:Connect(function()
             local uid, err = toUserId(inputBox.Text)
             if not uid then notify("Server Player", err); return end
 
-            -- Ask Roblox which place/server that user is in (public/allowed only)
             local ok, info = pcall(function()
-                return TeleportService:GetPlayerPlaceInstanceAsync(uid) -- returns {PlaceId=x, JobId="..."} or errors
+                return TeleportService:GetPlayerPlaceInstanceAsync(uid)
             end)
             if not ok or not info or not info.PlaceId or not info.JobId or info.JobId == "" then
-                notify("Server Player", "Cannot find a joinable server for this player.\n(They might be offline or in a private server.)")
+                notify("Server Player","ไม่พบเซิร์ฟเวอร์ของผู้เล่นนี้\n(อาจออฟไลน์หรืออยู่ใน Private Server)")
                 return
             end
 
-            -- Avoid teleporting to the same server
             if tostring(info.JobId) == tostring(game.JobId) then
-                notify("Server Player", "You are already in the same server.")
+                notify("Server Player","คุณอยู่ในเซิร์ฟเวอร์เดียวกันแล้ว")
                 return
             end
 
