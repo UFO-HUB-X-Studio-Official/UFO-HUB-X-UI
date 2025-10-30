@@ -2157,8 +2157,8 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • fixed right panel, MAX 1..10, sticky multi-select FX (no white glow), text-safe labels,
---        end-of-list NOT clipped (canvas size includes bottom padding)
+-- A V1 • fixed right panel, MAX 1..10, sticky multi-select FX (no WHITE overlay anywhere),
+--        text-safe labels, end-of-list not clipped
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
@@ -2171,12 +2171,23 @@ registerRight("Shop", function(scroll)
         GREY  = Color3.fromRGB(60,60,65),
         SELBG = Color3.fromRGB(18,18,18),
     }
+
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col,trans)
         local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN
         s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Transparency=trans or 0 s.Parent=ui return s
     end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function killWhiteOverlay(btn)
+        -- block Roblox default white selection highlight (gamepad/touch focus)
+        btn.AutoButtonColor = false
+        btn.Style = Enum.ButtonStyle.Custom
+        local dummy = Instance.new("ImageLabel")
+        dummy.BackgroundTransparency = 1
+        dummy.ImageTransparency = 1
+        dummy.Size = UDim2.fromScale(1,1)
+        btn.SelectionImageObject = dummy
+    end
 
     -- A V1: one ListLayout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
@@ -2203,13 +2214,14 @@ registerRight("Shop", function(scroll)
 
         local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
         local openBtn=Instance.new("TextButton",row)
-        openBtn.Name="MAX_InputButton" openBtn.AutoButtonColor=false
+        openBtn.Name="MAX_InputButton"
         openBtn.Size=UDim2.fromOffset(BTN_W,BTN_H)
         openBtn.Position=UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
         openBtn.BackgroundColor3=THEME.BLACK
         openBtn.Text="Select Options 🛸" openBtn.Font=Enum.Font.GothamBold openBtn.TextSize=12
         openBtn.TextColor3=THEME.WHITE openBtn.TextXAlignment=Enum.TextXAlignment.Center openBtn.TextYAlignment=Enum.TextYAlignment.Center
         corner(openBtn,10) stroke(openBtn,1.6,THEME.GREEN)
+        killWhiteOverlay(openBtn)
         openBtn.MouseEnter:Connect(function() tween(openBtn,{BackgroundColor3=THEME.GREY},0.08) end)
         openBtn.MouseLeave:Connect(function() tween(openBtn,{BackgroundColor3=THEME.BLACK},0.08) end)
     end
@@ -2267,15 +2279,15 @@ registerRight("Shop", function(scroll)
         local v=Instance.new("UIListLayout",listWrap)
         v.Padding=UDim.new(0,GAP) v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        -- ===== Item factory (TEXT SAFE)  — no “white” FX (no UIGradient/white highlight) =====
+        -- ===== Item factory (TEXT SAFE) — NO WHITE OVERLAY =====
         local function makeItem(txt)
             local btn=Instance.new("TextButton", listWrap)
-            btn.AutoButtonColor=false
             btn.Size=UDim2.new(1,0,0,SLOT_HEIGHT)
             btn.BackgroundColor3=THEME.BLACK
             btn.Text=""  -- text moved to label
             btn.ZIndex=2
             corner(btn,8)
+            killWhiteOverlay(btn)
 
             local lbl=Instance.new("TextLabel", btn)
             lbl.Name="Label" lbl.BackgroundTransparency=1
@@ -2293,17 +2305,17 @@ registerRight("Shop", function(scroll)
             bar.Position=UDim2.new(0,2,0,2) bar.Size=UDim2.new(0,4,1,-4) bar.Visible=false
             corner(bar,3)
 
-            -- subtle inner line (green, not white)
+            -- inner subtle line (green)
             local inset=Instance.new("UIStroke", btn)
             inset.Thickness=1.0 inset.Color=THEME.GREEN inset.Transparency=0.55
             inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- outer green glow (no white)
+            -- outer green glow
             local glow=Instance.new("UIStroke", btn)
             glow.Thickness=5.2 glow.Color=THEME.GREEN glow.Transparency=1
             glow.LineJoinMode=Enum.LineJoinMode.Round glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- solid dark selected bg (no gradient/white)
+            -- solid dark selected bg
             local bg=Instance.new("Frame", btn)
             bg.Name="SelBg" bg.BackgroundColor3=THEME.SELBG bg.Visible=false bg.ZIndex=1
             bg.Size=UDim2.fromScale(1,1) bg.Position=UDim2.new(0,0,0,0) corner(bg,8)
@@ -2314,14 +2326,15 @@ registerRight("Shop", function(scroll)
                 if sel then
                     bar.Visible=true
                     bg.Visible=true
-                    tween(base,{Thickness=1.8,Transparency=0},0.08)
+                    TweenService:Create(base, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Thickness=1.8,Transparency=0}):Play()
                     glow.Transparency=0.08
-                    tween(glow,{Thickness=6.0},0.08); tween(glow,{Thickness=5.2},0.10)
+                    TweenService:Create(glow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Thickness=6.0}):Play()
+                    TweenService:Create(glow, TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Thickness=5.2}):Play()
                 else
                     bar.Visible=false
                     bg.Visible=false
-                    tween(base,{Thickness=1.4,Transparency=0.35},0.08)
-                    tween(glow,{Transparency=1},0.08)
+                    TweenService:Create(base, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Thickness=1.4,Transparency=0.35}):Play()
+                    TweenService:Create(glow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency=1}):Play()
                 end
             end
 
@@ -2331,7 +2344,6 @@ registerRight("Shop", function(scroll)
                 setVisual(sel)
             end)
 
-            -- no white hover flash
             btn.MouseEnter:Connect(function()
                 if not btn:GetAttribute("Selected") then tween(btn,{BackgroundColor3=THEME.GREY},0.08) end
             end)
@@ -2346,7 +2358,7 @@ registerRight("Shop", function(scroll)
         local ITEMS={}
         for i=1,10 do ITEMS[i]=makeItem(("MAX %d"):format(i)) end
 
-        -- Canvas auto (includes top+bottom padding so the last item is NOT clipped)
+        -- Canvas auto (include padding so last item not clipped)
         local function recalc()
             task.defer(function()
                 local topPad   = pad.PaddingTop.Offset
