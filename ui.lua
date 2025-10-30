@@ -2156,9 +2156,11 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • single row) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • search side panel) =====
 registerRight("Shop", function(scroll)
+    local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
 
     -- THEME (A V1)
     local THEME = {
@@ -2166,53 +2168,153 @@ registerRight("Shop", function(scroll)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
+        GREY  = Color3.fromRGB(60,60,65),
     }
-    local function corner(ui,r)
-        local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui
-    end
-    local function stroke(ui,th,col)
-        local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN
-        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui
-    end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- A V1 rule: exactly one UIListLayout on scroll
+    -- A V1: one UIListLayout on scroll
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Header (use emoji as requested)
+    -- Header
     if not scroll:FindFirstChild("MAX_Header") then
         local head = Instance.new("TextLabel", scroll)
-        head.Name="MAX_Header"
-        head.BackgroundTransparency=1
-        head.Size=UDim2.new(1,0,0,36)
-        head.Font=Enum.Font.GothamBold
-        head.TextSize=16
-        head.TextColor3=THEME.TEXT
-        head.TextXAlignment=Enum.TextXAlignment.Left
-        head.Text = "MAX 🛸"
-        head.LayoutOrder = 10
+        head.Name="MAX_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+        head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+        head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="MAX 🛸"; head.LayoutOrder = 10
     end
 
-    -- Single row: text = "MAX" (no extra systems)
-    if not scroll:FindFirstChild("MAX_Row1") then
-        local row = Instance.new("Frame", scroll)
-        row.Name="MAX_Row1"
-        row.Size=UDim2.new(1,-6,0,46)
-        row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=11
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
+    -- Row with "MAX" + clickable input area (สีดำ ขอบเขียว)
+    local row = scroll:FindFirstChild("MAX_Row1")
+    if not row then
+        row = Instance.new("Frame", scroll)
+        row.Name="MAX_Row1"; row.Size=UDim2.new(1,-6,0,60)
+        row.BackgroundColor3=THEME.BLACK; row.LayoutOrder=11; corner(row,12); stroke(row,2.2,THEME.GREEN)
 
         local lab=Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1
-        lab.Position=UDim2.new(0,16,0,0)
-        lab.Size=UDim2.new(1,-32,1,0)
-        lab.Font=Enum.Font.GothamBold
-        lab.TextSize=13
-        lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left
-        lab.Text="MAX"
+        lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,16,0,0); lab.Size=UDim2.new(0.35, -16, 1, 0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="MAX"
+
+        local input = Instance.new("TextButton", row)  -- ใช้เป็นปุ่ม/ช่องให้กด (ไม่ต้องพิมพ์)
+        input.Name="MAX_InputButton"
+        input.AutoButtonColor=false
+        input.Size=UDim2.new(0.60, 0, 0, 34)
+        input.Position=UDim2.new(0.38, 0, 0.5, -17)
+        input.Text=""
+        input.BackgroundColor3=THEME.BLACK
+        corner(input,10); stroke(input,1.8,THEME.GREEN)
+        input.MouseEnter:Connect(function() tween(input,{BackgroundColor3=THEME.GREY},0.08) end)
+        input.MouseLeave:Connect(function() tween(input,{BackgroundColor3=THEME.BLACK},0.08) end)
+    end
+
+    ----------------------------------------------------------------
+    -- Floating Search Panel (สีดำเส้นเขียว) — โผล่เมื่อกดปุ่มในแถว
+    ----------------------------------------------------------------
+    local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
+    local panel = screen:FindFirstChild("MAX_SearchPanel")
+    if not panel then
+        panel = Instance.new("Frame")
+        panel.Name = "MAX_SearchPanel"
+        panel.Visible = false
+        panel.BackgroundColor3 = THEME.BLACK
+        panel.BorderSizePixel = 0
+        panel.ZIndex = 1000
+        corner(panel,12); stroke(panel,2.2,THEME.GREEN)
+        panel.Parent = screen
+
+        -- ===== Fixed size/position (ปรับง่ายได้จากตรงนี้) =====
+        local PANEL_W, PANEL_H = 260, 420  -- ความกว้าง/สูงของพาเนล (อิงภาพตัวอย่าง)
+        local function placePanel()
+            -- ชิดขอบขวาของหน้าต่างหลักเหมือนในรูป
+            local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + 12
+            local y = scroll.AbsolutePosition.Y + 24
+            panel.Position = UDim2.fromOffset(x, y)
+            panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+        end
+        placePanel()
+        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
+        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
+
+        -- แถบค้นหา (แทนสี่เหลี่ยมสีฟ้า)
+        local top = Instance.new("Frame", panel)
+        top.Name="TopBar"; top.Size=UDim2.new(1, -16, 0, 36); top.Position=UDim2.new(0,8,0,8)
+        top.BackgroundColor3=THEME.BLACK; corner(top,8); stroke(top,1.6,THEME.GREEN)
+
+        local search = Instance.new("TextBox", top)
+        search.BackgroundTransparency=1; search.ClearTextOnFocus=false
+        search.Size=UDim2.fromScale(1,1); search.Position=UDim2.new(0,8,0,0)
+        search.Font=Enum.Font.Gotham; search.TextSize=14; search.TextColor3=THEME.WHITE
+        search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
+        search.TextXAlignment=Enum.TextXAlignment.Left
+
+        -- โซนรายการผลลัพธ์ (แทนสี่เหลี่ยมสีแดง) + เลื่อนขึ้น/ลงได้
+        local listWrap = Instance.new("ScrollingFrame", panel)
+        listWrap.Name="ResultArea"
+        listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
+        listWrap.Position=UDim2.new(0,8,0,52); listWrap.Size=UDim2.new(1,-16,1,-60)
+        listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarImageColor3=THEME.GREEN
+        corner(listWrap,10); stroke(listWrap,1.6,THEME.GREEN)
+
+        local v = Instance.new("UIListLayout", listWrap)
+        v.Padding = UDim.new(0,8); v.SortOrder = Enum.SortOrder.LayoutOrder
+
+        -- สร้างรายการจากรายชื่อผู้เล่น (แค่ตัวอย่างให้อ่าน/เลื่อน)
+        local function addItem(txt)
+            local it = Instance.new("TextLabel", listWrap)
+            it.Size=UDim2.new(1,-10,0,32); it.BackgroundColor3=THEME.BLACK; it.TextColor3=THEME.WHITE
+            it.Font=Enum.Font.Gotham; it.TextSize=13; it.TextXAlignment=Enum.TextXAlignment.Left
+            it.Text="  "..txt; corner(it,8); stroke(it,1.2,THEME.GREEN); it.LayoutOrder = (#listWrap:GetChildren())
+        end
+        local function rebuild(filter)
+            for _,ch in ipairs(listWrap:GetChildren()) do if ch:IsA("TextLabel") then ch:Destroy() end end
+            local f = string.lower(filter or "")
+            local names = {}
+            for _,p in ipairs(Players:GetPlayers()) do table.insert(names, p.Name) end
+            table.sort(names)
+            for _,n in ipairs(names) do
+                if f=="" or string.find(string.lower(n), f, 1, true) then addItem(n) end
+            end
+            task.defer(function() listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + 8) end)
+        end
+        rebuild("")
+        v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + 8)
+        end)
+        search:GetPropertyChangedSignal("Text"):Connect(function() rebuild(search.Text) end)
+
+        -- ปิดพาเนลเมื่อคลิกรอบนอก
+        UIS.InputBegan:Connect(function(io)
+            if not panel.Visible then return end
+            if io.UserInputType == Enum.UserInputType.MouseButton1 then
+                local m = UIS:GetMouseLocation()
+                local pos = panel.AbsolutePosition; local sz = panel.AbsoluteSize
+                local inside = (m.X >= pos.X and m.X <= pos.X+sz.X and m.Y >= pos.Y and m.Y <= pos.Y+sz.Y)
+                if not inside then panel.Visible = false end
+            end
+        end)
+    end
+
+    -- เปิด/ปิดพาเนลเมื่อกดช่องอินพุต
+    local inputBtn = row:FindFirstChild("MAX_InputButton")
+    if inputBtn and not inputBtn:GetAttribute("Hooked") then
+        inputBtn:SetAttribute("Hooked", true)
+        inputBtn.MouseButton1Click:Connect(function()
+            local p = screen:FindFirstChild("MAX_SearchPanel")
+            if p then p.Visible = not p.Visible end
+        end)
+    end
+
+    -- เมื่อมีการเลื่อน UI หลัก ให้พาเนลปิดอัตโนมัติ (ตามสั่ง)
+    if not scroll:GetAttribute("HidePanelOnScroll") then
+        scroll:SetAttribute("HidePanelOnScroll", true)
+        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            local p = (screen and screen:FindFirstChild("MAX_SearchPanel"))
+            if p and p.Visible then p.Visible = false end
+        end)
     end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
