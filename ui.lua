@@ -2014,6 +2014,119 @@ registerRight("Server", function(scroll)
     Players.PlayerAdded:Connect(updateCount)
     Players.PlayerRemoving:Connect(updateCount)
 end)
+-- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1) =====
+registerRight("Server", function(scroll)
+    local Players        = game:GetService("Players")
+    local TeleportService= game:GetService("TeleportService")
+    local TweenService   = game:GetService("TweenService")
+    local lp             = Players.LocalPlayer
+
+    -- THEME (A V1)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+        RED   = Color3.fromRGB(255,40,40),
+        GREY  = Color3.fromRGB(60,60,65),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
+
+    -- A V1: ensure exactly one ListLayout on `scroll`
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- ------ Header (Server ID 🔑) ------
+    if not scroll:FindFirstChild("SID_Header") then
+        local head = Instance.new("TextLabel", scroll)
+        head.Name="SID_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+        head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+        head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Server ID 🔑"
+        head.LayoutOrder = 2000
+    end
+
+    -- small helpers
+    local function makeRow(name, label, order)
+        if scroll:FindFirstChild(name) then return scroll[name] end
+        local row = Instance.new("Frame", scroll)
+        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+        local lab=Instance.new("TextLabel", row)
+        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-180,1,0); lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+        return row
+    end
+    local function makeActionButton(parent, text)
+        local btn = Instance.new("TextButton", parent)
+        btn.AutoButtonColor=false; btn.Text=text; btn.Font=Enum.Font.GothamBold; btn.TextSize=13
+        btn.TextColor3=THEME.BLACK; btn.BackgroundColor3=THEME.GREEN
+        btn.Size=UDim2.fromOffset(120,28); btn.AnchorPoint=Vector2.new(1,0.5); btn.Position=UDim2.new(1,-12,0.5,0)
+        corner(btn,10); stroke(btn,1.6,THEME.GREEN)
+        btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=Color3.fromRGB(35,255,165)},0.08) end)
+        btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=THEME.GREEN},0.08) end)
+        return btn
+    end
+    local function makeRightInput(parent, placeholder)
+        local boxWrap = Instance.new("Frame", parent)
+        boxWrap.AnchorPoint=Vector2.new(1,0.5); boxWrap.Position=UDim2.new(1,-12,0.5,0)
+        boxWrap.Size=UDim2.fromOffset(220,28); boxWrap.BackgroundColor3=THEME.BLACK; corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
+        local tb = Instance.new("TextBox", boxWrap)
+        tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
+        tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE; tb.ClearTextOnFocus=false
+        tb.PlaceholderText = placeholder or "Enter Server JobId…"
+        tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
+        tb.TextXAlignment = Enum.TextXAlignment.Left
+        return tb
+    end
+
+    -- Keep a single shared input across rows
+    local inputRow = makeRow("SID_Input", "Server ID (JobId)", 2001)
+    local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
+    if not inputBox then inputBox = makeRightInput(inputRow, "e.g. 5c3e1c1a-xxxx-xxxx-xxxx-aaaaaaaaaaaa") end
+
+    -- Row #2: Confirm (Join by ID)
+    local joinRow = makeRow("SID_Join", "Join by this Server ID", 2002)
+    if not joinRow:FindFirstChildOfClass("TextButton") then
+        local joinBtn = makeActionButton(joinRow, "Join by ID")
+        joinBtn.MouseButton1Click:Connect(function()
+            local jobId = (inputBox.Text or ""):gsub("%s","")
+            if jobId == "" then
+                notify("Server ID", "Please enter a valid JobId first.")
+                return
+            end
+            local ok,err = pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, lp)
+            end)
+            if not ok then
+                notify("Teleport Failed", tostring(err))
+            else
+                notify("Teleporting…","Joining server: "..string.sub(jobId,1,8).."…")
+            end
+        end)
+    end
+
+    -- Row #3: Copy current Server ID
+    local copyRow = makeRow("SID_Copy", "Copy current Server ID", 2003)
+    if not copyRow:FindFirstChildOfClass("TextButton") then
+        local copyBtn = makeActionButton(copyRow, "Copy ID")
+        copyBtn.MouseButton1Click:Connect(function()
+            local id = tostring(game.JobId or "")
+            local ok = pcall(function() setclipboard(id) end) -- will work if environment permits
+            if ok then
+                notify("Copied","Server ID copied:\n"..id)
+            else
+                notify("Server ID", "Current ID:\n"..id.."\n(copy manually)")
+            end
+            -- auto put into input box for convenience
+            if inputBox and id ~= "" then inputBox.Text = id end
+        end)
+    end
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
