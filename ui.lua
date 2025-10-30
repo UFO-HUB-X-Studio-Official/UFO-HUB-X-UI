@@ -2157,12 +2157,13 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • fixed right panel, MAX 1..10, only 2 FX: green border + left green bar
+-- A V1 • fixed right panel, MAX 1..10, only 2 FX: green border (dim→bright) + left bar
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
 
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
+        DARKGREEN = Color3.fromRGB(10,80,40), -- เขียวเข้ม (ใช้ตอนเริ่ม)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
     }
@@ -2173,11 +2174,12 @@ registerRight("Shop", function(scroll)
         c.Parent = ui
     end
 
-    local function stroke(ui,th)
+    local function stroke(ui,th,col,trans)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2
-        s.Color = THEME.GREEN
+        s.Color = col or THEME.GREEN
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Transparency = trans or 0
         s.Parent = ui
         return s
     end
@@ -2210,7 +2212,7 @@ registerRight("Shop", function(scroll)
         row.BackgroundColor3 = THEME.BLACK
         row.LayoutOrder = 11
         corner(row,12)
-        stroke(row,2)
+        stroke(row,2,THEME.GREEN,0)
 
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
@@ -2236,7 +2238,7 @@ registerRight("Shop", function(scroll)
         openBtn.TextXAlignment = Enum.TextXAlignment.Center
         openBtn.TextYAlignment = Enum.TextYAlignment.Center
         corner(openBtn,10)
-        stroke(openBtn,1.6)
+        stroke(openBtn,1.4,THEME.DARKGREEN,0.3) -- เริ่มเขียวเข้มเหมือนฝั่งซ้าย
     end
 
     -- side panel
@@ -2249,7 +2251,7 @@ registerRight("Shop", function(scroll)
         panel.BackgroundColor3 = THEME.BLACK
         panel.BorderSizePixel = 0
         corner(panel,12)
-        stroke(panel,2)
+        stroke(panel,2,THEME.GREEN,0)
         panel.Parent = screen
 
         local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
@@ -2264,13 +2266,14 @@ registerRight("Shop", function(scroll)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
 
+        -- search bar
         local top = Instance.new("Frame", panel)
         top.Name = "TopBar"
         top.Size = UDim2.new(1,-10,0,28)
         top.Position = UDim2.new(0,5,0,6)
         top.BackgroundColor3 = THEME.BLACK
         corner(top,8)
-        stroke(top,1.4)
+        stroke(top,1.2,THEME.DARKGREEN,0.3)
         local icon = Instance.new("TextLabel", top)
         icon.BackgroundTransparency = 1
         icon.Text = "🔎"
@@ -2302,32 +2305,39 @@ registerRight("Shop", function(scroll)
         listWrap.ScrollBarThickness = 0
         listWrap.ScrollBarImageTransparency = 1
         corner(listWrap,10)
-        stroke(listWrap,1.4)
+        stroke(listWrap,1.2,THEME.DARKGREEN,0.3)
 
         local SLOT_LEFT, SLOT_RIGHT, SLOT_TOP, SLOT_HEIGHT, GAP = 8, 8, 10, 26, 6
         local pad = Instance.new("UIPadding", listWrap)
         pad.PaddingLeft = UDim.new(0,SLOT_LEFT)
         pad.PaddingRight = UDim.new(0,SLOT_RIGHT)
         pad.PaddingTop = UDim.new(0,SLOT_TOP)
-        pad.PaddingBottom = UDim.new(0,SLOT_TOP)
+        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- เพิ่มเพื่อกัน MAX 10 โดนกิน
 
         local v = Instance.new("UIListLayout", listWrap)
         v.Padding = UDim.new(0,GAP)
         v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        -- === ONLY TWO FX: BORDER + LEFT BAR ===
+        -- items
         local function makeItem(txt)
             local btn = Instance.new("TextButton", listWrap)
             btn.AutoButtonColor = false
             btn.Size = UDim2.new(1,0,0,SLOT_HEIGHT)
             btn.BackgroundColor3 = THEME.BLACK
-            btn.Text = txt
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 12
-            btn.TextColor3 = THEME.WHITE
+            btn.Text = ""
             corner(btn,8)
-            local border = stroke(btn,1.6)
 
+            local lbl = Instance.new("TextLabel", btn)
+            lbl.BackgroundTransparency = 1
+            lbl.Size = UDim2.fromScale(1,1)
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 12
+            lbl.TextColor3 = THEME.WHITE
+            lbl.Text = txt
+            lbl.TextXAlignment = Enum.TextXAlignment.Center
+            lbl.TextYAlignment = Enum.TextYAlignment.Center
+
+            local border = stroke(btn,1.4,THEME.DARKGREEN,0.4)
             local bar = Instance.new("Frame", btn)
             bar.Name = "SelBar"
             bar.BackgroundColor3 = THEME.GREEN
@@ -2341,17 +2351,22 @@ registerRight("Shop", function(scroll)
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
                 bar.Visible = sel
+                border.Color = sel and THEME.GREEN or THEME.DARKGREEN
+                border.Thickness = sel and 1.8 or 1.4
+                border.Transparency = sel and 0 or 0.4
             end)
 
             return btn
         end
 
-        local ITEMS={}
-        for i=1,10 do ITEMS[i]=makeItem(("MAX %d"):format(i)) end
+        local ITEMS = {}
+        for i = 1, 10 do ITEMS[i] = makeItem(("MAX %d"):format(i)) end
 
         local function recalc()
             task.defer(function()
-                listWrap.CanvasSize = UDim2.new(0,0,0,v.AbsoluteContentSize.Y+SLOT_TOP)
+                local topPad = pad.PaddingTop.Offset
+                local bottomPad = pad.PaddingBottom.Offset
+                listWrap.CanvasSize = UDim2.new(0,0,0,v.AbsoluteContentSize.Y + topPad + bottomPad)
             end)
         end
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
@@ -2360,7 +2375,8 @@ registerRight("Shop", function(scroll)
         local function applySearch(q)
             q = string.lower(q or "")
             for _,b in ipairs(ITEMS) do
-                b.Visible = (q=="" or string.find(string.lower(b.Text),q,1,true))
+                local t = b:FindFirstChildWhichIsA("TextLabel") and b:FindFirstChildWhichIsA("TextLabel").Text or ""
+                b.Visible = (q=="" or string.find(string.lower(t), q, 1, true))
             end
             recalc()
         end
