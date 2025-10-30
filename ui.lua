@@ -2156,7 +2156,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • compact search panel) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • compact search panel • lower/narrower/taller) =====
 registerRight("Shop", function(scroll)
     local Players      = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -2187,11 +2187,11 @@ registerRight("Shop", function(scroll)
         head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="MAX 🛸"; head.LayoutOrder = 10
     end
 
-    -- Row (สไตล์ A V1 กะทัดรัด)
+    -- Row (A V1 compact)
     local row = scroll:FindFirstChild("MAX_Row1")
     if not row then
         row = Instance.new("Frame", scroll)
-        row.Name="MAX_Row1"; row.Size=UDim2.new(1,-6,0,46) -- สูง 46 ตาม A V1
+        row.Name="MAX_Row1"; row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK; row.LayoutOrder=11; corner(row,12); stroke(row,2.0,THEME.GREEN)
 
         local lab=Instance.new("TextLabel", row)
@@ -2199,12 +2199,11 @@ registerRight("Shop", function(scroll)
         lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
         lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="MAX"
 
-        -- ปุ่ม/ช่องกดให้เล็กลงแบบรูปที่ 2
         local BTN_W, BTN_H = 220, 24
         local input = Instance.new("TextButton", row)
         input.Name="MAX_InputButton"; input.AutoButtonColor=false; input.Text=""
         input.Size=UDim2.fromOffset(BTN_W, BTN_H)
-        input.Position=UDim2.new(1, -(12+BTN_W), 0.5, -BTN_H/2) -- ชิดขวาในแถว
+        input.Position=UDim2.new(1, -(12+BTN_W), 0.5, -BTN_H/2)
         input.BackgroundColor3=THEME.BLACK
         corner(input,10); stroke(input,1.6,THEME.GREEN)
         input.MouseEnter:Connect(function() tween(input,{BackgroundColor3=THEME.GREY},0.08) end)
@@ -2212,7 +2211,7 @@ registerRight("Shop", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- Search Side Panel (กะทัดรัด • เท่าขอบขวา UI หลัก • สไตล์ A V1)
+    -- Search Side Panel (ต่ำลง, แคบลง, และยาวถึงล่างของ UI หลัก)
     ----------------------------------------------------------------
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
@@ -2226,16 +2225,14 @@ registerRight("Shop", function(scroll)
         corner(panel,12); stroke(panel,2.0,THEME.GREEN)
         panel.Parent = screen
 
-        -- ขนาด/ตำแหน่งให้พอดีกับกรอบหลักด้านขวา
-        local SIDE_MARGIN  = 8
-        local TOP_MARGIN   = 6
-        local BOT_MARGIN   = 6
-        local PANEL_W      = 200  -- แคบลงอีก
-
+        -- ตำแหน่ง/ขนาด: ลงล่างอีก, ด้านขวาสั้นลง, ความสูงยาวลงล่าง
+        local SIDE_MARGIN  = 6       -- ระยะจากขอบขวา UI หลัก
+        local TOP_OFFSET   = 22      -- ดันลงล่างมากขึ้น
+        local PANEL_W      = 180     -- แคบลงทางขวา
         local function placePanel()
             local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
-            local y = scroll.AbsolutePosition.Y + TOP_MARGIN
-            local h = math.max(120, scroll.AbsoluteSize.Y - (TOP_MARGIN + BOT_MARGIN))
+            local y = scroll.AbsolutePosition.Y + TOP_OFFSET
+            local h = math.max(140, scroll.AbsoluteSize.Y - (TOP_OFFSET - 6)) -- ยาวลงให้เกือบเท่ากรอบหลัก
             panel.Position = UDim2.fromOffset(x, y)
             panel.Size     = UDim2.fromOffset(PANEL_W, h)
         end
@@ -2243,7 +2240,7 @@ registerRight("Shop", function(scroll)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
 
-        -- Top search (มีไอคอน 🔎 และไม่มี “TextBox”)
+        -- Search bar (🔎) — ไม่มีคำว่า TextBox
         local top = Instance.new("Frame", panel)
         top.Name="TopBar"; top.Size=UDim2.new(1,-12,0,30); top.Position=UDim2.new(0,6,0,6)
         top.BackgroundColor3=THEME.BLACK; corner(top,10); stroke(top,1.4,THEME.GREEN)
@@ -2254,15 +2251,13 @@ registerRight("Shop", function(scroll)
         icon.Size=UDim2.fromOffset(24,30); icon.Position=UDim2.new(0,6,0,0)
 
         local search = Instance.new("TextBox", top)
-        search.BackgroundTransparency=1; search.ClearTextOnFocus=false
-        search.Text = ""                                -- กัน Roblox ใส่ค่าเริ่มต้น "TextBox"
-        search.Size=UDim2.new(1,-(24+12+6),1,0)        -- เว้นที่ให้ไอคอน
-        search.Position=UDim2.new(0,36,0,0)
+        search.BackgroundTransparency=1; search.ClearTextOnFocus=false; search.Text=""
+        search.Size=UDim2.new(1,-(24+12+6),1,0); search.Position=UDim2.new(0,36,0,0)
         search.Font=Enum.Font.Gotham; search.TextSize=13; search.TextColor3=THEME.WHITE
         search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
         search.TextXAlignment=Enum.TextXAlignment.Left
 
-        -- Result list (เล็กลง ให้พอดี panel)
+        -- Result list
         local listWrap = Instance.new("ScrollingFrame", panel)
         listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
         listWrap.Position=UDim2.new(0,6,0,6+30+6)
@@ -2275,7 +2270,7 @@ registerRight("Shop", function(scroll)
 
         local function addItem(txt)
             local it = Instance.new("TextLabel", listWrap)
-            it.Size=UDim2.new(1,-8,0,26) -- แถวสูง 26
+            it.Size=UDim2.new(1,-8,0,26)
             it.BackgroundColor3=THEME.BLACK; it.TextColor3=THEME.WHITE
             it.Font=Enum.Font.Gotham; it.TextSize=12; it.TextXAlignment=Enum.TextXAlignment.Left
             it.Text="  "..txt; corner(it,8); stroke(it,1.2,THEME.GREEN)
@@ -2286,9 +2281,7 @@ registerRight("Shop", function(scroll)
             local names = {}
             for _,p in ipairs(Players:GetPlayers()) do table.insert(names, p.Name) end
             table.sort(names)
-            for _,n in ipairs(names) do
-                if f=="" or string.find(string.lower(n), f, 1, true) then addItem(n) end
-            end
+            for _,n in ipairs(names) do if f=="" or string.find(string.lower(n), f, 1, true) then addItem(n) end end
             task.defer(function() listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + 6) end)
         end
         rebuild("")
@@ -2297,7 +2290,7 @@ registerRight("Shop", function(scroll)
         end)
         search:GetPropertyChangedSignal("Text"):Connect(function() rebuild(search.Text) end)
 
-        -- ปิดเมื่อคลิกรอบนอก
+        -- close on outside click
         UIS.InputBegan:Connect(function(io)
             if not panel.Visible then return end
             if io.UserInputType == Enum.UserInputType.MouseButton1 then
