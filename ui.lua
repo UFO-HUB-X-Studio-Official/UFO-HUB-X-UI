@@ -2014,7 +2014,7 @@ registerRight("Server", function(scroll)
     Players.PlayerAdded:Connect(updateCount)
     Players.PlayerRemoving:Connect(updateCount)
 end)
--- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • black button style) =====
+-- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • black button style, clear TextBox) =====
 registerRight("Server", function(scroll)
     local Players         = game:GetService("Players")
     local TeleportService = game:GetService("TeleportService")
@@ -2032,7 +2032,7 @@ registerRight("Server", function(scroll)
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad,Enum.EasingDirection.Out), p):Play() end
     local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
 
     -- Layout
@@ -2074,10 +2074,14 @@ registerRight("Server", function(scroll)
     local function makeRightInput(parent, placeholder)
         local boxWrap = Instance.new("Frame", parent)
         boxWrap.AnchorPoint=Vector2.new(1,0.5); boxWrap.Position=UDim2.new(1,-12,0.5,0)
-        boxWrap.Size=UDim2.fromOffset(300,28); boxWrap.BackgroundColor3=THEME.BLACK; corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
+        boxWrap.Size=UDim2.fromOffset(300,28); boxWrap.BackgroundColor3=THEME.BLACK
+        corner(boxWrap,10); stroke(boxWrap,1.6,THEME.GREEN)
+
         local tb = Instance.new("TextBox", boxWrap)
         tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
-        tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE; tb.ClearTextOnFocus=false
+        tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE
+        tb.ClearTextOnFocus=false
+        tb.Text = ""  -- ⬅️ เคลียร์ค่าเริ่มต้น ไม่ให้ขึ้นคำว่า "TextBox"
         tb.PlaceholderText = placeholder or "Paste JobId / VIP link / roblox:// link…"
         tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         tb.TextXAlignment = Enum.TextXAlignment.Left
@@ -2107,7 +2111,11 @@ registerRight("Server", function(scroll)
     -- Row #1: input
     local inputRow = makeRow("SID_Input", "Server ID / Link", 2001)
     local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
-    if not inputBox then inputBox = makeRightInput(inputRow, "e.g. JobId or VIP link or roblox://...") end
+    if not inputBox then
+        inputBox = makeRightInput(inputRow, "e.g. JobId or VIP link or roblox://...")
+    else
+        if inputBox.Text == "TextBox" then inputBox.Text = "" end  -- ⬅️ เคลียร์ของเก่าที่ Roblox ใส่มา
+    end
 
     -- Row #2: Join
     local joinRow = makeRow("SID_Join", "Join by this Server", 2002)
@@ -2122,13 +2130,9 @@ registerRight("Server", function(scroll)
             end
             local ok, msg = false, nil
             if target.mode=="private" then
-                ok, msg = pcall(function()
-                    TeleportService:TeleportToPrivateServer(target.placeId, target.code, {lp})
-                end)
+                ok, msg = pcall(function() TeleportService:TeleportToPrivateServer(target.placeId, target.code, {lp}) end)
             else
-                ok, msg = pcall(function()
-                    TeleportService:TeleportToPlaceInstance(target.placeId, target.jobId, lp)
-                end)
+                ok, msg = pcall(function() TeleportService:TeleportToPlaceInstance(target.placeId, target.jobId, lp) end)
             end
             if not ok then
                 notify("Teleport Failed", tostring(msg))
@@ -2147,11 +2151,7 @@ registerRight("Server", function(scroll)
         copyBtn.MouseButton1Click:Connect(function()
             local id = tostring(game.JobId or "")
             local ok = pcall(function() setclipboard(id) end)
-            if ok then
-                notify("Copied","Server ID copied:\n"..id)
-            else
-                notify("Server ID","Current ID:\n"..id.."\n(copy manually)")
-            end
+            if ok then notify("Copied","Server ID copied:\n"..id) else notify("Server ID","Current ID:\n"..id.."\n(copy manually)") end
             if inputBox and id~="" then inputBox.Text = id end
         end)
     end
