@@ -2156,7 +2156,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • search panel exact align) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • search panel exact align + button label + item toggle FX) =====
 registerRight("Shop", function(scroll)
     local Players      = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -2175,6 +2175,7 @@ registerRight("Shop", function(scroll)
         s.Color=col or THEME.GREEN
         s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
         s.Parent=ui
+        return s
     end
     local function tween(o,p,d)
         TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play()
@@ -2200,43 +2201,48 @@ registerRight("Shop", function(scroll)
         head.LayoutOrder=10
     end
 
-    -- Row (EXACT like A V1 Settings)
+    -- Row (A V1 STANDARD)
     local row=scroll:FindFirstChild("MAX_Row1")
     if not row then
         row=Instance.new("Frame",scroll)
         row.Name="MAX_Row1"
-        row.Size=UDim2.new(1,-6,0,46)                 -- height 46px
+        row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK
         row.LayoutOrder=11
         corner(row,12); stroke(row,2.2,THEME.GREEN)
 
-        -- left label (16px inset; width = all minus right control area)
+        -- left label (kept)
         local lab=Instance.new("TextLabel",row)
         lab.BackgroundTransparency=1
         lab.Position=UDim2.new(0,16,0,0)
-        lab.Size=UDim2.new(1,-(16 + 12 + 220 + 12),1,0) -- 16 left + 12 gap + 220 btn + 12 right
+        lab.Size=UDim2.new(1,-(16 + 12 + 220 + 12),1,0)
         lab.Font=Enum.Font.GothamBold
         lab.TextSize=13
         lab.TextColor3=THEME.WHITE
         lab.TextXAlignment=Enum.TextXAlignment.Left
         lab.Text="MAX"
 
-        -- right button (220x24; right inset 12px; centered vertically)
+        -- right button (label centered: "Select Options" + emoji)
         local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
         local input=Instance.new("TextButton",row)
         input.Name="MAX_InputButton"
         input.AutoButtonColor=false
-        input.Text=""
         input.Size=UDim2.fromOffset(BTN_W,BTN_H)
         input.Position=UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
         input.BackgroundColor3=THEME.BLACK
+        input.Text = "Select Options 🛸"
+        input.Font = Enum.Font.GothamBold
+        input.TextSize = 12
+        input.TextColor3 = THEME.WHITE
+        input.TextXAlignment = Enum.TextXAlignment.Center
+        input.TextYAlignment = Enum.TextYAlignment.Center
         corner(input,10); stroke(input,1.6,THEME.GREEN)
         input.MouseEnter:Connect(function() tween(input,{BackgroundColor3=THEME.GREY},0.08) end)
         input.MouseLeave:Connect(function() tween(input,{BackgroundColor3=THEME.BLACK},0.08) end)
     end
 
     ---------------------------------------------------------------
-    -- Search Panel (exact align to your blue/red guides) — unchanged logic
+    -- Search Panel (shift further RIGHT and slightly LOWER; names centered)
     ---------------------------------------------------------------
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel  = screen:FindFirstChild("MAX_SearchPanel")
@@ -2249,9 +2255,9 @@ registerRight("Shop", function(scroll)
         corner(panel,12); stroke(panel,2.2,THEME.GREEN)
         panel.Parent=screen
 
-        -- Position/size to match your reference
-        local SIDE_MARGIN = 4
-        local TOP_OFFSET  = 35
+        -- Move more to the RIGHT and a bit LOWER (per arrow)
+        local SIDE_MARGIN = 16  -- was 4 → further right
+        local TOP_OFFSET  = 50  -- was 35 → a bit lower
         local PANEL_W     = 165
         local EXTRA_H     = 40
         local function placePanel()
@@ -2310,21 +2316,51 @@ registerRight("Shop", function(scroll)
         v.Padding=UDim.new(0,5)
         v.SortOrder=Enum.SortOrder.LayoutOrder
 
+        -- helper to make selectable item with toggle FX (extra green border)
         local function addItem(name)
-            local it=Instance.new("TextLabel",listWrap)
+            local it=Instance.new("TextButton",listWrap)
+            it.AutoButtonColor=false
             it.Size=UDim2.new(1,-8,0,24)
             it.BackgroundColor3=THEME.BLACK
             it.TextColor3=THEME.WHITE
             it.Font=Enum.Font.Gotham
             it.TextSize=12
-            it.TextXAlignment=Enum.TextXAlignment.Left
-            it.Text="  "..name
-            corner(it,8); stroke(it,1.2,THEME.GREEN)
+            it.TextXAlignment=Enum.TextXAlignment.Center  -- center the name
+            it.TextYAlignment=Enum.TextYAlignment.Center
+            it.Text=name
+            corner(it,8)
+            local base = stroke(it,1.2,THEME.GREEN)
+
+            -- selection FX stroke (toggle on/off)
+            local fx = Instance.new("UIStroke")
+            fx.Thickness = 3.4
+            fx.Color = THEME.GREEN
+            fx.Transparency = 1      -- hidden by default
+            fx.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            fx.Parent = it
+
+            it:SetAttribute("Selected", false)
+            it.MouseButton1Click:Connect(function()
+                local sel = not it:GetAttribute("Selected")
+                it:SetAttribute("Selected", sel)
+                -- show/hide FX with a small pulse
+                if sel then
+                    fx.Transparency = 0.2
+                    tween(fx, {Thickness = 4.0}, 0.08)
+                    tween(fx, {Thickness = 3.4}, 0.10)
+                else
+                    tween(fx, {Transparency = 1}, 0.08)
+                end
+            end)
+
+            -- small hover
+            it.MouseEnter:Connect(function() tween(it,{BackgroundColor3=THEME.GREY},0.08) end)
+            it.MouseLeave:Connect(function() tween(it,{BackgroundColor3=THEME.BLACK},0.08) end)
         end
 
         local function rebuild(filter)
             for _,ch in ipairs(listWrap:GetChildren()) do
-                if ch:IsA("TextLabel") then ch:Destroy() end
+                if ch:IsA("TextButton") then ch:Destroy() end
             end
             local f=string.lower(filter or "")
             local names={}
