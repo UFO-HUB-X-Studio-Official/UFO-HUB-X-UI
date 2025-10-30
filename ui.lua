@@ -2156,23 +2156,23 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • exact panel + EXACT guide slot) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • side panel guide slot with neon select FX + ready search) =====
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
 
-    -- THEME (A V1)
+    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         GREY  = Color3.fromRGB(60,60,65),
     }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui return s end
-    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- one ListLayout on RIGHT (A V1)
+    -- one ListLayout (A V1)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -2212,7 +2212,7 @@ registerRight("Shop", function(scroll)
     end
 
     ----------------------------------------------------------------
-    -- Side Search Panel (empty list) + EXACT black slot w/ green border
+    -- Side Panel (ตำแหน่ง/ขนาดเดิม + ช่องตัวอย่างพร้อมเอฟเฟกต์เหมือนปุ่มซ้าย)
     ----------------------------------------------------------------
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel  = screen:FindFirstChild("MAX_SearchPanel")
@@ -2222,7 +2222,7 @@ registerRight("Shop", function(scroll)
         panel.BackgroundColor3=THEME.BLACK; panel.BorderSizePixel=0
         corner(panel,12); stroke(panel,2.2,THEME.GREEN); panel.Parent=screen
 
-        -- Alignment (kept)
+        -- ย้ายขวา/ลงเล็กน้อย (ตามรูปก่อนหน้า)
         local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
         local function placePanel()
             local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
@@ -2234,7 +2234,7 @@ registerRight("Shop", function(scroll)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
 
-        -- Top search
+        -- Search bar
         local top=Instance.new("Frame",panel)
         top.Name="TopBar"; top.Size=UDim2.new(1,-10,0,28); top.Position=UDim2.new(0,5,0,6)
         top.BackgroundColor3=THEME.BLACK; corner(top,8); stroke(top,1.4,THEME.GREEN)
@@ -2250,28 +2250,98 @@ registerRight("Shop", function(scroll)
         search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
         search.TextXAlignment=Enum.TextXAlignment.Left
 
-        -- Result container (no items, no scrollbar)
-        local listWrap=Instance.new("Frame",panel)
+        -- พื้นที่รายการ (พร้อมสร้างปุ่มแบบใหม่ให้เหมือนเอฟเฟกต์ปุ่มซ้าย)
+        local listWrap=Instance.new("ScrollingFrame",panel)
         listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
-        listWrap.Position=UDim2.new(0,5,0,6+28+6)     -- under search bar
-        listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))  -- fill remaining
+        listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
+        listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
 
-        -- ===== EXACT GUIDE SLOT (matches your red box) =====
-        -- Tweak these four numbers if you need micro-adjust:
-        local SLOT_LEFT   = 8     -- distance from list's left
-        local SLOT_RIGHT  = 8     -- distance from list's right
-        local SLOT_TOP    = 10    -- distance from list's top
-        local SLOT_HEIGHT = 26    -- slot height
+        local v=Instance.new("UIListLayout",listWrap); v.Padding=UDim.new(0,6); v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        local slot = Instance.new("Frame", listWrap)
-        slot.Name = "GuideSlot"
-        slot.BackgroundColor3 = THEME.BLACK
-        slot.Position = UDim2.new(0, SLOT_LEFT, 0, SLOT_TOP)
-        slot.Size     = UDim2.new(1, -(SLOT_LEFT + SLOT_RIGHT), 0, SLOT_HEIGHT)
-        corner(slot, 8); stroke(slot, 2.0, THEME.GREEN)  -- black + green border (glow look)
+        -- ฟังก์ชันสร้างปุ่มสไตล์เหมือนเมนูซ้าย (มีเส้นเขียวนูน + เรืองแสง ติดค้างเมื่อเลือก)
+        local function makeNeonItem(labelText)
+            local btn = Instance.new("TextButton", listWrap)
+            btn.AutoButtonColor=false
+            btn.Size=UDim2.new(1,-16,0,26)           -- ขนาดแบบที่ชี้
+            btn.Position=UDim2.new(0,8,0,0)
+            btn.BackgroundColor3=THEME.BLACK
+            btn.Text=labelText
+            btn.Font=Enum.Font.GothamBold
+            btn.TextSize=12
+            btn.TextColor3=THEME.WHITE
+            btn.TextXAlignment=Enum.TextXAlignment.Center
+            btn.TextYAlignment=Enum.TextYAlignment.Center
+            corner(btn,10)
 
-        -- close when clicking outside
+            -- เส้นเขียวหลัก (เหมือนกรอบเมนู)
+            stroke(btn,1.8,THEME.GREEN)
+
+            -- เส้นเรืองแสงชั้นนอก (เอฟเฟกต์เหมือนที่ลูกศรแดงชี้)
+            local glow = Instance.new("UIStroke")
+            glow.Thickness = 3.8
+            glow.Color = THEME.GREEN
+            glow.LineJoinMode = Enum.LineJoinMode.Round
+            glow.Transparency = 1          -- เริ่มปิด
+            glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            glow.Parent = btn
+
+            -- เส้น "inset" ด้านใน (แนวเดียวกับปุ่มซ้ายที่มีขอบซ้อน)
+            local inset = Instance.new("UIStroke")
+            inset.Thickness = 1.2
+            inset.Color = THEME.GREEN
+            inset.Transparency = 0.45
+            inset.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            inset.Parent = btn
+
+            -- Hover
+            btn.MouseEnter:Connect(function() tween(btn,{BackgroundColor3=THEME.GREY},0.08) end)
+            btn.MouseLeave:Connect(function() tween(btn,{BackgroundColor3=THEME.BLACK},0.08) end)
+
+            -- Toggle select (ติดค้าง/กดซ้ำเพื่อปิด)
+            btn:SetAttribute("Selected", false)
+            btn.MouseButton1Click:Connect(function()
+                local sel = not btn:GetAttribute("Selected")
+                btn:SetAttribute("Selected", sel)
+                if sel then
+                    glow.Transparency = 0.05
+                    tween(glow,{Thickness=4.6},0.08); tween(glow,{Thickness=3.8},0.10)
+                else
+                    tween(glow,{Transparency=1},0.08)
+                end
+            end)
+
+            return btn
+        end
+
+        ----------------------------------------------------------------
+        -- ▶ ตัวอย่าง “ช่องไกด์” 1 ช่อง (ตรงตำแหน่ง/ขนาดตามรูป) + รองรับค้นหา
+        ----------------------------------------------------------------
+        local ALL_ITEMS = {}  -- เก็บปุ่มทั้งหมดเพื่อให้ค้นหาได้
+
+        local guide = makeNeonItem(" ")       -- ปุ่มว่าง (ไกด์) เพื่อให้เห็นเอฟเฟกต์
+        guide.LayoutOrder = 1
+        table.insert(ALL_ITEMS, guide)
+
+        -- รีเฟรช Canvas
+        local function recalcCanvas()
+            task.defer(function() listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + 6) end)
+        end
+        v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalcCanvas)
+        recalcCanvas()
+
+        -- ระบบค้นหา: จะซ่อน/แสดงปุ่มตามข้อความที่พิมพ์
+        local function applySearch(q)
+            q = string.lower(q or "")
+            for _,btn in ipairs(ALL_ITEMS) do
+                local t = tostring(btn.Text or "")
+                btn.Visible = (q=="" or string.find(string.lower(t), q, 1, true) ~= nil)
+            end
+            recalcCanvas()
+        end
+        search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
+
+        -- ปิดแผงเมื่อคลิกนอกพื้นที่
         UIS.InputBegan:Connect(function(io)
             if not panel.Visible then return end
             if io.UserInputType==Enum.UserInputType.MouseButton1 then
@@ -2283,17 +2353,17 @@ registerRight("Shop", function(scroll)
         end)
     end
 
-    -- Toggle panel from the right button
-    local btn = scroll:FindFirstChild("MAX_Row1") and scroll.MAX_Row1:FindFirstChild("MAX_InputButton")
-    if btn and not btn:GetAttribute("Hooked") then
-        btn:SetAttribute("Hooked",true)
-        btn.MouseButton1Click:Connect(function()
+    -- Toggle panel
+    local btnOpen = scroll:FindFirstChild("MAX_Row1") and scroll.MAX_Row1:FindFirstChild("MAX_InputButton")
+    if btnOpen and not btnOpen:GetAttribute("Hooked") then
+        btnOpen:SetAttribute("Hooked",true)
+        btnOpen.MouseButton1Click:Connect(function()
             local p = screen:FindFirstChild("MAX_SearchPanel")
             if p then p.Visible = not p.Visible end
         end)
     end
 
-    -- Hide side panel when main list scrolls
+    -- Auto-hide on main scroll
     if not scroll:GetAttribute("HidePanelOnScroll") then
         scroll:SetAttribute("HidePanelOnScroll",true)
         scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
