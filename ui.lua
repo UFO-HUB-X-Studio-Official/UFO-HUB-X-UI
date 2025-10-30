@@ -2156,9 +2156,8 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • exact panel + centered items + no scrollbar + sticky select FX) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • exact panel + centered items + no scrollbar + sticky select FX + MAX 1..10) =====
 registerRight("Shop", function(scroll)
-    local Players      = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
 
@@ -2259,7 +2258,6 @@ registerRight("Shop", function(scroll)
         listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
         listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
         listWrap.CanvasSize=UDim2.new(0,0,0,0)
-        listWrap.ScrollBarImageColor3=THEME.GREEN
         listWrap.ScrollBarThickness = 0
         listWrap.ScrollBarImageTransparency = 1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
@@ -2267,11 +2265,11 @@ registerRight("Shop", function(scroll)
         local v=Instance.new("UIListLayout",listWrap)
         v.Padding=UDim.new(0,5); v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        -- item factory (shorter left/right width + sticky toggle FX)
+        -- item factory (centered text + sticky glow FX)
         local function addItem(name)
             local it=Instance.new("TextButton",listWrap)
             it.AutoButtonColor=false
-            it.Size=UDim2.new(1,-20,0,24)        -- narrower (left/right shorter)
+            it.Size=UDim2.new(1,-20,0,24)        -- narrower
             it.BackgroundColor3=THEME.BLACK
             it.TextColor3=THEME.WHITE
             it.Font=Enum.Font.Gotham; it.TextSize=12
@@ -2281,17 +2279,21 @@ registerRight("Shop", function(scroll)
             corner(it,8)
             stroke(it,1.2,THEME.GREEN)
 
-            -- persistent selection FX (can select many)
-            local fx = Instance.new("UIStroke"); fx.Thickness=3.4; fx.Color=THEME.GREEN
-            fx.Transparency=1; fx.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; fx.Parent=it
+            -- persistent bright glow when selected
+            local fx = Instance.new("UIStroke")
+            fx.Thickness=4.2
+            fx.Color=THEME.GREEN
+            fx.Transparency=1
+            fx.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+            fx.Parent=it
 
             it:SetAttribute("Selected", false)
             it.MouseButton1Click:Connect(function()
                 local sel = not it:GetAttribute("Selected")
                 it:SetAttribute("Selected", sel)
                 if sel then
-                    fx.Transparency = 0.15
-                    tween(fx,{Thickness=4.0},0.08); tween(fx,{Thickness=3.4},0.10)
+                    fx.Transparency = 0.05  -- brighter glow
+                    tween(fx,{Thickness=4.8},0.08); tween(fx,{Thickness=4.2},0.10)
                 else
                     tween(fx,{Transparency=1},0.08)
                 end
@@ -2301,19 +2303,17 @@ registerRight("Shop", function(scroll)
             it.MouseLeave:Connect(function() tween(it,{BackgroundColor3=THEME.BLACK},0.08) end)
         end
 
-        local function rebuild(filter)
+        -- Build list as: MAX 1, MAX 2, ... MAX 10
+        local function rebuild()
             for _,ch in ipairs(listWrap:GetChildren()) do if ch:IsA("TextButton") then ch:Destroy() end end
-            local f=string.lower(filter or ""); local names={}
-            for _,p in ipairs(Players:GetPlayers()) do table.insert(names,p.Name) end
-            table.sort(names)
-            for _,n in ipairs(names) do if f=="" or string.find(string.lower(n),f,1,true) then addItem(n) end end
+            for i=1,10 do addItem(("MAX %d"):format(i)) end
             task.defer(function() listWrap.CanvasSize=UDim2.new(0,0,0,v.AbsoluteContentSize.Y+5) end)
         end
-        rebuild("")
+        rebuild()
+
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             listWrap.CanvasSize=UDim2.new(0,0,0,v.AbsoluteContentSize.Y+5)
         end)
-        search:GetPropertyChangedSignal("Text"):Connect(function() rebuild(search.Text) end)
 
         -- close when clicking outside
         UIS.InputBegan:Connect(function(io)
