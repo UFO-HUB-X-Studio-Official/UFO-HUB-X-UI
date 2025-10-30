@@ -2157,12 +2157,11 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • exact right panel position, sticky multi-select FX (glow + left bar + bg), search filter w/o rebuild
+-- A V1 • locked right-panel position, sticky multi-select FX (thin→bright), safe text (no fade)
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
 
-    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -2171,15 +2170,18 @@ registerRight("Shop", function(scroll)
         SELBG = Color3.fromRGB(18,18,18),
     }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
+    local function stroke(ui,th,col,trans)
+        local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN
+        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency = trans or 0; s.Parent=ui; return s
+    end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- A V1: one ListLayout
+    -- one ListLayout (A V1)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Header + Row (unchanged)
+    -- Header + open button
     if not scroll:FindFirstChild("MAX_Header") then
         local head=Instance.new("TextLabel",scroll)
         head.Name="MAX_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
@@ -2210,7 +2212,7 @@ registerRight("Shop", function(scroll)
         openBtn.MouseLeave:Connect(function() tween(openBtn,{BackgroundColor3=THEME.BLACK},0.08) end)
     end
 
-    -- Right panel (locked position)
+    -- Right panel (fixed position)
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel  = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2254,7 +2256,7 @@ registerRight("Shop", function(scroll)
         listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
 
-        -- Layout identical to GuideSlot
+        -- Layout = GuideSlot
         local SLOT_LEFT, SLOT_RIGHT, SLOT_TOP, SLOT_HEIGHT, GAP = 8, 8, 10, 26, 6
         local pad = Instance.new("UIPadding", listWrap)
         pad.PaddingLeft  = UDim.new(0, SLOT_LEFT)
@@ -2265,7 +2267,7 @@ registerRight("Shop", function(scroll)
         local v=Instance.new("UIListLayout",listWrap)
         v.Padding=UDim.new(0, GAP); v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        -- Item factory with STRONG sticky FX
+        -- Factory: thin (dark) → bright when selected, text stays white
         local function makeItem(txt)
             local btn=Instance.new("TextButton", listWrap)
             btn.AutoButtonColor=false
@@ -2273,32 +2275,33 @@ registerRight("Shop", function(scroll)
             btn.BackgroundColor3=THEME.BLACK
             btn.Text=txt; btn.Font=Enum.Font.GothamBold; btn.TextSize=12
             btn.TextColor3=THEME.WHITE; btn.TextXAlignment=Enum.TextXAlignment.Center; btn.TextYAlignment=Enum.TextYAlignment.Center
+            btn.ZIndex = 2
             corner(btn,8)
 
-            -- base border
-            stroke(btn,1.8,THEME.GREEN)
+            -- base border (เริ่มบาง+หม่น)
+            local base = stroke(btn,1.4,THEME.GREEN,0.35)
 
-            -- left green indicator bar (clearest “selected” sign)
+            -- left indicator bar
             local bar=Instance.new("Frame", btn)
-            bar.Name="SelBar"; bar.BackgroundColor3=THEME.GREEN
-            bar.AnchorPoint=Vector2.new(0,0); bar.Position=UDim2.new(0,2,0,2)
-            bar.Size=UDim2.new(0,4,1,-4); bar.Visible=false
+            bar.Name="SelBar"; bar.BackgroundColor3=THEME.GREEN; bar.ZIndex=3
+            bar.Position=UDim2.new(0,2,0,2); bar.Size=UDim2.new(0,4,1,-4); bar.Visible=false
             corner(bar,3)
 
-            -- subtle inner line
+            -- inner subtle line
             local inset=Instance.new("UIStroke", btn)
-            inset.Thickness=1.2; inset.Color=THEME.GREEN; inset.Transparency=0.45
+            inset.Thickness=1.0; inset.Color=THEME.GREEN; inset.Transparency=0.55
             inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- outer glow stroke
+            -- outer glow
             local glow=Instance.new("UIStroke", btn)
-            glow.Thickness=5.6; glow.Color=THEME.GREEN
-            glow.LineJoinMode=Enum.LineJoinMode.Round
-            glow.Transparency=1; glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+            glow.Thickness=5.2; glow.Color=THEME.GREEN; glow.Transparency=1
+            glow.LineJoinMode=Enum.LineJoinMode.Round; glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- selected bg gradient
-            local grad=Instance.new("UIGradient", btn)
-            grad.Enabled=false
+            -- separate bg (gradient) under text — ป้องกันข้อความหาย
+            local bg=Instance.new("Frame", btn)
+            bg.Name="SelBg"; bg.BackgroundColor3=THEME.SELBG; bg.Visible=false; bg.ZIndex=1
+            bg.Size=UDim2.fromScale(1,1); bg.Position=UDim2.new(0,0,0,0); corner(bg,8)
+            local grad=Instance.new("UIGradient", bg)
             grad.Color=ColorSequence.new{
                 ColorSequenceKeypoint.new(0, Color3.fromRGB(10,30,10)),
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))
@@ -2310,24 +2313,25 @@ registerRight("Shop", function(scroll)
             local function setVisual(sel)
                 if sel then
                     bar.Visible=true
-                    grad.Enabled=true
-                    btn.TextColor3 = THEME.GREEN
-                    tween(btn, {BackgroundColor3=THEME.SELBG}, 0.08)
-                    glow.Transparency=0.03
-                    tween(glow, {Thickness=6.2}, 0.08); tween(glow, {Thickness=5.6}, 0.10)
+                    bg.Visible=true
+                    -- base stroke: ชัดขึ้น (หนา+สว่าง)
+                    tween(base, {Thickness=1.8, Transparency=0}, 0.08)
+                    -- glow pulse
+                    glow.Transparency=0.08
+                    tween(glow,{Thickness=6.0},0.08); tween(glow,{Thickness=5.2},0.10)
                 else
                     bar.Visible=false
-                    grad.Enabled=false
-                    btn.TextColor3 = THEME.WHITE
-                    tween(btn, {BackgroundColor3=THEME.BLACK}, 0.08)
-                    tween(glow, {Transparency=1}, 0.08)
+                    bg.Visible=false
+                    -- base strokeกลับเป็นบาง+หม่น
+                    tween(base, {Thickness=1.4, Transparency=0.35}, 0.08)
+                    tween(glow,{Transparency=1},0.08)
                 end
             end
 
             btn.MouseButton1Click:Connect(function()
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
-                setVisual(sel) -- sticky
+                setVisual(sel)
             end)
 
             btn.MouseEnter:Connect(function()
@@ -2347,7 +2351,7 @@ registerRight("Shop", function(scroll)
         local function recalc() task.defer(function() listWrap.CanvasSize=UDim2.new(0,0,0,v.AbsoluteContentSize.Y+SLOT_TOP) end) end
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc); recalc()
 
-        -- search without rebuild (keep selection)
+        -- search (keeps selection)
         local function applySearch(q)
             q=string.lower(q or "")
             for _,b in ipairs(ITEMS) do
@@ -2355,9 +2359,7 @@ registerRight("Shop", function(scroll)
             end
             recalc()
         end
-        top:FindFirstChildOfClass("TextBox"):GetPropertyChangedSignal("Text"):Connect(function()
-            applySearch(top:FindFirstChildOfClass("TextBox").Text)
-        end)
+        search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
 
         -- close on outside click
         UIS.InputBegan:Connect(function(io)
