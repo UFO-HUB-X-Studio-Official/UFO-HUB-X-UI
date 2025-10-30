@@ -1866,6 +1866,154 @@ registerRight("Settings", function(scroll)
     if S.antiIdleOn then startAntiIdle() end
     startWatcher()
 end)
+--===== UFO HUB X • SERVER — Model A V1 (2 rows: change + live count) =====
+registerRight("Server", function(scroll)
+    local Players        = game:GetService("Players")
+    local TeleportService= game:GetService("TeleportService")
+    local HttpService    = game:GetService("HttpService")
+    local TweenService   = game:GetService("TweenService")
+    local lp             = Players.LocalPlayer
+
+    -- THEME (A V1)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+        RED   = Color3.fromRGB(255,40,40),
+        GREY  = Color3.fromRGB(70,70,75),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+
+    -- A V1: single ListLayout on scroll
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- Header (Server + emoji)
+    local head = scroll:FindFirstChild("SV_Header") or Instance.new("TextLabel", scroll)
+    head.Name="SV_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Server 🌐"; head.LayoutOrder = 10
+
+    -- Clear same-name rows (A V1 rule, no wrappers)
+    for _,n in ipairs({"S1_Change","S2_PlayerCount"}) do local o=scroll:FindFirstChild(n) if o then o:Destroy() end end
+
+    -- Row factory (A V1)
+    local function makeRow(name, label, order)
+        local row = Instance.new("Frame", scroll)
+        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+
+        return row
+    end
+
+    ----------------------------------------------------------------
+    -- (#1) Change Server — one-tap button (no toggle)
+    ----------------------------------------------------------------
+    local r1 = makeRow("S1_Change", "Change Server", 11)
+    local btnWrap = Instance.new("Frame", r1)
+    btnWrap.AnchorPoint=Vector2.new(1,0.5); btnWrap.Position=UDim2.new(1,-12,0.5,0)
+    btnWrap.Size=UDim2.fromOffset(110,28); btnWrap.BackgroundColor3=THEME.BLACK; corner(btnWrap,8); stroke(btnWrap,1.8,THEME.GREEN)
+
+    local btn = Instance.new("TextButton", btnWrap)
+    btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1)
+    btn.Font=Enum.Font.GothamBold; btn.TextSize=13; btn.TextColor3=THEME.TEXT
+    btn.Text="CHANGE"
+
+    local busy=false
+    local function setBusy(v)
+        busy=v
+        btn.Text = v and "HOPPING..." or "CHANGE"
+        local st = btnWrap:FindFirstChildOfClass("UIStroke")
+        if st then st.Color = v and THEME.GREY or THEME.GREEN end
+    end
+
+    local function findOtherPublicServer(placeId)
+        -- Query public servers; pick a different JobId with free slots
+        local cursor = nil
+        for _=1,4 do -- up to 4 pages
+            local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100%s")
+                :format(placeId, cursor and ("&cursor="..HttpService:UrlEncode(cursor)) or "")
+            local ok,res = pcall(function() return HttpService:GetAsync(url) end)
+            if ok and res then
+                local data = HttpService:JSONDecode(res)
+                if data and data.data then
+                    for _,sv in ipairs(data.data) do
+                        local jobId = sv.id
+                        local playing = tonumber(sv.playing) or 0
+                        local maxp = tonumber(sv.maxPlayers) or Players.MaxPlayers
+                        if jobId and jobId ~= game.JobId and playing < maxp then
+                            return jobId
+                        end
+                    end
+                end
+                cursor = data and data.nextPageCursor or nil
+                if not cursor then break end
+            else
+                break
+            end
+        end
+        return nil
+    end
+
+    local function hop()
+        if busy then return end
+        setBusy(true)
+        task.spawn(function()
+            local targetJob = nil
+            local okFind, errFind = pcall(function()
+                targetJob = findOtherPublicServer(game.PlaceId)
+            end)
+            if targetJob then
+                local ok,tpErr = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJob, lp)
+                end)
+                if not ok then
+                    warn("TeleportToPlaceInstance failed:", tpErr)
+                    TeleportService:Teleport(game.PlaceId, lp) -- fallback (may land same server)
+                end
+            else
+                -- fallback: simple teleport to place (Roblox will pick a server)
+                TeleportService:Teleport(game.PlaceId, lp)
+            end
+            -- ถ้าการเทเลพอร์ตไม่สำเร็จทันที ให้ปลด busy ผ่าน timeout
+            task.delay(4, function() if busy then setBusy(false) end end)
+        end)
+    end
+
+    btn.MouseButton1Click:Connect(hop)
+
+    ----------------------------------------------------------------
+    -- (#2) Live player count — real-time
+    ----------------------------------------------------------------
+    local r2 = makeRow("S2_PlayerCount", "Players in this server", 12)
+
+    local countBox = Instance.new("Frame", r2)
+    countBox.AnchorPoint=Vector2.new(1,0.5); countBox.Position=UDim2.new(1,-12,0.5,0)
+    countBox.Size=UDim2.fromOffset(110,28); countBox.BackgroundColor3=THEME.BLACK; corner(countBox,8); stroke(countBox,1.8,THEME.GREEN)
+
+    local countLabel = Instance.new("TextLabel", countBox)
+    countLabel.BackgroundTransparency=1; countLabel.Size=UDim2.fromScale(1,1)
+    countLabel.Font=Enum.Font.GothamBold; countLabel.TextSize=13; countLabel.TextColor3=THEME.TEXT
+    countLabel.TextScaled=false; countLabel.Text="-- / --"
+
+    local function updateCount()
+        local current = #Players:GetPlayers()
+        local maxp = Players.MaxPlayers
+        countLabel.Text = string.format("%d / %d", current, maxp)
+    end
+    updateCount()
+    Players.PlayerAdded:Connect(updateCount)
+    Players.PlayerRemoving:Connect(updateCount)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
