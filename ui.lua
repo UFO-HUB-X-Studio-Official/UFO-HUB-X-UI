@@ -2157,83 +2157,100 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • fixed right panel, MAX 1..10, sticky multi-select FX, **NO white overlay anywhere**,
---        text-safe labels, last item not clipped
+-- A V1 • fixed right panel, MAX 1..10, only 2 FX: green border + left green bar
 registerRight("Shop", function(scroll)
-    local TweenService = game:GetService("TweenService")
-    local UIS          = game:GetService("UserInputService")
+    local UIS = game:GetService("UserInputService")
 
-    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
-        GREY  = Color3.fromRGB(60,60,65),
-        SELBG = Color3.fromRGB(18,18,18),
     }
 
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col,trans)
-        local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN
-        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Transparency=trans or 0 s.Parent=ui return s
-    end
-    local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
-    -- hard-kill any platform selection overlay (the faint white capsule)
-    local function killWhiteOverlay(btn)
-        btn.AutoButtonColor = false
-        btn.Style = Enum.ButtonStyle.Custom
-        local transparentSel = Instance.new("ImageLabel")
-        transparentSel.BackgroundTransparency = 1
-        transparentSel.ImageTransparency = 1
-        transparentSel.Size = UDim2.fromScale(1,1)
-        btn.SelectionImageObject = transparentSel
+    local function corner(ui,r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0,r or 12)
+        c.Parent = ui
     end
 
-    -- A V1: one ListLayout
+    local function stroke(ui,th)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2
+        s.Color = THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+        return s
+    end
+
+    -- list layout
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12) list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Header + open button
+    -- header
     if not scroll:FindFirstChild("MAX_Header") then
-        local head=Instance.new("TextLabel",scroll)
-        head.Name="MAX_Header" head.BackgroundTransparency=1 head.Size=UDim2.new(1,0,0,36)
-        head.Font=Enum.Font.GothamBold head.TextSize=16 head.TextColor3=THEME.WHITE
-        head.TextXAlignment=Enum.TextXAlignment.Left head.Text="MAX 🛸" head.LayoutOrder=10
+        local head = Instance.new("TextLabel", scroll)
+        head.Name = "MAX_Header"
+        head.BackgroundTransparency = 1
+        head.Size = UDim2.new(1,0,0,36)
+        head.Font = Enum.Font.GothamBold
+        head.TextSize = 16
+        head.TextColor3 = THEME.WHITE
+        head.TextXAlignment = Enum.TextXAlignment.Left
+        head.Text = "MAX 🛸"
+        head.LayoutOrder = 10
     end
-    if not scroll:FindFirstChild("MAX_Row1") then
-        local row=Instance.new("Frame",scroll)
-        row.Name="MAX_Row1" row.Size=UDim2.new(1,-6,0,46)
-        row.BackgroundColor3=THEME.BLACK row.LayoutOrder=11 corner(row,12) stroke(row,2.2,THEME.GREEN)
 
-        local lab=Instance.new("TextLabel",row)
-        lab.BackgroundTransparency=1 lab.Position=UDim2.new(0,16,0,0)
-        lab.Size=UDim2.new(1,-(16+12+220+12),1,0)
-        lab.Font=Enum.Font.GothamBold lab.TextSize=13 lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left lab.Text="MAX"
+    -- main row
+    if not scroll:FindFirstChild("MAX_Row1") then
+        local row = Instance.new("Frame", scroll)
+        row.Name = "MAX_Row1"
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        row.LayoutOrder = 11
+        corner(row,12)
+        stroke(row,2)
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Size = UDim2.new(1,-(16+12+220+12),1,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = "MAX"
 
         local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
-        local openBtn=Instance.new("TextButton",row)
-        openBtn.Name="MAX_InputButton"
-        openBtn.Size=UDim2.fromOffset(BTN_W,BTN_H)
-        openBtn.Position=UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
-        openBtn.BackgroundColor3=THEME.BLACK
-        openBtn.Text="Select Options 🛸" openBtn.Font=Enum.Font.GothamBold openBtn.TextSize=12
-        openBtn.TextColor3=THEME.WHITE openBtn.TextXAlignment=Enum.TextXAlignment.Center openBtn.TextYAlignment=Enum.TextYAlignment.Center
-        corner(openBtn,10) stroke(openBtn,1.6,THEME.GREEN)
-        killWhiteOverlay(openBtn)
-        openBtn.MouseEnter:Connect(function() tween(openBtn,{BackgroundColor3=THEME.GREY},0.08) end)
-        openBtn.MouseLeave:Connect(function() tween(openBtn,{BackgroundColor3=THEME.BLACK},0.08) end)
+        local openBtn = Instance.new("TextButton", row)
+        openBtn.Name = "MAX_InputButton"
+        openBtn.AutoButtonColor = false
+        openBtn.Size = UDim2.fromOffset(BTN_W,BTN_H)
+        openBtn.Position = UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
+        openBtn.BackgroundColor3 = THEME.BLACK
+        openBtn.Text = "Select Options 🛸"
+        openBtn.Font = Enum.Font.GothamBold
+        openBtn.TextSize = 12
+        openBtn.TextColor3 = THEME.WHITE
+        openBtn.TextXAlignment = Enum.TextXAlignment.Center
+        openBtn.TextYAlignment = Enum.TextYAlignment.Center
+        corner(openBtn,10)
+        stroke(openBtn,1.6)
     end
 
-    -- Right panel (locked position)
+    -- side panel
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
-    local panel  = screen:FindFirstChild("MAX_SearchPanel")
+    local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
-        panel=Instance.new("Frame")
-        panel.Name="MAX_SearchPanel" panel.Visible=false
-        panel.BackgroundColor3=THEME.BLACK panel.BorderSizePixel=0
-        corner(panel,12) stroke(panel,2.2,THEME.GREEN) panel.Parent=screen
+        panel = Instance.new("Frame")
+        panel.Name = "MAX_SearchPanel"
+        panel.Visible = false
+        panel.BackgroundColor3 = THEME.BLACK
+        panel.BorderSizePixel = 0
+        corner(panel,12)
+        stroke(panel,2)
+        panel.Parent = screen
 
         local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
         local function placePanel()
@@ -2241,170 +2258,121 @@ registerRight("Shop", function(scroll)
             local y = scroll.AbsolutePosition.Y + TOP_OFFSET
             local h = scroll.AbsoluteSize.Y + EXTRA_H
             panel.Position = UDim2.fromOffset(x,y)
-            panel.Size     = UDim2.fromOffset(PANEL_W,h)
+            panel.Size = UDim2.fromOffset(PANEL_W,h)
         end
         placePanel()
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
 
-        -- Search bar
-        local top=Instance.new("Frame",panel)
-        top.Name="TopBar" top.Size=UDim2.new(1,-10,0,28) top.Position=UDim2.new(0,5,0,6)
-        top.BackgroundColor3=THEME.BLACK corner(top,8) stroke(top,1.4,THEME.GREEN)
-        local icon=Instance.new("TextLabel",top)
-        icon.BackgroundTransparency=1 icon.Text="🔎" icon.Font=Enum.Font.GothamBold
-        icon.TextSize=14 icon.TextColor3=THEME.WHITE icon.Size=UDim2.fromOffset(22,28) icon.Position=UDim2.new(0,6,0,0)
-        local search=Instance.new("TextBox",top)
-        search.BackgroundTransparency=1 search.ClearTextOnFocus=false search.Text=""
-        search.Size=UDim2.new(1,-(22+12+6),1,0) search.Position=UDim2.new(0,34,0,0)
-        search.Font=Enum.Font.Gotham search.TextSize=12 search.TextColor3=THEME.WHITE
-        search.PlaceholderText="Search name…" search.PlaceholderColor3=Color3.fromRGB(180,180,185)
-        search.TextXAlignment=Enum.TextXAlignment.Left
+        local top = Instance.new("Frame", panel)
+        top.Name = "TopBar"
+        top.Size = UDim2.new(1,-10,0,28)
+        top.Position = UDim2.new(0,5,0,6)
+        top.BackgroundColor3 = THEME.BLACK
+        corner(top,8)
+        stroke(top,1.4)
+        local icon = Instance.new("TextLabel", top)
+        icon.BackgroundTransparency = 1
+        icon.Text = "🔎"
+        icon.Font = Enum.Font.GothamBold
+        icon.TextSize = 14
+        icon.TextColor3 = THEME.WHITE
+        icon.Size = UDim2.fromOffset(22,28)
+        icon.Position = UDim2.new(0,6,0,0)
+        local search = Instance.new("TextBox", top)
+        search.BackgroundTransparency = 1
+        search.ClearTextOnFocus = false
+        search.Text = ""
+        search.Size = UDim2.new(1,-(22+12+6),1,0)
+        search.Position = UDim2.new(0,34,0,0)
+        search.Font = Enum.Font.Gotham
+        search.TextSize = 12
+        search.TextColor3 = THEME.WHITE
+        search.PlaceholderText = "Search name…"
+        search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
+        search.TextXAlignment = Enum.TextXAlignment.Left
 
-        -- Result area
-        local listWrap=Instance.new("ScrollingFrame",panel)
-        listWrap.Name="ResultArea" listWrap.BackgroundColor3=THEME.BLACK listWrap.BorderSizePixel=0
-        listWrap.Position=UDim2.new(0,5,0,6+28+6)
-        listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
-        listWrap.CanvasSize=UDim2.new(0,0,0,0)
-        listWrap.ScrollBarThickness=0 listWrap.ScrollBarImageTransparency=1
-        corner(listWrap,10) stroke(listWrap,1.4,THEME.GREEN)
+        local listWrap = Instance.new("ScrollingFrame", panel)
+        listWrap.Name = "ResultArea"
+        listWrap.BackgroundColor3 = THEME.BLACK
+        listWrap.BorderSizePixel = 0
+        listWrap.Position = UDim2.new(0,5,0,6+28+6)
+        listWrap.Size = UDim2.new(1,-10,1,-(6+28+6+6))
+        listWrap.CanvasSize = UDim2.new(0,0,0,0)
+        listWrap.ScrollBarThickness = 0
+        listWrap.ScrollBarImageTransparency = 1
+        corner(listWrap,10)
+        stroke(listWrap,1.4)
 
-        -- Layout like GuideSlot
         local SLOT_LEFT, SLOT_RIGHT, SLOT_TOP, SLOT_HEIGHT, GAP = 8, 8, 10, 26, 6
-        local pad=Instance.new("UIPadding", listWrap)
-        pad.PaddingLeft=UDim.new(0,SLOT_LEFT) pad.PaddingRight=UDim.new(0,SLOT_RIGHT)
-        pad.PaddingTop=UDim.new(0,SLOT_TOP)  pad.PaddingBottom=UDim.new(0,SLOT_TOP)
+        local pad = Instance.new("UIPadding", listWrap)
+        pad.PaddingLeft = UDim.new(0,SLOT_LEFT)
+        pad.PaddingRight = UDim.new(0,SLOT_RIGHT)
+        pad.PaddingTop = UDim.new(0,SLOT_TOP)
+        pad.PaddingBottom = UDim.new(0,SLOT_TOP)
 
-        local v=Instance.new("UIListLayout",listWrap)
-        v.Padding=UDim.new(0,GAP) v.SortOrder=Enum.SortOrder.LayoutOrder
+        local v = Instance.new("UIListLayout", listWrap)
+        v.Padding = UDim.new(0,GAP)
+        v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        -- ===== Item factory (TEXT SAFE) — NO white overlay =====
+        -- === ONLY TWO FX: BORDER + LEFT BAR ===
         local function makeItem(txt)
-            local btn=Instance.new("TextButton", listWrap)
-            btn.Size=UDim2.new(1,0,0,SLOT_HEIGHT)
-            btn.BackgroundColor3=THEME.BLACK
-            btn.Text=""  -- label on top
-            btn.ZIndex=2
+            local btn = Instance.new("TextButton", listWrap)
+            btn.AutoButtonColor = false
+            btn.Size = UDim2.new(1,0,0,SLOT_HEIGHT)
+            btn.BackgroundColor3 = THEME.BLACK
+            btn.Text = txt
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 12
+            btn.TextColor3 = THEME.WHITE
             corner(btn,8)
-            killWhiteOverlay(btn)
+            local border = stroke(btn,1.6)
 
-            local lbl=Instance.new("TextLabel", btn)
-            lbl.Name="Label" lbl.BackgroundTransparency=1
-            lbl.Size=UDim2.fromScale(1,1) lbl.Position=UDim2.fromScale(0,0)
-            lbl.Font=Enum.Font.GothamBold lbl.TextSize=12
-            lbl.TextColor3=THEME.WHITE lbl.TextXAlignment=Enum.TextXAlignment.Center lbl.TextYAlignment=Enum.TextYAlignment.Center
-            lbl.ZIndex=10 lbl.Text=txt
-
-            -- base border (thin+dim)
-            local base=stroke(btn,1.4,THEME.GREEN,0.35)
-
-            -- left indicator bar
-            local bar=Instance.new("Frame", btn)
-            bar.Name="SelBar" bar.BackgroundColor3=THEME.GREEN bar.ZIndex=3
-            bar.Position=UDim2.new(0,2,0,2) bar.Size=UDim2.new(0,4,1,-4) bar.Visible=false
+            local bar = Instance.new("Frame", btn)
+            bar.Name = "SelBar"
+            bar.BackgroundColor3 = THEME.GREEN
+            bar.Position = UDim2.new(0,2,0,2)
+            bar.Size = UDim2.new(0,4,1,-4)
+            bar.Visible = false
             corner(bar,3)
 
-            -- inner subtle line (green)
-            local inset=Instance.new("UIStroke", btn)
-            inset.Thickness=1.0 inset.Color=THEME.GREEN inset.Transparency=0.55
-            inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
-
-            -- outer green glow (no white)
-            local glow=Instance.new("UIStroke", btn)
-            glow.Thickness=5.2 glow.Color=THEME.GREEN glow.Transparency=1
-            glow.LineJoinMode=Enum.LineJoinMode.Round glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
-
-            -- solid selected bg (no gradient/white)
-            local bg=Instance.new("Frame", btn)
-            bg.Name="SelBg" bg.BackgroundColor3=THEME.SELBG bg.Visible=false bg.ZIndex=1
-            bg.Size=UDim2.fromScale(1,1) bg.Position=UDim2.new(0,0,0,0) corner(bg,8)
-
-            -- state + visuals
             btn:SetAttribute("Selected", false)
-            local function setVisual(sel)
-                if sel then
-                    bar.Visible=true
-                    bg.Visible=true
-                    tween(base,{Thickness=1.8,Transparency=0},0.08)
-                    glow.Transparency=0.08
-                    tween(glow,{Thickness=6.0},0.08); tween(glow,{Thickness=5.2},0.10)
-                else
-                    bar.Visible=false
-                    bg.Visible=false
-                    tween(base,{Thickness=1.4,Transparency=0.35},0.08)
-                    tween(glow,{Transparency=1},0.08)
-                end
-            end
-
             btn.MouseButton1Click:Connect(function()
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
-                setVisual(sel)
-            end)
-
-            -- hover (no white)
-            btn.MouseEnter:Connect(function()
-                if not btn:GetAttribute("Selected") then tween(btn,{BackgroundColor3=THEME.GREY},0.08) end
-            end)
-            btn.MouseLeave:Connect(function()
-                if not btn:GetAttribute("Selected") then tween(btn,{BackgroundColor3=THEME.BLACK},0.08) end
+                bar.Visible = sel
             end)
 
             return btn
         end
 
-        -- Build MAX 1..10
         local ITEMS={}
         for i=1,10 do ITEMS[i]=makeItem(("MAX %d"):format(i)) end
 
-        -- Canvas auto (include padding so the last item is not clipped)
         local function recalc()
             task.defer(function()
-                local topPad   = pad.PaddingTop.Offset
-                local bottomPad= pad.PaddingBottom.Offset
-                listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + topPad + bottomPad)
+                listWrap.CanvasSize = UDim2.new(0,0,0,v.AbsoluteContentSize.Y+SLOT_TOP)
             end)
         end
-        v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc) recalc()
+        v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
+        recalc()
 
-        -- Search on label text (keeps selection)
         local function applySearch(q)
-            q=string.lower(q or "")
+            q = string.lower(q or "")
             for _,b in ipairs(ITEMS) do
-                local t = (b:FindFirstChild("Label") and b.Label.Text) or ""
-                b.Visible = (q=="" or string.find(string.lower(t), q, 1, true))
+                b.Visible = (q=="" or string.find(string.lower(b.Text),q,1,true))
             end
             recalc()
         end
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
-
-        -- Close when clicking outside
-        UIS.InputBegan:Connect(function(io)
-            if not panel.Visible then return end
-            if io.UserInputType==Enum.UserInputType.MouseButton1 then
-                local m=UIS:GetMouseLocation() local pos=panel.AbsolutePosition local sz=panel.AbsoluteSize
-                if not (m.X>=pos.X and m.X<=pos.X+sz.X and m.Y>=pos.Y and m.Y<=pos.Y+sz.Y) then panel.Visible=false end
-            end
-        end)
     end
 
-    -- Toggle panel
     local openBtn = scroll.MAX_Row1 and scroll.MAX_Row1:FindFirstChild("MAX_InputButton")
     if openBtn and not openBtn:GetAttribute("Hooked") then
         openBtn:SetAttribute("Hooked",true)
         openBtn.MouseButton1Click:Connect(function()
             local p = screen:FindFirstChild("MAX_SearchPanel")
             if p then p.Visible = not p.Visible end
-        end)
-    end
-
-    -- Auto-hide on main scroll
-    if not scroll:GetAttribute("HidePanelOnScroll") then
-        scroll:SetAttribute("HidePanelOnScroll",true)
-        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            local p = screen:FindFirstChild("MAX_SearchPanel")
-            if p and p.Visible then p.Visible=false end
         end)
     end
 end)
