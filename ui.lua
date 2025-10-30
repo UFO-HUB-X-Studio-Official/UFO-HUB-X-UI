@@ -2156,7 +2156,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸 (A V1 • exact panel, NO ITEM BUTTONS) =====
+--===== UFO HUB X • Shop — MAX 🛸 (A V1 • exact panel + EXACT guide slot) =====
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
@@ -2169,19 +2169,15 @@ registerRight("Shop", function(scroll)
         GREY  = Color3.fromRGB(60,60,65),
     }
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col)
-        local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN
-        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui
-        return s
-    end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui return s end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- A V1: one ListLayout on scroll
+    -- one ListLayout on RIGHT (A V1)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Header (right side)
+    -- Header
     if not scroll:FindFirstChild("MAX_Header") then
         local head=Instance.new("TextLabel",scroll)
         head.Name="MAX_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
@@ -2189,7 +2185,7 @@ registerRight("Shop", function(scroll)
         head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="MAX 🛸"; head.LayoutOrder=10
     end
 
-    -- Row (A V1 STANDARD)
+    -- Row
     local row=scroll:FindFirstChild("MAX_Row1")
     if not row then
         row=Instance.new("Frame",scroll)
@@ -2215,9 +2211,9 @@ registerRight("Shop", function(scroll)
         input.MouseLeave:Connect(function() tween(input,{BackgroundColor3=THEME.BLACK},0.08) end)
     end
 
-    ---------------------------------------------------------------
-    -- Search Panel (EMPTY LIST • no buttons/items inside)
-    ---------------------------------------------------------------
+    ----------------------------------------------------------------
+    -- Side Search Panel (empty list) + EXACT black slot w/ green border
+    ----------------------------------------------------------------
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel  = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2226,7 +2222,7 @@ registerRight("Shop", function(scroll)
         panel.BackgroundColor3=THEME.BLACK; panel.BorderSizePixel=0
         corner(panel,12); stroke(panel,2.2,THEME.GREEN); panel.Parent=screen
 
-        -- Position kept the same alignment you approved
+        -- Alignment (kept)
         local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
         local function placePanel()
             local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
@@ -2238,7 +2234,7 @@ registerRight("Shop", function(scroll)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
 
-        -- Search bar (kept)
+        -- Top search
         local top=Instance.new("Frame",panel)
         top.Name="TopBar"; top.Size=UDim2.new(1,-10,0,28); top.Position=UDim2.new(0,5,0,6)
         top.BackgroundColor3=THEME.BLACK; corner(top,8); stroke(top,1.4,THEME.GREEN)
@@ -2254,22 +2250,28 @@ registerRight("Shop", function(scroll)
         search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
         search.TextXAlignment=Enum.TextXAlignment.Left
 
-        -- EMPTY result container (no items added)
-        local listWrap=Instance.new("ScrollingFrame",panel)
+        -- Result container (no items, no scrollbar)
+        local listWrap=Instance.new("Frame",panel)
         listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
-        listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
-        listWrap.CanvasSize=UDim2.new(0,0,0,0)
-        listWrap.ScrollBarThickness = 0
-        listWrap.ScrollBarImageTransparency = 1
+        listWrap.Position=UDim2.new(0,5,0,6+28+6)     -- under search bar
+        listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))  -- fill remaining
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
 
-        local v=Instance.new("UIListLayout",listWrap); v.Padding=UDim.new(0,5); v.SortOrder=Enum.SortOrder.LayoutOrder
+        -- ===== EXACT GUIDE SLOT (matches your red box) =====
+        -- Tweak these four numbers if you need micro-adjust:
+        local SLOT_LEFT   = 8     -- distance from list's left
+        local SLOT_RIGHT  = 8     -- distance from list's right
+        local SLOT_TOP    = 10    -- distance from list's top
+        local SLOT_HEIGHT = 26    -- slot height
 
-        -- If there are old buttons from previous script, purge them.
-        for _,ch in ipairs(listWrap:GetChildren()) do
-            if ch:IsA("GuiButton") or ch:IsA("TextLabel") then ch:Destroy() end
-        end
+        local slot = Instance.new("Frame", listWrap)
+        slot.Name = "GuideSlot"
+        slot.BackgroundColor3 = THEME.BLACK
+        slot.Position = UDim2.new(0, SLOT_LEFT, 0, SLOT_TOP)
+        slot.Size     = UDim2.new(1, -(SLOT_LEFT + SLOT_RIGHT), 0, SLOT_HEIGHT)
+        corner(slot, 8); stroke(slot, 2.0, THEME.GREEN)  -- black + green border (glow look)
 
+        -- close when clicking outside
         UIS.InputBegan:Connect(function(io)
             if not panel.Visible then return end
             if io.UserInputType==Enum.UserInputType.MouseButton1 then
@@ -2279,17 +2281,6 @@ registerRight("Shop", function(scroll)
                 if not inside then panel.Visible=false end
             end
         end)
-    else
-        -- If panel already exists from a prior version, clear its ResultArea now.
-        local listWrap = panel:FindFirstChild("ResultArea")
-        if listWrap then
-            for _,ch in ipairs(listWrap:GetChildren()) do
-                if ch:IsA("GuiButton") or ch:IsA("TextLabel") then ch:Destroy() end
-            end
-            listWrap.CanvasSize = UDim2.new(0,0,0,0)
-            listWrap.ScrollBarThickness = 0
-            listWrap.ScrollBarImageTransparency = 1
-        end
     end
 
     -- Toggle panel from the right button
