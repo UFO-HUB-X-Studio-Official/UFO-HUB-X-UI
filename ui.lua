@@ -2157,19 +2157,18 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • exact right panel position, buttons sized/placed exactly like GuideSlot,
--- sticky neon select FX, search filters without rebuilding
+-- A V1 • exact right panel position, sticky multi-select FX (glow + left bar + bg), search filter w/o rebuild
 registerRight("Shop", function(scroll)
     local TweenService = game:GetService("TweenService")
     local UIS          = game:GetService("UserInputService")
 
-    -- THEME (A V1)
+    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         GREY  = Color3.fromRGB(60,60,65),
-        SELBG = Color3.fromRGB(25,25,25),
+        SELBG = Color3.fromRGB(18,18,18),
     }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
@@ -2180,23 +2179,24 @@ registerRight("Shop", function(scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
 
-    -- Header + Row
+    -- Header + Row (unchanged)
     if not scroll:FindFirstChild("MAX_Header") then
         local head=Instance.new("TextLabel",scroll)
         head.Name="MAX_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
         head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.WHITE
         head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="MAX 🛸"; head.LayoutOrder=10
     end
-    local row=scroll:FindFirstChild("MAX_Row1")
-    if not row then
-        row=Instance.new("Frame",scroll)
+    if not scroll:FindFirstChild("MAX_Row1") then
+        local row=Instance.new("Frame",scroll)
         row.Name="MAX_Row1"; row.Size=UDim2.new(1,-6,0,46)
         row.BackgroundColor3=THEME.BLACK; row.LayoutOrder=11; corner(row,12); stroke(row,2.2,THEME.GREEN)
+
         local lab=Instance.new("TextLabel",row)
         lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,16,0,0)
         lab.Size=UDim2.new(1,-(16+12+220+12),1,0)
         lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
         lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="MAX"
+
         local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
         local openBtn=Instance.new("TextButton",row)
         openBtn.Name="MAX_InputButton"; openBtn.AutoButtonColor=false
@@ -2210,9 +2210,7 @@ registerRight("Shop", function(scroll)
         openBtn.MouseLeave:Connect(function() tween(openBtn,{BackgroundColor3=THEME.BLACK},0.08) end)
     end
 
-    ----------------------------------------------------------------
-    -- Right Side Panel (ตำแหน่งเดิมเป๊ะ)
-    ----------------------------------------------------------------
+    -- Right panel (locked position)
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel  = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2221,7 +2219,6 @@ registerRight("Shop", function(scroll)
         panel.BackgroundColor3=THEME.BLACK; panel.BorderSizePixel=0
         corner(panel,12); stroke(panel,2.2,THEME.GREEN); panel.Parent=screen
 
-        -- === FIXED: ห้ามเพี้ยนจากค่าชุดนี้ ===
         local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
         local function placePanel()
             local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
@@ -2248,7 +2245,7 @@ registerRight("Shop", function(scroll)
         search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
         search.TextXAlignment=Enum.TextXAlignment.Left
 
-        -- Result area (จัด padding ให้เท่ากับ GuideSlot)
+        -- Result area
         local listWrap=Instance.new("ScrollingFrame",panel)
         listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
         listWrap.Position=UDim2.new(0,5,0,6+28+6)
@@ -2257,7 +2254,7 @@ registerRight("Shop", function(scroll)
         listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
 
-        -- *** ค่าจัดวางให้ "เหมือน GuideSlot" ***
+        -- Layout identical to GuideSlot
         local SLOT_LEFT, SLOT_RIGHT, SLOT_TOP, SLOT_HEIGHT, GAP = 8, 8, 10, 26, 6
         local pad = Instance.new("UIPadding", listWrap)
         pad.PaddingLeft  = UDim.new(0, SLOT_LEFT)
@@ -2268,47 +2265,71 @@ registerRight("Shop", function(scroll)
         local v=Instance.new("UIListLayout",listWrap)
         v.Padding=UDim.new(0, GAP); v.SortOrder=Enum.SortOrder.LayoutOrder
 
-        -- Factory: ปุ่มสไตล์เดียวกับที่ต้องการ + เอฟเฟกต์ค้างชัดเจน
+        -- Item factory with STRONG sticky FX
         local function makeItem(txt)
             local btn=Instance.new("TextButton", listWrap)
             btn.AutoButtonColor=false
-            btn.Size=UDim2.new(1, 0, 0, SLOT_HEIGHT) -- ความกว้าง/สูงตรงกับ GuideSlot
+            btn.Size=UDim2.new(1, 0, 0, SLOT_HEIGHT)
             btn.BackgroundColor3=THEME.BLACK
             btn.Text=txt; btn.Font=Enum.Font.GothamBold; btn.TextSize=12
             btn.TextColor3=THEME.WHITE; btn.TextXAlignment=Enum.TextXAlignment.Center; btn.TextYAlignment=Enum.TextYAlignment.Center
             corner(btn,8)
+
+            -- base border
             stroke(btn,1.8,THEME.GREEN)
 
-            -- เส้นเรืองแสง “ติดค้าง”
-            local glow=Instance.new("UIStroke", btn)
-            glow.Thickness=5.2; glow.Color=THEME.GREEN
-            glow.Transparency=1; glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
-            glow.LineJoinMode=Enum.LineJoinMode.Round
+            -- left green indicator bar (clearest “selected” sign)
+            local bar=Instance.new("Frame", btn)
+            bar.Name="SelBar"; bar.BackgroundColor3=THEME.GREEN
+            bar.AnchorPoint=Vector2.new(0,0); bar.Position=UDim2.new(0,2,0,2)
+            bar.Size=UDim2.new(0,4,1,-4); bar.Visible=false
+            corner(bar,3)
 
-            -- เส้นซ้อนด้านใน (เหมือนสไตล์ปุ่มซ้าย)
+            -- subtle inner line
             local inset=Instance.new("UIStroke", btn)
-            inset.Thickness=1.2; inset.Color=THEME.GREEN
-            inset.Transparency=0.45; inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+            inset.Thickness=1.2; inset.Color=THEME.GREEN; inset.Transparency=0.45
+            inset.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
 
-            -- สถานะเลือกค้าง + อัปเดตภาพ
+            -- outer glow stroke
+            local glow=Instance.new("UIStroke", btn)
+            glow.Thickness=5.6; glow.Color=THEME.GREEN
+            glow.LineJoinMode=Enum.LineJoinMode.Round
+            glow.Transparency=1; glow.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+
+            -- selected bg gradient
+            local grad=Instance.new("UIGradient", btn)
+            grad.Enabled=false
+            grad.Color=ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(10,30,10)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))
+            }
+            grad.Rotation=90
+
+            -- state + visuals
             btn:SetAttribute("Selected", false)
-            local function updateVisual(sel)
+            local function setVisual(sel)
                 if sel then
+                    bar.Visible=true
+                    grad.Enabled=true
+                    btn.TextColor3 = THEME.GREEN
+                    tween(btn, {BackgroundColor3=THEME.SELBG}, 0.08)
                     glow.Transparency=0.03
-                    tween(glow,{Thickness=5.8},0.08); tween(glow,{Thickness=5.2},0.10)
-                    tween(btn,{BackgroundColor3=THEME.SELBG},0.08)
+                    tween(glow, {Thickness=6.2}, 0.08); tween(glow, {Thickness=5.6}, 0.10)
                 else
-                    tween(glow,{Transparency=1},0.08)
-                    tween(btn,{BackgroundColor3=THEME.BLACK},0.08)
+                    bar.Visible=false
+                    grad.Enabled=false
+                    btn.TextColor3 = THEME.WHITE
+                    tween(btn, {BackgroundColor3=THEME.BLACK}, 0.08)
+                    tween(glow, {Transparency=1}, 0.08)
                 end
             end
+
             btn.MouseButton1Click:Connect(function()
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
-                updateVisual(sel)    -- ค้าง/ปลดค้าง
+                setVisual(sel) -- sticky
             end)
 
-            -- hover (ไม่ทับกับสถานะค้าง)
             btn.MouseEnter:Connect(function()
                 if not btn:GetAttribute("Selected") then tween(btn,{BackgroundColor3=THEME.GREY},0.08) end
             end)
@@ -2319,15 +2340,14 @@ registerRight("Shop", function(scroll)
             return btn
         end
 
-        -- สร้างปุ่ม MAX 1..10
+        -- create MAX 1..10
         local ITEMS={}
         for i=1,10 do ITEMS[i]=makeItem(("MAX %d"):format(i)) end
 
-        -- รีคัลค์สูง
         local function recalc() task.defer(function() listWrap.CanvasSize=UDim2.new(0,0,0,v.AbsoluteContentSize.Y+SLOT_TOP) end) end
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc); recalc()
 
-        -- ค้นหาแบบไม่ลบปุ่ม (คงสถานะค้างไว้)
+        -- search without rebuild (keep selection)
         local function applySearch(q)
             q=string.lower(q or "")
             for _,b in ipairs(ITEMS) do
@@ -2335,9 +2355,11 @@ registerRight("Shop", function(scroll)
             end
             recalc()
         end
-        search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
+        top:FindFirstChildOfClass("TextBox"):GetPropertyChangedSignal("Text"):Connect(function()
+            applySearch(top:FindFirstChildOfClass("TextBox").Text)
+        end)
 
-        -- ปิดเมื่อคลิกนอก
+        -- close on outside click
         UIS.InputBegan:Connect(function(io)
             if not panel.Visible then return end
             if io.UserInputType==Enum.UserInputType.MouseButton1 then
