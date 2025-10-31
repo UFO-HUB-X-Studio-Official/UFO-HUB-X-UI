@@ -2158,13 +2158,13 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Update (Final Fix):
---   • กดที่ไหนก็ได้ในหน้าจอหรือ UI หลัก → ปิดแผงขวาทันที (ยกเว้นกดภายในแผงขวาเอง)
---   • ปุ่ม Select Options 🛸 ทำงานแน่นอน (ไม่โดน catcher บัง)
---   • ไม่มีแอนิเมชัน เปิด/ปิดแบบทันที
+-- Final stable: open fast, tap-anywhere-to-close (except inside right panel),
+-- scrolling works, styles match 100%.
+
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
 
+    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -2176,7 +2176,6 @@ registerRight("Shop", function(scroll)
         c.CornerRadius = UDim.new(0, r or 12)
         c.Parent = ui
     end
-
     local function stroke(ui, th, col, trans)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2
@@ -2187,7 +2186,7 @@ registerRight("Shop", function(scroll)
         return s
     end
 
-    -- Left Panel
+    --================ LEFT CONTENT (UNTOUCHED) ================
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2212,8 +2211,7 @@ registerRight("Shop", function(scroll)
         row.Size = UDim2.new(1,-6,0,46)
         row.BackgroundColor3 = THEME.BLACK
         row.LayoutOrder = 11
-        corner(row,12)
-        stroke(row,2,THEME.GREEN,0)
+        corner(row,12); stroke(row,2,THEME.GREEN,0)
 
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
@@ -2238,8 +2236,7 @@ registerRight("Shop", function(scroll)
         openBtn.TextColor3 = THEME.WHITE
         openBtn.TextXAlignment = Enum.TextXAlignment.Center
         openBtn.TextYAlignment = Enum.TextYAlignment.Center
-        corner(openBtn,10)
-        stroke(openBtn,1.6,THEME.GREEN,0)
+        corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
 
         if not openBtn:GetAttribute("Hooked") then
             openBtn:SetAttribute("Hooked", true)
@@ -2248,23 +2245,25 @@ registerRight("Shop", function(scroll)
                 local panel  = screen:FindFirstChild("MAX_SearchPanel")
                 local catcher = screen:FindFirstChild("MAX_DismissCatcher")
                 if panel and catcher then
+                    -- place once on open (no follow)
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
                     panel.Position = UDim2.fromOffset(x,y)
-                    panel.Size = UDim2.fromOffset(PANEL_W,h)
-                    local willShow = not panel.Visible
-                    panel.Visible = willShow
-                    catcher.Visible = willShow
+                    panel.Size     = UDim2.fromOffset(PANEL_W,h)
+                    local show = not panel.Visible
+                    panel.Visible  = show
+                    catcher.Visible = show
                 end
             end)
         end
     end
 
+    --================ GLOBALS (RIGHT PANEL + CATCHER) =========
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
 
-    -- Catcher (ต่ำกว่า Panel และต่ำกว่า Main UI เพื่อไม่บังปุ่ม)
+    -- Fullscreen catcher: ABOVE main UI, BELOW panel (so it catches everywhere except the panel)
     local catcher = screen:FindFirstChild("MAX_DismissCatcher")
     if not catcher then
         catcher = Instance.new("TextButton")
@@ -2274,13 +2273,13 @@ registerRight("Shop", function(scroll)
         catcher.BorderSizePixel = 0
         catcher.Size = UDim2.fromScale(1,1)
         catcher.Position = UDim2.fromScale(0,0)
-        catcher.ZIndex = 0  -- ต่ำสุด ไม่บังปุ่ม UI หลัก
+        catcher.ZIndex = 150          -- higher than main UI, lower than panel
         catcher.Visible = false
         catcher.Text = ""
         catcher.Parent = screen
     end
 
-    -- Right Panel
+    -- Right panel (highest ZIndex so it’s always clickable)
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
         panel = Instance.new("Frame")
@@ -2288,18 +2287,19 @@ registerRight("Shop", function(scroll)
         panel.Visible = false
         panel.BackgroundColor3 = THEME.BLACK
         panel.BorderSizePixel = 0
-        panel.ZIndex = 50
-        corner(panel,12)
-        stroke(panel,2,THEME.GREEN,0)
+        panel.ZIndex = 200
+        panel.ClipsDescendants = true
+        corner(panel,12); stroke(panel,2,THEME.GREEN,0)
         panel.Parent = screen
 
+        -- TopBar (style identical)
         local top = Instance.new("Frame", panel)
         top.Name = "TopBar"
         top.Size = UDim2.new(1,-10,0,28)
         top.Position = UDim2.new(0,5,0,6)
         top.BackgroundColor3 = THEME.BLACK
-        corner(top,8)
-        stroke(top,1.4,THEME.GREEN,0)
+        top.ZIndex = panel.ZIndex + 1
+        corner(top,8); stroke(top,1.4,THEME.GREEN,0)
 
         local icon = Instance.new("TextLabel", top)
         icon.BackgroundTransparency = 1
@@ -2309,6 +2309,7 @@ registerRight("Shop", function(scroll)
         icon.TextColor3 = THEME.WHITE
         icon.Size = UDim2.fromOffset(22,28)
         icon.Position = UDim2.new(0,6,0,0)
+        icon.ZIndex = top.ZIndex + 1
 
         local search = Instance.new("TextBox", top)
         search.BackgroundTransparency = 1
@@ -2322,7 +2323,9 @@ registerRight("Shop", function(scroll)
         search.PlaceholderText = "Search name…"
         search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         search.TextXAlignment = Enum.TextXAlignment.Left
+        search.ZIndex = top.ZIndex + 1
 
+        -- Results list (scroll enabled)
         local listWrap = Instance.new("ScrollingFrame", panel)
         listWrap.Name = "ResultArea"
         listWrap.BackgroundColor3 = THEME.BLACK
@@ -2332,41 +2335,95 @@ registerRight("Shop", function(scroll)
         listWrap.CanvasSize = UDim2.new(0,0,0,0)
         listWrap.ScrollBarThickness = 0
         listWrap.ScrollBarImageTransparency = 1
-        corner(listWrap,10)
-        stroke(listWrap,1.4,THEME.GREEN,0)
+        listWrap.ScrollingEnabled = true
+        listWrap.ZIndex = panel.ZIndex + 1
+        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
 
-        local SLOT_HEIGHT, GAP = 26, 6
+        local pad = Instance.new("UIPadding", listWrap)
+        pad.PaddingTop    = UDim.new(0,10)
+        pad.PaddingBottom = UDim.new(0,16)
+        pad.PaddingLeft   = UDim.new(0,8)
+        pad.PaddingRight  = UDim.new(0,8)
+
         local v = Instance.new("UIListLayout", listWrap)
-        v.Padding = UDim.new(0,GAP)
+        v.Padding = UDim.new(0,6)
         v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        for i=1,10 do
+        local function recalc()  -- keep scroll working & avoid MAX10 clipping
+            task.defer(function()
+                listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset)
+            end)
+        end
+        v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
+
+        -- Items (match left style; 2 FX only)
+        local function makeItem(txt)
             local btn = Instance.new("TextButton", listWrap)
             btn.AutoButtonColor = false
-            btn.Size = UDim2.new(1,0,0,SLOT_HEIGHT)
+            btn.Size = UDim2.new(1,0,0,26)
             btn.BackgroundColor3 = THEME.BLACK
-            btn.Text = "MAX " .. i
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 12
-            btn.TextColor3 = THEME.WHITE
+            btn.Text = ""
+            btn.ZIndex = listWrap.ZIndex + 1
             corner(btn,8)
-            stroke(btn,1.2,THEME.GREEN,0.45)
+
+            local lbl = Instance.new("TextLabel", btn)
+            lbl.BackgroundTransparency = 1
+            lbl.Size = UDim2.fromScale(1,1)
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 12
+            lbl.TextColor3 = THEME.WHITE
+            lbl.Text = txt
+            lbl.TextXAlignment = Enum.TextXAlignment.Center
+            lbl.TextYAlignment = Enum.TextYAlignment.Center
+            lbl.ZIndex = btn.ZIndex + 1
+
+            local border = stroke(btn,1.2,THEME.GREEN,0.45) -- dim start
+            border.ZIndex = btn.ZIndex + 1
+
+            local bar = Instance.new("Frame", btn)
+            bar.Name = "SelBar"
+            bar.BackgroundColor3 = THEME.GREEN
+            bar.Position = UDim2.new(0,2,0,2)
+            bar.Size = UDim2.new(0,4,1,-4)
+            bar.Visible = false
+            bar.ZIndex = btn.ZIndex + 1
+            corner(bar,3)
+
+            btn:SetAttribute("Selected", false)
+            btn.MouseButton1Click:Connect(function()
+                local sel = not btn:GetAttribute("Selected")
+                btn:SetAttribute("Selected", sel)
+                bar.Visible = sel
+                border.Thickness    = sel and 1.8 or 1.2
+                border.Transparency = sel and 0.0 or 0.45
+            end)
         end
+
+        for i=1,10 do makeItem(("MAX %d"):format(i)) end
+        recalc()
     end
 
-    -- ปิด panel และ catcher เมื่อคลิกที่จอ
+    --================== CLOSE LOGIC (FAST, NO DELAY) ==========
     local function hidePanel()
         if panel.Visible then panel.Visible = false end
         if catcher.Visible then catcher.Visible = false end
     end
 
+    -- Catch any tap/click anywhere outside the right panel
     if not catcher:GetAttribute("Hooked") then
         catcher:SetAttribute("Hooked", true)
         catcher.MouseButton1Click:Connect(hidePanel)
         catcher.TouchTap:Connect(hidePanel)
     end
 
-    scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
+    -- Also close when left area changes (switch tab/scroll etc.)
+    if not scroll:GetAttribute("HideHooked") then
+        scroll:SetAttribute("HideHooked", true)
+        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
+    end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
