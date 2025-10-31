@@ -2158,9 +2158,9 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Update (no open/close effects):
---   • กดตรงไหนก็ได้บนจอ → ปิดแผงขวาทันที (ยกเว้นแตะภายในแผงขวา)
---   • เปิด/ปิดแบบปกติ ไม่ต้องมีแอนิเมชัน
+-- Update:
+--   • แตะ/คลิกตรงไหนใน "UI หลัก" ก็ปิดแผงขวาทันที (ยกเว้นแตะบนแผงขวาเอง) — ครอบคลุมเมาส์/ทัช/เกมแพด
+--   • เปิด/ปิดแบบปกติ (ไม่มีแอนิเมชัน)
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
 
@@ -2245,14 +2245,14 @@ registerRight("Shop", function(scroll)
                 local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
                 local p = screen:FindFirstChild("MAX_SearchPanel")
                 if p then
-                    -- วางตำแหน่งครั้งเดียวตอนเปิด (ไม่ตาม scroll ภายหลัง)
+                    -- ตำแหน่ง/ขนาดตอนเปิด (ไม่ติดตามภายหลัง)
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
                     p.Position = UDim2.fromOffset(x,y)
                     p.Size     = UDim2.fromOffset(PANEL_W,h)
-                    p.Visible  = not p.Visible -- เปิด/ปิดทันที (ไม่มีเอฟเฟกต์)
+                    p.Visible  = not p.Visible
                 end
             end)
         end
@@ -2387,7 +2387,8 @@ registerRight("Shop", function(scroll)
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
 
         ----------------------------------------------------------------
-        -- ===== Auto-hide: กด/แตะที่ไหนก็ได้ ยกเว้นภายในแผงขวา =====
+        -- ===== Auto-hide: แตะ/คลิกที่ "UI หลัก" ก็ปิด (ยกเว้นบนแผงขวา) =====
+        -- ครอบคลุม: Mouse/Touch/Keyboard/Gamepad + Click ผ่าน ScreenGui เอง
         ----------------------------------------------------------------
         local function isInsidePanelXY(x,y)
             local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
@@ -2397,13 +2398,13 @@ registerRight("Shop", function(scroll)
             if panel.Visible then panel.Visible = false end
         end
 
-        -- เมื่อ UI ซ้ายเลื่อน/ย้าย/ซ่อน → ปิดทันที
+        -- 1) การเปลี่ยนแปลงของด้านซ้าย → ปิด
         scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(instantClose)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(instantClose)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(instantClose)
         scroll:GetPropertyChangedSignal("Visible"):Connect(instantClose)
 
-        -- คลิก/แตะที่ไหนก็ได้บนจอ (ถ้าอยู่นอกแผงขวา) → ปิดทันที
+        -- 2) คลิก/แตะที่ไหนก็ได้บนจอ (นอกแผงขวา) → ปิด
         UIS.InputBegan:Connect(function(io, gp)
             if gp then return end
             if io.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2413,14 +2414,13 @@ registerRight("Shop", function(scroll)
                 local p = io.Position
                 if p and not isInsidePanelXY(p.X, p.Y) then instantClose() end
             elseif io.UserInputType == Enum.UserInputType.Keyboard then
-                -- ปุ่มนำทางซ้าย/ขวา → ปิด
                 local k = io.KeyCode
                 if k==Enum.KeyCode.Left or k==Enum.KeyCode.Right or k==Enum.KeyCode.A or k==Enum.KeyCode.D
                 or k==Enum.KeyCode.DPadLeft or k==Enum.KeyCode.DPadRight then instantClose() end
             end
         end)
 
-        -- เลื่อนล้อเมาส์/เกมแพด (ถ้าอยู่นอกแผง) → ปิดทันที
+        -- 3) MouseWheel/เกมแพด (ถ้าอยู่นอกแผง) → ปิด
         UIS.InputChanged:Connect(function(io)
             if io.UserInputType == Enum.UserInputType.MouseWheel then
                 local m = UIS:GetMouseLocation()
@@ -2430,6 +2430,19 @@ registerRight("Shop", function(scroll)
                 instantClose()
             end
         end)
+
+        -- 4) จับคลิกผ่าน ScreenGui เอง เพื่อให้ "แตะ UI หลักตรงไหนก็ปิด"
+        if screen and screen:IsA("ScreenGui") then
+            screen.InputBegan:Connect(function(io)
+                if io.UserInputType == Enum.UserInputType.MouseButton1 then
+                    local m = UIS:GetMouseLocation()
+                    if not isInsidePanelXY(m.X, m.Y) then instantClose() end
+                elseif io.UserInputType == Enum.UserInputType.Touch then
+                    local p = io.Position
+                    if p and not isInsidePanelXY(p.X, p.Y) then instantClose() end
+                end
+            end)
+        end
     end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
