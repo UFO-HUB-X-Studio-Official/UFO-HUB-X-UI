@@ -2157,8 +2157,12 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • Right panel (Shop options) = only 2 FX per item (green border dim→bright + left bar)
---        Panel auto-hide when you scroll/drag/switch left UI, press left/right, touch/scroll, or click outside.
+-- A V1 • Right panel = only 2 FX per item (green border dim→bright + left bar)
+-- Auto-hide rules (ตามที่ขอ):
+--   • เลื่อนไปหน้าอื่น/กดเมนูฝั่งซ้าย/เลื่อนซ้าย-ขวา/สกรอล์ UI หลัก → ซ่อน
+--   • คลิก/ทัชที่ “นอก” แผงขวา → ซ่อน
+--   • คลิก/ทัช “ภายใน” แผงขวา → ไม่ซ่อน (แก้บั๊กกดแล้วหาย)
+
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
 
@@ -2241,7 +2245,7 @@ registerRight("Shop", function(scroll)
             openBtn.MouseButton1Click:Connect(function()
                 local p = (scroll:FindFirstAncestorOfClass("ScreenGui") or scroll):FindFirstChild("MAX_SearchPanel")
                 if p then
-                    -- place near current left UI each time it's opened, but it will NOT follow later
+                    -- place once on open (ไม่ตามติดภายหลัง)
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
@@ -2254,7 +2258,7 @@ registerRight("Shop", function(scroll)
         end
     end
 
-    -- Right panel (independent, green borders same as original)
+    -- Right panel
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2313,13 +2317,13 @@ registerRight("Shop", function(scroll)
         pad.PaddingLeft   = UDim.new(0,SLOT_LEFT)
         pad.PaddingRight  = UDim.new(0,SLOT_RIGHT)
         pad.PaddingTop    = UDim.new(0,SLOT_TOP)
-        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- prevent MAX10 clipping
+        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- กัน MAX10 โดนกิน
 
         local v = Instance.new("UIListLayout", listWrap)
         v.Padding = UDim.new(0,GAP)
         v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        -- === RIGHT ITEMS: ONLY TWO FX (border dim→bright + left bar) ===
+        -- Items (ONLY 2 FX)
         local function makeItem(txt)
             local btn = Instance.new("TextButton", listWrap)
             btn.AutoButtonColor = false
@@ -2338,7 +2342,7 @@ registerRight("Shop", function(scroll)
             lbl.TextXAlignment = Enum.TextXAlignment.Center
             lbl.TextYAlignment = Enum.TextYAlignment.Center
 
-            local border = stroke(btn,1.2,THEME.GREEN,0.45) -- dim at start
+            local border = stroke(btn,1.2,THEME.GREEN,0.45) -- เริ่มบาง+หม่น
             local bar = Instance.new("Frame", btn)
             bar.Name = "SelBar"
             bar.BackgroundColor3 = THEME.GREEN
@@ -2382,31 +2386,45 @@ registerRight("Shop", function(scroll)
         end
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
 
-        -- ===== Auto-hide conditions for the right panel =====
+        ----------------------------------------------------------------
+        -- ===== Auto-hide (ไม่ซ่อนถ้าคลิก “ภายใน” แผงขวา) =====
+        ----------------------------------------------------------------
+        local function isInsidePanelXY(x,y)
+            local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
+            return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
+        end
         local function hidePanel() if panel.Visible then panel.Visible=false end end
-        -- hide when the main left area scrolls/moves/changes
+
+        -- 1) ซ่อนเมื่อ UI หลักเลื่อน/ย้าย/เปลี่ยนหน้า (กดเมนูซ้าย)
         scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
-        -- hide on inputs that imply switching/scrolling left/right
-        UIS.InputChanged:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseWheel
-            or io.UserInputType==Enum.UserInputType.Touch
-            or io.UserInputType==Enum.UserInputType.Gamepad1
-            or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
-                hidePanel()
-            end
-        end)
-        UIS.InputBegan:Connect(function(io,gp)
+
+        -- 2) คลิก/ทัชนอกแผงขวา → ซ่อน (ในแผงขวาไม่ซ่อน = แก้บั๊ก)
+        UIS.InputBegan:Connect(function(io, gp)
             if gp then return end
-            if io.UserInputType==Enum.UserInputType.MouseButton1 then
-                local m=UIS:GetMouseLocation(); local pos=panel.AbsolutePosition; local sz=panel.AbsoluteSize
-                if not (m.X>=pos.X and m.X<=pos.X+sz.X and m.Y>=pos.Y and m.Y<=pos.Y+sz.Y) then hidePanel() end
-            elseif io.UserInputType==Enum.UserInputType.Keyboard then
-                local k=io.KeyCode
+            if io.UserInputType == Enum.UserInputType.MouseButton1 then
+                local m = UIS:GetMouseLocation()
+                if not isInsidePanelXY(m.X, m.Y) then hidePanel() end
+            elseif io.UserInputType == Enum.UserInputType.Touch then
+                local p = io.Position
+                if p and not isInsidePanelXY(p.X, p.Y) then hidePanel() end
+            elseif io.UserInputType == Enum.UserInputType.Keyboard then
+                local k = io.KeyCode
                 if k==Enum.KeyCode.Left or k==Enum.KeyCode.Right or k==Enum.KeyCode.A or k==Enum.KeyCode.D
                 or k==Enum.KeyCode.DPadLeft or k==Enum.KeyCode.DPadRight then hidePanel() end
+            end
+        end)
+
+        -- 3) สกรอล์ล/ลูกล้อ/เกมแพด ถ้าเคอร์เซอร์อยู่นอกแผงขวา → ซ่อน
+        UIS.InputChanged:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.MouseWheel then
+                local m = UIS:GetMouseLocation()
+                if not isInsidePanelXY(m.X, m.Y) then hidePanel() end
+            elseif io.UserInputType==Enum.UserInputType.Gamepad1
+                or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
+                hidePanel()
             end
         end)
     end
