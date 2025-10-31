@@ -2158,12 +2158,11 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- New:
---   • กดที่ไหนก็ได้บนจอ → แผงขวาหาย (ยกเว้นแตะบนแผงขวาเอง)
---   • แผงขวาเปิด "เลื่อนขวา", ปิด "เลื่อนซ้าย"
+-- Update (no open/close effects):
+--   • กดตรงไหนก็ได้บนจอ → ปิดแผงขวาทันที (ยกเว้นแตะภายในแผงขวา)
+--   • เปิด/ปิดแบบปกติ ไม่ต้องมีแอนิเมชัน
 registerRight("Shop", function(scroll)
-    local UIS           = game:GetService("UserInputService")
-    local TweenService  = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
 
     -- THEME
     local THEME = {
@@ -2174,10 +2173,11 @@ registerRight("Shop", function(scroll)
 
     local function corner(ui,r)
         local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0,r or 12)
+        c.CornerRadius = UDim.new(0, r or 12)
         c.Parent = ui
     end
-    local function stroke(ui,th,col,trans)
+
+    local function stroke(ui, th, col, trans)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2
         s.Color = col or THEME.GREEN
@@ -2240,39 +2240,25 @@ registerRight("Shop", function(scroll)
         corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
 
         if not openBtn:GetAttribute("Hooked") then
-            openBtn:SetAttribute("Hooked",true)
+            openBtn:SetAttribute("Hooked", true)
             openBtn.MouseButton1Click:Connect(function()
                 local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
                 local p = screen:FindFirstChild("MAX_SearchPanel")
                 if p then
-                    -- calculate target pos/size each time open
+                    -- วางตำแหน่งครั้งเดียวตอนเปิด (ไม่ตาม scroll ภายหลัง)
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
-                    p.Size = UDim2.fromOffset(PANEL_W,h)
-
-                    local function tweenTo(target, dur)
-                        TweenService:Create(p, TweenInfo.new(dur or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target}):Play()
-                    end
-
-                    if not p.Visible then
-                        -- open: slide RIGHT (from a bit left → target)
-                        p.Visible = true
-                        p.Position = UDim2.fromOffset(x-24, y)
-                        tweenTo(UDim2.fromOffset(x,y), 0.18)
-                    else
-                        -- close: slide LEFT (to a bit left then hide)
-                        local t = TweenService:Create(p, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.fromOffset(p.Position.X.Offset-24, p.Position.Y.Offset)})
-                        t.Completed:Connect(function() p.Visible=false end)
-                        t:Play()
-                    end
+                    p.Position = UDim2.fromOffset(x,y)
+                    p.Size     = UDim2.fromOffset(PANEL_W,h)
+                    p.Visible  = not p.Visible -- เปิด/ปิดทันที (ไม่มีเอฟเฟกต์)
                 end
             end)
         end
     end
 
-    -- Right panel
+    -- Right panel (independent)
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2331,7 +2317,7 @@ registerRight("Shop", function(scroll)
         pad.PaddingLeft   = UDim.new(0,SLOT_LEFT)
         pad.PaddingRight  = UDim.new(0,SLOT_RIGHT)
         pad.PaddingTop    = UDim.new(0,SLOT_TOP)
-        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- กัน MAX10 โดนกิน
+        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- ป้องกัน MAX10 โดนกิน
 
         local v = Instance.new("UIListLayout", listWrap)
         v.Padding = UDim.new(0,GAP)
@@ -2401,50 +2387,47 @@ registerRight("Shop", function(scroll)
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
 
         ----------------------------------------------------------------
-        -- ===== Auto-hide: tap anywhere (except inside the right panel) =====
+        -- ===== Auto-hide: กด/แตะที่ไหนก็ได้ ยกเว้นภายในแผงขวา =====
         ----------------------------------------------------------------
         local function isInsidePanelXY(x,y)
             local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
             return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
         end
-        local function slideClose()
-            if not panel.Visible then return end
-            local t = TweenService:Create(panel, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                                          {Position = UDim2.fromOffset(panel.Position.X.Offset-24, panel.Position.Y.Offset)})
-            t.Completed:Connect(function() panel.Visible=false end)
-            t:Play()
+        local function instantClose()
+            if panel.Visible then panel.Visible = false end
         end
 
-        -- หลักเลื่อน/ย้าย/เปลี่ยนหน้า → ปิด
-        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(slideClose)
-        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(slideClose)
-        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(slideClose)
-        scroll:GetPropertyChangedSignal("Visible"):Connect(slideClose)
+        -- เมื่อ UI ซ้ายเลื่อน/ย้าย/ซ่อน → ปิดทันที
+        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(instantClose)
+        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(instantClose)
+        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(instantClose)
+        scroll:GetPropertyChangedSignal("Visible"):Connect(instantClose)
 
-        -- กด/แตะที่ไหนก็ได้ นอกจาก “ภายในแผงขวา” → ปิด
+        -- คลิก/แตะที่ไหนก็ได้บนจอ (ถ้าอยู่นอกแผงขวา) → ปิดทันที
         UIS.InputBegan:Connect(function(io, gp)
             if gp then return end
             if io.UserInputType == Enum.UserInputType.MouseButton1 then
                 local m = UIS:GetMouseLocation()
-                if not isInsidePanelXY(m.X, m.Y) then slideClose() end
+                if not isInsidePanelXY(m.X, m.Y) then instantClose() end
             elseif io.UserInputType == Enum.UserInputType.Touch then
                 local p = io.Position
-                if p and not isInsidePanelXY(p.X, p.Y) then slideClose() end
+                if p and not isInsidePanelXY(p.X, p.Y) then instantClose() end
             elseif io.UserInputType == Enum.UserInputType.Keyboard then
+                -- ปุ่มนำทางซ้าย/ขวา → ปิด
                 local k = io.KeyCode
                 if k==Enum.KeyCode.Left or k==Enum.KeyCode.Right or k==Enum.KeyCode.A or k==Enum.KeyCode.D
-                or k==Enum.KeyCode.DPadLeft or k==Enum.KeyCode.DPadRight then slideClose() end
+                or k==Enum.KeyCode.DPadLeft or k==Enum.KeyCode.DPadRight then instantClose() end
             end
         end)
 
-        -- สกรอล์/ลูกล้อ/เกมแพด → ปิด (ถ้าเคอร์เซอร์อยู่นอกแผง)
+        -- เลื่อนล้อเมาส์/เกมแพด (ถ้าอยู่นอกแผง) → ปิดทันที
         UIS.InputChanged:Connect(function(io)
             if io.UserInputType == Enum.UserInputType.MouseWheel then
                 local m = UIS:GetMouseLocation()
-                if not isInsidePanelXY(m.X, m.Y) then slideClose() end
+                if not isInsidePanelXY(m.X, m.Y) then instantClose() end
             elseif io.UserInputType==Enum.UserInputType.Gamepad1
                 or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
-                slideClose()
+                instantClose()
             end
         end)
     end
