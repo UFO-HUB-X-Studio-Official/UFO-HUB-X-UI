@@ -2158,8 +2158,7 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Final stable: open fast, tap-anywhere-to-close (except inside right panel),
--- scrolling works, styles match 100%.
+-- Stable: ปุ่มกดได้แน่นอน, กดที่ไหนก็ปิด (ยกเว้นกดในแผงขวา), ไม่มี overlay มาทับปุ่ม
 
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
@@ -2171,12 +2170,12 @@ registerRight("Shop", function(scroll)
         BLACK = Color3.fromRGB(0,0,0),
     }
 
-    local function corner(ui, r)
+    local function corner(ui,r)
         local c = Instance.new("UICorner")
         c.CornerRadius = UDim.new(0, r or 12)
         c.Parent = ui
     end
-    local function stroke(ui, th, col, trans)
+    local function stroke(ui,th,col,trans)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2
         s.Color = col or THEME.GREEN
@@ -2186,7 +2185,7 @@ registerRight("Shop", function(scroll)
         return s
     end
 
-    --================ LEFT CONTENT (UNTOUCHED) ================
+    --================ LEFT CONTENT (ไม่แตะ) ====================
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2243,43 +2242,22 @@ registerRight("Shop", function(scroll)
             openBtn.MouseButton1Click:Connect(function()
                 local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
                 local panel  = screen:FindFirstChild("MAX_SearchPanel")
-                local catcher = screen:FindFirstChild("MAX_DismissCatcher")
-                if panel and catcher then
-                    -- place once on open (no follow)
+                if panel then
+                    -- วางตำแหน่งตอนเปิด (ไม่ตามติดภายหลัง)
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
                     panel.Position = UDim2.fromOffset(x,y)
                     panel.Size     = UDim2.fromOffset(PANEL_W,h)
-                    local show = not panel.Visible
-                    panel.Visible  = show
-                    catcher.Visible = show
+                    panel.Visible  = not panel.Visible
                 end
             end)
         end
     end
 
-    --================ GLOBALS (RIGHT PANEL + CATCHER) =========
+    --================ RIGHT PANEL (สูงสุด คลิกได้ชัวร์) =========
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
-
-    -- Fullscreen catcher: ABOVE main UI, BELOW panel (so it catches everywhere except the panel)
-    local catcher = screen:FindFirstChild("MAX_DismissCatcher")
-    if not catcher then
-        catcher = Instance.new("TextButton")
-        catcher.Name = "MAX_DismissCatcher"
-        catcher.AutoButtonColor = false
-        catcher.BackgroundTransparency = 1
-        catcher.BorderSizePixel = 0
-        catcher.Size = UDim2.fromScale(1,1)
-        catcher.Position = UDim2.fromScale(0,0)
-        catcher.ZIndex = 150          -- higher than main UI, lower than panel
-        catcher.Visible = false
-        catcher.Text = ""
-        catcher.Parent = screen
-    end
-
-    -- Right panel (highest ZIndex so it’s always clickable)
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
         panel = Instance.new("Frame")
@@ -2288,11 +2266,10 @@ registerRight("Shop", function(scroll)
         panel.BackgroundColor3 = THEME.BLACK
         panel.BorderSizePixel = 0
         panel.ZIndex = 200
-        panel.ClipsDescendants = true
         corner(panel,12); stroke(panel,2,THEME.GREEN,0)
         panel.Parent = screen
 
-        -- TopBar (style identical)
+        -- Top bar
         local top = Instance.new("Frame", panel)
         top.Name = "TopBar"
         top.Size = UDim2.new(1,-10,0,28)
@@ -2325,7 +2302,7 @@ registerRight("Shop", function(scroll)
         search.TextXAlignment = Enum.TextXAlignment.Left
         search.ZIndex = top.ZIndex + 1
 
-        -- Results list (scroll enabled)
+        -- Result list
         local listWrap = Instance.new("ScrollingFrame", panel)
         listWrap.Name = "ResultArea"
         listWrap.BackgroundColor3 = THEME.BLACK
@@ -2349,14 +2326,13 @@ registerRight("Shop", function(scroll)
         v.Padding = UDim.new(0,6)
         v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        local function recalc()  -- keep scroll working & avoid MAX10 clipping
+        local function recalc()
             task.defer(function()
                 listWrap.CanvasSize = UDim2.new(0,0,0, v.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset)
             end)
         end
         v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
 
-        -- Items (match left style; 2 FX only)
         local function makeItem(txt)
             local btn = Instance.new("TextButton", listWrap)
             btn.AutoButtonColor = false
@@ -2377,7 +2353,7 @@ registerRight("Shop", function(scroll)
             lbl.TextYAlignment = Enum.TextYAlignment.Center
             lbl.ZIndex = btn.ZIndex + 1
 
-            local border = stroke(btn,1.2,THEME.GREEN,0.45) -- dim start
+            local border = stroke(btn,1.2,THEME.GREEN,0.45)
             border.ZIndex = btn.ZIndex + 1
 
             local bar = Instance.new("Frame", btn)
@@ -2403,26 +2379,46 @@ registerRight("Shop", function(scroll)
         recalc()
     end
 
-    --================== CLOSE LOGIC (FAST, NO DELAY) ==========
+    --================ CLOSE ANYWHERE (ไม่มี overlay) ===========
+    local function pointInsidePanel(x,y)
+        local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
+        return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
+    end
     local function hidePanel()
         if panel.Visible then panel.Visible = false end
-        if catcher.Visible then catcher.Visible = false end
     end
 
-    -- Catch any tap/click anywhere outside the right panel
-    if not catcher:GetAttribute("Hooked") then
-        catcher:SetAttribute("Hooked", true)
-        catcher.MouseButton1Click:Connect(hidePanel)
-        catcher.TouchTap:Connect(hidePanel)
-    end
-
-    -- Also close when left area changes (switch tab/scroll etc.)
+    -- ปิดเมื่อซ้ายเลื่อน/ย้าย/ซ่อน
     if not scroll:GetAttribute("HideHooked") then
         scroll:SetAttribute("HideHooked", true)
         scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
         scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
+    end
+
+    -- ปิดเมื่อคลิก/แตะที่ไหนก็ได้ “นอก” แผงขวา (ใช้ทั้ง ScreenGui และ UIS)
+    if screen and screen:IsA("ScreenGui") and not screen:GetAttribute("CloseHooked") then
+        screen:SetAttribute("CloseHooked", true)
+        local function tryClose(io)
+            if not panel.Visible then return end
+            if io.UserInputType == Enum.UserInputType.MouseButton1 then
+                local m = UIS:GetMouseLocation()
+                if not pointInsidePanel(m.X, m.Y) then hidePanel() end
+            elseif io.UserInputType == Enum.UserInputType.Touch then
+                local p = io.Position; if p and not pointInsidePanel(p.X, p.Y) then hidePanel() end
+            end
+        end
+        screen.InputBegan:Connect(tryClose)
+        UIS.InputBegan:Connect(function(io,gp)
+            if not gp then tryClose(io) end
+        end)
+        UIS.InputChanged:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.MouseWheel and panel.Visible then
+                local m = UIS:GetMouseLocation()
+                if not pointInsidePanel(m.X, m.Y) then hidePanel() end
+            end
+        end)
     end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
