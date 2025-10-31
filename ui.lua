@@ -2157,10 +2157,12 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Shop — MAX 🛸
--- A V1 • fixed right panel; change ONLY right-side items: border (dim→bright) + left bar
+-- A V1 • Right panel (Shop options) = only 2 FX per item (green border dim→bright + left bar)
+--        Panel auto-hide when you scroll/drag/switch left UI, press left/right, touch/scroll, or click outside.
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
 
+    -- THEME
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -2172,7 +2174,6 @@ registerRight("Shop", function(scroll)
         c.CornerRadius = UDim.new(0,r or 12)
         c.Parent = ui
     end
-
     local function stroke(ui,th,col,trans)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2
@@ -2183,13 +2184,12 @@ registerRight("Shop", function(scroll)
         return s
     end
 
-    -- list layout (left panel unchanged)
+    -- Left content (unchanged)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- header (unchanged)
     if not scroll:FindFirstChild("MAX_Header") then
         local head = Instance.new("TextLabel", scroll)
         head.Name = "MAX_Header"
@@ -2203,15 +2203,13 @@ registerRight("Shop", function(scroll)
         head.LayoutOrder = 10
     end
 
-    -- main row (unchanged)
     if not scroll:FindFirstChild("MAX_Row1") then
         local row = Instance.new("Frame", scroll)
         row.Name = "MAX_Row1"
         row.Size = UDim2.new(1,-6,0,46)
         row.BackgroundColor3 = THEME.BLACK
         row.LayoutOrder = 11
-        corner(row,12)
-        stroke(row,2,THEME.GREEN,0)
+        corner(row,12); stroke(row,2,THEME.GREEN,0)
 
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
@@ -2236,19 +2234,27 @@ registerRight("Shop", function(scroll)
         openBtn.TextColor3 = THEME.WHITE
         openBtn.TextXAlignment = Enum.TextXAlignment.Center
         openBtn.TextYAlignment = Enum.TextYAlignment.Center
-        corner(openBtn,10)
-        stroke(openBtn,1.6,THEME.GREEN,0)
+        corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
 
         if not openBtn:GetAttribute("Hooked") then
             openBtn:SetAttribute("Hooked",true)
             openBtn.MouseButton1Click:Connect(function()
                 local p = (scroll:FindFirstAncestorOfClass("ScreenGui") or scroll):FindFirstChild("MAX_SearchPanel")
-                if p then p.Visible = not p.Visible end
+                if p then
+                    -- place near current left UI each time it's opened, but it will NOT follow later
+                    local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
+                    local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
+                    local y = scroll.AbsolutePosition.Y + TOP_OFFSET
+                    local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
+                    p.Position = UDim2.fromOffset(x,y)
+                    p.Size     = UDim2.fromOffset(PANEL_W,h)
+                    p.Visible  = not p.Visible
+                end
             end)
         end
     end
 
-    -- side panel (keep green borders EXACTLY like original)
+    -- Right panel (independent, green borders same as original)
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2257,30 +2263,17 @@ registerRight("Shop", function(scroll)
         panel.Visible = false
         panel.BackgroundColor3 = THEME.BLACK
         panel.BorderSizePixel = 0
-        corner(panel,12)
-        stroke(panel,2,THEME.GREEN,0)
+        corner(panel,12); stroke(panel,2,THEME.GREEN,0)
         panel.Parent = screen
 
-        local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
-        local function placePanel()
-            local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
-            local y = scroll.AbsolutePosition.Y + TOP_OFFSET
-            local h = scroll.AbsoluteSize.Y + EXTRA_H
-            panel.Position = UDim2.fromOffset(x,y)
-            panel.Size     = UDim2.fromOffset(PANEL_W,h)
-        end
-        placePanel()
-        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel)
-        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
-
-        -- search bar (unchanged bright green)
+        -- TopBar
         local top = Instance.new("Frame", panel)
         top.Name = "TopBar"
         top.Size = UDim2.new(1,-10,0,28)
         top.Position = UDim2.new(0,5,0,6)
         top.BackgroundColor3 = THEME.BLACK
-        corner(top,8)
-        stroke(top,1.4,THEME.GREEN,0)
+        corner(top,8); stroke(top,1.4,THEME.GREEN,0)
+
         local icon = Instance.new("TextLabel", top)
         icon.BackgroundTransparency = 1
         icon.Text = "🔎"
@@ -2289,6 +2282,7 @@ registerRight("Shop", function(scroll)
         icon.TextColor3 = THEME.WHITE
         icon.Size = UDim2.fromOffset(22,28)
         icon.Position = UDim2.new(0,6,0,0)
+
         local search = Instance.new("TextBox", top)
         search.BackgroundTransparency = 1
         search.ClearTextOnFocus = false
@@ -2302,7 +2296,7 @@ registerRight("Shop", function(scroll)
         search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         search.TextXAlignment = Enum.TextXAlignment.Left
 
-        -- result area (unchanged bright green)
+        -- Results
         local listWrap = Instance.new("ScrollingFrame", panel)
         listWrap.Name = "ResultArea"
         listWrap.BackgroundColor3 = THEME.BLACK
@@ -2312,21 +2306,20 @@ registerRight("Shop", function(scroll)
         listWrap.CanvasSize = UDim2.new(0,0,0,0)
         listWrap.ScrollBarThickness = 0
         listWrap.ScrollBarImageTransparency = 1
-        corner(listWrap,10)
-        stroke(listWrap,1.4,THEME.GREEN,0)
+        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
 
         local SLOT_LEFT, SLOT_RIGHT, SLOT_TOP, SLOT_HEIGHT, GAP = 8, 8, 10, 26, 6
         local pad = Instance.new("UIPadding", listWrap)
         pad.PaddingLeft   = UDim.new(0,SLOT_LEFT)
         pad.PaddingRight  = UDim.new(0,SLOT_RIGHT)
         pad.PaddingTop    = UDim.new(0,SLOT_TOP)
-        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- กัน MAX 10 โดนกิน
+        pad.PaddingBottom = UDim.new(0,SLOT_TOP+10) -- prevent MAX10 clipping
 
         local v = Instance.new("UIListLayout", listWrap)
         v.Padding = UDim.new(0,GAP)
         v.SortOrder = Enum.SortOrder.LayoutOrder
 
-        -- === RIGHT ITEMS: ONLY TWO FX (BORDER dim→bright + LEFT BAR) ===
+        -- === RIGHT ITEMS: ONLY TWO FX (border dim→bright + left bar) ===
         local function makeItem(txt)
             local btn = Instance.new("TextButton", listWrap)
             btn.AutoButtonColor = false
@@ -2335,7 +2328,6 @@ registerRight("Shop", function(scroll)
             btn.Text = ""
             corner(btn,8)
 
-            -- label (ไม่หาย)
             local lbl = Instance.new("TextLabel", btn)
             lbl.BackgroundTransparency = 1
             lbl.Size = UDim2.fromScale(1,1)
@@ -2346,10 +2338,7 @@ registerRight("Shop", function(scroll)
             lbl.TextXAlignment = Enum.TextXAlignment.Center
             lbl.TextYAlignment = Enum.TextYAlignment.Center
 
-            -- border: เริ่ม "บาง+หม่น" ด้วย Transparency (สีเขียวเดิม)
-            local border = stroke(btn,1.2,THEME.GREEN,0.45)
-
-            -- left bar
+            local border = stroke(btn,1.2,THEME.GREEN,0.45) -- dim at start
             local bar = Instance.new("Frame", btn)
             bar.Name = "SelBar"
             bar.BackgroundColor3 = THEME.GREEN
@@ -2363,12 +2352,10 @@ registerRight("Shop", function(scroll)
                 local sel = not btn:GetAttribute("Selected")
                 btn:SetAttribute("Selected", sel)
                 bar.Visible = sel
-                -- เมื่อเลือก: สว่าง+หนาขึ้น ให้เหมือนฝั่งซ้ายที่ Active
-                border.Thickness     = sel and 1.8 or 1.2
-                border.Transparency  = sel and 0    or 0.45
-                border.Color         = THEME.GREEN
+                border.Thickness    = sel and 1.8 or 1.2
+                border.Transparency = sel and 0.0 or 0.45
+                border.Color        = THEME.GREEN
             end)
-
             return btn
         end
 
@@ -2395,12 +2382,31 @@ registerRight("Shop", function(scroll)
         end
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
 
-        -- click outside to close (optional)
-        UIS.InputBegan:Connect(function(io)
-            if not panel.Visible then return end
+        -- ===== Auto-hide conditions for the right panel =====
+        local function hidePanel() if panel.Visible then panel.Visible=false end end
+        -- hide when the main left area scrolls/moves/changes
+        scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
+        scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
+        -- hide on inputs that imply switching/scrolling left/right
+        UIS.InputChanged:Connect(function(io)
+            if io.UserInputType==Enum.UserInputType.MouseWheel
+            or io.UserInputType==Enum.UserInputType.Touch
+            or io.UserInputType==Enum.UserInputType.Gamepad1
+            or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
+                hidePanel()
+            end
+        end)
+        UIS.InputBegan:Connect(function(io,gp)
+            if gp then return end
             if io.UserInputType==Enum.UserInputType.MouseButton1 then
                 local m=UIS:GetMouseLocation(); local pos=panel.AbsolutePosition; local sz=panel.AbsoluteSize
-                if not (m.X>=pos.X and m.X<=pos.X+sz.X and m.Y>=pos.Y and m.Y<=pos.Y+sz.Y) then panel.Visible=false end
+                if not (m.X>=pos.X and m.X<=pos.X+sz.X and m.Y>=pos.Y and m.Y<=pos.Y+sz.Y) then hidePanel() end
+            elseif io.UserInputType==Enum.UserInputType.Keyboard then
+                local k=io.KeyCode
+                if k==Enum.KeyCode.Left or k==Enum.KeyCode.Right or k==Enum.KeyCode.A or k==Enum.KeyCode.D
+                or k==Enum.KeyCode.DPadLeft or k==Enum.KeyCode.DPadRight then hidePanel() end
             end
         end)
     end
