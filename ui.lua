@@ -2150,7 +2150,7 @@ registerRight("Server", function(scroll)
     end
 end)
 -- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp)
--- Model A V1 + A V2 (B • AlwaysOnTop Box + Warp→Fly fallback v2) =====
+-- Model A V1 + A V2 (B • 2D Overlay Box+Tracer through walls + Fast Fly) =====
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
     local UIS=game:GetService("UserInputService")
@@ -2159,7 +2159,7 @@ registerRight("Player", function(scroll)
 
     _G.UFOX_XR = _G.UFOX_XR or {
         uiConns={},
-        xr={ nameESP=false, boxESP=false, target=nil, packs={}, myAttach=nil, flyConn=nil }
+        xr={ nameESP=false, boxESP=false, target=nil, packs={}, myAttach=nil, flyConn=nil, overlay=nil }
     }
     local XR=_G.UFOX_XR
     local function keep(c) table.insert(XR.uiConns,c) return c end
@@ -2182,44 +2182,66 @@ registerRight("Player", function(scroll)
     local function clearPack(p)
         local pack=XR.xr.packs[p]; if not pack then return end
         if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end); pack.dieConn=nil end
-        for _,o in pairs(pack) do if typeof(o)=="Instance" then pcall(function() o:Destroy() end) end end
+        -- ลบทิ้ง 2D lines
+        if pack.lines then for _,l in pairs(pack.lines) do pcall(function() l:Destroy() end) end end
+        pack.lines=nil
         XR.xr.packs[p]=nil
     end
 
-    -- ===== AlwaysOnTop rectangular box (BoxHandleAdornment) — ทะลุและ "เห็นจริง" =====
-    local function ensureTopBox(pack, ch)
-        local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-        if not pack.box then
-            local box=Instance.new("BoxHandleAdornment")
-            box.Name="UFOX_TopBox"
-            box.Adornee=hrp
-            box.AlwaysOnTop=true      -- เรนเดอร์ทับกำแพง/สิ่งของ
-            box.ZIndex=10
-            box.Color3=THEME.GREEN
-            box.Transparency=0        -- เส้นชัด
-            box.Parent=hrp
-            pack.box=box
-        end
-        local cf, sz = ch:GetBoundingBox()
-        if pack.box then
-            pack.box.Size = sz + Vector3.new(0.3,0.3,0.3)
-            pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
-        end
+    -- ===== 2D Overlay (ทับทุกอย่างบนจอ) =====
+    local function ensureOverlay(screen)
+        if XR.xr.overlay and XR.xr.overlay.Parent then return XR.xr.overlay end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "XR_Overlay"
+        gui.IgnoreGuiInset = true
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder = 999999
+        gui.Parent = screen
+        XR.xr.overlay = gui
+        return gui
+    end
+    local function makeLine(parent, thickness)
+        local f = Instance.new("Frame")
+        f.Name = "Line"
+        f.AnchorPoint = Vector2.new(0,0.5)
+        f.BackgroundColor3 = THEME.GREEN
+        f.BorderSizePixel = 0
+        f.Size = UDim2.fromOffset(0, thickness or 2)
+        f.Visible = false
+        f.ZIndex = 9999
+        f.Parent = parent
+        return f
+    end
+    local EDGES={{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
+
+    local function ensureBoxLines(pack, overlay)
+        if pack.lines then return end
+        pack.lines = { edges={}, tracer=makeLine(overlay,2) }
+        for i=1,12 do pack.lines.edges[i]=makeLine(overlay,2) end
+    end
+    local function drawLine2D(line, p1, p2) -- p1,p2: Vector2 (screen)
+        local dx,dy = p2.X - p1.X, p2.Y - p1.Y
+        local len = math.sqrt(dx*dx + dy*dy)
+        line.Visible = true
+        line.Position = UDim2.fromOffset(p1.X, p1.Y)
+        line.Size = UDim2.fromOffset(len, line.Size.Y.Offset)
+        line.Rotation = math.deg(math.atan2(dy, dx))
+    end
+    local function hideLines(pack)
+        if not pack or not pack.lines then return end
+        for _,ln in ipairs(pack.lines.edges) do ln.Visible=false end
+        if pack.lines.tracer then pack.lines.tracer.Visible=false end
     end
 
-    local function hookDie(p, h)
-        local pack = XR.xr.packs[p] or {}
-        if pack.dieConn then return end
-        pack.dieConn = keep(h.Died:Connect(function() clearPack(p) end))
-        XR.xr.packs[p]=pack
-    end
-
-    local function buildFor(p)
+    local function buildFor(p, overlay)
         if p==lp then return end
         local h,ch = hum(p); if not (h and ch) then return end
+        local cam = workspace.CurrentCamera
         local pack = XR.xr.packs[p] or {}
+        ensureBoxLines(pack, overlay)
 
-        -- Name ESP (Billboard AlwaysOnTop)
+        -- Name ESP (Billboard AlwaysOnTop) – optional
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
@@ -2235,57 +2257,68 @@ registerRight("Player", function(scroll)
             end
         end
 
-        -- Box + Tracer
+        -- 2D box & tracer
         if XR.xr.boxESP then
-            ensureTopBox(pack, ch)
-            ensureMyAttach()
-            if not pack.trgAtt then
-                local hrp2=ch:FindFirstChild("HumanoidRootPart")
-                if hrp2 then
-                    pack.trgAtt=Instance.new("Attachment"); pack.trgAtt.Position=Vector3.new(0,-3,0); pack.trgAtt.Parent=hrp2
-                    pack.tracer=Instance.new("Beam"); pack.tracer.Color=ColorSequence.new(THEME.GREEN)
-                    pack.tracer.Width0=0.08; pack.tracer.Width1=0.08; pack.tracer.LightEmission=0.7; pack.tracer.Transparency=NumberSequence.new(0)
-                    pack.tracer.Attachment0=XR.xr.myAttach; pack.tracer.Attachment1=pack.trgAtt; pack.tracer.FaceCamera=true; pack.tracer.Parent=hrp2
+            local cf, sz = ch:GetBoundingBox()
+            local hrp=ch:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local hx,hy,hz = sz.X/2, sz.Y/2, sz.Z/2
+                local offs = {
+                    Vector3.new( hx, hy,  hz), Vector3.new(-hx, hy,  hz),
+                    Vector3.new(-hx, hy, -hz), Vector3.new( hx, hy, -hz),
+                    Vector3.new( hx,-hy,  hz), Vector3.new(-hx,-hy,  hz),
+                    Vector3.new(-hx,-hy, -hz), Vector3.new( hx,-hy, -hz),
+                }
+                local pts={}, visibleAll=true
+                for i=1,8 do
+                    local world = (cf * CFrame.new(offs[i])).Position
+                    local v2, on = cam:WorldToViewportPoint(world)
+                    if not on or v2.Z < 0 then visibleAll=false end
+                    pts[i] = Vector2.new(v2.X, v2.Y)
+                end
+                hideLines(pack)
+                if visibleAll then
+                    for i,pair in ipairs(EDGES) do
+                        drawLine2D(pack.lines.edges[i], pts[pair[1]], pts[pair[2]])
+                    end
+                end
+                -- tracer: my foot -> their foot
+                ensureMyAttach()
+                local my = XR.xr.myAttach and XR.xr.myAttach.WorldPosition or nil
+                local trg = hrp.Position + Vector3.new(0,-3,0)
+                if my then
+                    local a,on1 = cam:WorldToViewportPoint(my)
+                    local b,on2 = cam:WorldToViewportPoint(trg)
+                    if on1 and on2 and a.Z>0 and b.Z>0 then
+                        drawLine2D(pack.lines.tracer, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
+                    else
+                        pack.lines.tracer.Visible=false
+                    end
                 end
             end
+        else
+            hideLines(pack)
         end
 
         XR.xr.packs[p]=pack
         if not XR.xr.nameESP and pack.name then pcall(function() pack.name:Destroy() end); pack.name=nil end
-        if not XR.xr.boxESP then
-            if pack.box then pcall(function() pack.box:Destroy() end); pack.box=nil end
-            if pack.tracer then pcall(function() pack.tracer:Destroy() end); pack.tracer=nil end
-            if pack.trgAtt then pcall(function() pack.trgAtt:Destroy() end); pack.trgAtt=nil end
-        end
-        if h then hookDie(p,h) end
     end
 
     local function refreshAll()
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMyAttach() end end
+        local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
+        local overlay=ensureOverlay(screen)
+        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p, overlay) else ensureMyAttach() end end
         if not XR.xr.nameESP and not XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
             if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end); XR.xr.myAttach=nil end
         end
     end
 
-    keep(RS.Heartbeat:Connect(function()
-        if XR.xr.boxESP then
-            for _,p in ipairs(Players:GetPlayers()) do
-                if p~=lp then
-                    local h,ch = hum(p); if h and ch then
-                        local pack = XR.xr.packs[p]
-                        if pack and pack.box then
-                            local cf, sz = ch:GetBoundingBox()
-                            local hrp=ch:FindFirstChild("HumanoidRootPart")
-                            if hrp then
-                                pack.box.Size = sz + Vector3.new(0.3,0.3,0.3)
-                                pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
-                            end
-                        end
-                    end
-                end
-            end
-        end
+    keep(RS.RenderStepped:Connect(function()
+        if not XR.xr.boxESP then return end
+        local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
+        local overlay=ensureOverlay(screen)
+        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p, overlay) end end
     end))
 
     keep(Players.PlayerAdded:Connect(function(p)
@@ -2327,7 +2360,7 @@ registerRight("Player", function(scroll)
     toggleRow("XR_Name", base+1, "Name ESP", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
     toggleRow("XR_Box",  base+2, "Box ESP + Tracer", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
 
-    -- ===== A V2 right panel =====
+    -- ===== A V2 right panel (unchanged list) =====
     local pickRow=Instance.new("Frame",scroll) pickRow.Name="XR_Target"; pickRow.LayoutOrder=base+3
     pickRow.Size=UDim2.new(1,-6,0,46); pickRow.BackgroundColor3=THEME.BLACK; corner(pickRow,12); stroke(pickRow,2.2,THEME.GREEN)
     local tLab=Instance.new("TextLabel",pickRow) tLab.BackgroundTransparency=1; tLab.Position=UDim2.new(0,16,0,0); tLab.Size=UDim2.new(1,-(16+12+180+12),1,0)
@@ -2343,10 +2376,10 @@ registerRight("Player", function(scroll)
 
     local function setTarget(p) XR.xr.target=p; warp.Text = p and ("Warp to: "..p.DisplayName.." (@"..p.Name..")") or "Warp to: (none)" end
 
+    -- ===== Right panel list (คงเดิม ย่อ) =====
     local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel=screen:FindFirstChild("XR_PlayerPanel")
     local searchBox,listWrap,pad,layout
-
     local function placePanel()
         if not panel then return end
         local SIDE,TOP,W,EXTRA=16,50,220,40
@@ -2371,9 +2404,7 @@ registerRight("Player", function(scroll)
         local border=stroke(btn,1.2,THEME.GREEN,0.45)
         btn:SetAttribute("k",(p.DisplayName.." @"..p.Name):lower())
         btn.MouseButton1Click:Connect(function()
-            for _,c in ipairs(listWrap:GetChildren()) do
-                if c:IsA("TextButton") and c~=btn then local st=c:FindFirstChildOfClass("UIStroke"); if st then st.Transparency=0.45; st.Thickness=1.2 end end
-            end
+            for _,c in ipairs(listWrap:GetChildren()) do if c:IsA("TextButton") and c~=btn then local st=c:FindFirstChildOfClass("UIStroke"); if st then st.Transparency=0.45; st.Thickness=1.2 end end end
             border.Transparency=0; border.Thickness=1.8
             setTarget(p); panel.Visible=false
         end)
@@ -2394,25 +2425,19 @@ registerRight("Player", function(scroll)
         end
         recalc()
     end
-
     if not panel then
         panel=Instance.new("Frame"); panel.Name="XR_PlayerPanel"; panel.Visible=false
         panel.BackgroundColor3=THEME.BLACK; panel.BorderSizePixel=0; panel.ZIndex=200
         corner(panel,12); stroke(panel,2,THEME.GREEN); panel.Parent=screen
         placePanel(); scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(placePanel); scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePanel)
-
         local top=Instance.new("Frame",panel) top.Size=UDim2.new(1,-10,0,28) top.Position=UDim2.new(0,5,0,6)
         top.BackgroundColor3=THEME.BLACK; corner(top,8); stroke(top,1.4,THEME.GREEN)
-        local icon=Instance.new("TextLabel",top) icon.BackgroundTransparency=1; icon.Text="🔎"; icon.Font=Enum.Font.GothamBold; icon.TextSize=14; icon.TextColor3=THEME.WHITE; icon.Size=UDim2.fromOffset(22,28); icon.Position=UDim2.new(0,6,0,0)
-        searchBox=Instance.new("TextBox",top) searchBox.BackgroundTransparency=1; searchBox.ClearTextOnFocus=false; searchBox.Text=""; searchBox.Size=UDim2.new(1,-(22+12+6),1,0); searchBox.Position=UDim2.new(0,34,0,0); searchBox.Font=Enum.Font.Gotham; searchBox.TextSize=12; searchBox.TextColor3=THEME.WHITE; searchBox.PlaceholderText="Search players…"; searchBox.PlaceholderColor3=THEME.GREY; searchBox.TextXAlignment=Enum.TextXAlignment.Left
-
+        searchBox=Instance.new("TextBox",top) searchBox.BackgroundTransparency=1; searchBox.ClearTextOnFocus=false; searchBox.Text=""; searchBox.Size=UDim2.new(1,-12,1,0); searchBox.Position=UDim2.new(0,6,0,0); searchBox.Font=Enum.Font.Gotham; searchBox.TextSize=12; searchBox.TextColor3=THEME.WHITE; searchBox.PlaceholderText="Search players…"; searchBox.PlaceholderColor3=THEME.GREY; searchBox.TextXAlignment=Enum.TextXAlignment.Left
         listWrap=Instance.new("ScrollingFrame",panel) listWrap.Name="Result"; listWrap.BackgroundColor3=THEME.BLACK
-        listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
-        listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
+        listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6)); listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
         pad=Instance.new("UIPadding",listWrap); pad.PaddingTop=UDim.new(0,10); pad.PaddingBottom=UDim.new(0,16); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
         layout=Instance.new("UIListLayout",listWrap); layout.Padding=UDim.new(0,6); layout.SortOrder=Enum.SortOrder.LayoutOrder
-
         keep(searchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(searchBox.Text) end))
         keep(Players.PlayerAdded:Connect(rebuildList))
         keep(Players.PlayerRemoving:Connect(function(p) if XR.xr.target==p then XR.xr.target=nil end; rebuildList() end))
@@ -2425,97 +2450,52 @@ registerRight("Player", function(scroll)
         rebuildList(); placePanel()
     end
 
-    local function inside(gui, x, y)
-        if not (gui and gui.Parent) then return false end
-        local p,s=gui.AbsolutePosition, gui.AbsoluteSize
-        return (x>=p.X and x<=p.X+s.X and y>=p.Y and y<=p.Y+s.Y)
-    end
-    local function hidePanel() if panel and panel.Visible then panel.Visible=false end end
-    openBtn.MouseButton1Click:Connect(function() rebuildList(); placePanel(); panel.Visible = not panel.Visible end)
-    keep(UIS.InputBegan:Connect(function(io)
-        if not (panel and panel.Visible) then return end
-        local m=UIS:GetMouseLocation()
-        if (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch)
-           and not inside(panel,m.X,m.Y) and not inside(openBtn,m.X,m.Y) then hidePanel() end
-    end))
-    keep(UIS.InputChanged:Connect(function(io)
-        if panel and panel.Visible and io.UserInputType==Enum.UserInputType.MouseWheel then
-            local m=UIS:GetMouseLocation(); if not inside(panel,m.X,m.Y) then hidePanel() end
-        end
-    end))
-    keep(scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel))
-    keep(scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel))
-    keep(scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel))
-    keep(scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel))
-
-    -- ===== Warp then Fly fallback (เร็วขึ้นและไม่หยุดกลางทาง) =====
+    -- ===== Warp + Fly =====
     local function stickWarp(lroot, targetCF, dur)
-        dur = dur or 0.7
+        dur = dur or 0.5
         local t0 = tick()
-        local ch = lroot.Parent
-        local h = ch and ch:FindFirstChildOfClass("Humanoid")
-        if h then pcall(function() h.Sit=false; h:ChangeState(Enum.HumanoidStateType.Physics) end) end
         lroot.AssemblyLinearVelocity = Vector3.zero
         lroot.AssemblyAngularVelocity = Vector3.zero
-        local conn
-        conn = RS.Heartbeat:Connect(function()
+        local conn; conn = RS.Heartbeat:Connect(function()
             lroot.CFrame = targetCF
             lroot.AssemblyLinearVelocity = Vector3.zero
             lroot.AssemblyAngularVelocity = Vector3.zero
             if tick()-t0 > dur then conn:Disconnect() end
-        end)
-        keep(conn)
-        task.delay(dur, function()
-            if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
-        end)
+        end); keep(conn)
     end
 
     local function flyToTarget(lroot, tgtPlayer, maxTime, speed)
-        maxTime = maxTime or 8.0     -- บินได้นานขึ้น
-        speed   = speed   or 220     -- เร็วขึ้น
+        maxTime = maxTime or 20.0
+        speed   = speed   or 320
         local ch = lroot.Parent
         local h = ch and ch:FindFirstChildOfClass("Humanoid")
-
         local function setNoCollide(on)
-            for _,bp in ipairs(ch:GetDescendants()) do
-                if bp:IsA("BasePart") then bp.CanCollide = not on end
-            end
+            for _,bp in ipairs(ch:GetDescendants()) do if bp:IsA("BasePart") then bp.CanCollide = not on end end
         end
-
-        setNoCollide(true)
-        if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Physics) end) end
+        setNoCollide(true); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Physics) end) end
         local t0=tick()
-
         if XR.xr.flyConn then pcall(function() XR.xr.flyConn:Disconnect() end) XR.xr.flyConn=nil end
         XR.xr.flyConn = RS.Heartbeat:Connect(function(dt)
-            local th, tch = hum(tgtPlayer)
-            local troot = tch and tch:FindFirstChild("HumanoidRootPart")
+            local th, tch = hum(tgtPlayer); local troot = tch and tch:FindFirstChild("HumanoidRootPart")
             if not troot then return end
             local targetPos = troot.Position - troot.CFrame.LookVector*2
             local pos = lroot.Position
             local dir = (targetPos - pos); local dist = dir.Magnitude
-
-            if dist < 4 then
+            if dist < 3 then
                 XR.xr.flyConn:Disconnect(); XR.xr.flyConn=nil
-                setNoCollide(false)
-                if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
+                setNoCollide(false); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
                 return
             end
-
             local step = math.min(dist, speed * dt)
             local newPos = pos + dir.Unit * step
-            local lookAt = CFrame.lookAt(newPos, targetPos)
-            lroot.CFrame = lookAt
+            lroot.CFrame = CFrame.lookAt(newPos, targetPos)
             lroot.AssemblyLinearVelocity = Vector3.zero
             lroot.AssemblyAngularVelocity = Vector3.zero
-
             if tick()-t0 > maxTime then
                 XR.xr.flyConn:Disconnect(); XR.xr.flyConn=nil
-                setNoCollide(false)
-                if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
+                setNoCollide(false); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
             end
-        end)
-        keep(XR.xr.flyConn)
+        end); keep(XR.xr.flyConn)
     end
 
     local warp=scroll:FindFirstChild("XR_Warp")
@@ -2527,11 +2507,11 @@ registerRight("Player", function(scroll)
             local lroot=lch:FindFirstChild("HumanoidRootPart")
             if troot and lroot then
                 local cf = troot.CFrame * CFrame.new(0,0,-2)
-                stickWarp(lroot, cf, 0.7)
-                task.delay(0.75, function()
+                stickWarp(lroot, cf, 0.5)
+                task.delay(0.55, function()
                     local want = troot.Position - troot.CFrame.LookVector*2
-                    if (lroot.Position - want).Magnitude > 6 then
-                        flyToTarget(lroot, tgt, 8.0, 220)
+                    if (lroot.Position - want).Magnitude > 5 then
+                        flyToTarget(lroot, tgt, 20.0, 320)
                     end
                 end)
             end
