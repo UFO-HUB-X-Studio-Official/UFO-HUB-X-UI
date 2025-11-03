@@ -2150,7 +2150,7 @@ registerRight("Server", function(scroll)
     end
 end)
 -- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp)
--- Model A V1 + A V2 (B • 2D Overlay Box+Tracer through walls + Fast Fly • FIX ALL) =====
+-- Model A V1 + A V2 (B • Box3D AlwaysOnTop + Tracer2D (InputTransparent) + Fast Fly fallback) =====
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
     local UIS=game:GetService("UserInputService")
@@ -2186,12 +2186,13 @@ registerRight("Player", function(scroll)
     local function clearPack(p)
         local pack=XR.xr.packs and XR.xr.packs[p]; if not pack then return end
         if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end); pack.dieConn=nil end
-        if pack.lines then for _,l in pairs(pack.lines) do pcall(function() l:Destroy() end) end end
         if pack.name then pcall(function() pack.name:Destroy() end) end
+        if pack.box3d then pcall(function() pack.box3d:Destroy() end) end
+        if pack.tracer2d then pcall(function() pack.tracer2d:Destroy() end) end
         XR.xr.packs[p]=nil
     end
 
-    -- ---------- 2D Overlay (เส้นทับทุกอย่างบนจอ) ----------
+    -- ---------- Overlay (เฉพาะเส้น tracer 2D) ----------
     local function ensureOverlay()
         if XR.xr.overlay and XR.xr.overlay.Parent then return XR.xr.overlay end
         local gui = Instance.new("ScreenGui")
@@ -2214,15 +2215,9 @@ registerRight("Player", function(scroll)
         f.Size = UDim2.fromOffset(0, thickness or 2)
         f.Visible = false
         f.ZIndex = 9999
+        f.InputTransparent = true -- ไม่บังการคลิก UI
         f.Parent = parent
         return f
-    end
-    local EDGES={{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
-
-    local function ensureBoxLines(pack, overlay)
-        if pack.lines then return end
-        pack.lines = { edges={}, tracer=makeLine(overlay,2) }
-        for i=1,12 do pack.lines.edges[i]=makeLine(overlay,2) end
     end
     local function drawLine2D(line, p1, p2)
         local dx,dy = p2.X - p1.X, p2.Y - p1.Y
@@ -2233,20 +2228,33 @@ registerRight("Player", function(scroll)
         line.Size = UDim2.fromOffset(len, line.Size.Y.Offset)
         line.Rotation = math.deg(math.atan2(dy, dx))
     end
-    local function hideLines(pack)
-        if not pack or not pack.lines then return end
-        for _,ln in ipairs(pack.lines.edges) do ln.Visible=false end
-        if pack.lines.tracer then pack.lines.tracer.Visible=false end
+
+    -- ---------- Box 3D ทะลุกำแพง ----------
+    local function ensureTopBox3D(pack, ch)
+        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        if not pack.box3d then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Name = "UFOX_TopBox"
+            box.Adornee = hrp
+            box.AlwaysOnTop = true
+            box.Color3 = THEME.GREEN
+            box.ZIndex = 10
+            box.Transparency = 0
+            box.Parent = hrp
+            pack.box3d = box
+        end
+        local cf, sz = ch:GetBoundingBox()
+        pack.box3d.Size = sz + Vector3.new(0.3,0.3,0.3)
+        pack.box3d.CFrame = hrp.CFrame:ToObjectSpace(cf)
     end
 
+    -- ---------- ต่อแพ็กเกจผู้เล่น ----------
     local function buildFor(p, overlay)
         if p==lp then return end
         local h,ch = hum(p); if not (h and ch) then return end
-        local cam = workspace.CurrentCamera
-        local pack = XR.xr.packs[p] or {}
-        XR.xr.packs[p]=pack
-        ensureBoxLines(pack, overlay)
+        local pack = XR.xr.packs[p] or {}; XR.xr.packs[p]=pack
 
+        -- Name ESP
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
@@ -2263,43 +2271,26 @@ registerRight("Player", function(scroll)
         end
 
         if XR.xr.boxESP then
-            local cf, sz = ch:GetBoundingBox()
-            local hrp=ch:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local hx,hy,hz = sz.X/2, sz.Y/2, sz.Z/2
-                local offs = {
-                    Vector3.new( hx, hy,  hz), Vector3.new(-hx, hy,  hz),
-                    Vector3.new(-hx, hy, -hz), Vector3.new( hx, hy, -hz),
-                    Vector3.new( hx,-hy,  hz), Vector3.new(-hx,-hy,  hz),
-                    Vector3.new(-hx,-hy, -hz), Vector3.new( hx,-hy, -hz),
-                }
-                local pts, on = {}, {}
-                for i=1,8 do
-                    local world = (cf * CFrame.new(offs[i])).Position
-                    local v2, ok = cam:WorldToViewportPoint(world)
-                    pts[i] = Vector2.new(v2.X, v2.Y)
-                    on[i]  = ok and v2.Z>0
-                end
-                hideLines(pack)
-                for i,pair in ipairs(EDGES) do
-                    local a,b = pair[1], pair[2]
-                    if on[a] and on[b] then drawLine2D(pack.lines.edges[i], pts[a], pts[b]) end
-                end
-                ensureMyAttach()
-                local my = XR.xr.myAttach and XR.xr.myAttach.WorldPosition or nil
-                local trg = hrp.Position + Vector3.new(0,-3,0)
-                if my then
-                    local a,ok1 = cam:WorldToViewportPoint(my)
-                    local b,ok2 = cam:WorldToViewportPoint(trg)
-                    if ok1 and ok2 and a.Z>0 and b.Z>0 then
-                        drawLine2D(pack.lines.tracer, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
-                    else
-                        pack.lines.tracer.Visible=false
-                    end
+            -- กล่อง 3D
+            ensureTopBox3D(pack, ch)
+            -- tracer 2D: ตีนเรา -> ตีนเขา
+            ensureMyAttach()
+            local overlayGui = ensureOverlay()
+            if not pack.tracer2d then pack.tracer2d = makeLine(overlayGui, 2) end
+            local cam = workspace.CurrentCamera
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            if XR.xr.myAttach and hrp and pack.tracer2d then
+                local a,ok1 = cam:WorldToViewportPoint(XR.xr.myAttach.WorldPosition)
+                local b,ok2 = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
+                if ok1 and ok2 and a.Z>0 and b.Z>0 then
+                    drawLine2D(pack.tracer2d, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
+                else
+                    pack.tracer2d.Visible=false
                 end
             end
         else
-            hideLines(pack)
+            if pack.box3d then pcall(function() pack.box3d:Destroy() end) pack.box3d=nil end
+            if pack.tracer2d then pack.tracer2d.Visible=false end
         end
 
         if h and not pack.dieConn then
@@ -2308,18 +2299,29 @@ registerRight("Player", function(scroll)
     end
 
     local function refreshAll()
-        local overlay=ensureOverlay()
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p, overlay) else ensureMyAttach() end end
+        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMyAttach() end end
         if not XR.xr.nameESP and not XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
             if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end); XR.xr.myAttach=nil end
         end
     end
 
-    keep(RS.RenderStepped:Connect(function()
+    keep(RS.Heartbeat:Connect(function()
         if not XR.xr.boxESP then return end
-        local overlay=ensureOverlay()
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p, overlay) end end
+        for _,p in ipairs(Players:GetPlayers()) do
+            if p~=lp then
+                local h,ch = hum(p)
+                local pack = XR.xr.packs[p]
+                if h and ch and pack and pack.box3d then
+                    local hrp = ch:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local cf, sz = ch:GetBoundingBox()
+                        pack.box3d.Size = sz + Vector3.new(0.3,0.3,0.3)
+                        pack.box3d.CFrame = hrp.CFrame:ToObjectSpace(cf)
+                    end
+                end
+            end
+        end
     end))
 
     keep(Players.PlayerAdded:Connect(function(p)
@@ -2375,7 +2377,7 @@ registerRight("Player", function(scroll)
     corner(warp,12); stroke(warp,2.2,THEME.GREEN)
     local function setTarget(p) XR.xr.target=p; warp.Text = p and ("Warp to: "..p.DisplayName.." (@"..p.Name..")") or "Warp to: (none)" end
 
-    -- ---------- A V2 panel (ย่อ) ----------
+    -- ---------- A V2 panel ----------
     local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel=screen:FindFirstChild("XR_PlayerPanel")
     local searchBox,listWrap,pad,layout
@@ -2404,9 +2406,7 @@ registerRight("Player", function(scroll)
         btn:SetAttribute("k",(p.DisplayName.." @"..p.Name):lower())
         btn.MouseButton1Click:Connect(function()
             for _,c in ipairs(listWrap:GetChildren()) do
-                if c:IsA("TextButton") and c~=btn then
-                    local st=c:FindFirstChildOfClass("UIStroke"); if st then st.Transparency=0.45; st.Thickness=1.2 end
-                end
+                if c:IsA("TextButton") and c~=btn then local st=c:FindFirstChildOfClass("UIStroke"); if st then st.Transparency=0.45; st.Thickness=1.2 end end
             end
             border.Transparency=0; border.Thickness=1.8
             setTarget(p); panel.Visible=false
@@ -2453,6 +2453,13 @@ registerRight("Player", function(scroll)
         rebuildList(); placePanel()
     end
 
+    -- ให้ปุ่มเปิดลิสต์ทำงานแน่ๆ แม้ overlay อยู่
+    openBtn.MouseButton1Click:Connect(function()
+        if XR.xr.overlay then XR.xr.overlay.DisplayOrder = 1 end
+        panel.Visible = not panel.Visible
+        task.delay(0.1, function() if XR.xr.overlay then XR.xr.overlay.DisplayOrder = 999999 end end)
+    end)
+
     -- ---------- Warp + Fly ----------
     local function stickWarp(lroot, targetCF, dur)
         dur = dur or 0.5
@@ -2468,8 +2475,8 @@ registerRight("Player", function(scroll)
     end
 
     local function flyToTarget(lroot, tgtPlayer, maxTime, speed)
-        maxTime = maxTime or 20.0
-        speed   = speed   or 320
+        maxTime = maxTime or 25.0
+        speed   = speed   or 380
         local ch = lroot.Parent
         local h = ch and ch:FindFirstChildOfClass("Humanoid")
         local function setNoCollide(on)
@@ -2484,7 +2491,7 @@ registerRight("Player", function(scroll)
             local targetPos = troot.Position - troot.CFrame.LookVector*2
             local pos = lroot.Position
             local dir = (targetPos - pos); local dist = dir.Magnitude
-            if dist < 3 then
+            if dist < 2.5 then
                 XR.xr.flyConn:Disconnect(); XR.xr.flyConn=nil
                 setNoCollide(false); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
                 return
@@ -2503,26 +2510,29 @@ registerRight("Player", function(scroll)
 
     local warp=scroll:FindFirstChild("XR_Warp")
     warp.MouseButton1Click:Connect(function()
-        local tgt=XR.xr.target; if not tgt then return end
+    local tgt=XR.xr.target; if not tgt then return end
         local th,tch=hum(tgt); local lh,lch=hum(lp)
-        if th and tch and lch then
-            local troot=tch:FindFirstChild("HumanoidRootPart")
-            local lroot=lch:FindFirstChild("HumanoidRootPart")
-            if troot and lroot then
-                local cf = troot.CFrame * CFrame.new(0,0,-2)
-                stickWarp(lroot, cf, 0.5)
-                task.delay(0.55, function()
-                    local want = troot.Position - troot.CFrame.LookVector*2
-                    if (lroot.Position - want).Magnitude > 5 then
-                        -- วาร์ปไปไม่ถึง → บินตามจน “ถึงจริง”
-                        flyToTarget(lroot, tgt, 20.0, 320)
-                    end
-                end)
+        if not (th and tch and lch) then return end
+
+        local troot=tch:FindFirstChild("HumanoidRootPart")
+        local lroot=lch:FindFirstChild("HumanoidRootPart")
+        if not (troot and lroot) then return end
+
+        -- วาร์ปไปข้างหลังเป้าหมายเล็กน้อยก่อน
+        local behind = troot.CFrame * CFrame.new(0,0,2)
+        stickWarp(lroot, behind, 0.6)
+
+        -- ถ้ายังห่าง ให้บินไล่จน "ถึงตัวจริงๆ"
+        task.delay(0.65, function()
+            if not (lroot and lroot.Parent and troot and troot.Parent) then return end
+            local dist = (lroot.Position - troot.Position).Magnitude
+            if dist > 5 then
+                flyToTarget(lroot, tgt, 25.0, 380)
             end
-        end
+        end)
     end)
 
-    -- init
+    -- เริ่มต้นด้วยการรีเฟรชสถานะหนึ่งครั้ง
     refreshAll()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
