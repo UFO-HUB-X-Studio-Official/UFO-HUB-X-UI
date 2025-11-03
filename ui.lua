@@ -2158,7 +2158,7 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Fix toggle: ปุ่ม Select Options ปิดได้จริง (ไม่ชนกับ global close)
+-- Fix toggle: ปุ่ม Select Options ปิดได้ในครั้งเดียว (ไม่ชนกับตัวดักปิดทั้งจอ)
 
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
@@ -2184,7 +2184,7 @@ registerRight("Shop", function(scroll)
         return s
     end
 
-    --================ LEFT CONTENT (unchanged) =================
+    --================ LEFT CONTENT =================
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2202,6 +2202,9 @@ registerRight("Shop", function(scroll)
         head.Text = "MAX 🛸"
         head.LayoutOrder = 10
     end
+
+    -- เราจะเก็บ reference ปุ่มไว้เพื่อใช้ยกเว้นตอนปิดทั้งจอ
+    local openBtnRef : TextButton? = nil
 
     if not scroll:FindFirstChild("MAX_Row1") then
         local row = Instance.new("Frame", scroll)
@@ -2235,6 +2238,7 @@ registerRight("Shop", function(scroll)
         openBtn.TextXAlignment = Enum.TextXAlignment.Center
         openBtn.TextYAlignment = Enum.TextYAlignment.Center
         corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
+        openBtnRef = openBtn
 
         if not openBtn:GetAttribute("Hooked") then
             openBtn:SetAttribute("Hooked",true)
@@ -2243,7 +2247,6 @@ registerRight("Shop", function(scroll)
                 local panel  = screen:FindFirstChild("MAX_SearchPanel")
                 if not panel then return end
 
-                -- helpers
                 local function hidePanel()
                     if panel.Visible then panel.Visible = false end
                 end
@@ -2257,15 +2260,17 @@ registerRight("Shop", function(scroll)
                     panel.Visible  = true
                 end
 
-                -- *** critical toggle logic (no flip-flop) ***
-                if panel.Visible then
-                    hidePanel()         -- ถ้าเปิดอยู่ ให้ปิดแล้วจบ
-                else
-                    showPanel()         -- ถ้ายังไม่เปิด ค่อยเปิด
-                end
+                if panel.Visible then hidePanel() else showPanel() end
             end)
         end
     end
+
+    -- ถ้า UI มีการ recreate ปุ่ม, อัปเดต reference ให้เอง
+    scroll.DescendantAdded:Connect(function(obj)
+        if obj:IsA("TextButton") and obj.Name=="MAX_InputButton" then
+            openBtnRef = obj
+        end
+    end)
 
     --================ RIGHT PANEL =================
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
@@ -2374,42 +2379,55 @@ registerRight("Shop", function(scroll)
         recalc()
     end
 
-    --================ CLOSE RULES (เหมือนเดิม) ================
-    local function insidePanel(x,y)
-        local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
+    --================ CLOSE RULES =================
+    local function insideGui(gui, x, y)
+        if not (gui and gui.Parent) then return false end
+        local pos, sz = gui.AbsolutePosition, gui.AbsoluteSize
         return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
     end
     local function hidePanel()
-        if panel.Visible then panel.Visible = false end
+        if panel.Visible then panel.Visible=false end
     end
 
+    -- เปลี่ยน/เลื่อน/ย้ายซ้าย → ปิด
     scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
     scroll.AncestryChanged:Connect(function() hidePanel() end)
 
+    -- ตัวดักทั้งจอ: ปิดเมื่อคลิก/ทัชนอกแผงขวา
+    -- **ยกเว้น** เมื่อคลิกบนปุ่ม Select Options (openBtnRef) เพื่อกันการกดต้องย้ำ
     UIS.InputBegan:Connect(function(io)
         if not panel.Visible then return end
+
         if io.UserInputType==Enum.UserInputType.MouseButton1 then
             local m = UIS:GetMouseLocation()
-            if not insidePanel(m.X,m.Y) then hidePanel() end
+            if insideGui(panel, m.X, m.Y) then return end
+            if openBtnRef and insideGui(openBtnRef, m.X, m.Y) then return end
+            hidePanel()
+
         elseif io.UserInputType==Enum.UserInputType.Touch then
             local p = io.Position
-            if p and not insidePanel(p.X,p.Y) then hidePanel() end
+            if not p then return end
+            if insideGui(panel, p.X, p.Y) then return end
+            if openBtnRef and insideGui(openBtnRef, p.X, p.Y) then return end
+            hidePanel()
         end
     end)
 
+    -- เลื่อนล้อ/เกมแพดนอกแผง → ปิด
     UIS.InputChanged:Connect(function(io)
         if not panel.Visible then return end
         if io.UserInputType==Enum.UserInputType.MouseWheel
         or io.UserInputType==Enum.UserInputType.Gamepad1
         or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
             local m = UIS:GetMouseLocation()
-            if not insidePanel(m.X,m.Y) then hidePanel() end
+            if not insideGui(panel, m.X, m.Y) then hidePanel() end
         end
     end)
 
+    -- มีการเพิ่ม/ลบ node ใน ScreenGui (เช่นสลับแท็บซ้าย) → ปิด
     if screen and screen:IsA("ScreenGui") then
         screen.DescendantAdded:Connect(function(obj)
             if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
