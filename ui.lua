@@ -1057,7 +1057,7 @@ registerRight("Player", function(scroll)
     syncVisual(true)
 end)
 -- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 =====
--- Full-width bar • Thin vertical metal knob • Tap-to-set + drag after 5px • 500 cap • per-slider smooth
+-- Order: Run → Jump → Swim
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -1073,21 +1073,19 @@ registerRight("Player", function(scroll)
     local function keepTmp(c) table.insert(RJ.tempConns,c) return c end
     local function disconnectAll(t) for i=#t,1,-1 do local c=t[i]; pcall(function() c:Disconnect() end); t[i]=nil end end
     local function stopAllTemp() disconnectAll(RJ.tempConns); scroll.ScrollingEnabled=true end
-
     disconnectAll(RJ.uiConns)
 
-    -- remember (เริ่ม 0%)
     RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
     RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
     RJ.remember.runRel  = (RJ.remember.runRel==nil)  and 0 or RJ.remember.runRel
     RJ.remember.jumpRel = (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel
-    RJ.remember.swimRel = (RJ.remember.swimRel==nil) and 0 or RJ.remember.swimRel  -- NEW
+    RJ.remember.swimRel = (RJ.remember.swimRel==nil) and 0 or RJ.remember.swimRel
 
-    local RUN_MIN,RUN_MAX     = 16,500
-    local JUMP_MIN,JUMP_MAX   = 50,500
-    local SWIM_MIN,SWIM_MAX   = 16,500       -- NEW
+    local RUN_MIN,RUN_MAX   = 16,500
+    local JUMP_MIN,JUMP_MAX = 50,500
+    local SWIM_MIN,SWIM_MAX = 16,500
     local runRel, jumpRel, swimRel = RJ.remember.runRel, RJ.remember.jumpRel, RJ.remember.swimRel
-    local masterOn,infJumpOn  = RJ.remember.enabled, RJ.remember.infJump
+    local masterOn, infJumpOn = RJ.remember.enabled, RJ.remember.infJump
 
     RJ.defaults = RJ.defaults or { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
 
@@ -1095,8 +1093,7 @@ registerRight("Player", function(scroll)
     local function lerp(a,b,t) return a+(b-a)*t end
     local function mapRel(r,mn,mx) r=math.clamp(r,0,1) return lerp(mn,mx,r) end
 
-    local humStateConn -- NEW: track Humanoid.StateChanged
-
+    local humStateConn
     local function snapshotDefaults()
         local h=getHum(); if not h then return end
         if RJ.defaults.WalkSpeed==nil    then RJ.defaults.WalkSpeed=h.WalkSpeed end
@@ -1104,15 +1101,11 @@ registerRight("Player", function(scroll)
         if RJ.defaults.JumpPower==nil    then RJ.defaults.JumpPower=h.JumpPower end
         if RJ.defaults.JumpHeight==nil   then RJ.defaults.JumpHeight=h.JumpHeight end
     end
-
     local function currentTargetWalkSpeed(h)
-        -- ถ้ากำลังว่ายน้ำ → ใช้ค่า "Swim Speed", ไม่งั้นใช้ "Run Speed"
-        local state = h:GetState()
-        local usingSwim = (state==Enum.HumanoidStateType.Swimming)
+        local usingSwim = (h:GetState()==Enum.HumanoidStateType.Swimming)
         local rel = usingSwim and swimRel or runRel
-        return math.floor(mapRel(rel, usingSwim and SWIM_MIN or RUN_MIN, usingSwim and SWIM_MAX or RUN_MAX) + 0.5)
+        return math.floor(mapRel(rel, usingSwim and SWIM_MIN or RUN_MIN, usingSwim and SWIM_MAX or RUN_MAX)+0.5)
     end
-
     local function applyStats()
         local h=getHum(); if not h then return end
         if masterOn then
@@ -1136,12 +1129,10 @@ registerRight("Player", function(scroll)
             end)
         end
     end
-
     local function rehookHumanoid()
         if humStateConn then pcall(function() humStateConn:Disconnect() end) humStateConn=nil end
         local h=getHum(); if not h then return end
         humStateConn = keepUI(h.StateChanged:Connect(function(_,new)
-            -- เมื่อเข้าสู่/ออกจากการว่ายน้ำ ให้อัปเดตความเร็วทันที
             if new==Enum.HumanoidStateType.Swimming
             or new==Enum.HumanoidStateType.Running
             or new==Enum.HumanoidStateType.RunningNoPhysics
@@ -1151,7 +1142,7 @@ registerRight("Player", function(scroll)
         end))
     end
 
-    -- Infinite Jump
+    -- Inf Jump
     stopAllTemp()
     local function bindInfJump()
         stopAllTemp()
@@ -1164,21 +1155,18 @@ registerRight("Player", function(scroll)
         RJ.defaults={WalkSpeed=nil,JumpPower=nil,UseJumpPower=nil,JumpHeight=nil}
         task.defer(function() rehookHumanoid(); applyStats(); bindInfJump() end)
     end))
-    -- initial hook if character already loaded
-    task.defer(function() rehookHumanoid(); end)
+    task.defer(function() rehookHumanoid() end)
 
     -- ---------- THEME ----------
-    local THEME={
-        GREEN=Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40),
+    local THEME={GREEN=Color3.fromRGB(25,255,125), RED=Color3.fromRGB(255,40,40),
         WHITE=Color3.fromRGB(255,255,255), BLACK=Color3.fromRGB(0,0,0),
-        GREY =Color3.fromRGB(180,180,185), DARK=Color3.fromRGB(60,60,65)
-    }
+        GREY=Color3.fromRGB(180,180,185), DARK=Color3.fromRGB(60,60,65)}
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.08,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
-    -- rebuild UI base
-    for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Swim","RJ_Jump","RJ_Inf"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    -- rebuild
+    for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Jump","RJ_Swim","RJ_Inf"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
     local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12); vlist.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -1192,7 +1180,7 @@ registerRight("Player", function(scroll)
     header.TextXAlignment=Enum.TextXAlignment.Left
     header.Text="Fast Run, High Jump & Fast Swim 🏃‍♂️💨🦘🌊"
 
-    -- Master toggle
+    -- Master
     local master=Instance.new("Frame",scroll); master.Name="RJ_Master"; master.LayoutOrder=baseOrder+1
     master.Size=UDim2.new(1,-6,0,46); master.BackgroundColor3=THEME.BLACK; corner(master,12); stroke(master,2.2,THEME.GREEN)
     local mLab=Instance.new("TextLabel",master); mLab.BackgroundTransparency=1; mLab.Size=UDim2.new(1,-140,1,0); mLab.Position=UDim2.new(0,16,0,0)
@@ -1204,7 +1192,7 @@ registerRight("Player", function(scroll)
     local function setMaster(v) masterOn=v; RJ.remember.enabled=v; local st=mSw:FindFirstChildOfClass("UIStroke"); if st then st.Color=v and THEME.GREEN or THEME.RED end; tween(mKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08); applyStats() end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
-    -- ========= Slider builder =========
+    -- ===== Slider builder =====
     local function buildSlider(name, order, title, getRel, setRel)
         local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70) row.BackgroundColor3=THEME.BLACK corner(row,12) stroke(row,2.2,THEME.GREEN)
@@ -1222,27 +1210,22 @@ registerRight("Player", function(scroll)
         local knobShadow=Instance.new("Frame",bar); knobShadow.Size=UDim2.fromOffset(18,34); knobShadow.AnchorPoint=Vector2.new(0.5,0.5); knobShadow.BackgroundColor3=THEME.DARK; knobShadow.BorderSizePixel=0; knobShadow.BackgroundTransparency=0.45; knobShadow.ZIndex=2
         local knob=Instance.new("ImageButton",bar); knob.AutoButtonColor=false; knob.BackgroundColor3=THEME.GREY; knob.Size=UDim2.fromOffset(16,32); knob.AnchorPoint=Vector2.new(0.5,0.5); knob.BorderSizePixel=0; knob.ZIndex=3
         stroke(knob,1.2,Color3.fromRGB(210,210,215))
-        local grad=Instance.new("UIGradient",knob); grad.Color=ColorSequence.new{ ColorSequenceKeypoint.new(0.00,Color3.fromRGB(236,236,240)), ColorSequenceKeypoint.new(0.50,Color3.fromRGB(182,182,188)), ColorSequenceKeypoint.new(1.00,Color3.fromRGB(216,216,222)) }; grad.Rotation=90
+        local grad=Instance.new("UIGradient",knob); grad.Color=ColorSequence.new{
+            ColorSequenceKeypoint.new(0.00,Color3.fromRGB(236,236,240)),
+            ColorSequenceKeypoint.new(0.50,Color3.fromRGB(182,182,188)),
+            ColorSequenceKeypoint.new(1.00,Color3.fromRGB(216,216,222))
+        }; grad.Rotation=90
 
-        local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1); centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextXAlignment=Enum.TextXAlignment.Center; centerVal.ZIndex=1
+        local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
+        centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextXAlignment=Enum.TextXAlignment.Center; centerVal.ZIndex=1
 
         local hit=Instance.new("TextButton",bar); hit.BackgroundTransparency=1; hit.Size=UDim2.fromScale(1,1); hit.Text=""; hit.ZIndex=4
 
-        -- per-slider smooth visual
         local visRel=getRel()
         local function relFrom(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
         local function setRelClamped(r) r=math.clamp(r,0,1); setRel(r); end
-        local function syncVisual(now)
-            if not now then visRel = visRel + (getRel() - visRel)*0.30 else visRel=getRel() end
-            visRel=math.clamp(visRel,0,1)
-            fill.Size=UDim2.fromScale(visRel,1)
-            knob.Position=UDim2.new(visRel,0,0.5,0)
-            knobShadow.Position=UDim2.new(visRel,0,0.5,2)
-            centerVal.Text=string.format("%d%%", math.floor(visRel*100+0.5))
-        end
-        local function instantVisual() visRel=getRel(); syncVisual(true) end
+        local function instantVisual() visRel=getRel(); fill.Size=UDim2.fromScale(visRel,1); knob.Position=UDim2.new(visRel,0,0.5,0); knobShadow.Position=UDim2.new(visRel,0,0.5,2); centerVal.Text=string.format("%d%%", math.floor(visRel*100+0.5)) end
 
-        -- drag state
         local DRAG_THRESHOLD=5
         local dragging=false; local maybeDrag=false; local downX=nil
         local rsConn,endConn,chgConn
@@ -1254,14 +1237,11 @@ registerRight("Player", function(scroll)
             dragging=false; maybeDrag=false; downX=nil; scroll.ScrollingEnabled=true
             applyStats()
         end
-
         local function beginDragLoop()
             dragging=true; maybeDrag=false
             rsConn=keepTmp(RS.RenderStepped:Connect(function()
                 visRel = visRel + (getRel() - visRel)*0.30
-                fill.Size=UDim2.fromScale(visRel,1)
-                knob.Position=UDim2.new(visRel,0,0.5,0)
-                knobShadow.Position=UDim2.new(visRel,0,0.5,2)
+                fill.Size=UDim2.fromScale(visRel,1); knob.Position=UDim2.new(visRel,0,0.5,0); knobShadow.Position=UDim2.new(visRel,0,0.5,2)
                 centerVal.Text=string.format("%d%%", math.floor(visRel*100+0.5))
             end))
             endConn=keepTmp(UIS.InputEnded:Connect(function(io)
@@ -1276,20 +1256,15 @@ registerRight("Player", function(scroll)
                 end
             end))
         end
-
         local function onPress(px)
-            stopAllTemp()
-            scroll.ScrollingEnabled=false
+            stopAllTemp(); scroll.ScrollingEnabled=false
             setRelClamped(relFrom(px)); instantVisual(); applyStats()
             maybeDrag=true; dragging=false; downX=px
         end
-
         local function onMove(mx)
             if not maybeDrag then return end
             if downX==nil then downX=mx end
-            if math.abs(mx-downX) >= DRAG_THRESHOLD then
-                beginDragLoop()
-            end
+            if math.abs(mx-downX) >= DRAG_THRESHOLD then beginDragLoop() end
         end
 
         keepUI(UIS.InputChanged:Connect(function(io)
@@ -1298,40 +1273,31 @@ registerRight("Player", function(scroll)
             elseif io.UserInputType==Enum.UserInputType.Touch then onMove(io.Position.X) end
         end))
         keepUI(UIS.InputEnded:Connect(function(io)
-            if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then
-                endDrag()
-            end
+            if maybeDrag and (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch) then endDrag() end
         end))
-
         local function pressFrom(io) onPress(io.Position.X) end
-        keepUI(bar.InputBegan:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end
-        end))
-        keepUI(knob.InputBegan:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end
-        end))
-        keepUI(hit.InputBegan:Connect(function(io)
-            if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end
-        end))
+        keepUI(bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
+        keepUI(knob.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
+        keepUI(hit.InputBegan:Connect(function(io)  if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
 
         instantVisual()
         return row
     end
 
-    -- สไลเดอร์ (Run → Swim → Jump)
+    -- === Sliders in correct order: Run → Jump → Swim ===
     buildSlider("RJ_Run",  baseOrder+2, "Run Speed",
         function() return runRel end,
         function(r) runRel=math.clamp(r,0,1); RJ.remember.runRel=runRel; applyStats() end)
 
-    buildSlider("RJ_Swim", baseOrder+3, "Swim Speed",
-        function() return swimRel end,
-        function(r) swimRel=math.clamp(r,0,1); RJ.remember.swimRel=swimRel; applyStats() end)
-
-    buildSlider("RJ_Jump", baseOrder+4, "Jump Power",
+    buildSlider("RJ_Jump", baseOrder+3, "Jump Power",
         function() return jumpRel end,
         function(r) jumpRel=math.clamp(r,0,1); RJ.remember.jumpRel=jumpRel; applyStats() end)
 
-    -- Infinite Jump toggle
+    buildSlider("RJ_Swim", baseOrder+4, "Swim Speed",
+        function() return swimRel end,
+        function(r) swimRel=math.clamp(r,0,1); RJ.remember.swimRel=swimRel; applyStats() end)
+
+    -- Infinite Jump
     local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+5
     inf.Size=UDim2.new(1,-6,0,46); inf.BackgroundColor3=THEME.BLACK; corner(inf,12); stroke(inf,2.2,THEME.GREEN)
     local iLab=Instance.new("TextLabel",inf); iLab.BackgroundTransparency=1; iLab.Size=UDim2.new(1,-140,1,0); iLab.Position=UDim2.new(0,16,0,0)
