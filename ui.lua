@@ -2149,10 +2149,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp) • Model A V1 + A V2 (B) =====
--- Left (A V1): Name ESP • Box ESP + Tracer • Pick Player (opens A V2) • Warp button
--- Right (A V2): Player list with realtime search (single-select), closes on pick
-
+-- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp) • Model A V1 + A V2 (B • fix warp+respawn) =====
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
     local UIS=game:GetService("UserInputService")
@@ -2165,8 +2162,7 @@ registerRight("Player", function(scroll)
     for i=#XR.uiConns,1,-1 do pcall(function() XR.uiConns[i]:Disconnect() end); XR.uiConns[i]=nil end
 
     local THEME={ GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
-                  BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185),
-                  RED=Color3.fromRGB(255,40,40) }
+                  BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185), RED=Color3.fromRGB(255,40,40) }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
 
@@ -2181,11 +2177,12 @@ registerRight("Player", function(scroll)
     end
     local function clearPack(p)
         local pack=XR.xr.packs[p]; if not pack then return end
-        for _,o in pairs(pack) do pcall(function() o:Destroy() end) end
+        if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end); pack.dieConn=nil end
+        for _,o in pairs(pack) do if typeof(o)=="Instance" then pcall(function() o:Destroy() end) end end
         XR.xr.packs[p]=nil
     end
 
-    -- ===== wireframe cube (12 Beams) that’s see-through =====
+    -- ========= wireframe cube (12 Beams) =========
     local EDGE={{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
     local function ensureWireBox(pack, ch)
         pack.corners = pack.corners or {}
@@ -2205,10 +2202,9 @@ registerRight("Player", function(scroll)
                 beam.Color=ColorSequence.new(THEME.GREEN)
                 beam.Width0=0.08; beam.Width1=0.08
                 beam.LightEmission=0.7
-                beam.Transparency=NumberSequence.new(0) -- see-through
+                beam.Transparency=NumberSequence.new(0) -- always visible (see-through)
                 beam.FaceCamera=true
-                beam.Parent=hrp
-                pack.beams[i]=beam
+                pack.beams[i]=beam; beam.Parent=hrp
             end
         end
         for i,p in ipairs(EDGE) do
@@ -2217,20 +2213,28 @@ registerRight("Player", function(scroll)
         end
     end
 
+    local function hookDie(p, h)
+        local pack = XR.xr.packs[p] or {}
+        if pack.dieConn then return end
+        pack.dieConn = keep(h.Died:Connect(function()
+            -- เคลียร์ของเก่า แล้วรอเกิดใหม่ค่อยสร้างใหม่อัตโนมัติ
+            clearPack(p)
+        end))
+        XR.xr.packs[p]=pack
+    end
+
     local function buildFor(p)
         if p==lp then return end
         local h,ch = hum(p); if not (h and ch) then return end
         local pack = XR.xr.packs[p] or {}
 
-        -- 1) Name ESP — far & through walls
+        -- far name esp
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
                 local bb=Instance.new("BillboardGui")
-                bb.Name="UFOX_NameESP"; bb.Adornee=head; bb.AlwaysOnTop=true
-                bb.MaxDistance=1e9
-                bb.Size=UDim2.fromOffset(260,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0)
-                bb.Parent=head
+                bb.Name="UFOX_NameESP"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
+                bb.Size=UDim2.fromOffset(260,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0); bb.Parent=head
                 local t=Instance.new("TextLabel",bb)
                 t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
                 t.Font=Enum.Font.GothamBlack; t.TextSize=16; t.TextColor3=THEME.WHITE
@@ -2240,7 +2244,6 @@ registerRight("Player", function(scroll)
             end
         end
 
-        -- 2) Box ESP (wireframe) + foot-to-foot tracer (both beams = always visible)
         if XR.xr.boxESP then
             ensureWireBox(pack, ch)
 
@@ -2281,6 +2284,9 @@ registerRight("Player", function(scroll)
             if pack.trgAtt then pcall(function() pack.trgAtt:Destroy() end); pack.trgAtt=nil end
             pack.corners,pack.beams=nil,nil
         end
+
+        -- hook die to auto-rebuild after respawn
+        if h then hookDie(p,h) end
     end
 
     local function refreshAll()
@@ -2291,14 +2297,31 @@ registerRight("Player", function(scroll)
         end
     end
 
+    -- keep updating
     keep(RS.Heartbeat:Connect(function()
-        if XR.xr.boxESP then for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end end
+        if XR.xr.boxESP then
+            for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
+        end
     end))
-    keep(Players.PlayerAdded:Connect(function(p) keep(p.CharacterAdded:Connect(function() task.wait(0.2); refreshAll() end)); refreshAll() end))
-    for _,p in ipairs(Players:GetPlayers()) do if p~=lp then keep(p.CharacterAdded:Connect(function() task.wait(0.2); refreshAll() end)) end end
-    keep(Players.PlayerRemoving:Connect(function(p) clearPack(p) end))
 
-    -- ===== LEFT UI (A V1) =====
+    -- joins / respawns
+    keep(Players.PlayerAdded:Connect(function(p)
+        keep(p.CharacterAdded:Connect(function()
+            clearPack(p)               -- เคลียร์แพ็กเกจเก่าทิ้ง
+            task.wait(0.2); refreshAll()
+        end))
+        refreshAll()
+    end))
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=lp then keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end)) end
+    end
+    -- local player respawn
+    keep(lp.CharacterAdded:Connect(function()
+        XR.xr.myAttach=nil
+        task.wait(0.2); ensureMyAttach(); refreshAll()
+    end))
+
+    -- ===== LEFT UI (unchanged) =====
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -2325,10 +2348,10 @@ registerRight("Player", function(scroll)
         end)
         return row
     end
-
     toggleRow("XR_Name", base+1, "Name ESP", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
     toggleRow("XR_Box",  base+2, "Box ESP + Tracer", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
 
+    -- A V2 right-panel (unchanged behaviour)
     local pickRow=Instance.new("Frame",scroll) pickRow.Name="XR_Target"; pickRow.LayoutOrder=base+3
     pickRow.Size=UDim2.new(1,-6,0,46); pickRow.BackgroundColor3=THEME.BLACK; corner(pickRow,12); stroke(pickRow,2.2,THEME.GREEN)
     local tLab=Instance.new("TextLabel",pickRow) tLab.BackgroundTransparency=1; tLab.Position=UDim2.new(0,16,0,0); tLab.Size=UDim2.new(1,-(16+12+180+12),1,0)
@@ -2344,7 +2367,7 @@ registerRight("Player", function(scroll)
 
     local function setTarget(p) XR.xr.target=p; warp.Text = p and ("Warp to: "..p.DisplayName.." (@"..p.Name..")") or "Warp to: (none)" end
 
-    -- ===== RIGHT PANEL (A V2 base: select-one + realtime search + global close rules) =====
+    -- ===== Right panel (same A V2 impl asก่อนหน้า) =====
     local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel=screen:FindFirstChild("XR_PlayerPanel")
     local searchBox,listWrap,pad,layout
@@ -2374,7 +2397,6 @@ registerRight("Player", function(scroll)
         local border=stroke(btn,1.2,THEME.GREEN,0.45)
         btn:SetAttribute("k",(p.DisplayName.." @"..p.Name):lower())
         btn.MouseButton1Click:Connect(function()
-            -- single select
             for _,c in ipairs(listWrap:GetChildren()) do if c:IsA("TextButton") and c~=btn then local st=c:FindFirstChildOfClass("UIStroke"); if st then st.Transparency=0.45; st.Thickness=1.2 end end end
             border.Transparency=0; border.Thickness=1.8
             setTarget(p); panel.Visible=false
@@ -2417,43 +2439,31 @@ registerRight("Player", function(scroll)
 
         keep(searchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(searchBox.Text) end))
         keep(Players.PlayerAdded:Connect(rebuildList))
-        keep(Players.PlayerRemoving:Connect(function(p) if XR.xr.target==p then setTarget(nil) end; rebuildList() end))
+        keep(Players.PlayerRemoving:Connect(function(p) if XR.xr.target==p then XR.xr.target=nil end; rebuildList() end))
         rebuildList()
     else
-        -- rebind existing
-        local top=panel:FindFirstChildOfClass("Frame")
-        searchBox=top and top:FindFirstChildOfClass("TextBox") or nil
+        local top=panel:FindFirstChildOfClass("Frame"); searchBox=top and top:FindFirstChildOfClass("TextBox") or nil
         listWrap=panel:FindFirstChild("Result"); pad=listWrap and listWrap:FindFirstChildOfClass("UIPadding") or nil
         layout=listWrap and listWrap:FindFirstChildOfClass("UIListLayout") or nil
         if searchBox then keep(searchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(searchBox.Text) end)) end
-        rebuildList()
-        placePanel()
+        rebuildList(); placePanel()
     end
 
-    -- open/close rules like A V2 baseline
     local function inside(gui, x, y)
         if not (gui and gui.Parent) then return false end
         local p,s=gui.AbsolutePosition, gui.AbsoluteSize
         return (x>=p.X and x<=p.X+s.X and y>=p.Y and y<=p.Y+s.Y)
     end
     local function hidePanel() if panel and panel.Visible then panel.Visible=false end end
-
-    openBtn.MouseButton1Click:Connect(function()
-        rebuildList(); placePanel()
-        panel.Visible = not panel.Visible
-    end)
-    -- global close: any tap/click/scroll/switch-left outside panel (except the openBtn)
+    openBtn.MouseButton1Click:Connect(function() rebuildList(); placePanel(); panel.Visible = not panel.Visible end)
     keep(UIS.InputBegan:Connect(function(io)
         if not (panel and panel.Visible) then return end
         local m=UIS:GetMouseLocation()
-        local px,py = m.X, m.Y
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            if not inside(panel,px,py) and not inside(openBtnRef,px,py) then hidePanel() end
-        end
+        if (io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch)
+           and not inside(panel,m.X,m.Y) and not inside(openBtn,m.X,m.Y) then hidePanel() end
     end))
     keep(UIS.InputChanged:Connect(function(io)
-        if not (panel and panel.Visible) then return end
-        if io.UserInputType==Enum.UserInputType.MouseWheel then
+        if panel and panel.Visible and io.UserInputType==Enum.UserInputType.MouseWheel then
             local m=UIS:GetMouseLocation(); if not inside(panel,m.X,m.Y) then hidePanel() end
         end
     end))
@@ -2462,14 +2472,40 @@ registerRight("Player", function(scroll)
     keep(scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel))
     keep(scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel))
 
-    -- Warp
+    -- ===== Warp: stick for a moment to prevent rubber-band =====
+    local function stickWarp(lroot, targetCF, dur)
+        dur = dur or 0.6
+        local t0 = tick()
+        -- stabilize physics
+        local ch = lroot.Parent
+        local h = ch and ch:FindFirstChildOfClass("Humanoid")
+        if h then pcall(function() h.Sit=false; h:ChangeState(Enum.HumanoidStateType.Physics) end) end
+        lroot.AssemblyLinearVelocity = Vector3.zero
+        lroot.AssemblyAngularVelocity = Vector3.zero
+
+        local conn
+        conn = RS.Heartbeat:Connect(function()
+            lroot.CFrame = targetCF
+            lroot.AssemblyLinearVelocity = Vector3.zero
+            lroot.AssemblyAngularVelocity = Vector3.zero
+            if tick()-t0 > dur then conn:Disconnect() end
+        end)
+        task.delay(dur, function()
+            if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
+        end)
+    end
+
+    local warp=scroll:FindFirstChild("XR_Warp")
     warp.MouseButton1Click:Connect(function()
         local tgt=XR.xr.target; if not tgt then return end
         local th,tch=hum(tgt); local lh,lch=hum(lp)
         if th and tch and lch then
             local troot=tch:FindFirstChild("HumanoidRootPart")
             local lroot=lch:FindFirstChild("HumanoidRootPart")
-            if troot and lroot then lroot.CFrame=troot.CFrame*CFrame.new(0,0,-2) end
+            if troot and lroot then
+                local cf = troot.CFrame * CFrame.new(0,0,-2)
+                stickWarp(lroot, cf, 0.65)
+            end
         end
     end)
 
