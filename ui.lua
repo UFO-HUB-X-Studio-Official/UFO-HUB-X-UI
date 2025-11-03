@@ -2158,10 +2158,9 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Stable Final:
---   • กดปุ่มซ้าย / กดที่ไหนในหน้าจอ / เลื่อนซ้ายหรือขวา → ปิดแผงขวา
---   • ยกเว้นกดในแผงขวาเอง
---   • ไม่มี overlay, ปุ่มกดได้แน่นอน
+-- Fix: คลิกธรรมดาที่ไหนก็ปิด (ไม่สน gameProcessedEvent),
+--      เปลี่ยนแท็บ/เลื่อนซ้าย-ขวา/มีการอัปเดต UI หลัก → ปิดทันที,
+--      ยกเว้นคลิกภายในแผงขวาเอง
 
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
@@ -2187,7 +2186,7 @@ registerRight("Shop", function(scroll)
         return s
     end
 
-    --================ LEFT CONTENT ====================
+    --================ LEFT CONTENT (unchanged) =================
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2257,7 +2256,7 @@ registerRight("Shop", function(scroll)
         end
     end
 
-    --================ RIGHT PANEL ====================
+    --================ RIGHT PANEL =================
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     if not panel then
@@ -2276,6 +2275,7 @@ registerRight("Shop", function(scroll)
         top.Position = UDim2.new(0,5,0,6)
         top.BackgroundColor3 = THEME.BLACK
         corner(top,8); stroke(top,1.4,THEME.GREEN,0)
+
         local icon = Instance.new("TextLabel", top)
         icon.BackgroundTransparency = 1
         icon.Text = "🔎"
@@ -2284,6 +2284,7 @@ registerRight("Shop", function(scroll)
         icon.TextColor3 = THEME.WHITE
         icon.Size = UDim2.fromOffset(22,28)
         icon.Position = UDim2.new(0,6,0,0)
+
         local search = Instance.new("TextBox", top)
         search.BackgroundTransparency = 1
         search.ClearTextOnFocus = false
@@ -2297,7 +2298,6 @@ registerRight("Shop", function(scroll)
         search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         search.TextXAlignment = Enum.TextXAlignment.Left
 
-        -- Scroll list
         local listWrap = Instance.new("ScrollingFrame", panel)
         listWrap.Name = "ResultArea"
         listWrap.BackgroundColor3 = THEME.BLACK
@@ -2307,8 +2307,7 @@ registerRight("Shop", function(scroll)
         listWrap.CanvasSize = UDim2.new(0,0,0,0)
         listWrap.ScrollBarThickness = 0
         listWrap.ScrollBarImageTransparency = 1
-        corner(listWrap,10)
-        stroke(listWrap,1.4,THEME.GREEN,0)
+        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
 
         local pad = Instance.new("UIPadding", listWrap)
         pad.PaddingTop    = UDim.new(0,10)
@@ -2360,47 +2359,59 @@ registerRight("Shop", function(scroll)
                 border.Transparency = sel and 0.0 or 0.45
             end)
         end
-
         for i=1,10 do makeItem(("MAX %d"):format(i)) end
         recalc()
     end
 
-    --================ CLOSE RULES ====================
-    local function pointInsidePanel(x,y)
+    --================ CLOSE RULES (no delay) =================
+    local function insidePanel(x,y)
         local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
         return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
     end
     local function hidePanel()
-        if panel.Visible then panel.Visible=false end
+        if panel.Visible then panel.Visible = false end
     end
 
-    -- 1️⃣ ปิดเมื่อเลื่อนซ้าย/ขวา/ย้าย
+    -- A) ซ้ายมีการเปลี่ยน/เลื่อน/ย้าย/ซ่อน → ปิด
     scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
+    scroll.AncestryChanged:Connect(function() hidePanel() end)
 
-    -- 2️⃣ ปิดเมื่อคลิก/แตะที่ไหนในจอ (ยกเว้นในแผงขวา)
-    UIS.InputBegan:Connect(function(io,gp)
-        if gp then return end
+    -- B) คลิก/แตะที่ไหนก็ได้ (ไม่สน gameProcessedEvent) ยกเว้นในแผงขวา
+    local function globalClose(io)
         if not panel.Visible then return end
-        if io.UserInputType==Enum.UserInputType.MouseButton1 then
-            local m=UIS:GetMouseLocation()
-            if not pointInsidePanel(m.X,m.Y) then hidePanel() end
-        elseif io.UserInputType==Enum.UserInputType.Touch then
-            local p=io.Position
-            if p and not pointInsidePanel(p.X,p.Y) then hidePanel() end
+        if io.UserInputType == Enum.UserInputType.MouseButton1 then
+            local m = UIS:GetMouseLocation()
+            if not insidePanel(m.X, m.Y) then hidePanel() end
+        elseif io.UserInputType == Enum.UserInputType.Touch then
+            local p = io.Position
+            if p and not insidePanel(p.X, p.Y) then hidePanel() end
         end
-    end)
+    end
+    UIS.InputBegan:Connect(globalClose)         -- ไม่ return เมื่อ gp=true
 
-    -- 3️⃣ ปิดเมื่อเลื่อนเมาส์/เกมแพด (นอกแผง)
+    -- C) เมาส์ล้อ/เกมแพด (นอกแผง) → ปิด
     UIS.InputChanged:Connect(function(io)
         if not panel.Visible then return end
-        if io.UserInputType==Enum.UserInputType.MouseWheel or io.UserInputType==Enum.UserInputType.Gamepad1 or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
-            local m=UIS:GetMouseLocation()
-            if not pointInsidePanel(m.X,m.Y) then hidePanel() end
+        if io.UserInputType==Enum.UserInputType.MouseWheel
+        or io.UserInputType==Enum.UserInputType.Gamepad1
+        or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
+            local m = UIS:GetMouseLocation()
+            if not insidePanel(m.X, m.Y) then hidePanel() end
         end
     end)
+
+    -- D) มีการเพิ่ม/ลบ/แก้ UI ใดๆ ใน ScreenGui (เปลี่ยนแท็บซ้าย/โหลดหน้าใหม่) → ปิด
+    if screen and screen:IsA("ScreenGui") then
+        screen.DescendantAdded:Connect(function(obj)
+            if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
+        end)
+        screen.DescendantRemoving:Connect(function(obj)
+            if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
+        end)
+    end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
