@@ -2158,9 +2158,7 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Fix: คลิกธรรมดาที่ไหนก็ปิด (ไม่สน gameProcessedEvent),
---      เปลี่ยนแท็บ/เลื่อนซ้าย-ขวา/มีการอัปเดต UI หลัก → ปิดทันที,
---      ยกเว้นคลิกภายในแผงขวาเอง
+-- Fix toggle: ปุ่ม Select Options ปิดได้จริง (ไม่ชนกับ global close)
 
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
@@ -2243,14 +2241,27 @@ registerRight("Shop", function(scroll)
             openBtn.MouseButton1Click:Connect(function()
                 local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
                 local panel  = screen:FindFirstChild("MAX_SearchPanel")
-                if panel then
+                if not panel then return end
+
+                -- helpers
+                local function hidePanel()
+                    if panel.Visible then panel.Visible = false end
+                end
+                local function showPanel()
                     local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
                     panel.Position = UDim2.fromOffset(x,y)
                     panel.Size     = UDim2.fromOffset(PANEL_W,h)
-                    panel.Visible  = not panel.Visible
+                    panel.Visible  = true
+                end
+
+                -- *** critical toggle logic (no flip-flop) ***
+                if panel.Visible then
+                    hidePanel()         -- ถ้าเปิดอยู่ ให้ปิดแล้วจบ
+                else
+                    showPanel()         -- ถ้ายังไม่เปิด ค่อยเปิด
                 end
             end)
         end
@@ -2363,7 +2374,7 @@ registerRight("Shop", function(scroll)
         recalc()
     end
 
-    --================ CLOSE RULES (no delay) =================
+    --================ CLOSE RULES (เหมือนเดิม) ================
     local function insidePanel(x,y)
         local pos, sz = panel.AbsolutePosition, panel.AbsoluteSize
         return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
@@ -2372,38 +2383,33 @@ registerRight("Shop", function(scroll)
         if panel.Visible then panel.Visible = false end
     end
 
-    -- A) ซ้ายมีการเปลี่ยน/เลื่อน/ย้าย/ซ่อน → ปิด
     scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
     scroll.AncestryChanged:Connect(function() hidePanel() end)
 
-    -- B) คลิก/แตะที่ไหนก็ได้ (ไม่สน gameProcessedEvent) ยกเว้นในแผงขวา
-    local function globalClose(io)
+    UIS.InputBegan:Connect(function(io)
         if not panel.Visible then return end
-        if io.UserInputType == Enum.UserInputType.MouseButton1 then
+        if io.UserInputType==Enum.UserInputType.MouseButton1 then
             local m = UIS:GetMouseLocation()
-            if not insidePanel(m.X, m.Y) then hidePanel() end
-        elseif io.UserInputType == Enum.UserInputType.Touch then
+            if not insidePanel(m.X,m.Y) then hidePanel() end
+        elseif io.UserInputType==Enum.UserInputType.Touch then
             local p = io.Position
-            if p and not insidePanel(p.X, p.Y) then hidePanel() end
+            if p and not insidePanel(p.X,p.Y) then hidePanel() end
         end
-    end
-    UIS.InputBegan:Connect(globalClose)         -- ไม่ return เมื่อ gp=true
+    end)
 
-    -- C) เมาส์ล้อ/เกมแพด (นอกแผง) → ปิด
     UIS.InputChanged:Connect(function(io)
         if not panel.Visible then return end
         if io.UserInputType==Enum.UserInputType.MouseWheel
         or io.UserInputType==Enum.UserInputType.Gamepad1
         or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
             local m = UIS:GetMouseLocation()
-            if not insidePanel(m.X, m.Y) then hidePanel() end
+            if not insidePanel(m.X,m.Y) then hidePanel() end
         end
     end)
 
-    -- D) มีการเพิ่ม/ลบ/แก้ UI ใดๆ ใน ScreenGui (เปลี่ยนแท็บซ้าย/โหลดหน้าใหม่) → ปิด
     if screen and screen:IsA("ScreenGui") then
         screen.DescendantAdded:Connect(function(obj)
             if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
