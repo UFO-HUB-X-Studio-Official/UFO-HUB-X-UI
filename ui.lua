@@ -2150,11 +2150,12 @@ registerRight("Server", function(scroll)
     end
 end)
 -- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp)
--- Model A V1 + A V2 (B • 2D Overlay Box+Tracer through walls + Fast Fly) =====
+-- Model A V1 + A V2 (B • 2D Overlay Box+Tracer through walls + Fast Fly • FIX) =====
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
     local UIS=game:GetService("UserInputService")
     local RS=game:GetService("RunService")
+    local CoreGui=game:GetService("CoreGui")
     local lp=Players.LocalPlayer
 
     _G.UFOX_XR = _G.UFOX_XR or {
@@ -2180,15 +2181,15 @@ registerRight("Player", function(scroll)
         XR.xr.myAttach=a
     end
     local function clearPack(p)
-        local pack=XR.xr.packs[p]; if not pack then return end
+        local pack=XR.xr.packs and XR.xr.packs[p]; if not pack then return end
         if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end); pack.dieConn=nil end
-        -- ลบทิ้ง 2D lines
         if pack.lines then for _,l in pairs(pack.lines) do pcall(function() l:Destroy() end) end end
-        pack.lines=nil
+        if pack.name then pcall(function() pack.name:Destroy() end) end
         XR.xr.packs[p]=nil
     end
+    XR.xr.packs = XR.xr.packs or {}
 
-    -- ===== 2D Overlay (ทับทุกอย่างบนจอ) =====
+    -- ---------- 2D Overlay ----------
     local function ensureOverlay(screen)
         if XR.xr.overlay and XR.xr.overlay.Parent then return XR.xr.overlay end
         local gui = Instance.new("ScreenGui")
@@ -2197,7 +2198,9 @@ registerRight("Player", function(scroll)
         gui.ResetOnSpawn = false
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         gui.DisplayOrder = 999999
-        gui.Parent = screen
+        -- อย่า parent ใต้ ScreenGui อีกตัว → ใช้ Parent ของ screen หรือ PlayerGui/CoreGui
+        local parentCandidate = (screen and screen.Parent) or (lp:FindFirstChildOfClass("PlayerGui")) or CoreGui
+        gui.Parent = parentCandidate
         XR.xr.overlay = gui
         return gui
     end
@@ -2220,9 +2223,10 @@ registerRight("Player", function(scroll)
         pack.lines = { edges={}, tracer=makeLine(overlay,2) }
         for i=1,12 do pack.lines.edges[i]=makeLine(overlay,2) end
     end
-    local function drawLine2D(line, p1, p2) -- p1,p2: Vector2 (screen)
+    local function drawLine2D(line, p1, p2) -- p1,p2: Vector2
         local dx,dy = p2.X - p1.X, p2.Y - p1.Y
         local len = math.sqrt(dx*dx + dy*dy)
+        if len < 1 then line.Visible=false return end
         line.Visible = true
         line.Position = UDim2.fromOffset(p1.X, p1.Y)
         line.Size = UDim2.fromOffset(len, line.Size.Y.Offset)
@@ -2241,7 +2245,7 @@ registerRight("Player", function(scroll)
         local pack = XR.xr.packs[p] or {}
         ensureBoxLines(pack, overlay)
 
-        -- Name ESP (Billboard AlwaysOnTop) – optional
+        -- Name ESP (AlwaysOnTop)
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
@@ -2257,7 +2261,6 @@ registerRight("Player", function(scroll)
             end
         end
 
-        -- 2D box & tracer
         if XR.xr.boxESP then
             local cf, sz = ch:GetBoundingBox()
             local hrp=ch:FindFirstChild("HumanoidRootPart")
@@ -2269,27 +2272,29 @@ registerRight("Player", function(scroll)
                     Vector3.new( hx,-hy,  hz), Vector3.new(-hx,-hy,  hz),
                     Vector3.new(-hx,-hy, -hz), Vector3.new( hx,-hy, -hz),
                 }
-                local pts={}, visibleAll=true
+                local pts={}, on={}
                 for i=1,8 do
                     local world = (cf * CFrame.new(offs[i])).Position
-                    local v2, on = cam:WorldToViewportPoint(world)
-                    if not on or v2.Z < 0 then visibleAll=false end
+                    local v2, ok = cam:WorldToViewportPoint(world)
                     pts[i] = Vector2.new(v2.X, v2.Y)
+                    on[i]  = ok and v2.Z>0
                 end
+                -- วาดเฉพาะเส้นที่ปลายทั้งคู่ on-screen
                 hideLines(pack)
-                if visibleAll then
-                    for i,pair in ipairs(EDGES) do
-                        drawLine2D(pack.lines.edges[i], pts[pair[1]], pts[pair[2]])
+                for i,pair in ipairs(EDGES) do
+                    local a,b = pair[1], pair[2]
+                    if on[a] and on[b] then
+                        drawLine2D(pack.lines.edges[i], pts[a], pts[b])
                     end
                 end
-                -- tracer: my foot -> their foot
+                -- tracer 2D
                 ensureMyAttach()
                 local my = XR.xr.myAttach and XR.xr.myAttach.WorldPosition or nil
                 local trg = hrp.Position + Vector3.new(0,-3,0)
                 if my then
-                    local a,on1 = cam:WorldToViewportPoint(my)
-                    local b,on2 = cam:WorldToViewportPoint(trg)
-                    if on1 and on2 and a.Z>0 and b.Z>0 then
+                    local a,ok1 = cam:WorldToViewportPoint(my)
+                    local b,ok2 = cam:WorldToViewportPoint(trg)
+                    if ok1 and ok2 and a.Z>0 and b.Z>0 then
                         drawLine2D(pack.lines.tracer, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
                     else
                         pack.lines.tracer.Visible=false
@@ -2330,7 +2335,7 @@ registerRight("Player", function(scroll)
     end
     keep(lp.CharacterAdded:Connect(function() XR.xr.myAttach=nil; task.wait(0.2); ensureMyAttach(); refreshAll() end))
 
-    -- ===== LEFT UI (A V1) =====
+    -- ---------- LEFT UI ----------
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -2360,7 +2365,6 @@ registerRight("Player", function(scroll)
     toggleRow("XR_Name", base+1, "Name ESP", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
     toggleRow("XR_Box",  base+2, "Box ESP + Tracer", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
 
-    -- ===== A V2 right panel (unchanged list) =====
     local pickRow=Instance.new("Frame",scroll) pickRow.Name="XR_Target"; pickRow.LayoutOrder=base+3
     pickRow.Size=UDim2.new(1,-6,0,46); pickRow.BackgroundColor3=THEME.BLACK; corner(pickRow,12); stroke(pickRow,2.2,THEME.GREEN)
     local tLab=Instance.new("TextLabel",pickRow) tLab.BackgroundTransparency=1; tLab.Position=UDim2.new(0,16,0,0); tLab.Size=UDim2.new(1,-(16+12+180+12),1,0)
@@ -2373,10 +2377,9 @@ registerRight("Player", function(scroll)
     warp.AutoButtonColor=false; warp.Size=UDim2.new(1,-6,0,46); warp.BackgroundColor3=THEME.BLACK
     warp.Font=Enum.Font.GothamBlack; warp.TextSize=14; warp.TextColor3=THEME.WHITE; warp.Text="Warp to: (none)"
     corner(warp,12); stroke(warp,2.2,THEME.GREEN)
-
     local function setTarget(p) XR.xr.target=p; warp.Text = p and ("Warp to: "..p.DisplayName.." (@"..p.Name..")") or "Warp to: (none)" end
 
-    -- ===== Right panel list (คงเดิม ย่อ) =====
+    -- ---------- A V2 panel (ย่อ) ----------
     local screen=scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel=screen:FindFirstChild("XR_PlayerPanel")
     local searchBox,listWrap,pad,layout
@@ -2450,7 +2453,7 @@ registerRight("Player", function(scroll)
         rebuildList(); placePanel()
     end
 
-    -- ===== Warp + Fly =====
+    -- ---------- Warp + Fly ----------
     local function stickWarp(lroot, targetCF, dur)
         dur = dur or 0.5
         local t0 = tick()
@@ -2463,7 +2466,6 @@ registerRight("Player", function(scroll)
             if tick()-t0 > dur then conn:Disconnect() end
         end); keep(conn)
     end
-
     local function flyToTarget(lroot, tgtPlayer, maxTime, speed)
         maxTime = maxTime or 20.0
         speed   = speed   or 320
@@ -2506,8 +2508,10 @@ registerRight("Player", function(scroll)
             local troot=tch:FindFirstChild("HumanoidRootPart")
             local lroot=lch:FindFirstChild("HumanoidRootPart")
             if troot and lroot then
+                -- ลองวาร์ปก่อน
                 local cf = troot.CFrame * CFrame.new(0,0,-2)
                 stickWarp(lroot, cf, 0.5)
+                -- ถ้าไม่ถึง ให้บินตามทันที
                 task.delay(0.55, function()
                     local want = troot.Position - troot.CFrame.LookVector*2
                     if (lroot.Position - want).Magnitude > 5 then
@@ -2518,6 +2522,7 @@ registerRight("Player", function(scroll)
         end
     end)
 
+    -- init
     refreshAll()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
