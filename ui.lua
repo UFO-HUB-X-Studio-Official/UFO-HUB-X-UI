@@ -2158,9 +2158,10 @@ registerRight("Server", function(scroll)
 end)
 --===== UFO HUB X • Shop — MAX 🛸
 -- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- Fixes:
---  • Toggle ปุ่ม Select Options ปิด/เปิดได้ครั้งเดียว
---  • Search กรองชื่อได้จริงแบบเรียลไทม์ (case-insensitive, ตัดช่องว่างหัว–ท้าย)
+-- All-in-one stable drop-in:
+--  • Select Options = toggle ครั้งเดียว (ไม่ชน global close)
+--  • Tap/Click/Scroll/Switch-left → ปิดขวาทันที (ยกเว้นกดในแผงขวา)
+--  • Search แบบเรียลไทม์ (ไม่สนตัวพิมพ์/ช่องว่าง), CanvasSize อัปเดตถูกต้อง
 
 registerRight("Shop", function(scroll)
     local UIS = game:GetService("UserInputService")
@@ -2172,65 +2173,90 @@ registerRight("Shop", function(scroll)
     }
 
     local function corner(ui,r)
-        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,r or 12); c.Parent = ui
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 12)
+        c.Parent = ui
     end
     local function stroke(ui,th,col,trans)
         local s = Instance.new("UIStroke")
-        s.Thickness = th or 2; s.Color = col or THEME.GREEN; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Transparency = trans or 0; s.Parent = ui
+        s.Thickness = th or 2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Transparency = trans or 0
+        s.Parent = ui
         return s
     end
 
     --================ LEFT CONTENT =================
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0,12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     if not scroll:FindFirstChild("MAX_Header") then
         local head = Instance.new("TextLabel", scroll)
-        head.Name="MAX_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-        head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.WHITE
-        head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="MAX 🛸"; head.LayoutOrder=10
+        head.Name = "MAX_Header"
+        head.BackgroundTransparency = 1
+        head.Size = UDim2.new(1,0,0,36)
+        head.Font = Enum.Font.GothamBold
+        head.TextSize = 16
+        head.TextColor3 = THEME.WHITE
+        head.TextXAlignment = Enum.TextXAlignment.Left
+        head.Text = "MAX 🛸"
+        head.LayoutOrder = 10
     end
 
-    local openBtnRef : TextButton? = nil
+    local openBtnRef = nil
 
     if not scroll:FindFirstChild("MAX_Row1") then
         local row = Instance.new("Frame", scroll)
-        row.Name="MAX_Row1"; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; row.LayoutOrder=11
+        row.Name = "MAX_Row1"
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        row.LayoutOrder = 11
         corner(row,12); stroke(row,2,THEME.GREEN,0)
 
         local lab = Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,16,0,0)
-        lab.Size=UDim2.new(1,-(16+12+220+12),1,0)
-        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="MAX"
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Size = UDim2.new(1,-(16+12+220+12),1,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = "MAX"
 
-        local BTN_W,BTN_H,RIGHT_INSET = 220,24,12
+        local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
         local openBtn = Instance.new("TextButton", row)
-        openBtn.Name="MAX_InputButton"; openBtn.AutoButtonColor=false
-        openBtn.Size=UDim2.fromOffset(BTN_W,BTN_H)
-        openBtn.Position=UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
-        openBtn.BackgroundColor3=THEME.BLACK; openBtn.Text="Select Options 🛸"
-        openBtn.Font=Enum.Font.GothamBold; openBtn.TextSize=12; openBtn.TextColor3=THEME.WHITE
-        openBtn.TextXAlignment=Enum.TextXAlignment.Center; openBtn.TextYAlignment=Enum.TextYAlignment.Center
+        openBtn.Name = "MAX_InputButton"
+        openBtn.AutoButtonColor = false
+        openBtn.Size = UDim2.fromOffset(BTN_W,BTN_H)
+        openBtn.Position = UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
+        openBtn.BackgroundColor3 = THEME.BLACK
+        openBtn.Text = "Select Options 🛸"
+        openBtn.Font = Enum.Font.GothamBold
+        openBtn.TextSize = 12
+        openBtn.TextColor3 = THEME.WHITE
+        openBtn.TextXAlignment = Enum.TextXAlignment.Center
+        openBtn.TextYAlignment = Enum.TextYAlignment.Center
         corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
         openBtnRef = openBtn
 
         if not openBtn:GetAttribute("Hooked") then
-            openBtn:SetAttribute("Hooked",true)
+            openBtn:SetAttribute("Hooked", true)
             openBtn.MouseButton1Click:Connect(function()
                 local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
                 local panel  = screen:FindFirstChild("MAX_SearchPanel")
                 if not panel then return end
-                local function hidePanel() if panel.Visible then panel.Visible=false end end
+                local function hidePanel() if panel.Visible then panel.Visible = false end end
                 local function showPanel()
-                    local SIDE_MARGIN,TOP_OFFSET,PANEL_W,EXTRA_H = 16,50,165,40
+                    local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
                     local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
                     local y = scroll.AbsolutePosition.Y + TOP_OFFSET
                     local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
-                    panel.Position = UDim2.fromOffset(x,y); panel.Size = UDim2.fromOffset(PANEL_W,h)
-                    panel.Visible=true
+                    panel.Position = UDim2.fromOffset(x,y)
+                    panel.Size     = UDim2.fromOffset(PANEL_W,h)
+                    panel.Visible  = true
                 end
                 if panel.Visible then hidePanel() else showPanel() end
             end)
@@ -2245,78 +2271,62 @@ registerRight("Shop", function(scroll)
     local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
     local panel = screen:FindFirstChild("MAX_SearchPanel")
     local search, listWrap, pad, layout
-    if not panel then
-        panel = Instance.new("Frame")
-        panel.Name="MAX_SearchPanel"; panel.Visible=false
-        panel.BackgroundColor3=THEME.BLACK; panel.BorderSizePixel=0; panel.ZIndex=200
-        corner(panel,12); stroke(panel,2,THEME.GREEN,0); panel.Parent=screen
 
-        local top = Instance.new("Frame", panel)
-        top.Name="TopBar"; top.Size=UDim2.new(1,-10,0,28); top.Position=UDim2.new(0,5,0,6)
-        top.BackgroundColor3=THEME.BLACK; corner(top,8); stroke(top,1.4,THEME.GREEN,0)
+    local function recalc()
+        if not (listWrap and layout and pad) then return end
+        task.defer(function()
+            listWrap.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + (pad.PaddingTop.Offset) + (pad.PaddingBottom.Offset))
+        end)
+    end
 
-        local icon = Instance.new("TextLabel", top)
-        icon.BackgroundTransparency=1; icon.Text="🔎"; icon.Font=Enum.Font.GothamBold
-        icon.TextSize=14; icon.TextColor3=THEME.WHITE; icon.Size=UDim2.fromOffset(22,28); icon.Position=UDim2.new(0,6,0,0)
+    local function makeItem(parent, txt)
+        local btn = Instance.new("TextButton", parent)
+        btn.Name = "ItemButton"
+        btn.AutoButtonColor = false
+        btn.Size = UDim2.new(1,0,0,26)
+        btn.BackgroundColor3 = THEME.BLACK
+        btn.Text = ""
+        corner(btn,8)
 
-        search = Instance.new("TextBox", top)
-        search.BackgroundTransparency=1; search.ClearTextOnFocus=false; search.Text=""
-        search.Size=UDim2.new(1,-(22+12+6),1,0); search.Position=UDim2.new(0,34,0,0)
-        search.Font=Enum.Font.Gotham; search.TextSize=12; search.TextColor3=THEME.WHITE
-        search.PlaceholderText="Search name…"; search.PlaceholderColor3=Color3.fromRGB(180,180,185)
-        search.TextXAlignment=Enum.TextXAlignment.Left
+        local lbl = Instance.new("TextLabel", btn)
+        lbl.Name = "Label"
+        lbl.BackgroundTransparency = 1
+        lbl.Size = UDim2.fromScale(1,1)
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 12
+        lbl.TextColor3 = THEME.WHITE
+        lbl.Text = txt
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.TextYAlignment = Enum.TextYAlignment.Center
 
-        listWrap = Instance.new("ScrollingFrame", panel)
-        listWrap.Name="ResultArea"; listWrap.BackgroundColor3=THEME.BLACK; listWrap.BorderSizePixel=0
-        listWrap.Position=UDim2.new(0,5,0,6+28+6); listWrap.Size=UDim2.new(1,-10,1,-(6+28+6+6))
-        listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
-        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
+        local border = stroke(btn,1.2,THEME.GREEN,0.45)
+        local bar = Instance.new("Frame", btn)
+        bar.Name = "SelBar"
+        bar.BackgroundColor3 = THEME.GREEN
+        bar.Position = UDim2.new(0,2,0,2)
+        bar.Size = UDim2.new(0,4,1,-4)
+        bar.Visible = false
+        corner(bar,3)
 
-        pad = Instance.new("UIPadding", listWrap)
-        pad.PaddingTop=UDim.new(0,10); pad.PaddingBottom=UDim.new(0,16); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
+        btn:SetAttribute("Selected", false)
+        btn:SetAttribute("NameText", string.lower(txt))
 
-        layout = Instance.new("UIListLayout", listWrap)
-        layout.Padding=UDim.New(0,6); layout.SortOrder=Enum.SortOrder.LayoutOrder
+        btn.MouseButton1Click:Connect(function()
+            local sel = not btn:GetAttribute("Selected")
+            btn:SetAttribute("Selected", sel)
+            bar.Visible = sel
+            border.Thickness    = sel and 1.8 or 1.2
+            border.Transparency = sel and 0.0 or 0.45
+        end)
 
-        -- Items
-        local function makeItem(txt)
-            local btn = Instance.new("TextButton", listWrap)
-            btn.Name = "ItemButton"; btn.AutoButtonColor=false; btn.Size=UDim2.new(1,0,0,26)
-            btn.BackgroundColor3=THEME.BLACK; btn.Text=""; corner(btn,8)
-            local lbl = Instance.new("TextLabel", btn)
-            lbl.Name="Label"; lbl.BackgroundTransparency=1; lbl.Size=UDim2.fromScale(1,1)
-            lbl.Font=Enum.Font.GothamBold; lbl.TextSize=12; lbl.TextColor3=THEME.WHITE
-            lbl.Text=txt; lbl.TextXAlignment=Enum.TextXAlignment.Center; lbl.TextYAlignment=Enum.TextYAlignment.Center
-            local border = stroke(btn,1.2,THEME.GREEN,0.45)
-            local bar = Instance.new("Frame", btn)
-            bar.Name="SelBar"; bar.BackgroundColor3=THEME.GREEN; bar.Position=UDim2.new(0,2,0,2)
-            bar.Size=UDim2.new(0,4,1,-4); bar.Visible=false; corner(bar,3)
-            btn:SetAttribute("Selected", false)
-            btn.MouseButton1Click:Connect(function()
-                local sel = not btn:GetAttribute("Selected")
-                btn:SetAttribute("Selected", sel)
-                bar.Visible = sel; border.Thickness = sel and 1.8 or 1.2; border.Transparency = sel and 0.0 or 0.45
-            end)
-            -- cacheชื่อไว้ที่ Attribute เพื่อง่ายต่อการค้นหา
-            btn:SetAttribute("NameText", string.lower(txt))
-            return btn
-        end
-        for i=1,10 do makeItem(("MAX %d"):format(i)) end
+        return btn
+    end
 
-        -- Recalc CanvasSize
-        local function recalc()
-            task.defer(function()
-                listWrap.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + pad.PaddingTop.Offset + pad.PaddingBottom.Offset)
-            end)
-        end
-        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
-        recalc()
-
-        -- ===== Live Search =====
+    local function wireSearch()
+        if not (search and listWrap) then return end
         local function trim(s) return (s:gsub("^%s*(.-)%s*$","%1")) end
         local function applySearch(q)
             q = string.lower(trim(q or ""))
-            -- วนเฉพาะปุ่มรายการ
             for _,child in ipairs(listWrap:GetChildren()) do
                 if child:IsA("TextButton") and child.Name=="ItemButton" then
                     local key = child:GetAttribute("NameText") or ""
@@ -2325,14 +2335,82 @@ registerRight("Shop", function(scroll)
             end
             recalc()
         end
+        -- clear old connections by reassigning a new signal callback each time we build UI
         search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
+    end
+
+    if not panel then
+        panel = Instance.new("Frame")
+        panel.Name = "MAX_SearchPanel"
+        panel.Visible = false
+        panel.BackgroundColor3 = THEME.BLACK
+        panel.BorderSizePixel = 0
+        panel.ZIndex = 200
+        corner(panel,12); stroke(panel,2,THEME.GREEN,0)
+        panel.Parent = screen
+
+        local top = Instance.new("Frame", panel)
+        top.Name = "TopBar"
+        top.Size = UDim2.new(1,-10,0,28)
+        top.Position = UDim2.new(0,5,0,6)
+        top.BackgroundColor3 = THEME.BLACK
+        corner(top,8); stroke(top,1.4,THEME.GREEN,0)
+
+        local icon = Instance.new("TextLabel", top)
+        icon.BackgroundTransparency = 1
+        icon.Text = "🔎"
+        icon.Font = Enum.Font.GothamBold
+        icon.TextSize = 14
+        icon.TextColor3 = THEME.WHITE
+        icon.Size = UDim2.fromOffset(22,28)
+        icon.Position = UDim2.new(0,6,0,0)
+
+        search = Instance.new("TextBox", top)
+        search.BackgroundTransparency = 1
+        search.ClearTextOnFocus = false
+        search.Text = ""
+        search.Size = UDim2.new(1,-(22+12+6),1,0)
+        search.Position = UDim2.new(0,34,0,0)
+        search.Font = Enum.Font.Gotham
+        search.TextSize = 12
+        search.TextColor3 = THEME.WHITE
+        search.PlaceholderText = "Search name…"
+        search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
+        search.TextXAlignment = Enum.TextXAlignment.Left
+
+        listWrap = Instance.new("ScrollingFrame", panel)
+        listWrap.Name = "ResultArea"
+        listWrap.BackgroundColor3 = THEME.BLACK
+        listWrap.BorderSizePixel = 0
+        listWrap.Position = UDim2.new(0,5,0,6+28+6)
+        listWrap.Size = UDim2.new(1,-10,1,-(6+28+6+6))
+        listWrap.CanvasSize = UDim2.new(0,0,0,0)
+        listWrap.ScrollBarThickness = 0
+        listWrap.ScrollBarImageTransparency = 1
+        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
+
+        pad = Instance.new("UIPadding", listWrap)
+        pad.PaddingTop    = UDim.new(0,10)
+        pad.PaddingBottom = UDim.new(0,16)
+        pad.PaddingLeft   = UDim.new(0,8)
+        pad.PaddingRight  = UDim.new(0,8)
+
+        layout = Instance.new("UIListLayout", listWrap)
+        layout.Padding = UDim.new(0,6)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        for i=1,10 do makeItem(listWrap, ("MAX %d"):format(i)) end
+        recalc()
+        wireSearch()
     else
-        -- ถ้า panel มีอยู่แล้ว หา reference ของ search/listWrap/layout สำหรับกดครั้งถัดไป
+        -- rebind references if already exists
         local top = panel:FindFirstChild("TopBar")
-        if top then search = top:FindFirstChildOfClass("TextBox") end
+        search   = top and top:FindFirstChildOfClass("TextBox") or nil
         listWrap = panel:FindFirstChild("ResultArea")
-        layout = listWrap and listWrap:FindFirstChildOfClass("UIListLayout") or nil
-        pad = listWrap and listWrap:FindFirstChildOfClass("UIPadding") or nil
+        pad      = listWrap and listWrap:FindFirstChildOfClass("UIPadding") or nil
+        layout   = listWrap and listWrap:FindFirstChildOfClass("UIListLayout") or nil
+        wireSearch()
+        recalc()
     end
 
     --================ CLOSE RULES =================
@@ -2341,39 +2419,45 @@ registerRight("Shop", function(scroll)
         local pos, sz = gui.AbsolutePosition, gui.AbsoluteSize
         return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
     end
-    local function hidePanel() if panel.Visible then panel.Visible=false end end
+    local function hidePanel()
+        if panel.Visible then panel.Visible = false end
+    end
 
+    -- ซ้ายเปลี่ยน/เลื่อน/ย้าย/ซ่อน → ปิด
     scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
     scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
     scroll.AncestryChanged:Connect(function() hidePanel() end)
 
+    -- กด/แตะที่ไหนก็ได้ (นอกแผงขวา) → ปิด | ยกเว้นกดบนปุ่ม Select Options เอง
     UIS.InputBegan:Connect(function(io)
         if not panel.Visible then return end
         if io.UserInputType==Enum.UserInputType.MouseButton1 then
-            local m=UIS:GetMouseLocation()
+            local m = UIS:GetMouseLocation()
             if insideGui(panel,m.X,m.Y) then return end
             if openBtnRef and insideGui(openBtnRef,m.X,m.Y) then return end
             hidePanel()
         elseif io.UserInputType==Enum.UserInputType.Touch then
-            local p=io.Position; if not p then return end
+            local p = io.Position; if not p then return end
             if insideGui(panel,p.X,p.Y) then return end
             if openBtnRef and insideGui(openBtnRef,p.X,p.Y) then return end
             hidePanel()
         end
     end)
 
+    -- ล้อเมาส์/เกมแพดนอกแผง → ปิด
     UIS.InputChanged:Connect(function(io)
         if not panel.Visible then return end
         if io.UserInputType==Enum.UserInputType.MouseWheel
         or io.UserInputType==Enum.UserInputType.Gamepad1
         or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
-            local m=UIS:GetMouseLocation()
+            local m = UIS:GetMouseLocation()
             if not insideGui(panel,m.X,m.Y) then hidePanel() end
         end
     end)
 
+    -- การเปลี่ยนโครงสร้าง UI (เช่นสลับแท็บซ้าย) → ปิด
     if screen and screen:IsA("ScreenGui") then
         screen.DescendantAdded:Connect(function(obj)
             if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
