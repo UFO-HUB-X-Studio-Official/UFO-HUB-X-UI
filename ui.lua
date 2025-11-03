@@ -2149,317 +2149,6 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Shop — MAX 🛸
--- A V1 • Right panel = 2 FX/item (green border dim→bright + left bar)
--- All-in-one stable drop-in:
---  • Select Options = toggle ครั้งเดียว (ไม่ชน global close)
---  • Tap/Click/Scroll/Switch-left → ปิดขวาทันที (ยกเว้นกดในแผงขวา)
---  • Search แบบเรียลไทม์ (ไม่สนตัวพิมพ์/ช่องว่าง), CanvasSize อัปเดตถูกต้อง
-
-registerRight("Shop", function(scroll)
-    local UIS = game:GetService("UserInputService")
-
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-    }
-
-    local function corner(ui,r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 12)
-        c.Parent = ui
-    end
-    local function stroke(ui,th,col,trans)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 2
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Transparency = trans or 0
-        s.Parent = ui
-        return s
-    end
-
-    --================ LEFT CONTENT =================
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    if not scroll:FindFirstChild("MAX_Header") then
-        local head = Instance.new("TextLabel", scroll)
-        head.Name = "MAX_Header"
-        head.BackgroundTransparency = 1
-        head.Size = UDim2.new(1,0,0,36)
-        head.Font = Enum.Font.GothamBold
-        head.TextSize = 16
-        head.TextColor3 = THEME.WHITE
-        head.TextXAlignment = Enum.TextXAlignment.Left
-        head.Text = "MAX 🛸"
-        head.LayoutOrder = 10
-    end
-
-    local openBtnRef = nil
-
-    if not scroll:FindFirstChild("MAX_Row1") then
-        local row = Instance.new("Frame", scroll)
-        row.Name = "MAX_Row1"
-        row.Size = UDim2.new(1,-6,0,46)
-        row.BackgroundColor3 = THEME.BLACK
-        row.LayoutOrder = 11
-        corner(row,12); stroke(row,2,THEME.GREEN,0)
-
-        local lab = Instance.new("TextLabel", row)
-        lab.BackgroundTransparency = 1
-        lab.Position = UDim2.new(0,16,0,0)
-        lab.Size = UDim2.new(1,-(16+12+220+12),1,0)
-        lab.Font = Enum.Font.GothamBold
-        lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
-        lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = "MAX"
-
-        local BTN_W, BTN_H, RIGHT_INSET = 220, 24, 12
-        local openBtn = Instance.new("TextButton", row)
-        openBtn.Name = "MAX_InputButton"
-        openBtn.AutoButtonColor = false
-        openBtn.Size = UDim2.fromOffset(BTN_W,BTN_H)
-        openBtn.Position = UDim2.new(1,-(RIGHT_INSET+BTN_W),0.5,-BTN_H/2)
-        openBtn.BackgroundColor3 = THEME.BLACK
-        openBtn.Text = "Select Options 🛸"
-        openBtn.Font = Enum.Font.GothamBold
-        openBtn.TextSize = 12
-        openBtn.TextColor3 = THEME.WHITE
-        openBtn.TextXAlignment = Enum.TextXAlignment.Center
-        openBtn.TextYAlignment = Enum.TextYAlignment.Center
-        corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN,0)
-        openBtnRef = openBtn
-
-        if not openBtn:GetAttribute("Hooked") then
-            openBtn:SetAttribute("Hooked", true)
-            openBtn.MouseButton1Click:Connect(function()
-                local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
-                local panel  = screen:FindFirstChild("MAX_SearchPanel")
-                if not panel then return end
-                local function hidePanel() if panel.Visible then panel.Visible = false end end
-                local function showPanel()
-                    local SIDE_MARGIN, TOP_OFFSET, PANEL_W, EXTRA_H = 16, 50, 165, 40
-                    local x = scroll.AbsolutePosition.X + scroll.AbsoluteSize.X + SIDE_MARGIN
-                    local y = scroll.AbsolutePosition.Y + TOP_OFFSET
-                    local h = math.max(220, scroll.AbsoluteSize.Y + EXTRA_H)
-                    panel.Position = UDim2.fromOffset(x,y)
-                    panel.Size     = UDim2.fromOffset(PANEL_W,h)
-                    panel.Visible  = true
-                end
-                if panel.Visible then hidePanel() else showPanel() end
-            end)
-        end
-    end
-
-    scroll.DescendantAdded:Connect(function(obj)
-        if obj:IsA("TextButton") and obj.Name=="MAX_InputButton" then openBtnRef = obj end
-    end)
-
-    --================ RIGHT PANEL =================
-    local screen = scroll:FindFirstAncestorOfClass("ScreenGui") or scroll
-    local panel = screen:FindFirstChild("MAX_SearchPanel")
-    local search, listWrap, pad, layout
-
-    local function recalc()
-        if not (listWrap and layout and pad) then return end
-        task.defer(function()
-            listWrap.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + (pad.PaddingTop.Offset) + (pad.PaddingBottom.Offset))
-        end)
-    end
-
-    local function makeItem(parent, txt)
-        local btn = Instance.new("TextButton", parent)
-        btn.Name = "ItemButton"
-        btn.AutoButtonColor = false
-        btn.Size = UDim2.new(1,0,0,26)
-        btn.BackgroundColor3 = THEME.BLACK
-        btn.Text = ""
-        corner(btn,8)
-
-        local lbl = Instance.new("TextLabel", btn)
-        lbl.Name = "Label"
-        lbl.BackgroundTransparency = 1
-        lbl.Size = UDim2.fromScale(1,1)
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 12
-        lbl.TextColor3 = THEME.WHITE
-        lbl.Text = txt
-        lbl.TextXAlignment = Enum.TextXAlignment.Center
-        lbl.TextYAlignment = Enum.TextYAlignment.Center
-
-        local border = stroke(btn,1.2,THEME.GREEN,0.45)
-        local bar = Instance.new("Frame", btn)
-        bar.Name = "SelBar"
-        bar.BackgroundColor3 = THEME.GREEN
-        bar.Position = UDim2.new(0,2,0,2)
-        bar.Size = UDim2.new(0,4,1,-4)
-        bar.Visible = false
-        corner(bar,3)
-
-        btn:SetAttribute("Selected", false)
-        btn:SetAttribute("NameText", string.lower(txt))
-
-        btn.MouseButton1Click:Connect(function()
-            local sel = not btn:GetAttribute("Selected")
-            btn:SetAttribute("Selected", sel)
-            bar.Visible = sel
-            border.Thickness    = sel and 1.8 or 1.2
-            border.Transparency = sel and 0.0 or 0.45
-        end)
-
-        return btn
-    end
-
-    local function wireSearch()
-        if not (search and listWrap) then return end
-        local function trim(s) return (s:gsub("^%s*(.-)%s*$","%1")) end
-        local function applySearch(q)
-            q = string.lower(trim(q or ""))
-            for _,child in ipairs(listWrap:GetChildren()) do
-                if child:IsA("TextButton") and child.Name=="ItemButton" then
-                    local key = child:GetAttribute("NameText") or ""
-                    child.Visible = (q=="" or string.find(key, q, 1, true) ~= nil)
-                end
-            end
-            recalc()
-        end
-        -- clear old connections by reassigning a new signal callback each time we build UI
-        search:GetPropertyChangedSignal("Text"):Connect(function() applySearch(search.Text) end)
-    end
-
-    if not panel then
-        panel = Instance.new("Frame")
-        panel.Name = "MAX_SearchPanel"
-        panel.Visible = false
-        panel.BackgroundColor3 = THEME.BLACK
-        panel.BorderSizePixel = 0
-        panel.ZIndex = 200
-        corner(panel,12); stroke(panel,2,THEME.GREEN,0)
-        panel.Parent = screen
-
-        local top = Instance.new("Frame", panel)
-        top.Name = "TopBar"
-        top.Size = UDim2.new(1,-10,0,28)
-        top.Position = UDim2.new(0,5,0,6)
-        top.BackgroundColor3 = THEME.BLACK
-        corner(top,8); stroke(top,1.4,THEME.GREEN,0)
-
-        local icon = Instance.new("TextLabel", top)
-        icon.BackgroundTransparency = 1
-        icon.Text = "🔎"
-        icon.Font = Enum.Font.GothamBold
-        icon.TextSize = 14
-        icon.TextColor3 = THEME.WHITE
-        icon.Size = UDim2.fromOffset(22,28)
-        icon.Position = UDim2.new(0,6,0,0)
-
-        search = Instance.new("TextBox", top)
-        search.BackgroundTransparency = 1
-        search.ClearTextOnFocus = false
-        search.Text = ""
-        search.Size = UDim2.new(1,-(22+12+6),1,0)
-        search.Position = UDim2.new(0,34,0,0)
-        search.Font = Enum.Font.Gotham
-        search.TextSize = 12
-        search.TextColor3 = THEME.WHITE
-        search.PlaceholderText = "Search name…"
-        search.PlaceholderColor3 = Color3.fromRGB(180,180,185)
-        search.TextXAlignment = Enum.TextXAlignment.Left
-
-        listWrap = Instance.new("ScrollingFrame", panel)
-        listWrap.Name = "ResultArea"
-        listWrap.BackgroundColor3 = THEME.BLACK
-        listWrap.BorderSizePixel = 0
-        listWrap.Position = UDim2.new(0,5,0,6+28+6)
-        listWrap.Size = UDim2.new(1,-10,1,-(6+28+6+6))
-        listWrap.CanvasSize = UDim2.new(0,0,0,0)
-        listWrap.ScrollBarThickness = 0
-        listWrap.ScrollBarImageTransparency = 1
-        corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN,0)
-
-        pad = Instance.new("UIPadding", listWrap)
-        pad.PaddingTop    = UDim.new(0,10)
-        pad.PaddingBottom = UDim.new(0,16)
-        pad.PaddingLeft   = UDim.new(0,8)
-        pad.PaddingRight  = UDim.new(0,8)
-
-        layout = Instance.new("UIListLayout", listWrap)
-        layout.Padding = UDim.new(0,6)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        for i=1,10 do makeItem(listWrap, ("MAX %d"):format(i)) end
-        recalc()
-        wireSearch()
-    else
-        -- rebind references if already exists
-        local top = panel:FindFirstChild("TopBar")
-        search   = top and top:FindFirstChildOfClass("TextBox") or nil
-        listWrap = panel:FindFirstChild("ResultArea")
-        pad      = listWrap and listWrap:FindFirstChildOfClass("UIPadding") or nil
-        layout   = listWrap and listWrap:FindFirstChildOfClass("UIListLayout") or nil
-        wireSearch()
-        recalc()
-    end
-
-    --================ CLOSE RULES =================
-    local function insideGui(gui, x, y)
-        if not (gui and gui.Parent) then return false end
-        local pos, sz = gui.AbsolutePosition, gui.AbsoluteSize
-        return (x>=pos.X and x<=pos.X+sz.X and y>=pos.Y and y<=pos.Y+sz.Y)
-    end
-    local function hidePanel()
-        if panel.Visible then panel.Visible = false end
-    end
-
-    -- ซ้ายเปลี่ยน/เลื่อน/ย้าย/ซ่อน → ปิด
-    scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(hidePanel)
-    scroll:GetPropertyChangedSignal("AbsolutePosition"):Connect(hidePanel)
-    scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(hidePanel)
-    scroll:GetPropertyChangedSignal("Visible"):Connect(hidePanel)
-    scroll.AncestryChanged:Connect(function() hidePanel() end)
-
-    -- กด/แตะที่ไหนก็ได้ (นอกแผงขวา) → ปิด | ยกเว้นกดบนปุ่ม Select Options เอง
-    UIS.InputBegan:Connect(function(io)
-        if not panel.Visible then return end
-        if io.UserInputType==Enum.UserInputType.MouseButton1 then
-            local m = UIS:GetMouseLocation()
-            if insideGui(panel,m.X,m.Y) then return end
-            if openBtnRef and insideGui(openBtnRef,m.X,m.Y) then return end
-            hidePanel()
-        elseif io.UserInputType==Enum.UserInputType.Touch then
-            local p = io.Position; if not p then return end
-            if insideGui(panel,p.X,p.Y) then return end
-            if openBtnRef and insideGui(openBtnRef,p.X,p.Y) then return end
-            hidePanel()
-        end
-    end)
-
-    -- ล้อเมาส์/เกมแพดนอกแผง → ปิด
-    UIS.InputChanged:Connect(function(io)
-        if not panel.Visible then return end
-        if io.UserInputType==Enum.UserInputType.MouseWheel
-        or io.UserInputType==Enum.UserInputType.Gamepad1
-        or io.UserInputType==Enum.UserInputType.GamepadThumbstick1 then
-            local m = UIS:GetMouseLocation()
-            if not insideGui(panel,m.X,m.Y) then hidePanel() end
-        end
-    end)
-
-    -- การเปลี่ยนโครงสร้าง UI (เช่นสลับแท็บซ้าย) → ปิด
-    if screen and screen:IsA("ScreenGui") then
-        screen.DescendantAdded:Connect(function(obj)
-            if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
-        end)
-        screen.DescendantRemoving:Connect(function(obj)
-            if panel.Visible and not obj:IsDescendantOf(panel) then hidePanel() end
-        end)
-    end
-end)
 -- ===== UFO HUB X • Player — X-RAY 👁️ (ESP & Warp) • Model A V1 + A V2 =====
 -- Left (A V1): Name ESP toggle • Box ESP + Tracer toggle • Pick Player (opens A V2) • Warp button
 -- Right (A V2): Player list with search, closes on pick
@@ -2498,13 +2187,60 @@ registerRight("Player", function(scroll)
         XR.xr.packs[p]=nil
     end
 
-    -- Build/refresh adornments for one player
+    -- ===== Wireframe box (12 beams) around character =====
+    local EDGE_PAIRS = {
+        {1,2},{2,3},{3,4},{4,1}, -- top loop
+        {5,6},{6,7},{7,8},{8,5}, -- bottom loop
+        {1,5},{2,6},{3,7},{4,8}, -- verticals
+    }
+    local function ensureWireBox(pack, ch)
+        pack.corners = pack.corners or {}
+        pack.beams   = pack.beams   or {}
+
+        local hrp = ch:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- create 8 corner attachments once
+        if #pack.corners ~= 8 then
+            for _,a in ipairs(pack.corners) do pcall(function() a:Destroy() end) end
+            pack.corners = {}
+            for i=1,8 do
+                local att=Instance.new("Attachment")
+                att.Name="UFOX_C"..i
+                att.Parent=hrp
+                table.insert(pack.corners, att)
+            end
+        end
+        -- create 12 beams once
+        if #pack.beams ~= 12 then
+            for _,b in ipairs(pack.beams) do pcall(function() b:Destroy() end) end
+            pack.beams = {}
+            for i=1,12 do
+                local beam=Instance.new("Beam")
+                beam.Color=ColorSequence.new(THEME.GREEN)
+                beam.Width0=0.08; beam.Width1=0.08
+                beam.LightEmission=0.7
+                beam.Transparency=NumberSequence.new(0)
+                beam.FaceCamera=true
+                beam.Parent=hrp
+                pack.beams[i]=beam
+            end
+        end
+
+        -- wire corner attachments to beams
+        for i,pair in ipairs(EDGE_PAIRS) do
+            pack.beams[i].Attachment0 = pack.corners[pair[1]]
+            pack.beams[i].Attachment1 = pack.corners[pair[2]]
+        end
+    end
+
+    -- Update (or create) adornments for one player
     local function buildFor(p)
         if p==lp then return end
         local h,ch = hum(p); if not (h and ch) then return end
         local pack = XR.xr.packs[p] or {}
 
-        -- 1) Name ESP (Billboard) — white text, green stroke, AlwaysOnTop
+        -- 1) Name ESP (Billboard)
         if XR.xr.nameESP and not pack.name then
             local head = ch:FindFirstChild("Head")
             if head then
@@ -2519,50 +2255,51 @@ registerRight("Player", function(scroll)
             end
         end
 
-        -- 2) Box ESP (rectangular cage) + Tracer — both see-through
+        -- 2) Wireframe box + tracer
         if XR.xr.boxESP then
-            -- Box: BoxHandleAdornment around model bounding box
-            if not pack.box then
-                local hrp=ch:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local box=Instance.new("BoxHandleAdornment")
-                    box.Name="UFOX_BoxCage"; box.Adornee=hrp; box.AlwaysOnTop=true
-                    box.Color3=THEME.GREEN; box.Transparency=0; box.ZIndex=5; box.Parent=hrp
-                    pack.box=box
+            ensureWireBox(pack, ch)
+
+            -- keep corners following bounding box
+            local cf, sz = ch:GetBoundingBox()
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            if hrp and pack.corners and #pack.corners==8 then
+                local hx,hy,hz = sz.X/2, sz.Y/2, sz.Z/2
+                local offs = {
+                    Vector3.new( hx, hy,  hz), Vector3.new(-hx, hy,  hz),
+                    Vector3.new(-hx, hy, -hz), Vector3.new( hx, hy, -hz),
+                    Vector3.new( hx,-hy,  hz), Vector3.new(-hx,-hy,  hz),
+                    Vector3.new(-hx,-hy, -hz), Vector3.new( hx,-hy, -hz),
+                }
+                for i=1,8 do
+                    local world = (cf * CFrame.new(offs[i])).Position
+                    -- convert to HRP local space so attachments can follow without extra parts
+                    pack.corners[i].Position = hrp.CFrame:PointToObjectSpace(world)
                 end
             end
-            -- keep box size/offset synced to model bounds
-            if pack.box then
-                local cf, sz = ch:GetBoundingBox()
-                local hrp=ch:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    pack.box.Size = sz + Vector3.new(0.3,0.3,0.3) -- tiny padding
-                    -- position box relative to HRP
-                    pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
-                end
-            end
-            -- Tracer: Beam from our feet to theirs
+
+            -- tracer (my feet -> their feet)
             ensureMyAttach()
-            if not pack.att then
-                local hrp=ch:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local att=Instance.new("Attachment"); att.Name="UFOX_Target"; att.Position=Vector3.new(0,-3,0); att.Parent=hrp
-                    local beam=Instance.new("Beam"); beam.Attachment0=XR.xr.myAttach; beam.Attachment1=att
-                    beam.Color=ColorSequence.new(THEME.GREEN); beam.Width0=0.08; beam.Width1=0.08
-                    beam.LightEmission=0.7; beam.Transparency=NumberSequence.new(0); beam.FaceCamera=true
-                    beam.Parent=hrp
-                    pack.att=att; pack.beam=beam
+            if not pack.trgAtt then
+                local hrp2=ch:FindFirstChild("HumanoidRootPart")
+                if hrp2 then
+                    pack.trgAtt=Instance.new("Attachment"); pack.trgAtt.Name="UFOX_Target"; pack.trgAtt.Position=Vector3.new(0,-3,0); pack.trgAtt.Parent=hrp2
+                    pack.tracer=Instance.new("Beam"); pack.tracer.Color=ColorSequence.new(THEME.GREEN)
+                    pack.tracer.Width0=0.08; pack.tracer.Width1=0.08; pack.tracer.LightEmission=0.7; pack.tracer.Transparency=NumberSequence.new(0)
+                    pack.tracer.Attachment0=XR.xr.myAttach; pack.tracer.Attachment1=pack.trgAtt; pack.tracer.FaceCamera=true; pack.tracer.Parent=hrp2
                 end
             end
         end
 
         XR.xr.packs[p]=pack
-        -- remove adorns if toggles off
+
+        -- cleanup when toggles off
         if not XR.xr.nameESP and pack.name then pcall(function() pack.name:Destroy() end); pack.name=nil end
         if not XR.xr.boxESP then
-            if pack.box then pcall(function() pack.box:Destroy() end); pack.box=nil end
-            if pack.beam then pcall(function() pack.beam:Destroy() end); pack.beam=nil end
-            if pack.att then pcall(function() pack.att:Destroy() end); pack.att=nil end
+            if pack.corners then for _,a in ipairs(pack.corners) do pcall(function() a:Destroy() end) end end
+            if pack.beams   then for _,b in ipairs(pack.beams)   do pcall(function() b:Destroy() end) end end
+            if pack.tracer  then pcall(function() pack.tracer:Destroy() end); pack.tracer=nil end
+            if pack.trgAtt  then pcall(function() pack.trgAtt:Destroy() end); pack.trgAtt=nil end
+            pack.corners, pack.beams = nil, nil
         end
     end
 
@@ -2570,21 +2307,17 @@ registerRight("Player", function(scroll)
         for _,p in ipairs(Players:GetPlayers()) do
             if p~=lp then buildFor(p) else ensureMyAttach() end
         end
-        -- clean up when everything off
         if not XR.xr.nameESP and not XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
             if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end); XR.xr.myAttach=nil end
         end
     end
 
-    -- keep boxes sized while characters animate
     keep(RS.Heartbeat:Connect(function()
         if XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
         end
     end))
-
-    -- react to joins/leaves/respawns
     keep(Players.PlayerAdded:Connect(function(p)
         keep(p.CharacterAdded:Connect(function() task.wait(0.2); refreshAll() end))
         refreshAll()
@@ -2639,7 +2372,7 @@ registerRight("Player", function(scroll)
     openBtn.Position=UDim2.new(1,-(12+180),0.5,-12); openBtn.BackgroundColor3=THEME.BLACK; openBtn.Text="Open List ▶"
     openBtn.Font=Enum.Font.GothamBold; openBtn.TextSize=12; openBtn.TextColor3=THEME.WHITE; corner(openBtn,10); stroke(openBtn,1.6,THEME.GREEN)
 
-    -- Warp button (A V1 styled button, NOT a switch)
+    -- Warp button (A V1 styled button)
     local warp=Instance.new("TextButton",scroll) warp.Name="XR_Warp"; warp.LayoutOrder=base+4
     warp.AutoButtonColor=false; warp.Size=UDim2.new(1,-6,0,46); warp.BackgroundColor3=THEME.BLACK
     warp.Font=Enum.Font.GothamBlack; warp.TextSize=14; warp.TextColor3=THEME.WHITE; warp.Text="Warp to: (none)"
@@ -2647,8 +2380,7 @@ registerRight("Player", function(scroll)
 
     local function setTarget(p)
         XR.xr.target=p
-        warp.Text = p and ("Warp to: "..p.DisplayName.." (@"
-            ..p.Name..")") or "Warp to: (none)"
+        warp.Text = p and ("Warp to: "..p.DisplayName.." (@"..p.Name..")") or "Warp to: (none)"
     end
 
     -- ---------- Right panel (A V2) ----------
@@ -2715,7 +2447,7 @@ registerRight("Player", function(scroll)
         listWrap.CanvasSize=UDim2.new(0,0,0,0); listWrap.ScrollBarThickness=0; listWrap.ScrollBarImageTransparency=1
         corner(listWrap,10); stroke(listWrap,1.4,THEME.GREEN)
         pad=Instance.new("UIPadding",listWrap); pad.PaddingTop=UDim.new(0,10); pad.PaddingBottom=UDim.new(0,16); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8)
-        layout=Instance.new("UIListLayout",listWrap); layout.Padding=UDim.new(0,6); layout.SortOrder=Enum.SortOrder.LayoutOrder
+        layout=Instance.new("UIListLayout",listWrap); layout.Padding=UDim2.new(0,6); layout.SortOrder=Enum.SortOrder.LayoutOrder
 
         searchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(searchBox.Text) end)
         keep(Players.PlayerAdded:Connect(rebuildList)); keep(Players.PlayerRemoving:Connect(function(p) if XR.xr.target==p then setTarget(nil) end; rebuildList() end))
