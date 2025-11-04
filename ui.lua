@@ -2149,15 +2149,15 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Player — X-RAY 👁️ (Names + Box + Tracer • stable see-through) =====
--- Model A V1 • single UIListLayout • solid green • automatic respawn handling
+--===== UFO HUB X • Player — X-RAY 👁️ (Names + Box + Tracer • AlwaysOnTop • Stable) =====
+-- Model A V1 • English • Auto refresh on respawn
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RS = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
     local lp = Players.LocalPlayer
 
-    _G.UFOX_XR = _G.UFOX_XR or { uiConns={}, xr={nameESP=false, boxESP=false, packs={}, myAttach=nil} }
+    _G.UFOX_XR = _G.UFOX_XR or { uiConns={}, xr={ nameESP=false, boxESP=false, packs={}, myAttach=nil } }
     local XR = _G.UFOX_XR
     local function keep(c) table.insert(XR.uiConns,c) return c end
     for i=#XR.uiConns,1,-1 do pcall(function() XR.uiConns[i]:Disconnect() end); XR.uiConns[i]=nil end
@@ -2166,18 +2166,18 @@ registerRight("Player", function(scroll)
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
-        GREY = Color3.fromRGB(180,180,185),
-        RED = Color3.fromRGB(255,40,40),
+        GREY  = Color3.fromRGB(180,180,185),
+        RED   = Color3.fromRGB(255,40,40),
     }
 
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
     local function hum(p) local ch=p.Character; return ch and ch:FindFirstChildOfClass("Humanoid"), ch end
 
-    -- === attach จุดตีนเรา ===
+    --== our foot attach ==
     local function ensureMyAttach()
         local h,ch = hum(lp); if not (h and ch) then return end
-        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if XR.xr.myAttach and XR.xr.myAttach.Parent==hrp then return end
         if XR.xr.myAttach then XR.xr.myAttach:Destroy() end
         local a=Instance.new("Attachment"); a.Name="UFOX_Me"; a.Position=Vector3.new(0,-3,0); a.Parent=hrp
@@ -2190,73 +2190,65 @@ registerRight("Player", function(scroll)
         XR.xr.packs[p]=nil
     end
 
-    -- === กล่อง AlwaysOnTop ===
-    local function ensureTopBox3D(pack, ch)
-        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-        if not pack.box3d then
+    --== AlwaysOnTop green box ==
+    local function ensureBox(pack,ch)
+        local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        if not pack.box then
             local box=Instance.new("BoxHandleAdornment")
-            box.Name="UFOX_TopBox"; box.Adornee=hrp
-            box.AlwaysOnTop=true; box.ZIndex=10
-            box.Color3=THEME.GREEN; box.Transparency=0
-            box.AlphaTransparency=0
-            box.Parent=hrp; pack.box3d=box
+            box.Name="UFOX_Box"; box.Adornee=hrp; box.AlwaysOnTop=true
+            box.ZIndex=10; box.Color3=THEME.GREEN; box.Transparency=0
+            box.Parent=hrp; pack.box=box
         end
-        local cf, sz = ch:GetBoundingBox()
-        pack.box3d.Size = sz + Vector3.new(0.3,0.3,0.3)
-        pack.box3d.CFrame = hrp.CFrame:ToObjectSpace(cf)
+        local cf,sz = ch:GetBoundingBox()
+        pack.box.Size = sz + Vector3.new(0.3,0.3,0.3)
+        pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
     end
 
-    -- === สร้าง tracer เส้นตีนเรา -> ตีนเขา ===
-    local function ensureTracer(pack, ch)
+    --== green tracer line ==
+    local function ensureTracer(pack,ch)
         ensureMyAttach()
         local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-        if not pack.trgAtt then
-            pack.trgAtt=Instance.new("Attachment"); pack.trgAtt.Name="UFOX_Target"; pack.trgAtt.Position=Vector3.new(0,-3,0); pack.trgAtt.Parent=hrp
+        if not pack.tAtt then
+            pack.tAtt=Instance.new("Attachment"); pack.tAtt.Name="UFOX_Target"; pack.tAtt.Position=Vector3.new(0,-3,0); pack.tAtt.Parent=hrp
         end
         if not pack.tracer then
             local b=Instance.new("Beam")
-            b.Name="UFOX_Tracer"; b.Color=ColorSequence.new(THEME.GREEN)
-            b.Width0=0.08; b.Width1=0.08; b.LightEmission=0.7
-            b.Transparency=NumberSequence.new(0)
+            b.Color=ColorSequence.new(THEME.GREEN); b.Width0=0.08; b.Width1=0.08
+            b.LightEmission=0.7; b.Transparency=NumberSequence.new(0)
             b.FaceCamera=true; b.AlwaysOnTop=true
-            b.Attachment0=XR.xr.myAttach; b.Attachment1=pack.trgAtt
+            b.Attachment0=XR.xr.myAttach; b.Attachment1=pack.tAtt
             b.Parent=hrp; pack.tracer=b
         end
     end
 
-    -- === สร้างระบบต่อผู้เล่นแต่ละคน ===
+    --== per-player build ==
     local function buildFor(p)
         if p==lp then return end
         local h,ch=hum(p); if not (h and ch) then return end
         local pack=XR.xr.packs[p] or {}; XR.xr.packs[p]=pack
 
-        -- ชื่อผู้เล่น (DisplayName เท่านั้น)
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
                 local bb=Instance.new("BillboardGui")
-                bb.Name="UFOX_NameESP"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
+                bb.Name="UFOX_Name"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
                 bb.Size=UDim2.fromOffset(200,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0); bb.Parent=head
                 local t=Instance.new("TextLabel",bb)
                 t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
-                t.Font=Enum.Font.GothamBlack; t.TextSize=16; t.TextColor3=THEME.WHITE
-                t.TextStrokeColor3=THEME.GREEN; t.TextStrokeTransparency=0
-                t.Text=p.DisplayName
-                pack.name=bb
+                t.Font=Enum.Font.GothamBlack; t.TextSize=16
+                t.TextColor3=THEME.WHITE; t.TextStrokeColor3=THEME.GREEN; t.TextStrokeTransparency=0
+                t.Text=p.DisplayName; pack.name=bb
             end
         end
 
         if XR.xr.boxESP then
-            ensureTopBox3D(pack, ch)
-            ensureTracer(pack, ch)
+            ensureBox(pack,ch)
+            ensureTracer(pack,ch)
         else
-            if pack.box3d then pcall(function() pack.box3d:Destroy() end) pack.box3d=nil end
-            if pack.tracer then pcall(function() pack.tracer:Destroy() end) pack.tracer=nil end
-            if pack.trgAtt then pcall(function() pack.trgAtt:Destroy() end) pack.trgAtt=nil end
+            for _,k in pairs({"box","tracer","tAtt"}) do if pack[k] then pcall(function() pack[k]:Destroy() end); pack[k]=nil end end
         end
     end
 
-    -- === refresh/update ===
     local function refreshAll()
         for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMyAttach() end end
         if not XR.xr.nameESP and not XR.xr.boxESP then
@@ -2277,11 +2269,9 @@ registerRight("Player", function(scroll)
     for _,p in ipairs(Players:GetPlayers()) do
         if p~=lp then keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end)) end
     end
-    keep(lp.CharacterAdded:Connect(function()
-        XR.xr.myAttach=nil; task.wait(0.2); ensureMyAttach(); refreshAll()
-    end))
+    keep(lp.CharacterAdded:Connect(function() XR.xr.myAttach=nil; task.wait(0.2); ensureMyAttach(); refreshAll() end))
 
-    -- === LEFT UI (A V1) ===
+    --== LEFT UI ==
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -2296,8 +2286,7 @@ registerRight("Player", function(scroll)
 
     local function toggleRow(name, order, title, getter, setter)
         local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
-        row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN)
         local lab=Instance.new("TextLabel",row)
         lab.BackgroundTransparency=1; lab.Position=UDim2.new(0,16,0,0)
         lab.Size=UDim2.new(1,-140,1,0); lab.Font=Enum.Font.GothamBold
@@ -2307,7 +2296,7 @@ registerRight("Player", function(scroll)
         sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
         sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK
         corner(sw,13)
-        local st=stroke(sw,1.8, getter() and THEME.GREEN or THEME.RED)
+        local st=stroke(sw,1.8,getter() and THEME.GREEN or THEME.RED)
         local knob=Instance.new("Frame",sw)
         knob.Size=UDim2.fromOffset(22,22)
         knob.Position=UDim2.new(getter() and 1 or 0, getter() and -24 or 2, 0.5,-11)
@@ -2323,8 +2312,8 @@ registerRight("Player", function(scroll)
         return row
     end
 
-    toggleRow("XR_Name", base+1, "ดูชื่อผู้เล่น", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
-    toggleRow("XR_Box",  base+2, "มองทะลุ 🛸", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
+    toggleRow("XR_Name", base+1, "Show Player Names", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
+    toggleRow("XR_Box",  base+2, "See-Through 🛸", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
