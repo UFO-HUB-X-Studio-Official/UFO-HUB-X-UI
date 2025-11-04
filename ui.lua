@@ -2150,7 +2150,7 @@ registerRight("Server", function(scroll)
     end
 end)
 --===== UFO HUB X • Player — X-RAY 👁️ (Names + Box + Tracer • AlwaysOnTop • Stable Clean) =====
--- Model A V1 • 2 toggles • Auto refresh on respawn/join
+-- Model A V1 • 2 toggles • Auto refresh on respawn/join • No warp, no extras
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RS      = game:GetService("RunService")
@@ -2182,12 +2182,12 @@ registerRight("Player", function(scroll)
         gui = Instance.new("ScreenGui")
         gui.Name = "XR_Overlay"
         gui.IgnoreGuiInset = true
-        gui.ResetOnSpawn = false
-        gui.DisplayOrder = 999999
+        gui.ResetOnSpawn   = false
+        gui.DisplayOrder   = 999999
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.Enabled = true
-        gui.Parent = (lp:FindFirstChildOfClass("PlayerGui")) or CoreGui
-        XR.xr.overlay = gui
+        gui.Enabled        = true
+        gui.Parent         = (lp:FindFirstChildOfClass("PlayerGui")) or CoreGui
+        XR.xr.overlay      = gui
         return gui
     end
     local function makeLine(parent, thickness)
@@ -2195,12 +2195,12 @@ registerRight("Player", function(scroll)
         f.Name = "UFOX_Line"
         f.AnchorPoint = Vector2.new(0,0.5)
         f.BackgroundColor3 = THEME.GREEN
-        f.BorderSizePixel = 0
-        f.Size = UDim2.fromOffset(0, thickness or 2)
-        f.Visible = false
-        f.Active = false
-        f.AutomaticSize = Enum.AutomaticSize.None
-        f.ZIndex = 9999
+        f.BorderSizePixel  = 0
+        f.Size             = UDim2.fromOffset(0, thickness or 2)
+        f.Visible          = false
+        f.Active           = false
+        f.AutomaticSize    = Enum.AutomaticSize.None
+        f.ZIndex           = 9999
         f.InputTransparent = true -- ไม่บังการกดปุ่ม UI
         f.Parent = parent
         return f
@@ -2209,7 +2209,7 @@ registerRight("Player", function(scroll)
         local dx,dy = p2.X - p1.X, p2.Y - p1.Y
         local len = math.sqrt(dx*dx + dy*dy)
         if len < 1 then line.Visible=false return end
-        line.Visible = true
+        line.Visible  = true
         line.Position = UDim2.fromOffset(p1.X, p1.Y)
         line.Size     = UDim2.fromOffset(len, line.Size.Y.Offset)
         line.Rotation = math.deg(math.atan2(dy, dx))
@@ -2242,7 +2242,7 @@ registerRight("Player", function(scroll)
             box.Parent=hrp; pack.box=box
         end
         local cf,sz = ch:GetBoundingBox()
-        pack.box.Size  = sz + Vector3.new(0.3,0.3,0.3)
+        pack.box.Size   = sz + Vector3.new(0.3,0.3,0.3)
         pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
     end
 
@@ -2315,7 +2315,6 @@ registerRight("Player", function(scroll)
     end
 
     keep(RS.RenderStepped:Connect(function()
-        -- update boxes/tracers every frame when enabled
         if XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
         end
