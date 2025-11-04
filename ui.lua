@@ -2149,141 +2149,123 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Player — Player Sight 👁️ (ESP) =====
--- Model A V1 (stable baseline • box-only character + 2D tracer through walls)
+-- ===== UFO HUB X • Player — X-RAY 👁️ (ESP) =====
+-- Model A V1 (stable • BoxHandleAdornment through walls + 2D tracer overlay)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RS      = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
     local lp      = Players.LocalPlayer
 
-    -- state
-    _G.UFOX_SIGHT = _G.UFOX_SIGHT or { uiConns={}, packs={}, nameOn=false, espOn=false, meAttach=nil, overlay=nil }
-    local ST = _G.UFOX_SIGHT
+    -- === STATE ===
+    _G.UFOX_XRAY = _G.UFOX_XRAY or {uiConns={}, packs={}, nameOn=false, espOn=false, meAtt=nil, overlay=nil}
+    local ST = _G.UFOX_XRAY
     local function keep(c) table.insert(ST.uiConns,c) return c end
     for i=#ST.uiConns,1,-1 do pcall(function() ST.uiConns[i]:Disconnect() end); ST.uiConns[i]=nil end
 
     local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0), GREY = Color3.fromRGB(180,180,185), RED = Color3.fromRGB(255,40,40)
+        GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
+        BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185), RED=Color3.fromRGB(255,40,40)
     }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
 
+    -- === helpers ===
     local function hum(p) local ch=p.Character; return ch and ch:FindFirstChildOfClass("Humanoid"), ch end
-    local function ensureMeAttach()
+    local function ensureMeAtt()
         local h,ch = hum(lp); if not (h and ch) then return end
         local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-        if ST.meAttach and ST.meAttach.Parent==hrp then return end
-        if ST.meAttach then pcall(function() ST.meAttach:Destroy() end) end
+        if ST.meAtt and ST.meAtt.Parent==hrp then return end
+        if ST.meAtt then pcall(function() ST.meAtt:Destroy() end) end
         local a = Instance.new("Attachment"); a.Name="UFOX_Me"; a.Position=Vector3.new(0,-3,0); a.Parent=hrp
-        ST.meAttach = a
+        ST.meAtt = a
     end
 
-    -- ---------- overlay (2D tracer that is always visible through walls) ----------
+    -- overlay for 2D tracer (always visible, even behind walls)
     local function ensureOverlay()
         if ST.overlay and ST.overlay.Parent then return ST.overlay end
         local gui = Instance.new("ScreenGui")
-        gui.Name = "UFOX_Overlay"
-        gui.IgnoreGuiInset = true
-        gui.ResetOnSpawn = false
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 999999
+        gui.Name="UFOX_Overlay"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999
         gui.Parent = lp:FindFirstChildOfClass("PlayerGui") or CoreGui
         ST.overlay = gui
         return gui
     end
-    local function makeLine(parent, thickness)
-        local f = Instance.new("Frame")
-        f.Name = "Line"; f.AnchorPoint = Vector2.new(0,0.5)
-        f.BackgroundColor3 = THEME.GREEN; f.BorderSizePixel = 0
-        f.Size = UDim2.fromOffset(0, thickness or 2)
-        f.Visible = false; f.ZIndex = 9999; f.InputTransparent = true
-        f.Parent = parent
+    local function makeLine(parent,th)
+        local f=Instance.new("Frame")
+        f.Name="Line"; f.AnchorPoint=Vector2.new(0,0.5); f.BackgroundColor3=THEME.GREEN
+        f.BorderSizePixel=0; f.Size=UDim2.fromOffset(0, th or 2); f.Visible=false
+        f.ZIndex=9999; f.InputTransparent=true; f.Parent=parent
         return f
     end
     local function drawLine2D(line, p1, p2)
-        local dx,dy = p2.X-p1.X, p2.Y-p1.Y
-        local len = math.sqrt(dx*dx + dy*dy)
-        if len < 1 then line.Visible=false return end
-        line.Visible=true
-        line.Position = UDim2.fromOffset(p1.X, p1.Y)
-        line.Size     = UDim2.fromOffset(len, line.Size.Y.Offset)
-        line.Rotation = math.deg(math.atan2(dy,dx))
+        local dx,dy=p2.X-p1.X,p2.Y-p1.Y; local len=math.sqrt(dx*dx+dy*dy)
+        if len<1 then line.Visible=false return end
+        line.Visible=true; line.Position=UDim2.fromOffset(p1.X,p1.Y); line.Size=UDim2.fromOffset(len,line.Size.Y.Offset)
+        line.Rotation=math.deg(math.atan2(dy,dx))
     end
 
-    -- ---------- helpers: character AABB (exclude tools & accessories) ----------
+    -- tighter box around body (exclude tools/accessories)
     local function isBodyPart(part)
         if not part:IsA("BasePart") then return false end
-        local a = part
+        local a=part
         while a and a.Parent do
             if a:IsA("Tool") or a:IsA("Accessory") then return false end
-            a = a.Parent
+            a=a.Parent
         end
         return true
     end
-    local function computeBodyAABBWorld(ch, hrp)
-        local minv, maxv
+    local function computeAABB(ch)
+        local minv,maxv
         for _,bp in ipairs(ch:GetDescendants()) do
             if isBodyPart(bp) then
-                local sz = bp.Size/2
-                local corners = {
+                local sz=bp.Size/2
+                local corners={
                     Vector3.new( sz.X,  sz.Y,  sz.Z), Vector3.new(-sz.X,  sz.Y,  sz.Z),
                     Vector3.new(-sz.X,  sz.Y, -sz.Z), Vector3.new( sz.X,  sz.Y, -sz.Z),
                     Vector3.new( sz.X, -sz.Y,  sz.Z), Vector3.new(-sz.X, -sz.Y,  sz.Z),
                     Vector3.new(-sz.X, -sz.Y, -sz.Z), Vector3.new( sz.X, -sz.Y, -sz.Z),
                 }
                 for i=1,8 do
-                    local w = (bp.CFrame * CFrame.new(corners[i])).Position
-                    if not minv then minv=w+Vector3.new(); maxv=w+Vector3.new()
-                    else
-                        minv = Vector3.new(math.min(minv.X,w.X), math.min(minv.Y,w.Y), math.min(minv.Z,w.Z))
-                        maxv = Vector3.new(math.max(maxv.X,w.X), math.max(maxv.Y,w.Y), math.max(maxv.Z,w.Z))
+                    local w=(bp.CFrame*CFrame.new(corners[i])).Position
+                    if not minv then minv=w; maxv=w else
+                        minv=Vector3.new(math.min(minv.X,w.X),math.min(minv.Y,w.Y),math.min(minv.Z,w.Z))
+                        maxv=Vector3.new(math.max(maxv.X,w.X),math.max(maxv.Y,w.Y),math.max(maxv.Z,w.Z))
                     end
                 end
             end
         end
-        if not minv then
-            local cf, sz = ch:GetBoundingBox()
-            return cf.Position - sz/2, cf.Position + sz/2
-        end
-        return minv, maxv
+        if not minv then local cf,sz=ch:GetBoundingBox() return cf.Position-sz/2, cf.Position+sz/2 end
+        return minv,maxv
     end
 
     local function clearPack(p)
-        local pack = ST.packs[p]; if not pack then return end
+        local pack=ST.packs[p]; if not pack then return end
         if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end) end
-        if pack.name then pcall(function() pack.name:Destroy() end) end
-        if pack.box then pcall(function() pack.box:Destroy() end) end
-        if pack.tracer then pcall(function() pack.tracer:Destroy() end) end
+        for _,o in pairs(pack) do if typeof(o)=="Instance" then pcall(function() o:Destroy() end) end end
         ST.packs[p]=nil
     end
 
     local function ensureBox(pack, ch)
-        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if not pack.box then
-            local box = Instance.new("BoxHandleAdornment")
-            box.Name="UFOX_Box"; box.Adornee = hrp; box.AlwaysOnTop = true
-            box.ZIndex=10; box.Color3 = THEME.GREEN; box.Transparency = 0
-            box.Parent = hrp; pack.box = box
+            local box=Instance.new("BoxHandleAdornment")
+            box.Name="UFOX_Box"; box.Adornee=hrp; box.AlwaysOnTop=true; box.ZIndex=10
+            box.Color3=THEME.GREEN; box.Transparency=0; box.Parent=hrp
+            pack.box=box
         end
-        local minv,maxv = computeBodyAABBWorld(ch, hrp)
-        local center = (minv + maxv)/2
-        local size   = (maxv - minv) + Vector3.new(0.2,0.2,0.2)
-        -- place the local-space box relative to HRP so it follows rotation
-        pack.box.Size   = size
-        pack.box.CFrame = hrp.CFrame:ToObjectSpace(CFrame.new(center))
+        local minv,maxv=computeAABB(ch); local center=(minv+maxv)/2; local size=(maxv-minv)+Vector3.new(0.2,0.2,0.2)
+        pack.box.Size=size; pack.box.CFrame=hrp.CFrame:ToObjectSpace(CFrame.new(center))
     end
 
     local function buildFor(p)
         if p==lp then return end
-        local h,ch = hum(p); if not (h and ch) then return end
-        local pack = ST.packs[p] or {}; ST.packs[p]=pack
+        local h,ch=hum(p); if not (h and ch) then return end
+        local pack=ST.packs[p] or {}; ST.packs[p]=pack
 
-        -- Display name (nickname only)
+        -- name (nickname only)
         if ST.nameOn and not pack.name then
-            local head = ch:FindFirstChild("Head")
+            local head=ch:FindFirstChild("Head")
             if head then
                 local bb=Instance.new("BillboardGui")
                 bb.Name="UFOX_Name"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
@@ -2292,23 +2274,22 @@ registerRight("Player", function(scroll)
                 t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
                 t.Font=Enum.Font.GothamBlack; t.TextSize=14; t.TextColor3=THEME.WHITE
                 t.TextStrokeColor3=THEME.GREEN; t.TextStrokeTransparency=0
-                t.Text = p.DisplayName -- nickname only
+                t.Text=p.DisplayName
                 pack.name=bb
             end
         end
 
-        -- ESP (box + tracer)
+        -- ESP
         if ST.espOn then
             ensureBox(pack, ch)
-            ensureMeAttach()
-            -- tracer on 2D overlay
-            local overlay = ensureOverlay()
+            ensureMeAtt()
+            local overlay=ensureOverlay()
             if not pack.tracer then pack.tracer = makeLine(overlay,2) end
-            local cam = workspace.CurrentCamera
-            local hrp = ch:FindFirstChild("HumanoidRootPart")
-            if ST.meAttach and hrp then
-                local a,ok1 = cam:WorldToViewportPoint(ST.meAttach.WorldPosition)
-                local b,ok2 = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
+            local cam=workspace.CurrentCamera
+            local hrp=ch:FindFirstChild("HumanoidRootPart")
+            if ST.meAtt and hrp then
+                local a,ok1=cam:WorldToViewportPoint(ST.meAtt.WorldPosition)
+                local b,ok2=cam:WorldToViewportPoint(hrp.Position+Vector3.new(0,-3,0))
                 if ok1 and ok2 and a.Z>0 and b.Z>0 then
                     drawLine2D(pack.tracer, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
                 else
@@ -2326,20 +2307,18 @@ registerRight("Player", function(scroll)
     end
 
     local function refreshAll()
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMeAttach() end end
+        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMeAtt() end end
         if not ST.nameOn and not ST.espOn then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
-            if ST.meAttach then pcall(function() ST.meAttach:Destroy() end); ST.meAttach=nil end
+            if ST.meAtt then pcall(function() ST.meAtt:Destroy() end); ST.meAtt=nil end
         end
     end
 
-    -- live update
+    -- live updates & respawn
     keep(RS.RenderStepped:Connect(function()
         if not ST.espOn then return end
         for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
     end))
-
-    -- join / respawn handling
     keep(Players.PlayerAdded:Connect(function(p)
         keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end))
         refreshAll()
@@ -2347,19 +2326,19 @@ registerRight("Player", function(scroll)
     for _,p in ipairs(Players:GetPlayers()) do
         if p~=lp then keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end)) end
     end
-    keep(lp.CharacterAdded:Connect(function() ST.meAttach=nil; task.wait(0.2); ensureMeAttach(); refreshAll() end))
+    keep(lp.CharacterAdded:Connect(function() ST.meAtt=nil; task.wait(0.2); ensureMeAtt(); refreshAll() end))
 
     -- ================== LEFT UI (Model A V1) ==================
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-    for _,n in ipairs({"PS_Head","PS_Name","PS_ESP"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    for _,n in ipairs({"XR_Head","XR_Name","XR_ESP"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
     local base=2400
 
     local head=Instance.new("TextLabel",scroll)
-    head.Name="PS_Head"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
+    head.Name="XR_Head"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
     head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
-    head.Text="Player Sight 👁️"
+    head.Text="X-RAY 👁️"
 
     local function toggleRow(name, order, title, get,set)
         local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
@@ -2377,8 +2356,8 @@ registerRight("Player", function(scroll)
         return row
     end
 
-    toggleRow("PS_Name", base+1, "Display Names", function() return ST.nameOn end, function(v) ST.nameOn=v end)
-    toggleRow("PS_ESP",  base+2, "Player Sight (ESP)", function() return ST.espOn end, function(v) ST.espOn=v end)
+    toggleRow("XR_Name", base+1, "Display Names", function() return ST.nameOn end, function(v) ST.nameOn=v end)
+    toggleRow("XR_ESP",  base+2, "X-RAY (ESP)",   function() return ST.espOn  end, function(v) ST.espOn =v end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
