@@ -2149,17 +2149,18 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
---===== UFO HUB X • Player — X-RAY 👁️ (Names + Box + Tracer • AlwaysOnTop • Stable) =====
--- Model A V1 • English • Auto refresh on respawn
+--===== UFO HUB X • Player — X-RAY 👁️ (Names + Box + Tracer • AlwaysOnTop • Stable Clean) =====
+-- Model A V1 • 2 toggles • Auto refresh on respawn/join
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
-    local RS = game:GetService("RunService")
+    local RS      = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
-    local lp = Players.LocalPlayer
+    local lp      = Players.LocalPlayer
 
-    _G.UFOX_XR = _G.UFOX_XR or { uiConns={}, xr={ nameESP=false, boxESP=false, packs={}, myAttach=nil } }
+    -- persistent state
+    _G.UFOX_XR = _G.UFOX_XR or { uiConns = {}, xr = { nameESP=false, boxESP=false, packs={}, myAttach=nil, overlay=nil } }
     local XR = _G.UFOX_XR
-    local function keep(c) table.insert(XR.uiConns,c) return c end
+    local function keep(c) table.insert(XR.uiConns, c) return c end
     for i=#XR.uiConns,1,-1 do pcall(function() XR.uiConns[i]:Disconnect() end); XR.uiConns[i]=nil end
 
     local THEME = {
@@ -2174,24 +2175,65 @@ registerRight("Player", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui; return s end
     local function hum(p) local ch=p.Character; return ch and ch:FindFirstChildOfClass("Humanoid"), ch end
 
-    --== our foot attach ==
+    -- ===== Overlay for 2D tracer (always on top & click-through) =====
+    local function ensureOverlay()
+        local gui = XR.xr.overlay
+        if gui and gui.Parent then return gui end
+        gui = Instance.new("ScreenGui")
+        gui.Name = "XR_Overlay"
+        gui.IgnoreGuiInset = true
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = 999999
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.Enabled = true
+        gui.Parent = (lp:FindFirstChildOfClass("PlayerGui")) or CoreGui
+        XR.xr.overlay = gui
+        return gui
+    end
+    local function makeLine(parent, thickness)
+        local f = Instance.new("Frame")
+        f.Name = "UFOX_Line"
+        f.AnchorPoint = Vector2.new(0,0.5)
+        f.BackgroundColor3 = THEME.GREEN
+        f.BorderSizePixel = 0
+        f.Size = UDim2.fromOffset(0, thickness or 2)
+        f.Visible = false
+        f.Active = false
+        f.AutomaticSize = Enum.AutomaticSize.None
+        f.ZIndex = 9999
+        f.InputTransparent = true -- ไม่บังการกดปุ่ม UI
+        f.Parent = parent
+        return f
+    end
+    local function drawLine2D(line, p1, p2)
+        local dx,dy = p2.X - p1.X, p2.Y - p1.Y
+        local len = math.sqrt(dx*dx + dy*dy)
+        if len < 1 then line.Visible=false return end
+        line.Visible = true
+        line.Position = UDim2.fromOffset(p1.X, p1.Y)
+        line.Size     = UDim2.fromOffset(len, line.Size.Y.Offset)
+        line.Rotation = math.deg(math.atan2(dy, dx))
+    end
+
+    -- ===== attachments =====
     local function ensureMyAttach()
         local h,ch = hum(lp); if not (h and ch) then return end
         local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if XR.xr.myAttach and XR.xr.myAttach.Parent==hrp then return end
-        if XR.xr.myAttach then XR.xr.myAttach:Destroy() end
+        if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end) end
         local a=Instance.new("Attachment"); a.Name="UFOX_Me"; a.Position=Vector3.new(0,-3,0); a.Parent=hrp
         XR.xr.myAttach=a
     end
 
     local function clearPack(p)
         local pack=XR.xr.packs[p]; if not pack then return end
-        for _,o in pairs(pack) do if typeof(o)=="Instance" then pcall(function() o:Destroy() end) end end
+        for _,k in ipairs({"name","box","tAtt"}) do if pack[k] then pcall(function() pack[k]:Destroy() end) pack[k]=nil end end
+        if pack.tracer2d then pcall(function() pack.tracer2d:Destroy() end) pack.tracer2d=nil end
         XR.xr.packs[p]=nil
     end
 
-    --== AlwaysOnTop green box ==
-    local function ensureBox(pack,ch)
+    -- ===== 3D Box (through walls) =====
+    local function ensureBox(pack, ch)
         local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if not pack.box then
             local box=Instance.new("BoxHandleAdornment")
@@ -2200,63 +2242,80 @@ registerRight("Player", function(scroll)
             box.Parent=hrp; pack.box=box
         end
         local cf,sz = ch:GetBoundingBox()
-        pack.box.Size = sz + Vector3.new(0.3,0.3,0.3)
+        pack.box.Size  = sz + Vector3.new(0.3,0.3,0.3)
         pack.box.CFrame = hrp.CFrame:ToObjectSpace(cf)
     end
 
-    --== green tracer line ==
-    local function ensureTracer(pack,ch)
+    -- ===== 2D Tracer (our foot → their foot) always visible =====
+    local function ensureTracer2D(pack, ch)
         ensureMyAttach()
-        local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        local overlay = ensureOverlay()
+        if not pack.tracer2d then pack.tracer2d = makeLine(overlay, 2) end
         if not pack.tAtt then
-            pack.tAtt=Instance.new("Attachment"); pack.tAtt.Name="UFOX_Target"; pack.tAtt.Position=Vector3.new(0,-3,0); pack.tAtt.Parent=hrp
+            local hrp=ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+            pack.tAtt = Instance.new("Attachment"); pack.tAtt.Name="UFOX_Target"; pack.tAtt.Position=Vector3.new(0,-3,0); pack.tAtt.Parent=hrp
         end
-        if not pack.tracer then
-            local b=Instance.new("Beam")
-            b.Color=ColorSequence.new(THEME.GREEN); b.Width0=0.08; b.Width1=0.08
-            b.LightEmission=0.7; b.Transparency=NumberSequence.new(0)
-            b.FaceCamera=true; b.AlwaysOnTop=true
-            b.Attachment0=XR.xr.myAttach; b.Attachment1=pack.tAtt
-            b.Parent=hrp; pack.tracer=b
+        local cam = workspace.CurrentCamera
+        local my = XR.xr.myAttach and XR.xr.myAttach.WorldPosition or nil
+        local trgAtt = pack.tAtt
+        if my and trgAtt then
+            local a,ok1 = cam:WorldToViewportPoint(my)
+            local b,ok2 = cam:WorldToViewportPoint(trgAtt.WorldPosition)
+            if ok1 and ok2 and a.Z>0 and b.Z>0 then
+                drawLine2D(pack.tracer2d, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
+            else
+                pack.tracer2d.Visible=false
+            end
         end
     end
 
-    --== per-player build ==
+    -- ===== per-player builder =====
     local function buildFor(p)
         if p==lp then return end
-        local h,ch=hum(p); if not (h and ch) then return end
-        local pack=XR.xr.packs[p] or {}; XR.xr.packs[p]=pack
+        local h,ch = hum(p); if not (h and ch) then return end
+        local pack = XR.xr.packs[p] or {}; XR.xr.packs[p]=pack
 
+        -- Names (independent from box toggle)
         if XR.xr.nameESP and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
                 local bb=Instance.new("BillboardGui")
                 bb.Name="UFOX_Name"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
-                bb.Size=UDim2.fromOffset(200,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0); bb.Parent=head
+                bb.Size=UDim2.fromOffset(220,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0); bb.Parent=head
                 local t=Instance.new("TextLabel",bb)
                 t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
                 t.Font=Enum.Font.GothamBlack; t.TextSize=16
                 t.TextColor3=THEME.WHITE; t.TextStrokeColor3=THEME.GREEN; t.TextStrokeTransparency=0
-                t.Text=p.DisplayName; pack.name=bb
+                t.Text=p.DisplayName
+                pack.name=bb
             end
+        elseif (not XR.xr.nameESP) and pack.name then
+            pcall(function() pack.name:Destroy() end); pack.name=nil
         end
 
+        -- Box + Tracer
         if XR.xr.boxESP then
-            ensureBox(pack,ch)
-            ensureTracer(pack,ch)
+            ensureBox(pack, ch)
+            ensureTracer2D(pack, ch)
         else
-            for _,k in pairs({"box","tracer","tAtt"}) do if pack[k] then pcall(function() pack[k]:Destroy() end); pack[k]=nil end end
+            if pack.box then pcall(function() pack.box:Destroy() end) pack.box=nil end
+            if pack.tracer2d then pack.tracer2d.Visible=false end
         end
     end
 
+    -- ===== refresh & live update =====
     local function refreshAll()
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) else ensureMyAttach() end end
+        ensureOverlay() -- make sure overlay exists (safe even if off)
+        for _,p in ipairs(Players:GetPlayers()) do
+            if p~=lp then buildFor(p) else ensureMyAttach() end
+        end
         if not XR.xr.nameESP and not XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
         end
     end
 
-    keep(RS.Heartbeat:Connect(function()
+    keep(RS.RenderStepped:Connect(function()
+        -- update boxes/tracers every frame when enabled
         if XR.xr.boxESP then
             for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
         end
@@ -2269,9 +2328,12 @@ registerRight("Player", function(scroll)
     for _,p in ipairs(Players:GetPlayers()) do
         if p~=lp then keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end)) end
     end
-    keep(lp.CharacterAdded:Connect(function() XR.xr.myAttach=nil; task.wait(0.2); ensureMyAttach(); refreshAll() end))
+    keep(lp.CharacterAdded:Connect(function()
+        XR.xr.myAttach=nil
+        task.wait(0.2); ensureMyAttach(); refreshAll()
+    end))
 
-    --== LEFT UI ==
+    -- ===== LEFT UI (A V1) =====
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -2313,7 +2375,7 @@ registerRight("Player", function(scroll)
     end
 
     toggleRow("XR_Name", base+1, "Show Player Names", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
-    toggleRow("XR_Box",  base+2, "See-Through 🛸", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
+    toggleRow("XR_Box",  base+2, "See-Through 🛸",   function() return XR.xr.boxESP  end, function(v) XR.xr.boxESP=v  end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
