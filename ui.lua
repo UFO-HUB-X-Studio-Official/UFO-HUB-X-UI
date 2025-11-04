@@ -2149,287 +2149,217 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- UFO HUB X Studio MAX — Wall Vision (A V1 • Player)
--- LocalScript -> StarterPlayerScripts
+-- ===== UFO HUB X • Player — X-RAY 👁️  (Names + Box + Tracer) =====
+-- Model A V1 (Single UIListLayout • stable • no extra wrappers)
+registerRight("Player", function(scroll)
+    local Players = game:GetService("Players")
+    local RS      = game:GetService("RunService")
+    local CoreGui = game:GetService("CoreGui")
+    local lp      = Players.LocalPlayer
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+    -- ===== persistent state (one place) =====
+    _G.UFOX_XR = _G.UFOX_XR or {
+        uiConns = {},
+        xr = {
+            nameESP = false,
+            boxESP  = false,
+            packs   = {},
+            myAttach = nil,
+            overlay = nil,
+        }
+    }
+    local XR = _G.UFOX_XR
+    local function keep(c) table.insert(XR.uiConns, c) return c end
+    for i = #XR.uiConns,1,-1 do pcall(function() XR.uiConns[i]:Disconnect() end); XR.uiConns[i]=nil end
 
--- =========================
--- CONFIG
--- =========================
-local GREEN = Color3.fromRGB(0, 255, 128)
-local WHITE = Color3.fromRGB(255, 255, 255)
-local MAX_DISTANCE = 250 -- ระยะมองชื่อ
-local BOX_TRANSPARENCY = 0 -- เส้นสี่เหลี่ยมโปร่งใส 0 = ชัด
-local LINE_THICKNESS = 0.1
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        GREY  = Color3.fromRGB(180,180,185),
+        RED   = Color3.fromRGB(255,40,40),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col,trans)
+        local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN
+        s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s
+    end
 
-local NameTagsEnabled = true   -- รายการที่ 1 (ดูชื่อผู้เล่น)
-local WallVisionEnabled = true -- รายการที่ 2 (Wall Vision / ESP)
+    local function hum(p) local ch=p.Character; return ch and ch:FindFirstChildOfClass("Humanoid"), ch end
 
--- =========================
--- UTIL
--- =========================
-local function getChar(player: Player)
-	return player and player.Character or nil
-end
+    -- ===== my foot attachment (for tracer start) =====
+    local function ensureMyAttach()
+        local h,ch = hum(lp); if not (h and ch) then return end
+        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        if XR.xr.myAttach and XR.xr.myAttach.Parent==hrp then return end
+        if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end) end
+        local a = Instance.new("Attachment"); a.Name="UFOX_Me"; a.Position=Vector3.new(0,-3,0); a.Parent=hrp
+        XR.xr.myAttach = a
+    end
 
-local function waitFor(partNameList, model)
-	for _, n in ipairs(partNameList) do
-		local p = model:FindFirstChild(n)
-		if p then return p end
-	end
-	return nil
-end
+    -- ===== Overlay for 2D tracer (always visible through walls) =====
+    local function ensureOverlay()
+        if XR.xr.overlay and XR.xr.overlay.Parent then return XR.xr.overlay end
+        local gui = Instance.new("ScreenGui")
+        gui.Name="XR_Overlay"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999
+        gui.Parent = (lp:FindFirstChildOfClass("PlayerGui")) or CoreGui
+        XR.xr.overlay = gui
+        return gui
+    end
+    local function makeLine(parent, thickness)
+        local f=Instance.new("Frame"); f.Name="Line"; f.AnchorPoint=Vector2.new(0,0.5)
+        f.BackgroundColor3=THEME.GREEN; f.BorderSizePixel=0; f.InputTransparent=true
+        f.Size=UDim2.fromOffset(0, thickness or 2); f.Visible=false; f.ZIndex=9999; f.Parent=parent
+        return f
+    end
+    local function drawLine2D(line, p1, p2)
+        local dx,dy=p2.X-p1.X, p2.Y-p1.Y
+        local len=math.sqrt(dx*dx + dy*dy)
+        if len < 1 then line.Visible=false return end
+        line.Visible=true
+        line.Position=UDim2.fromOffset(p1.X,p1.Y)
+        line.Size=UDim2.fromOffset(len, line.Size.Y.Offset)
+        line.Rotation=math.deg(math.atan2(dy,dx))
+    end
 
-local function getRoot(char)
-	return waitFor({"HumanoidRootPart"}, char)
-end
+    -- ===== per-target pack cleanup =====
+    local function clearPack(p)
+        local pack = XR.xr.packs[p]; if not pack then return end
+        if pack.dieConn then pcall(function() pack.dieConn:Disconnect() end) end
+        for _,o in pairs(pack) do if typeof(o)=="Instance" then pcall(function() o:Destroy() end) end end
+        XR.xr.packs[p]=nil
+    end
 
-local function getHead(char)
-	return waitFor({"Head"}, char)
-end
+    -- ===== build box (AlwaysOnTop) + tracer =====
+    local function ensureTopBox3D(pack, ch)
+        local hrp = ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        if not pack.box3d then
+            local box=Instance.new("BoxHandleAdornment")
+            box.Name="UFOX_TopBox"; box.Adornee=hrp; box.AlwaysOnTop=true; box.ZIndex=10
+            box.Color3=THEME.GREEN; box.Transparency=0; box.AlphaTransparency=0
+            box.Parent=hrp; pack.box3d=box
+        end
+        local cf, sz = ch:GetBoundingBox()
+        pack.box3d.Size = sz + Vector3.new(0.3,0.3,0.3)
+        pack.box3d.CFrame = hrp.CFrame:ToObjectSpace(cf)
+    end
 
-local function getFoot(char) -- รองรับ R15/R6; ถ้าไม่มีใช้ Root
-	return waitFor({"LeftFoot","RightFoot","Left Leg","Right Leg","LowerTorso"}, char) or getRoot(char)
-end
+    local function buildFor(p)
+        if p==lp then return end
+        local h,ch = hum(p); if not (h and ch) then return end
+        local pack = XR.xr.packs[p] or {}; XR.xr.packs[p]=pack
 
--- สำหรับเก็บอ็อบเจกต์ของแต่ละผู้เล่น
-local PerPlayer = {} :: {[Player]: {
-	Billboard: BillboardGui?,
-	Box: BoxHandleAdornment?,
-	Beam: Beam?,
-	AttachA: Attachment?, -- ที่เท้าเรา
-	AttachB: Attachment?, -- ที่เท้าเขา
-	UpdateConn: RBXScriptConnection?,
-	CharConn: RBXScriptConnection?
-}}
+        -- Name ESP (white text + green stroke)
+        if XR.xr.nameESP and not pack.name then
+            local head=ch:FindFirstChild("Head")
+            if head then
+                local bb=Instance.new("BillboardGui")
+                bb.Name="UFOX_NameESP"; bb.Adornee=head; bb.AlwaysOnTop=true; bb.MaxDistance=1e9
+                bb.Size=UDim2.fromOffset(260,30); bb.StudsOffsetWorldSpace=Vector3.new(0,2.6,0); bb.Parent=head
+                local t=Instance.new("TextLabel",bb)
+                t.BackgroundTransparency=1; t.Size=UDim2.fromScale(1,1)
+                t.Font=Enum.Font.GothamBlack; t.TextSize=16; t.TextColor3=THEME.WHITE
+                t.TextStrokeColor3=THEME.GREEN; t.TextStrokeTransparency=0
+                t.Text = string.format("%s (@%s)", p.DisplayName, p.Name)
+                pack.name=bb
+            end
+        end
 
--- =========================
--- NAME TAG (รายการที่ 1)
--- =========================
-local function createNameTag(targetChar, displayText)
-	local head = getHead(targetChar) or getRoot(targetChar)
-	if not head then return nil end
+        if XR.xr.boxESP then
+            -- Box 3D (see-through)
+            ensureTopBox3D(pack, ch)
 
-	local bb = Instance.new("BillboardGui")
-	bb.Name = "UFO_NameTag"
-	bb.AlwaysOnTop = true
-	bb.LightInfluence = 0
-	bb.Size = UDim2.new(0, 200, 0, 40)
-	bb.StudsOffsetWorldSpace = Vector3.new(0, 2.2, 0)
-	bb.MaxDistance = MAX_DISTANCE
-	bb.Adornee = head
-	bb.Enabled = NameTagsEnabled
+            -- Tracer 2D (our foot -> their foot), drawn over everything
+            ensureMyAttach()
+            local overlay = ensureOverlay()
+            if not pack.tracer2d then pack.tracer2d = makeLine(overlay, 2) end
 
-	local tl = Instance.new("TextLabel")
-	tl.BackgroundTransparency = 1
-	tl.Size = UDim2.fromScale(1,1)
-	tl.Text = displayText
-	tl.TextColor3 = WHITE
-	tl.TextScaled = true
-	tl.Font = Enum.Font.GothamSemibold
-	tl.ZIndex = 2
-	tl.Parent = bb
+            local cam = workspace.CurrentCamera
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            if XR.xr.myAttach and hrp then
+                local a,ok1 = cam:WorldToViewportPoint(XR.xr.myAttach.WorldPosition)
+                local b,ok2 = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
+                if ok1 and ok2 and a.Z>0 and b.Z>0 then
+                    drawLine2D(pack.tracer2d, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
+                else
+                    pack.tracer2d.Visible=false
+                end
+            end
+        else
+            if pack.box3d   then pcall(function() pack.box3d:Destroy() end) pack.box3d=nil end
+            if pack.tracer2d then pack.tracer2d.Visible=false end
+        end
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = GREEN
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Parent = tl
+        if h and not pack.dieConn then
+            pack.dieConn = keep(h.Died:Connect(function() clearPack(p) end))
+        end
+    end
 
-	bb.Parent = targetChar -- ติดไว้กับตัวละคร (ล้างอัตโนมัติเมื่อหาย)
-	return bb
-end
+    -- ===== refresh / live update =====
+    local function refreshAll()
+        for _,p in ipairs(Players:GetPlayers()) do
+            if p~=lp then buildFor(p) else ensureMyAttach() end
+        end
+        if not XR.xr.nameESP and not XR.xr.boxESP then
+            for _,p in ipairs(Players:GetPlayers()) do if p~=lp then clearPack(p) end end
+            if XR.xr.myAttach then pcall(function() XR.xr.myAttach:Destroy() end); XR.xr.myAttach=nil end
+        end
+    end
 
--- =========================
--- WALL VISION (รายการที่ 2)
---  - BoxHandleAdornment: กรอบสี่เหลี่ยมทั้งตัว
---  - Beam: เส้นจากเท้าเราไปเท้าเขา
--- =========================
-local function createBoundingBox(targetChar)
-	local hrp = getRoot(targetChar)
-	if not hrp then return nil end
+    keep(RS.Heartbeat:Connect(function()
+        if not XR.xr.boxESP then return end
+        -- keep sizes correct + redraw tracer 2D continuously
+        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
+    end))
 
-	local box = Instance.new("BoxHandleAdornment")
-	box.Name = "UFO_WallBox"
-	box.AlwaysOnTop = true
-	box.ZIndex = 10
-	box.Transparency = BOX_TRANSPARENCY
-	box.Color3 = GREEN
-	box.Adornee = hrp
-	box.Enabled = WallVisionEnabled
-	box.Parent = hrp
+    keep(Players.PlayerAdded:Connect(function(p)
+        keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end))
+        refreshAll()
+    end))
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=lp then keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end)) end
+    end
+    keep(lp.CharacterAdded:Connect(function()
+        XR.xr.myAttach=nil; task.wait(0.2); ensureMyAttach(); refreshAll()
+    end))
 
-	-- อัปเดต Size/CFrame ตาม BoundingBox จริงของโมเดล
-	local function updateBox()
-		if not targetChar or not targetChar.Parent then return end
-		local bbCFrame, bbSize = targetChar:GetBoundingBox()
-		-- ทำให้ CFrame ของกล่องเป็นสัมพัทธ์กับ Adornee
-		box.Size = bbSize
-		box.CFrame = hrp.CFrame:ToObjectSpace(bbCFrame)
-	end
-	updateBox()
+    -- ===== LEFT (Model A V1) UI =====
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    for _,n in ipairs({"XR_Header","XR_Name","XR_Box"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    local base=2400
 
-	-- อัปเดตทุก ๆ 0.2s (พอเพียง ประหยัด)
-	local stepped
-	local acc = 0
-	stepped = RunService.RenderStepped:Connect(function(dt)
-		acc += dt
-		if acc > 0.2 then
-			acc = 0
-			if hrp.Parent then
-				updateBox()
-			else
-				stepped:Disconnect()
-			end
-		end
-	end)
+    local head = Instance.new("TextLabel",scroll)
+    head.Name="XR_Header"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
+    head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
+    head.Text="X-RAY 👁️"
 
-	return box
-end
+    local function toggleRow(name, order, title, getter, setter)
+        local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
+        row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN)
+        local lab=Instance.new("TextLabel",row) lab.BackgroundTransparency=1 lab.Position=UDim2.new(0,16,0,0) lab.Size=UDim2.new(1,-140,1,0)
+        lab.Font=Enum.Font.GothamBold lab.TextSize=13 lab.TextColor3=THEME.WHITE lab.TextXAlignment=Enum.TextXAlignment.Left lab.Text=title
+        local sw=Instance.new("Frame",row) sw.AnchorPoint=Vector2.new(1,0.5) sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
+        local st=stroke(sw,1.8, getter() and THEME.GREEN or THEME.RED)
+        local knob=Instance.new("Frame",sw) knob.Size=UDim2.fromOffset(22,22)
+        knob.Position=UDim2.new(getter() and 1 or 0, getter() and -24 or 2, 0.5,-11)
+        knob.BackgroundColor3=THEME.GREY; corner(knob,11)
+        local btn=Instance.new("TextButton",sw) btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+        btn.MouseButton1Click:Connect(function()
+            local v=not getter(); setter(v)
+            st.Color = v and THEME.GREEN or THEME.RED
+            knob.Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)
+            refreshAll()
+        end)
+        return row
+    end
 
-local function createLineFromMeTo(targetChar)
-	local myChar = getChar(LocalPlayer)
-	if not myChar or not myChar.Parent then return nil,nil,nil end
-
-	local myFoot = getFoot(myChar)
-	local hisFoot = getFoot(targetChar)
-	if not (myFoot and hisFoot) then return nil,nil,nil end
-
-	local attA = Instance.new("Attachment")
-	attA.Name = "UFO_AttachA"
-	attA.Position = Vector3.new(0, -(myFoot.Size and myFoot.Size.Y/2 or 1), 0)
-	attA.Parent = myFoot
-
-	local attB = Instance.new("Attachment")
-	attB.Name = "UFO_AttachB"
-	attB.Position = Vector3.new(0, -(hisFoot.Size and hisFoot.Size.Y/2 or 1), 0)
-	attB.Parent = hisFoot
-
-	local beam = Instance.new("Beam")
-	beam.Name = "UFO_WallBeam"
-	beam.Attachment0 = attA
-	beam.Attachment1 = attB
-	beam.FaceCamera = true
-	beam.Width0 = LINE_THICKNESS
-	beam.Width1 = LINE_THICKNESS
-	beam.Transparency = NumberSequence.new(0)
-	beam.Color = ColorSequence.new(GREEN)
-	beam.LightEmission = 1
-	beam.Enabled = WallVisionEnabled
-	beam.Parent = attA
-
-	return beam, attA, attB
-end
-
--- =========================
--- CORE BINDINGS
--- =========================
-local function clearFor(player)
-	local rec = PerPlayer[player]
-	if not rec then return end
-	pcall(function
-		if rec.UpdateConn then rec.UpdateConn:Disconnect() end
-		if rec.CharConn then rec.CharConn:Disconnect() end
-	end)
-	for _, inst in ipairs({"Billboard","Box","Beam","AttachA","AttachB"}) do
-		local obj = rec[inst]
-		if obj and obj.Destroy then pcall(function() obj:Destroy() end) end
-	end
-	PerPlayer[player] = nil
-end
-
-local function setupFor(player: Player)
-	if player == LocalPlayer then return end
-	clearFor(player)
-
-	local rec = {}
-	PerPlayer[player] = rec
-
-	local function attachToCharacter(char)
-		if not char then return end
-		-- NameTag
-		if NameTagsEnabled then
-			rec.Billboard = createNameTag(char, "@"..(player.DisplayName or player.Name))
-		end
-		-- Box
-		if WallVisionEnabled then
-			rec.Box = createBoundingBox(char)
-		end
-		-- Beam
-		if WallVisionEnabled then
-			rec.Beam, rec.AttachA, rec.AttachB = createLineFromMeTo(char)
-		end
-
-		-- ถ้าตัวละครของเราเกิดใหม่ ต้องรีสร้าง Beam อีกครั้ง (ปลายด้านเราเปลี่ยน)
-		if rec.UpdateConn then rec.UpdateConn:Disconnect() end
-		rec.UpdateConn = LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(0.1)
-			if rec.Beam then rec.Beam.Enabled = false end
-			if rec.AttachA then rec.AttachA:Destroy() end
-			if WallVisionEnabled and char.Parent then
-				rec.Beam, rec.AttachA, rec.AttachB = createLineFromMeTo(char)
-			end
-		end)
-	end
-
-	-- ติดตามสปอนของเขา
-	rec.CharConn = player.CharacterAdded:Connect(function(char)
-		task.wait(0.1)
-		attachToCharacter(char)
-	end)
-
-	-- มีตัวละครอยู่แล้วก็ผูกเลย
-	if player.Character then
-		attachToCharacter(player.Character)
-	end
-end
-
--- ติดตั้งกับผู้เล่นที่มีอยู่
-for _, plr in ipairs(Players:GetPlayers()) do
-	setupFor(plr)
-end
--- และผู้เล่นที่เข้ามาใหม่
-Players.PlayerAdded:Connect(setupFor)
--- ล้างเมื่อออก
-Players.PlayerRemoving:Connect(clearFor)
-
--- =========================
--- PUBLIC API (สำหรับผูกกับปุ่ม Player • A V1)
--- =========================
-function SetNameTagsEnabled(on: boolean)
-	NameTagsEnabled = on and true or false
-	-- เปิด/ปิดทั้งหมดที่มีอยู่
-	for plr, rec in pairs(PerPlayer) do
-		if rec.Billboard then rec.Billboard.Enabled = NameTagsEnabled end
-		-- ถ้ายังไม่มีและเปิด -> สร้างให้
-		if NameTagsEnabled and getChar(plr) and not rec.Billboard then
-			rec.Billboard = createNameTag(getChar(plr), "@"..(plr.DisplayName or plr.Name))
-		end
-	end
-end
-
-function SetWallVisionEnabled(on: boolean)
-	WallVisionEnabled = on and true or false
-	for plr, rec in pairs(PerPlayer) do
-		-- กรอบ
-		if rec.Box then rec.Box.Enabled = WallVisionEnabled end
-		if WallVisionEnabled and getChar(plr) and not rec.Box then
-			rec.Box = createBoundingBox(getChar(plr))
-		end
-		-- เส้น
-		if rec.Beam then rec.Beam.Enabled = WallVisionEnabled end
-		if WallVisionEnabled and getChar(plr) and not rec.Beam then
-			rec.Beam, rec.AttachA, rec.AttachB = createLineFromMeTo(getChar(plr))
-		end
-	end
-end
-
--- ค่าเริ่มต้น: เปิดทั้งสองฟีเจอร์
-SetNameTagsEnabled(true)
-	SetWallVisionEnabled(true)
+    toggleRow("XR_Name", base+1, "View Player Names", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
+    toggleRow("XR_Box",  base+2, "X-RAY (Box + Tracer)", function() return XR.xr.boxESP end, function(v) XR.xr.boxESP=v end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
