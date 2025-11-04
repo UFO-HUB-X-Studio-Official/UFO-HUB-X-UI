@@ -2150,14 +2150,14 @@ registerRight("Server", function(scroll)
     end
 end)
 -- ===== UFO HUB X • Player — X-RAY 👁️ (ESP) =====
--- Model A V1 (stable • BoxHandleAdornment through walls + 2D tracer overlay)
+-- Model A V1 (stable clean) • Name (AlwaysOnTop) + Box (AlwaysOnTop) + Tracer2D overlay (see-through)
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
     local RS      = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
     local lp      = Players.LocalPlayer
 
-    -- === STATE ===
+    -- ===== STATE =====
     _G.UFOX_XRAY = _G.UFOX_XRAY or {uiConns={}, packs={}, nameOn=false, espOn=false, meAtt=nil, overlay=nil}
     local ST = _G.UFOX_XRAY
     local function keep(c) table.insert(ST.uiConns,c) return c end
@@ -2170,7 +2170,7 @@ registerRight("Player", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
 
-    -- === helpers ===
+    -- ===== helpers =====
     local function hum(p) local ch=p.Character; return ch and ch:FindFirstChildOfClass("Humanoid"), ch end
     local function ensureMeAtt()
         local h,ch = hum(lp); if not (h and ch) then return end
@@ -2181,7 +2181,7 @@ registerRight("Player", function(scroll)
         ST.meAtt = a
     end
 
-    -- overlay for 2D tracer (always visible, even behind walls)
+    -- overlay for 2D tracer (เส้นทับทุกอย่าง, คลิกผ่านได้)
     local function ensureOverlay()
         if ST.overlay and ST.overlay.Parent then return ST.overlay end
         local gui = Instance.new("ScreenGui")
@@ -2198,14 +2198,23 @@ registerRight("Player", function(scroll)
         f.ZIndex=9999; f.InputTransparent=true; f.Parent=parent
         return f
     end
-    local function drawLine2D(line, p1, p2)
-        local dx,dy=p2.X-p1.X,p2.Y-p1.Y; local len=math.sqrt(dx*dx+dy*dy)
-        if len<1 then line.Visible=false return end
-        line.Visible=true; line.Position=UDim2.fromOffset(p1.X,p1.Y); line.Size=UDim2.fromOffset(len,line.Size.Y.Offset)
-        line.Rotation=math.deg(math.atan2(dy,dx))
+    local function clampToScreen(v2)
+        local vs = workspace.CurrentCamera.ViewportSize
+        return Vector2.new(math.clamp(v2.X, 0, vs.X), math.clamp(v2.Y, 0, vs.Y))
+    end
+    local function drawLine2D(line, p1, p2) -- พล็อตแม้นอกจอ/หลังผนัง
+        local a = clampToScreen(p1)
+        local b = clampToScreen(p2)
+        local dx,dy=b.X-a.X,b.Y-a.Y
+        local len = math.sqrt(dx*dx + dy*dy)
+        if len < 1 then line.Visible=false return end
+        line.Visible=true
+        line.Position=UDim2.fromOffset(a.X, a.Y)
+        line.Size=UDim2.fromOffset(len, line.Size.Y.Offset)
+        line.Rotation=math.deg(math.atan2(dy, dx))
     end
 
-    -- tighter box around body (exclude tools/accessories)
+    -- AABB เฉพาะชิ้นส่วนร่างกาย (ตัด Tool/Accessory ออก) เพื่อให้กรอบสวยพอดีตัว
     local function isBodyPart(part)
         if not part:IsA("BasePart") then return false end
         local a=part
@@ -2219,12 +2228,12 @@ registerRight("Player", function(scroll)
         local minv,maxv
         for _,bp in ipairs(ch:GetDescendants()) do
             if isBodyPart(bp) then
-                local sz=bp.Size/2
+                local half=bp.Size/2
                 local corners={
-                    Vector3.new( sz.X,  sz.Y,  sz.Z), Vector3.new(-sz.X,  sz.Y,  sz.Z),
-                    Vector3.new(-sz.X,  sz.Y, -sz.Z), Vector3.new( sz.X,  sz.Y, -sz.Z),
-                    Vector3.new( sz.X, -sz.Y,  sz.Z), Vector3.new(-sz.X, -sz.Y,  sz.Z),
-                    Vector3.new(-sz.X, -sz.Y, -sz.Z), Vector3.new( sz.X, -sz.Y, -sz.Z),
+                    Vector3.new( half.X,  half.Y,  half.Z), Vector3.new(-half.X,  half.Y,  half.Z),
+                    Vector3.new(-half.X,  half.Y, -half.Z), Vector3.new( half.X,  half.Y, -half.Z),
+                    Vector3.new( half.X, -half.Y,  half.Z), Vector3.new(-half.X, -half.Y,  half.Z),
+                    Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new( half.X, -half.Y, -half.Z),
                 }
                 for i=1,8 do
                     local w=(bp.CFrame*CFrame.new(corners[i])).Position
@@ -2263,7 +2272,7 @@ registerRight("Player", function(scroll)
         local h,ch=hum(p); if not (h and ch) then return end
         local pack=ST.packs[p] or {}; ST.packs[p]=pack
 
-        -- name (nickname only)
+        -- Name (nickname only) — AlwaysOnTop
         if ST.nameOn and not pack.name then
             local head=ch:FindFirstChild("Head")
             if head then
@@ -2279,22 +2288,22 @@ registerRight("Player", function(scroll)
             end
         end
 
-        -- ESP
+        -- ESP (Box + Tracer)
         if ST.espOn then
             ensureBox(pack, ch)
             ensureMeAtt()
             local overlay=ensureOverlay()
             if not pack.tracer then pack.tracer = makeLine(overlay,2) end
+
             local cam=workspace.CurrentCamera
             local hrp=ch:FindFirstChild("HumanoidRootPart")
             if ST.meAtt and hrp then
-                local a,ok1=cam:WorldToViewportPoint(ST.meAtt.WorldPosition)
-                local b,ok2=cam:WorldToViewportPoint(hrp.Position+Vector3.new(0,-3,0))
-                if ok1 and ok2 and a.Z>0 and b.Z>0 then
-                    drawLine2D(pack.tracer, Vector2.new(a.X,a.Y), Vector2.new(b.X,b.Y))
-                else
-                    pack.tracer.Visible=false
-                end
+                local A=cam:WorldToViewportPoint(ST.meAtt.WorldPosition)
+                local B=cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
+                -- ไม่ใช้ onScreen flag -> วาดเสมอ (clamp เข้าเฟรม)
+                drawLine2D(pack.tracer, Vector2.new(A.X,A.Y), Vector2.new(B.X,B.Y))
+            else
+                pack.tracer.Visible=false
             end
         else
             if pack.box then pcall(function() pack.box:Destroy() end); pack.box=nil end
@@ -2314,10 +2323,11 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- live updates & respawn
+    -- live update + respawn hooks
     keep(RS.RenderStepped:Connect(function()
-        if not ST.espOn then return end
-        for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
+        if ST.espOn then
+            for _,p in ipairs(Players:GetPlayers()) do if p~=lp then buildFor(p) end end
+        end
     end))
     keep(Players.PlayerAdded:Connect(function(p)
         keep(p.CharacterAdded:Connect(function() clearPack(p); task.wait(0.2); refreshAll() end))
@@ -2328,7 +2338,7 @@ registerRight("Player", function(scroll)
     end
     keep(lp.CharacterAdded:Connect(function() ST.meAtt=nil; task.wait(0.2); ensureMeAtt(); refreshAll() end))
 
-    -- ================== LEFT UI (Model A V1) ==================
+    -- ===== LEFT UI (Model A V1) =====
     local list=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -2357,7 +2367,7 @@ registerRight("Player", function(scroll)
     end
 
     toggleRow("XR_Name", base+1, "Display Names", function() return ST.nameOn end, function(v) ST.nameOn=v end)
-    toggleRow("XR_ESP",  base+2, "X-RAY (ESP)",   function() return ST.espOn  end, function(v) ST.espOn =v end)
+    toggleRow("XR_ESP",  base+2, "X-RAY (Box + Tracer)", function() return ST.espOn end, function(v) ST.espOn=v end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
