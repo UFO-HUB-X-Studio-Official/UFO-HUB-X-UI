@@ -2373,7 +2373,9 @@ registerRight("Player", function(scroll)
         return row
     end
 
+    -- รายการที่ 1: ชื่อผู้เล่น (ENG)
     toggleRow("XR_Name", base+1, "Show Player Names", function() return XR.xr.nameESP end, function(v) XR.xr.nameESP=v end)
+    -- รายการที่ 2: มองทะลุ (ENG + emoji)
     toggleRow("XR_Box",  base+2, "See-Through 🛸",   function() return XR.xr.boxESP  end, function(v) XR.xr.boxESP=v  end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
