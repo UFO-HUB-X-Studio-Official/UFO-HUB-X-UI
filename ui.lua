@@ -2149,214 +2149,89 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- UFO HUB X • Update — Update Map (Model A V1 • stable)
--- ทำแค่ฟีเจอร์ที่ M อนุมัติ: ช่องพิมพ์หัวข้อ + ชื่อแมพจริง + ไอคอนแมพจริง + Refresh + Auto update
-
+-- ===== UFO HUB X • Update Tab — Map Update 🗺️  (Model A V1) =====
+-- เพิ่ม “หน้า Update” ตามเลย์เอาต์ในรูป: white title / blue info / yellow notes
 registerRight("Update", function(scroll)
-    -- Services
-    local Players            = game:GetService("Players")
+    local Players = game:GetService("Players")
     local MarketplaceService = game:GetService("MarketplaceService")
-    local ThumbnailService   = game:GetService("ThumbnailService")
-    local RunService         = game:GetService("RunService")
-
     local lp = Players.LocalPlayer
 
-    -- State (เก็บครั้งเดียว ใช้ซ้ำ)
-    _G.UFOX_UPDATE = _G.UFOX_UPDATE or { uiConns = {}, titleText = "" }
-    local ST = _G.UFOX_UPDATE
-
-    -- ---------- Utils ----------
+    -- theme helpers (ค่าเดียวกับ A V1)
     local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        GREY  = Color3.fromRGB(180,180,185),
-        RED   = Color3.fromRGB(255,40,40)
+        GREEN = Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0), GREY = Color3.fromRGB(180,180,185)
     }
-    local function keep(c) table.insert(ST.uiConns, c); return c end
-    for i=#ST.uiConns,1,-1 do pcall(function() ST.uiConns[i]:Disconnect() end); ST.uiConns[i]=nil end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
 
-    local function corner(ui,r)
-        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 12); c.Parent = ui
-    end
-    local function stroke(ui,th,col,trans)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 2
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Transparency = trans or 0
-        s.Parent = ui
-        return s
-    end
+    -- clear old
+    for _,n in ipairs({"UP_Header","UP_Wrap","UP_Title","UP_Info","UP_Notes"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
 
-    -- ---------- Fetch Map Info ----------
-    local lastPlaceId = 0
-    local function getMapInfo()
-        local name, iconUrl = ("Place "..game.PlaceId), nil
-        local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, game.PlaceId)
-        if ok and info then
-            name = info.Name or name
-            if info.IconImageAssetId and info.IconImageAssetId ~= 0 then
-                -- ใช้ thumbnail ระบบ จะเรนเดอร์ไวและเสถียรกว่า rbxasset โดยตรง
-                iconUrl = ("rbxthumb://type=Asset&id=%d&w=420&h=420"):format(tonumber(info.IconImageAssetId))
-            end
-        end
-        if not iconUrl then
-            -- สำรอง: ขอไอคอนแมพจาก ThumbnailService โดยตรง
-            local ok2, content = pcall(ThumbnailService.GetThumbnailAsync, ThumbnailService,
-                                       game.PlaceId, Enum.ThumbnailType.PlaceIcon, Enum.ThumbnailSize.Size420x420)
-            if ok2 then iconUrl = content end
-        end
-        return name, iconUrl
-    end
-
-    -- ---------- A V1 Layout ----------
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
+    -- list/scroll defaults
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    -- ล้างของเก่า (เฉพาะชื่อเหล่านี้)
-    for _,n in ipairs({"UP_Header","UP_TitleRow","UP_MapRow"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
 
     local base = 3100
 
     -- Header
-    do
-        local head = Instance.new("TextLabel", scroll)
-        head.Name = "UP_Header"
-        head.LayoutOrder = base
-        head.BackgroundTransparency = 1
-        head.Size = UDim2.new(1,0,0,32)
-        head.Font = Enum.Font.GothamBlack
-        head.TextSize = 16
-        head.TextColor3 = THEME.WHITE
-        head.TextXAlignment = Enum.TextXAlignment.Left
-        head.Text = "Update Map"
-    end
+    local head = Instance.new("TextLabel",scroll)
+    head.Name="UP_Header"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
+    head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
+    head.Text="Map Update 🗺️"
 
-    -- Row 1: ช่องพิมพ์หัวข้ออัปเดต
-    local titleBox
-    do
-        local row = Instance.new("Frame", scroll)
-        row.Name = "UP_TitleRow"
-        row.LayoutOrder = base + 1
-        row.Size = UDim2.new(1,-6,0,56)
-        row.BackgroundColor3 = THEME.BLACK
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
+    -- Outer panel (ตำแหน่งตรง “สี่เหลี่ยมสีแดง” ในรูป → ดำขอบเขียว)
+    local wrap = Instance.new("Frame",scroll)
+    wrap.Name="UP_Wrap"; wrap.LayoutOrder=base+1; wrap.Size=UDim2.new(1,-6,0,300) -- สูง 300 (ปรับได้)
+    wrap.BackgroundColor3=THEME.BLACK; corner(wrap,12); stroke(wrap,2.2,THEME.GREEN)
 
-        local lab = Instance.new("TextLabel", row)
-        lab.BackgroundTransparency = 1
-        lab.Position = UDim2.new(0,16,0,0)
-        lab.Size = UDim2.new(0,120,1,0)
-        lab.Font = Enum.Font.GothamBold
-        lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
-        lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = "Update title"
+    -- ===== White Title box: "Map Update 🗺️"
+    local title = Instance.new("TextLabel",wrap)
+    title.Name="UP_Title"; title.Position=UDim2.new(0,12,0,12); title.Size=UDim2.new(0,260,0,30)
+    title.BackgroundColor3=THEME.WHITE; title.TextColor3=Color3.fromRGB(20,20,20)
+    title.Font=Enum.Font.GothamBlack; title.TextSize=14; title.TextXAlignment=Enum.TextXAlignment.Center
+    title.Text="Map Update 🗺️"
+    corner(title,8); stroke(title,1.6,THEME.GREEN,0)
 
-        titleBox = Instance.new("TextBox", row)
-        titleBox.ClearTextOnFocus = false
-        titleBox.PlaceholderText = "Type your update headline…"
-        titleBox.PlaceholderColor3 = THEME.GREY
-        titleBox.Text = ST.titleText or ""
-        titleBox.Font = Enum.Font.Gotham
-        titleBox.TextSize = 13
-        titleBox.TextColor3 = THEME.WHITE
-        titleBox.BackgroundTransparency = 1
-        titleBox.Size = UDim2.new(1,-(16+120+16+90),1,0)
-        titleBox.Position = UDim2.new(0,16+120,0,0)
-        titleBox.TextXAlignment = Enum.TextXAlignment.Left
+    -- ===== Blue info bar: ชื่อแผนที่ + รูป
+    local info = Instance.new("Frame",wrap)
+    info.Name="UP_Info"; info.Position=UDim2.new(0,12,0,54); info.Size=UDim2.new(1,-24,0,60)
+    info.BackgroundColor3=Color3.fromRGB(35,115,210) -- น้ำเงินอ้างอิงรูป
+    corner(info,10); stroke(info,1.8,THEME.GREEN,0.15)
 
-        local saveBtn = Instance.new("TextButton", row)
-        saveBtn.AutoButtonColor = false
-        saveBtn.Size = UDim2.fromOffset(80,28)
-        saveBtn.Position = UDim2.new(1,-(12+80),0.5,-14)
-        saveBtn.BackgroundColor3 = THEME.BLACK
-        saveBtn.Text = "Save"
-        saveBtn.Font = Enum.Font.GothamBold
-        saveBtn.TextSize = 12
-        saveBtn.TextColor3 = THEME.WHITE
-        corner(saveBtn,10); stroke(saveBtn,1.6,THEME.GREEN)
+    -- map name (จาก PlaceId)
+    local mapName = "Current Place"
+    pcall(function()
+        local inf = MarketplaceService:GetProductInfo(game.PlaceId)
+        if inf and inf.Name then mapName = inf.Name end
+    end)
+    local nameLbl = Instance.new("TextLabel",info)
+    nameLbl.BackgroundTransparency=1; nameLbl.Position=UDim2.new(0,12,0,0); nameLbl.Size=UDim2.new(1,-(60+12+12),1,0)
+    nameLbl.Font=Enum.Font.GothamBold; nameLbl.TextSize=14; nameLbl.TextColor3=THEME.WHITE; nameLbl.TextXAlignment=Enum.TextXAlignment.Left
+    nameLbl.Text="Now Playing: "..mapName
 
-        keep(titleBox:GetPropertyChangedSignal("Text"):Connect(function()
-            ST.titleText = titleBox.Text
-        end))
-        saveBtn.MouseButton1Click:Connect(function()
-            ST.titleText = titleBox.Text
-            saveBtn.Text = "Saved"
-            task.delay(0.6, function() saveBtn.Text = "Save" end)
-        end)
-    end
+    -- map icon (Game/Universe icon)
+    local iconImg = Instance.new("ImageLabel",info)
+    iconImg.BackgroundTransparency=1; iconImg.Size=UDim2.fromOffset(60,60); iconImg.Position=UDim2.new(1,-(60+8),0,0)
+    iconImg.ScaleType=Enum.ScaleType.Fit
+    -- rbxthumb game icon (ใช้ GameId/Universe)
+    iconImg.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(game.GameId)
 
-    -- Row 2: ชื่อแมพ + ไอคอนจริง + ปุ่ม Refresh
-    local nameLabel, iconImg
-    local function applyMapInfo()
-        local nm, url = getMapInfo()
-        if nameLabel then nameLabel.Text = nm end
-        if iconImg and url then iconImg.Image = url end
-        lastPlaceId = game.PlaceId
-    end
+    -- ===== Yellow notes area: ให้พิมพ์รายละเอียดอัพเดตได้
+    local notes = Instance.new("TextBox",wrap)
+    notes.Name="UP_Notes"; notes.Position=UDim2.new(0,12,0,124); notes.Size=UDim2.new(1,-24,1,-(124+12))
+    notes.BackgroundColor3=Color3.fromRGB(255,230,90) -- เหลืองตามภาพ
+    notes.ClearTextOnFocus=false; notes.MultiLine=true; notes.TextWrapped=true; notes.TextXAlignment=Enum.TextXAlignment.Left; notes.TextYAlignment=Enum.TextYAlignment.Top
+    notes.PlaceholderText="Write update details for this map here…"
+    notes.Font=Enum.Font.Gotham; notes.TextSize=13; notes.TextColor3=Color3.fromRGB(30,30,30)
+    corner(notes,10); stroke(notes,1.8,THEME.GREEN,0.15)
 
-    do
-        local row = Instance.new("Frame", scroll)
-        row.Name = "UP_MapRow"
-        row.LayoutOrder = base + 2
-        row.Size = UDim2.new(1,-6,0,86)
-        row.BackgroundColor3 = THEME.BLACK
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
-
-        iconImg = Instance.new("ImageLabel", row)
-        iconImg.BackgroundTransparency = 1
-        iconImg.Size = UDim2.fromOffset(64,64)
-        iconImg.Position = UDim2.new(0,12,0.5,-32)
-        iconImg.ImageTransparency = 0
-
-        nameLabel = Instance.new("TextLabel", row)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Position = UDim2.new(0,12+64+12,0,0)
-        nameLabel.Size = UDim2.new(1,-(12+64+12+100+12),1,0)
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.TextSize = 14
-        nameLabel.TextColor3 = THEME.WHITE
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.TextWrapped = true
-        nameLabel.Text = "Loading…"
-
-        local btn = Instance.new("TextButton", row)
-        btn.AutoButtonColor = false
-        btn.Size = UDim2.fromOffset(90,28)
-        btn.Position = UDim2.new(1,-(12+90),0.5,-14)
-        btn.BackgroundColor3 = THEME.BLACK
-        btn.Text = "Refresh"
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 12
-        btn.TextColor3 = THEME.WHITE
-        corner(btn,10); stroke(btn,1.6,THEME.GREEN)
-
-        btn.MouseButton1Click:Connect(function()
-            applyMapInfo()
-            btn.Text = "Done"
-            task.delay(0.4, function() btn.Text = "Refresh" end)
-        end)
-    end
-
-    -- เริ่มต้นเติมข้อมูล
-    applyMapInfo()
-
-    -- Auto refresh: เปลี่ยนแมพ/รีสปอน ก็อัปเดต (โพลทุก 5 วิ + เช็ค placeId เปลี่ยน)
-    keep(RunService.Heartbeat:Connect(function(step)
-        -- เช็คเปลี่ยนแมพ
-        if game.PlaceId ~= lastPlaceId then
-            applyMapInfo()
-        end
-    end))
-    -- สำรองโพลทุก 5 วิ เผื่อชื่อ/ไอคอนเพิ่งถูกแก้ที่เว็บ
-    task.spawn(function()
-        while scroll.Parent do
-            task.wait(5)
-            applyMapInfo()
-        end
+    -- session-save ต่อแท็บ (จำข้อความระหว่างเปิดเกม)
+    _G.UFOX_UpdateNotes = _G.UFOX_UpdateNotes or {}
+    local key = tostring(game.PlaceId)
+    if _G.UFOX_UpdateNotes[key] then notes.Text = _G.UFOX_UpdateNotes[key] end
+    notes:GetPropertyChangedSignal("Text"):Connect(function()
+        _G.UFOX_UpdateNotes[key] = notes.Text
     end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
