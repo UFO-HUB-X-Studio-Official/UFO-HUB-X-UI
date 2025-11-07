@@ -2149,18 +2149,17 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Update Tab — Map Update 🗺️ (Model A V1 • white header holds icon+name) =====
+-- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
     local MarketplaceService = game:GetService("MarketplaceService")
     local RunService = game:GetService("RunService")
-    local lp = Players.LocalPlayer
 
-    -- ===== CONFIG (แก้ในสคริปต์; รองรับอิโมจิ) =====
-    local MAP_SUFFIX = " — อัพเดท v1.0 ✍️"    -- ต่อท้ายชื่อแมพ (ปล่อย "" ถ้าไม่ใช้)
-    local NOTES_TEXT = "ใส่รายละเอียดอัปเดตที่นี่ได้เลย 🚀\n- เปลี่ยนสภาพอากาศ\n- เพิ่มจุดเกิดใหม่\n-A1\n-A2\n-A3\n-A4\n-A5\n-A6\n-A7\n-A8\n-A9"
+    -- CONFIG
+    local MAP_SUFFIX = " — อัพเดต v1.0 ✍️"
+    local NOTES_TEXT = "- เพิ่มจุดเกิดใหม่\n-A1\n-A2\n-A3\n-A4\n-A5\n-A6\n-A7\n-A8\n-A9"
 
-    -- A V1 theme helpers
+    -- THEME
     local THEME = {
         GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
         BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185)
@@ -2178,20 +2177,20 @@ registerRight("Update", function(scroll)
 
     local base = 3100
 
-    -- Section title
+    -- title
     local head = Instance.new("TextLabel",scroll)
     head.Name="UP_Header"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
     head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
     head.Text="Map Update 🗺️"
 
-    -- Outer wrap
+    -- wrap
     local wrap = Instance.new("Frame",scroll)
     wrap.Name="UP_Wrap"; wrap.LayoutOrder=base+1; wrap.Size=UDim2.new(1,-6,0,260)
     wrap.BackgroundColor3=THEME.BLACK; corner(wrap,12); stroke(wrap,2.2,THEME.GREEN)
 
-    -- ===== White header box (icon left + map name)
+    -- ===== Header (now BLACK)
     local header = Instance.new("Frame",wrap)
-    header.BackgroundColor3 = THEME.WHITE
+    header.BackgroundColor3 = THEME.BLACK   -- ← เปลี่ยนเป็นดำ
     header.Position = UDim2.new(0,12,0,12)
     header.Size = UDim2.new(1,-24,0,60)
     corner(header,10); stroke(header,1.6,THEME.GREEN,0)
@@ -2203,7 +2202,6 @@ registerRight("Update", function(scroll)
     icon.ScaleType = Enum.ScaleType.Fit
     icon.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(game.GameId)
 
-    -- fetch map name
     local mapName = "Current Place"
     pcall(function()
         local inf = MarketplaceService:GetProductInfo(game.PlaceId)
@@ -2217,24 +2215,25 @@ registerRight("Update", function(scroll)
     nameLbl.Font = Enum.Font.GothamBlack
     nameLbl.TextSize = 16
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    nameLbl.TextColor3 = Color3.fromRGB(20,20,20)
+    nameLbl.TextColor3 = THEME.WHITE       -- ← ตัวอักษรขาวให้ตัดกับพื้นดำ
     nameLbl.Text = mapName .. ((MAP_SUFFIX ~= "" and (" "..MAP_SUFFIX)) or "")
 
-    -- ===== Yellow notes area (อ่านจากสคริปต์เท่านั้น + เลื่อน scroll ได้)
+    -- ===== Notes (BLACK + no scrollbar visuals)
     local notesScroll = Instance.new("ScrollingFrame",wrap)
     notesScroll.Name = "UP_Notes"
     notesScroll.Position = UDim2.new(0,12,0,12+60+12)
     notesScroll.Size = UDim2.new(1,-24,1,-(12+60+12+12))
-    notesScroll.BackgroundColor3 = Color3.fromRGB(255,230,90)
+    notesScroll.BackgroundColor3 = THEME.BLACK  -- ← เปลี่ยนเป็นดำ
     notesScroll.BorderSizePixel = 0
-    notesScroll.ScrollBarThickness = 6
     notesScroll.ScrollingDirection = Enum.ScrollingDirection.Y
     notesScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
     notesScroll.CanvasSize = UDim2.new(0,0,0,0)
     notesScroll.Active = true
+    -- ซ่อนเส้นสกรอลล์ทั้งหมด
+    notesScroll.ScrollBarThickness = 0
+    notesScroll.ScrollBarImageTransparency = 1
     corner(notesScroll,10); stroke(notesScroll,1.8,THEME.GREEN,0.15)
 
-    -- padding ภายในกล่องเหลือง
     local PAD_L, PAD_R, PAD_T, PAD_B = 14, 10, 10, 10
     local pad = Instance.new("UIPadding")
     pad.PaddingLeft   = UDim.new(0,PAD_L)
@@ -2243,31 +2242,27 @@ registerRight("Update", function(scroll)
     pad.PaddingBottom = UDim.new(0,PAD_B)
     pad.Parent = notesScroll
 
-    -- ข้อความ (อ่านอย่างเดียว)
     local label = Instance.new("TextLabel", notesScroll)
     label.BackgroundTransparency = 1
     label.Position = UDim2.new(0,0,0,0)
-    label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, 0) -- ความสูงจะอัปเดตตาม TextBounds
+    label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, 0)
     label.Font = Enum.Font.Gotham
     label.TextSize = 16
-    label.TextColor3 = Color3.fromRGB(30,30,30)
+    label.TextColor3 = THEME.WHITE          -- ← ข้อความขาวบนพื้นดำ
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Top
     label.TextWrapped = true
-    label.RichText = true  -- รองรับอีโมจิ/สัญลักษณ์ได้ตามปกติ
+    label.RichText = true
     label.Text = NOTES_TEXT
 
-    -- คำนวณความสูง + Canvas ให้เลื่อนขึ้นลงได้เมื่อยาว
     local function refreshNoteSize()
-        -- บังคับ reflow ครั้งแรก
         local _ = label.TextBounds
         label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, label.TextBounds.Y)
         notesScroll.CanvasSize = UDim2.new(0,0,0, label.TextBounds.Y + PAD_T + PAD_B)
     end
     refreshNoteSize()
     label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
-    RunService.Heartbeat:Connect(refreshNoteSize) -- กันเคสสลับหน้าต่าง/สเกลหน้าจอ
-
+    RunService.Heartbeat:Connect(refreshNoteSize)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
