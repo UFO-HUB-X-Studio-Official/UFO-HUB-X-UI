@@ -2153,11 +2153,12 @@ end)
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
     local MarketplaceService = game:GetService("MarketplaceService")
+    local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
-    -- ===== CONFIG (แก้ค่าในสคริปต์ได้ตามต้องการ; รองรับอิโมจิ) =====
-    local MAP_SUFFIX = " — Update v1.0 ✍️"   -- ข้อความที่ต้องการต่อท้ายชื่อแมพ (เว้น "" ถ้าไม่ต้องการ)
-    local NOTES_TEXT = "ใส่รายละเอียดอัปเดตที่นี่ได้เลย 🚀\n- เปลี่ยนสภาพอากาศ\n- เพิ่มจุดเกิดใหม่" -- กล่องเหลือง อ่านจากสคริปต์เท่านั้น
+    -- ===== CONFIG (แก้ในสคริปต์; รองรับอิโมจิ) =====
+    local MAP_SUFFIX = " — Update v1.0 ✍️"    -- ต่อท้ายชื่อแมพ (ปล่อย "" ถ้าไม่ใช้)
+    local NOTES_TEXT = "ใส่รายละเอียดอัปเดตที่นี่ได้เลย 🚀\n- เปลี่ยนสภาพอากาศ\n- เพิ่มจุดเกิดใหม่"
 
     -- A V1 theme helpers
     local THEME = {
@@ -2211,40 +2212,62 @@ registerRight("Update", function(scroll)
 
     local nameLbl = Instance.new("TextLabel",header)
     nameLbl.BackgroundTransparency=1
-    nameLbl.Position = UDim2.new(0,8+48+10,0,0) -- ชิดไอคอน
+    nameLbl.Position = UDim2.new(0,8+48+10,0,0)
     nameLbl.Size = UDim2.new(1,-(8+48+10+12),1,0)
     nameLbl.Font = Enum.Font.GothamBlack
     nameLbl.TextSize = 16
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
     nameLbl.TextColor3 = Color3.fromRGB(20,20,20)
-    -- ✅ ต่อท้ายชื่อแมพด้วยข้อความจากสคริปต์ (รองรับอิโมจิ)
     nameLbl.Text = mapName .. ((MAP_SUFFIX ~= "" and (" "..MAP_SUFFIX)) or "")
 
-    -- ===== Yellow notes area (อ่านจากสคริปต์เท่านั้น)
-    local notes = Instance.new("TextBox",wrap)
-    notes.Name="UP_Notes"
-    notes.Position = UDim2.new(0,12,0,12+60+12)
-    notes.Size = UDim2.new(1,-24,1,-(12+60+12+12))
-    notes.BackgroundColor3 = Color3.fromRGB(255,230,90)
-    notes.ClearTextOnFocus=false; notes.MultiLine=true; notes.TextWrapped=true
-    notes.TextXAlignment=Enum.TextXAlignment.Left; notes.TextYAlignment=Enum.TextYAlignment.Top
-    notes.Font=Enum.Font.Gotham
-    notes.TextSize = 16              -- 🆙 ใหญ่ขึ้นจาก 13 → 16
-    notes.TextColor3=Color3.fromRGB(30,30,30)
-    notes.TextEditable = false       -- 🔒 เขียน/แก้ได้ในสคริปต์เท่านั้น
-    notes.Text = NOTES_TEXT          -- ✍️ ใส่ข้อความที่นี่ (รองรับอิโมจิ)
-    corner(notes,10); stroke(notes,1.8,THEME.GREEN,0.15)
+    -- ===== Yellow notes area (อ่านจากสคริปต์เท่านั้น + เลื่อน scroll ได้)
+    local notesScroll = Instance.new("ScrollingFrame",wrap)
+    notesScroll.Name = "UP_Notes"
+    notesScroll.Position = UDim2.new(0,12,0,12+60+12)
+    notesScroll.Size = UDim2.new(1,-24,1,-(12+60+12+12))
+    notesScroll.BackgroundColor3 = Color3.fromRGB(255,230,90)
+    notesScroll.BorderSizePixel = 0
+    notesScroll.ScrollBarThickness = 6
+    notesScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    notesScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+    notesScroll.CanvasSize = UDim2.new(0,0,0,0)
+    notesScroll.Active = true
+    corner(notesScroll,10); stroke(notesScroll,1.8,THEME.GREEN,0.15)
 
-    -- ขยับตัวอักษรไปทางขวา/เว้นขอบให้สวย (ทั้งสี่ด้าน)
+    -- padding ภายในกล่องเหลือง
+    local PAD_L, PAD_R, PAD_T, PAD_B = 14, 10, 10, 10
     local pad = Instance.new("UIPadding")
-    pad.PaddingLeft   = UDim.new(0,14)
-    pad.PaddingTop    = UDim.new(0,10)
-    pad.PaddingRight  = UDim.new(0,10)
-    pad.PaddingBottom = UDim.new(0,10)
-    pad.Parent = notes
+    pad.PaddingLeft   = UDim.new(0,PAD_L)
+    pad.PaddingRight  = UDim.new(0,PAD_R)
+    pad.PaddingTop    = UDim.new(0,PAD_T)
+    pad.PaddingBottom = UDim.new(0,PAD_B)
+    pad.Parent = notesScroll
 
-    -- (ยกเลิกระบบเซสชันออโต้เซฟ เพราะตอนนี้ให้แก้จากสคริปต์เท่านั้น)
-    -- _G.UFOX_UpdateNotes = _G.UFOX_UpdateNotes or {}
+    -- ข้อความ (อ่านอย่างเดียว)
+    local label = Instance.new("TextLabel", notesScroll)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0,0,0,0)
+    label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, 0) -- ความสูงจะอัปเดตตาม TextBounds
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.TextColor3 = Color3.fromRGB(30,30,30)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.TextWrapped = true
+    label.RichText = true  -- รองรับอีโมจิ/สัญลักษณ์ได้ตามปกติ
+    label.Text = NOTES_TEXT
+
+    -- คำนวณความสูง + Canvas ให้เลื่อนขึ้นลงได้เมื่อยาว
+    local function refreshNoteSize()
+        -- บังคับ reflow ครั้งแรก
+        local _ = label.TextBounds
+        label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, label.TextBounds.Y)
+        notesScroll.CanvasSize = UDim2.new(0,0,0, label.TextBounds.Y + PAD_T + PAD_B)
+    end
+    refreshNoteSize()
+    label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
+    RunService.Heartbeat:Connect(refreshNoteSize) -- กันเคสสลับหน้าต่าง/สเกลหน้าจอ
+
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
