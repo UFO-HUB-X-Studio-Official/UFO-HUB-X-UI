@@ -2264,6 +2264,97 @@ registerRight("Update", function(scroll)
     label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
     RunService.Heartbeat:Connect(refreshNoteSize)
 end)
+-- ===== UFO HUB X • Update Tab — System #2: discord update UFO HUB X (Model A V1) =====
+registerRight("Update", function(scroll)
+    local Players = game:GetService("Players")
+    local lp      = Players.LocalPlayer
+
+    -- CONFIG (ตามที่สั่ง)
+    local DISCORD_ICON_ID = 180090127732
+    local DISCORD_LINK    = "https://discord.gg/A6Mqpfj3"
+
+    -- THEME (A V1)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
+
+    -- A V1 rule: ใช้ UIListLayout เดิมเท่านั้น (ถ้ายังไม่มีค่อยสร้าง)
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0, 12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- หา LayoutOrder ถัดไป (ต่อท้ายของเดิม)
+    local nextOrder = 10
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= list then
+            nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0) + 1)
+        end
+    end
+
+    -- ลบของเก่าที่ชื่อซ้ำ (กันซ้อน)
+    for _,n in ipairs({"DC_Header","DC_Row"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+
+    -- Header (A V1: สูง 36, ตัวหนา 16, ชิดซ้าย)
+    local head = Instance.new("TextLabel", scroll)
+    head.Name = "DC_Header"
+    head.BackgroundTransparency = 1
+    head.Size = UDim2.new(1, 0, 0, 36)
+    head.Font = Enum.Font.GothamBold
+    head.TextSize = 16
+    head.TextColor3 = THEME.TEXT
+    head.TextXAlignment = Enum.TextXAlignment.Left
+    head.Text = "discord update UFO HUB X"   -- ตามที่สั่ง (ภาษาอังกฤษ)
+    head.LayoutOrder = nextOrder
+
+    -- Row (A V1: สูง 46, พื้นดำ + เส้นเขียว, label ซ้าย)
+    local row = Instance.new("Frame", scroll)
+    row.Name = "DC_Row"
+    row.Size = UDim2.new(1, -6, 0, 46)
+    row.BackgroundColor3 = THEME.BLACK
+    row.LayoutOrder = nextOrder + 1
+    corner(row, 12); stroke(row, 2.2, THEME.GREEN)
+
+    -- ไอคอนด้านซ้าย (ขนาด 22–24 ให้พอดีกับความสูง 46)
+    local icon = Instance.new("ImageLabel", row)
+    icon.BackgroundTransparency = 1
+    icon.Image = "rbxassetid://"..tostring(DISCORD_ICON_ID)
+    icon.Size = UDim2.fromOffset(24, 24)
+    icon.Position = UDim2.new(0, 12, 0.5, -12)
+
+    -- ชื่อแถว (เลื่อนขวาให้พ้นไอคอน)
+    local lab = Instance.new("TextLabel", row)
+    lab.BackgroundTransparency = 1
+    lab.Position = UDim2.new(0, 12 + 24 + 10, 0, 0) -- 12 padding + 24 icon + 10 gap
+    lab.Size = UDim2.new(1, -(12 + 24 + 10 + 12), 1, 0)
+    lab.Font = Enum.Font.GothamBold
+    lab.TextSize = 13
+    lab.TextColor3 = THEME.WHITE
+    lab.TextXAlignment = Enum.TextXAlignment.Left
+    lab.Text = "discord UFO HUB X"          -- ตามที่สั่ง (ภาษาอังกฤษ)
+
+    -- ทำให้ทั้งแถวคลิกได้ -> คัดลอกลิงก์ Discord ทันที (A V1 ไม่ใส่เอฟเฟกต์แปลก)
+    local hit = Instance.new("TextButton", row)
+    hit.BackgroundTransparency = 1
+    hit.AutoButtonColor = false
+    hit.Text = ""
+    hit.Size = UDim2.fromScale(1,1)
+
+    hit.MouseButton1Click:Connect(function()
+        local ok,err = pcall(function() setclipboard(DISCORD_LINK) end)
+        if ok then
+            notify("Discord", "Link copied to clipboard:\n"..DISCORD_LINK)
+        else
+            notify("Discord", "Link: "..DISCORD_LINK.."\n(copy manually)")
+        end
+    end)
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
