@@ -2155,6 +2155,10 @@ registerRight("Update", function(scroll)
     local MarketplaceService = game:GetService("MarketplaceService")
     local lp = Players.LocalPlayer
 
+    -- ===== CONFIG (แก้ค่าในสคริปต์ได้ตามต้องการ; รองรับอิโมจิ) =====
+    local MAP_SUFFIX = " — Update v1.0 ✍️"   -- ข้อความที่ต้องการต่อท้ายชื่อแมพ (เว้น "" ถ้าไม่ต้องการ)
+    local NOTES_TEXT = "ใส่รายละเอียดอัปเดตที่นี่ได้เลย 🚀\n- เปลี่ยนสภาพอากาศ\n- เพิ่มจุดเกิดใหม่" -- กล่องเหลือง อ่านจากสคริปต์เท่านั้น
+
     -- A V1 theme helpers
     local THEME = {
         GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
@@ -2184,7 +2188,7 @@ registerRight("Update", function(scroll)
     wrap.Name="UP_Wrap"; wrap.LayoutOrder=base+1; wrap.Size=UDim2.new(1,-6,0,260)
     wrap.BackgroundColor3=THEME.BLACK; corner(wrap,12); stroke(wrap,2.2,THEME.GREEN)
 
-    -- ===== White header box (icon left + map name left; no 'Now Playing')
+    -- ===== White header box (icon left + map name)
     local header = Instance.new("Frame",wrap)
     header.BackgroundColor3 = THEME.WHITE
     header.Position = UDim2.new(0,12,0,12)
@@ -2213,9 +2217,10 @@ registerRight("Update", function(scroll)
     nameLbl.TextSize = 16
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
     nameLbl.TextColor3 = Color3.fromRGB(20,20,20)
-    nameLbl.Text = mapName
+    -- ✅ ต่อท้ายชื่อแมพด้วยข้อความจากสคริปต์ (รองรับอิโมจิ)
+    nameLbl.Text = mapName .. ((MAP_SUFFIX ~= "" and (" "..MAP_SUFFIX)) or "")
 
-    -- ===== Yellow notes area
+    -- ===== Yellow notes area (อ่านจากสคริปต์เท่านั้น)
     local notes = Instance.new("TextBox",wrap)
     notes.Name="UP_Notes"
     notes.Position = UDim2.new(0,12,0,12+60+12)
@@ -2223,17 +2228,23 @@ registerRight("Update", function(scroll)
     notes.BackgroundColor3 = Color3.fromRGB(255,230,90)
     notes.ClearTextOnFocus=false; notes.MultiLine=true; notes.TextWrapped=true
     notes.TextXAlignment=Enum.TextXAlignment.Left; notes.TextYAlignment=Enum.TextYAlignment.Top
-    notes.PlaceholderText="Write update details for this map here…"
-    notes.Font=Enum.Font.Gotham; notes.TextSize=13; notes.TextColor3=Color3.fromRGB(30,30,30)
+    notes.Font=Enum.Font.Gotham
+    notes.TextSize = 16              -- 🆙 ใหญ่ขึ้นจาก 13 → 16
+    notes.TextColor3=Color3.fromRGB(30,30,30)
+    notes.TextEditable = false       -- 🔒 เขียน/แก้ได้ในสคริปต์เท่านั้น
+    notes.Text = NOTES_TEXT          -- ✍️ ใส่ข้อความที่นี่ (รองรับอิโมจิ)
     corner(notes,10); stroke(notes,1.8,THEME.GREEN,0.15)
 
-    -- session-save per map
-    _G.UFOX_UpdateNotes = _G.UFOX_UpdateNotes or {}
-    local key = tostring(game.PlaceId)
-    if _G.UFOX_UpdateNotes[key] then notes.Text = _G.UFOX_UpdateNotes[key] end
-    notes:GetPropertyChangedSignal("Text"):Connect(function()
-        _G.UFOX_UpdateNotes[key] = notes.Text
-    end)
+    -- ขยับตัวอักษรไปทางขวา/เว้นขอบให้สวย (ทั้งสี่ด้าน)
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft   = UDim.new(0,14)
+    pad.PaddingTop    = UDim.new(0,10)
+    pad.PaddingRight  = UDim.new(0,10)
+    pad.PaddingBottom = UDim.new(0,10)
+    pad.Parent = notes
+
+    -- (ยกเลิกระบบเซสชันออโต้เซฟ เพราะตอนนี้ให้แก้จากสคริปต์เท่านั้น)
+    -- _G.UFOX_UpdateNotes = _G.UFOX_UpdateNotes or {}
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
