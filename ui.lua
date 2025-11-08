@@ -2264,27 +2264,22 @@ registerRight("Update", function(scroll)
     label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
     RunService.Heartbeat:Connect(refreshNoteSize)
 end)
--- ===== [ADD] UFO HUB X • Update Tab — System #2: Social Links (Model A V1) =====
-registerRight("Update", function(scroll)
-    local Players = game:GetService("Players")
-    local lp      = Players.LocalPlayer
-
-    -- ===== THEME (A V1) =====
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-    }
+-- ===== [REPLACE] UFO HUB X • Update Tab — System #2: Social Links (Model A V1) =====
+-- หมวดเดียว มี Header เดียว + 4 แถวคนละสี
+do
+    -- ใช้ THEME/corner/stroke จากบล็อกเดิม (ถ้าไม่มีให้ใส่เหมือนเดิม)
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
-    local function notify(title, text) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=title,Text=text or "",Duration=2.5}) end) end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or Color3.fromRGB(25,255,125); s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
+    local function notify(title,text) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=title,Text=text or "",Duration=2.5}) end) end
 
-    -- ===== A V1 rule: single UIListLayout =====
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0, 12)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- เคลียร์ซ้ำ
+    for _,n in ipairs({"SOC_Header","SOC_YT_Row","SOC_FB_Row","SOC_DC_Row","SOC_IG_Row"}) do
+        local o = scroll:FindFirstChild(n); if o then o:Destroy() end
+    end
 
     -- หา LayoutOrder ต่อท้าย
     local nextOrder = 10
@@ -2294,114 +2289,112 @@ registerRight("Update", function(scroll)
         end
     end
 
-    -- ล้างซ้ำ (ถ้าเคยสร้าง)
-    for _,n in ipairs({
-        "SOC_YT_Header","SOC_YT_Row",
-        "SOC_FB_Header","SOC_FB_Row",
-        "SOC_DC_Header","SOC_DC_Row",
-        "SOC_IG_Header","SOC_IG_Row",
-    }) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    -- ===== Header เดียว (มีอิโมจิ)
+    local head = Instance.new("TextLabel", scroll)
+    head.Name = "SOC_Header"
+    head.LayoutOrder = nextOrder
+    head.BackgroundTransparency = 1
+    head.Size = UDim2.new(1,0,0,36)
+    head.Font = Enum.Font.GothamBold
+    head.TextSize = 16
+    head.TextColor3 = Color3.fromRGB(255,255,255)
+    head.TextXAlignment = Enum.TextXAlignment.Left
+    head.Text = "Social Links 🔗"  -- << ชื่อหมวดหมู่เดียว
+    nextOrder += 1
 
-    -- ===== CONFIG (IDs + Links) =====
+    -- ===== ข้อมูล 4 รายการ (สีตามแบรนด์)
     local SOCIAL = {
         {
-            key="YT",
-            header="YouTube update UFO HUB X",
-            label ="YouTube UFO HUB X",
-            icon  = 101148162175730,
-            link  = "https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6",
+            name="SOC_YT_Row",
+            label="YouTube UFO HUB X",
+            icon="rbxassetid://101148162175730",
+            link="https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6",
+            bg=Color3.fromRGB(220, 40, 40),  -- Red
         },
         {
-            key="FB",
-            header="Facebook update UFO HUB X",
-            label ="Facebook UFO HUB X",
-            icon  = 125550727454821,
-            link  = "", -- ยังไม่มีลิงก์
+            name="SOC_FB_Row",
+            label="Facebook UFO HUB X",
+            icon="rbxassetid://125550727454821",
+            link="",
+            bg=Color3.fromRGB(24,119,242),   -- Blue
         },
         {
-            key="DC",
-            header="Discord update UFO HUB X",
-            label ="Discord UFO HUB X",
-            icon  = 100707147776573, -- อัปเดตเป็น ID ใหม่ที่ให้มา
-            link  = "https://discord.gg/A6Mqpfj3",
+            name="SOC_DC_Row",
+            label="Discord UFO HUB X",
+            icon="rbxassetid://100707147776573",
+            link="https://discord.gg/A6Mqpfj3",
+            bg=Color3.fromRGB(88,101,242),   -- Discord purple
         },
         {
-            key="IG",
-            header="Instagram update UFO HUB X",
-            label ="Instagram UFO HUB X",
-            icon  = 80934939419962,
-            link  = "", -- ยังไม่มีลิงก์
+            name="SOC_IG_Row",
+            label="Instagram UFO HUB X",
+            icon="rbxassetid://80934939419962",
+            link="",
+            bg=Color3.fromRGB(193,53,132),   -- base (จะมี gradient ทับ)
+            gradient=true,                   -- ใช้ไล่เฉดแบบ Instagram
         },
     }
 
-    -- ===== Helper: สร้าง header + row แบบ A V1 =====
-    local function addSocial(item)
-        -- Header 36px
-        local head = Instance.new("TextLabel", scroll)
-        head.Name = "SOC_"..item.key.."_Header"
-        head.LayoutOrder = nextOrder
-        head.BackgroundTransparency = 1
-        head.Size = UDim2.new(1, 0, 0, 36)
-        head.Font = Enum.Font.GothamBold
-        head.TextSize = 16
-        head.TextColor3 = THEME.TEXT
-        head.TextXAlignment = Enum.TextXAlignment.Left
-        head.Text = item.header
+    local ICON_SIZE = 30 -- ↑ ไอคอนใหญ่ขึ้น
 
-        -- Row 46px
+    local GREEN = Color3.fromRGB(25,255,125)
+    for _,it in ipairs(SOCIAL) do
         local row = Instance.new("Frame", scroll)
-        row.Name = "SOC_"..item.key.."_Row"
-        row.LayoutOrder = nextOrder + 1
-        nextOrder = nextOrder + 2
-        row.Size = UDim2.new(1, -6, 0, 46)
-        row.BackgroundColor3 = THEME.BLACK
-        corner(row, 12); stroke(row, 2.2, THEME.GREEN)
+        row.Name = it.name
+        row.LayoutOrder = nextOrder
+        nextOrder += 1
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = it.bg
+        corner(row,12); stroke(row,2.2,GREEN)
 
-        -- Icon left
+        -- Gradient สำหรับ Instagram
+        if it.gradient then
+            local g = Instance.new("UIGradient", row)
+            g.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255,200,55)), -- yellow/orange
+                ColorSequenceKeypoint.new(0.50, Color3.fromRGB(221,42,123)), -- pink
+                ColorSequenceKeypoint.new(1.00, Color3.fromRGB(88,81,219)),  -- purple/blue
+            }
+            g.Rotation = 0
+        end
+
+        -- ไอคอนซ้าย (ใหญ่ขึ้น)
         local icon = Instance.new("ImageLabel", row)
         icon.BackgroundTransparency = 1
-        icon.Image = "rbxassetid://"..tostring(item.icon)
-        icon.Size = UDim2.fromOffset(24, 24)
-        icon.Position = UDim2.new(0, 12, 0.5, -12)
+        icon.Image = it.icon
+        icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
+        icon.Position = UDim2.new(0, 10, 0.5, -ICON_SIZE/2)
         icon.ScaleType = Enum.ScaleType.Fit
 
-        -- Label right
+        -- ชื่อแถว
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
-        lab.Position = UDim2.new(0, 12 + 24 + 10, 0, 0)
-        lab.Size = UDim2.new(1, -(12 + 24 + 10 + 12), 1, 0)
+        lab.Position = UDim2.new(0, 10 + ICON_SIZE + 10, 0, 0)
+        lab.Size = UDim2.new(1, -(10 + ICON_SIZE + 10 + 12), 1, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
+        lab.TextColor3 = Color3.fromRGB(255,255,255)
         lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = item.label
+        lab.Text = it.label
 
-        -- Clickable area (คัดลอกลิงก์ถ้ามี)
+        -- คลิกทั้งแถว = คัดลอกลิงก์
         local hit = Instance.new("TextButton", row)
         hit.BackgroundTransparency = 1
         hit.AutoButtonColor = false
         hit.Text = ""
         hit.Size = UDim2.fromScale(1,1)
-
         hit.MouseButton1Click:Connect(function()
-            if item.link and item.link ~= "" then
+            if it.link ~= "" then
                 local ok=false
-                if typeof(setclipboard) == "function" then
-                    ok = pcall(function() setclipboard(item.link) end)
-                end
-                notify(item.label, ok and "Link copied ✅" or ("Link: "..item.link))
+                if typeof(setclipboard) == "function" then ok = pcall(function() setclipboard(it.link) end) end
+                notify(it.label, ok and "Link copied ✅" or ("Link: "..it.link))
             else
-                notify(item.label, "ยังไม่ตั้งค่าลิงก์")
+                notify(it.label, "ยังไม่ตั้งค่าลิงก์")
             end
         end)
     end
-
-    -- ===== Build all rows in order =====
-    for _,it in ipairs(SOCIAL) do
-        addSocial(it)
-    end
 end)
--- ===== [/ADD] System #2: Social Links (A V1) =====
+-- ===== [/REPLACE] Social Links (A V1, single header + colored rows) =====
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
