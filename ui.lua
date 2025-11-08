@@ -824,8 +824,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
--- + Runner Save (per map) for Flight toggle + Sensitivity (SensRel)
--- FIX: Row border stays GREEN; only the toggle switch border turns RED/GREEN.
+-- เพิ่มระบบเซฟแบบ Runner (per-map) • ไม่เปลี่ยนหน้าตา/สีเดิม
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -833,12 +832,86 @@ registerRight("Player", function(scroll)
     local UserInputService=game:GetService("UserInputService")
     local TweenService=game:GetService("TweenService")
     local PhysicsService=game:GetService("PhysicsService")
+    local HttpService=game:GetService("HttpService")
+    local MarketplaceService=game:GetService("MarketplaceService")
     local lp=Players.LocalPlayer
 
-    -- ---------- SAVE (runner) ----------
-    local SAVE = (getgenv and getgenv().UFOX_SAVE) or { get=function(_,_,d) return d end, set=function() end }
-    local function SaveGet(k, d) local ok, v = pcall(function() return SAVE.get(k, d) end); return ok and v or d end
-    local function SaveSet(k, v) pcall(function() SAVE.set(k, v) end) end
+    ----------------------------------------------------------------------
+    -- SAVE (Runner FS if available; fallback to getgenv in-memory)
+    ----------------------------------------------------------------------
+    local function safePlaceName()
+        local ok,info = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+        local name = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+        -- sanitize filename chars
+        name = name:gsub("[^%w%-%._ ]","_")
+        return name
+    end
+
+    local SAVE_DIR = "UFO HUB X"
+    local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+
+    local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+                and typeof(writefile)=="function" and typeof(readfile)=="function")
+    if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
+
+    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {} -- fallback per-session
+    local RAM = getgenv().UFOX_RAM
+
+    local function loadSave()
+        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+            local ok,decoded = pcall(function()
+                return HttpService:JSONDecode(readfile(SAVE_FILE))
+            end)
+            if ok and type(decoded)=="table" then return decoded end
+        end
+        return RAM[SAVE_FILE] or {}
+    end
+    local function writeSave(tbl)
+        tbl = tbl or {}
+        if hasFS then
+            pcall(function()
+                writefile(SAVE_FILE, HttpService:JSONEncode(tbl))
+            end)
+        end
+        RAM[SAVE_FILE] = tbl
+    end
+    local function getSave(path, default)
+        local data = loadSave()
+        local cur = data
+        for seg in string.gmatch(path, "[^%.]+") do
+            cur = (type(cur)=="table") and cur[seg] or nil
+        end
+        if cur==nil then return default end
+        return cur
+    end
+    local function setSave(path, value)
+        local data = loadSave()
+        local cur = data
+        local last, prev
+        for seg in string.gmatch(path, "[^%.]+") do
+            prev = cur; last = seg
+            if type(cur[seg])~="table" then cur[seg] = {} end
+            cur = cur[seg]
+        end
+        -- write value to last key (handle 1 level path too)
+        if last then
+            -- climb again to parent
+            cur = data
+            local parent = data
+            local key
+            for seg in string.gmatch(path, "[^%.]+") do
+                key = seg
+                if type(parent[seg])~="table" then parent[seg] = {} end
+                prev = parent
+                parent = parent[seg]
+            end
+            prev[key] = value
+        end
+        writeSave(data)
+    end
+    ----------------------------------------------------------------------
 
     -- ---------- SAFE STATE / CONNECTION MANAGER ----------
     _G.UFOX = _G.UFOX or {}
@@ -984,6 +1057,22 @@ registerRight("Player", function(scroll)
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
         createPad(); setPartsClip(char,true); forceNoclipLoop(true)
+
+        keepTemp(RunService.Heartbeat:Connect(function(dt)
+            sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
+            local cam=workspace.CurrentCamera; if not cam then return end
+            local camCF=cam.CFrame; local fwd=camCF.LookVector
+            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); rightH=(rightH.Magnitude>0) and rightH.Unit or Vector3.new()
+            local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
+            if hold.fwd  then pos+=fwd*(MOVE*dt) end
+            if hold.back then pos-=fwd*(MOVE*dt) end
+            if hold.left then pos-=rightH*(STRAFE*dt) end
+            if hold.right then pos+=rightH*(STRAFE*dt) end
+            if hold.up   then pos+=Vector3.new(0,ASC*dt,0) end
+            if hold.down then pos-=Vector3.new(0,ASC*dt,0) end
+            bp.Position=pos
+            ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
+        end))
     end
 
     local function stopFly()
@@ -1000,27 +1089,12 @@ registerRight("Player", function(scroll)
         rel=math.clamp(rel,0,1)
         currentRel=rel
         _G.UFOX_sensRel = currentRel
+        -- SAVE: sensitivity
+        setSave("Player.SensRel", currentRel)
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
-        SaveSet("Player.SensRel", currentRel)
     end
-
-    -- toggle setter (keeps row stroke GREEN; only switch stroke changes)
-    local function setState(v)
-        flightOn=v
-        SaveSet("Player.FlightOn", v)
-        local row = scroll:FindFirstChild("Row_FlightToggle")
-        if row then
-            local sw = row:FindFirstChild("Switch")
-            local knobObj = sw and sw:FindFirstChild("Knob")
-            local swStroke = sw and sw:FindFirstChild("ToggleStroke")
-            if swStroke then swStroke.Color = v and THEME.GREEN or THEME.RED end
-            if knobObj then tween(knobObj,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.1) end
-        end
-        if v then startFly() else stopFly() end
-    end
-
     keepUI(UserInputService.InputBegan:Connect(function(io,gp)
         if gp then return end
         local k=io.KeyCode
@@ -1030,7 +1104,11 @@ registerRight("Player", function(scroll)
         if k==Enum.KeyCode.D then hold.right=true end
         if k==Enum.KeyCode.Space or k==Enum.KeyCode.E then hold.up=true end
         if k==Enum.KeyCode.LeftShift or k==Enum.KeyCode.Q then hold.down=true end
-        if k==Enum.KeyCode.F then setState(not flightOn) end
+        if k==Enum.KeyCode.F then if flightOn then
+            stopFly(); setSave("Player.FlightOn", false)
+        else
+            startFly(); setSave("Player.FlightOn", true)
+        end end
         if k==Enum.KeyCode.LeftBracket then applyRel(currentRel-0.05,true)
         elseif k==Enum.KeyCode.RightBracket then applyRel(currentRel+0.05,true) end
     end))
@@ -1068,15 +1146,20 @@ registerRight("Player", function(scroll)
     row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=nextOrder+1
     local lab=Instance.new("TextLabel",row); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Flight Mode"
-
-    local sw=Instance.new("Frame",row); sw.Name="Switch"; sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+    local sw=Instance.new("Frame",row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
     sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-    local swStroke=Instance.new("UIStroke",sw); swStroke.Name="ToggleStroke"; swStroke.Thickness=1.8; swStroke.Color=THEME.RED
-    local knob=Instance.new("Frame",sw); knob.Name="Knob"; knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+    local swStroke=Instance.new("UIStroke",sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
+    local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
     local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    keepUI(btn.MouseButton1Click:Connect(function() setState(not flightOn) end))
+    local on=false
+    local function setState(v)
+        on=v
+        if v then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly(); setSave("Player.FlightOn", true)
+        else     swStroke.Color=THEME.RED;   tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly();  setSave("Player.FlightOn", false) end
+    end
+    keepUI(btn.MouseButton1Click:Connect(function() setState(not on) end))
 
-    -- ---------- SLIDER ----------
+    -- ---------- SLIDER (tap-to-set + drag threshold) ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
     sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4)
@@ -1085,7 +1168,7 @@ registerRight("Player", function(scroll)
     bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true
     local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
 
-    -- METAL SQUARE KNOB
+    -- ==== METAL SQUARE KNOB ====
     local knobShadow=Instance.new("Frame",bar)
     knobShadow.Size=UDim2.fromOffset(18,34); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
     knobShadow.Position=UDim2.new(0,0,0.5,2); knobShadow.BackgroundColor3=THEME.DARK
@@ -1120,7 +1203,14 @@ registerRight("Player", function(scroll)
         centerVal.Text=string.format("%d%%",math.floor(visRel*100+0.5))
     end
 
-    -- drag/tap logic
+    -- drag/tap logic (เหมือนเดิม)
+    local RSdragConn, EndDragConn
+    local dragging=false
+    local maybeDrag=false
+    local downX=nil
+    local lastTouchX
+    local DRAG_THRESHOLD = 5
+
     local function stopDrag()
         dragging=false; maybeDrag=false; downX=nil
         if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
@@ -1170,12 +1260,16 @@ registerRight("Player", function(scroll)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then onPressFromInput(io) end
     end))
 
-    -- ---------- INIT (restore saved state) ----------
-    local savedRel   = SaveGet("Player.SensRel", (_G.UFOX_sensRel or 0))
-    local savedFlyOn = SaveGet("Player.FlightOn", false)
-    applyRel(savedRel, true)
+    -- ---------- INIT (load saved) ----------
+    local savedRel   = getSave("Player.SensRel", (_G.UFOX_sensRel or 0))
+    local savedFlyOn = getSave("Player.FlightOn", false)
+    if firstRun then applyRel(savedRel or 0,true) else applyRel(savedRel or currentRel,true) end
     syncVisual(true)
-    setState(savedFlyOn) -- will set only the SWITCH stroke; row border remains GREEN
+    if savedFlyOn then
+        -- mirror UI state to ON without changing row style
+        local swStroke = swStroke -- already RED; setState(true) will turn it GREEN & startFly()
+        setState(true)
+    end
 end)
 -- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) =====
 -- Order: Run → Jump → Swim
