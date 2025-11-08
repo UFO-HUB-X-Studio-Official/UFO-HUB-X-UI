@@ -2264,33 +2264,29 @@ registerRight("Update", function(scroll)
     label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
     RunService.Heartbeat:Connect(refreshNoteSize)
 end)
--- ===== UFO HUB X • Update Tab — System #2: discord update UFO HUB X (Model A V1) =====
+-- ===== [ADD] UFO HUB X • Update Tab — System #2: Social Links (Model A V1) =====
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
     local lp      = Players.LocalPlayer
 
-    -- CONFIG (ตามที่สั่ง)
-    local DISCORD_ICON_ID = 180090127732
-    local DISCORD_LINK    = "https://discord.gg/A6Mqpfj3"
-
-    -- THEME (A V1)
+    -- ===== THEME (A V1) =====
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
     }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
+    local function notify(title, text) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=title,Text=text or "",Duration=2.5}) end) end
 
-    -- A V1 rule: ใช้ UIListLayout เดิมเท่านั้น (ถ้ายังไม่มีค่อยสร้าง)
+    -- ===== A V1 rule: single UIListLayout =====
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0, 12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- หา LayoutOrder ถัดไป (ต่อท้ายของเดิม)
+    -- หา LayoutOrder ต่อท้าย
     local nextOrder = 10
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= list then
@@ -2298,63 +2294,114 @@ registerRight("Update", function(scroll)
         end
     end
 
-    -- ลบของเก่าที่ชื่อซ้ำ (กันซ้อน)
-    for _,n in ipairs({"DC_Header","DC_Row"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    -- ล้างซ้ำ (ถ้าเคยสร้าง)
+    for _,n in ipairs({
+        "SOC_YT_Header","SOC_YT_Row",
+        "SOC_FB_Header","SOC_FB_Row",
+        "SOC_DC_Header","SOC_DC_Row",
+        "SOC_IG_Header","SOC_IG_Row",
+    }) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
 
-    -- Header (A V1: สูง 36, ตัวหนา 16, ชิดซ้าย)
-    local head = Instance.new("TextLabel", scroll)
-    head.Name = "DC_Header"
-    head.BackgroundTransparency = 1
-    head.Size = UDim2.new(1, 0, 0, 36)
-    head.Font = Enum.Font.GothamBold
-    head.TextSize = 16
-    head.TextColor3 = THEME.TEXT
-    head.TextXAlignment = Enum.TextXAlignment.Left
-    head.Text = "discord update UFO HUB X"   -- ตามที่สั่ง (ภาษาอังกฤษ)
-    head.LayoutOrder = nextOrder
+    -- ===== CONFIG (IDs + Links) =====
+    local SOCIAL = {
+        {
+            key="YT",
+            header="YouTube update UFO HUB X",
+            label ="YouTube UFO HUB X",
+            icon  = 101148162175730,
+            link  = "https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6",
+        },
+        {
+            key="FB",
+            header="Facebook update UFO HUB X",
+            label ="Facebook UFO HUB X",
+            icon  = 125550727454821,
+            link  = "", -- ยังไม่มีลิงก์
+        },
+        {
+            key="DC",
+            header="Discord update UFO HUB X",
+            label ="Discord UFO HUB X",
+            icon  = 100707147776573, -- อัปเดตเป็น ID ใหม่ที่ให้มา
+            link  = "https://discord.gg/A6Mqpfj3",
+        },
+        {
+            key="IG",
+            header="Instagram update UFO HUB X",
+            label ="Instagram UFO HUB X",
+            icon  = 80934939419962,
+            link  = "", -- ยังไม่มีลิงก์
+        },
+    }
 
-    -- Row (A V1: สูง 46, พื้นดำ + เส้นเขียว, label ซ้าย)
-    local row = Instance.new("Frame", scroll)
-    row.Name = "DC_Row"
-    row.Size = UDim2.new(1, -6, 0, 46)
-    row.BackgroundColor3 = THEME.BLACK
-    row.LayoutOrder = nextOrder + 1
-    corner(row, 12); stroke(row, 2.2, THEME.GREEN)
+    -- ===== Helper: สร้าง header + row แบบ A V1 =====
+    local function addSocial(item)
+        -- Header 36px
+        local head = Instance.new("TextLabel", scroll)
+        head.Name = "SOC_"..item.key.."_Header"
+        head.LayoutOrder = nextOrder
+        head.BackgroundTransparency = 1
+        head.Size = UDim2.new(1, 0, 0, 36)
+        head.Font = Enum.Font.GothamBold
+        head.TextSize = 16
+        head.TextColor3 = THEME.TEXT
+        head.TextXAlignment = Enum.TextXAlignment.Left
+        head.Text = item.header
 
-    -- ไอคอนด้านซ้าย (ขนาด 22–24 ให้พอดีกับความสูง 46)
-    local icon = Instance.new("ImageLabel", row)
-    icon.BackgroundTransparency = 1
-    icon.Image = "rbxassetid://"..tostring(DISCORD_ICON_ID)
-    icon.Size = UDim2.fromOffset(24, 24)
-    icon.Position = UDim2.new(0, 12, 0.5, -12)
+        -- Row 46px
+        local row = Instance.new("Frame", scroll)
+        row.Name = "SOC_"..item.key.."_Row"
+        row.LayoutOrder = nextOrder + 1
+        nextOrder = nextOrder + 2
+        row.Size = UDim2.new(1, -6, 0, 46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row, 12); stroke(row, 2.2, THEME.GREEN)
 
-    -- ชื่อแถว (เลื่อนขวาให้พ้นไอคอน)
-    local lab = Instance.new("TextLabel", row)
-    lab.BackgroundTransparency = 1
-    lab.Position = UDim2.new(0, 12 + 24 + 10, 0, 0) -- 12 padding + 24 icon + 10 gap
-    lab.Size = UDim2.new(1, -(12 + 24 + 10 + 12), 1, 0)
-    lab.Font = Enum.Font.GothamBold
-    lab.TextSize = 13
-    lab.TextColor3 = THEME.WHITE
-    lab.TextXAlignment = Enum.TextXAlignment.Left
-    lab.Text = "discord UFO HUB X"          -- ตามที่สั่ง (ภาษาอังกฤษ)
+        -- Icon left
+        local icon = Instance.new("ImageLabel", row)
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://"..tostring(item.icon)
+        icon.Size = UDim2.fromOffset(24, 24)
+        icon.Position = UDim2.new(0, 12, 0.5, -12)
+        icon.ScaleType = Enum.ScaleType.Fit
 
-    -- ทำให้ทั้งแถวคลิกได้ -> คัดลอกลิงก์ Discord ทันที (A V1 ไม่ใส่เอฟเฟกต์แปลก)
-    local hit = Instance.new("TextButton", row)
-    hit.BackgroundTransparency = 1
-    hit.AutoButtonColor = false
-    hit.Text = ""
-    hit.Size = UDim2.fromScale(1,1)
+        -- Label right
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0, 12 + 24 + 10, 0, 0)
+        lab.Size = UDim2.new(1, -(12 + 24 + 10 + 12), 1, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = item.label
 
-    hit.MouseButton1Click:Connect(function()
-        local ok,err = pcall(function() setclipboard(DISCORD_LINK) end)
-        if ok then
-            notify("Discord", "Link copied to clipboard:\n"..DISCORD_LINK)
-        else
-            notify("Discord", "Link: "..DISCORD_LINK.."\n(copy manually)")
-        end
-    end)
+        -- Clickable area (คัดลอกลิงก์ถ้ามี)
+        local hit = Instance.new("TextButton", row)
+        hit.BackgroundTransparency = 1
+        hit.AutoButtonColor = false
+        hit.Text = ""
+        hit.Size = UDim2.fromScale(1,1)
+
+        hit.MouseButton1Click:Connect(function()
+            if item.link and item.link ~= "" then
+                local ok=false
+                if typeof(setclipboard) == "function" then
+                    ok = pcall(function() setclipboard(item.link) end)
+                end
+                notify(item.label, ok and "Link copied ✅" or ("Link: "..item.link))
+            else
+                notify(item.label, "ยังไม่ตั้งค่าลิงก์")
+            end
+        end)
+    end
+
+    -- ===== Build all rows in order =====
+    for _,it in ipairs(SOCIAL) do
+        addSocial(it)
+    end
 end)
+-- ===== [/ADD] System #2: Social Links (A V1) =====
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
