@@ -825,6 +825,7 @@ registerRight("Player", function(scroll)
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- + Runner Save (per map) for Flight toggle + Sensitivity (SensRel)
+-- FIX: Row border stays GREEN; only the toggle switch border turns RED/GREEN.
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -835,10 +836,7 @@ registerRight("Player", function(scroll)
     local lp=Players.LocalPlayer
 
     -- ---------- SAVE (runner) ----------
-    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
-        get=function(_,_,d) return d end,
-        set=function() end
-    }
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or { get=function(_,_,d) return d end, set=function() end }
     local function SaveGet(k, d) local ok, v = pcall(function() return SAVE.get(k, d) end); return ok and v or d end
     local function SaveSet(k, v) pcall(function() SAVE.set(k, v) end) end
 
@@ -1005,28 +1003,22 @@ registerRight("Player", function(scroll)
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
-        SaveSet("Player.SensRel", currentRel) -- [SAVE]
+        SaveSet("Player.SensRel", currentRel)
     end
 
-    -- UI toggle state handler (unify all entry points)
-    local on=false
+    -- toggle setter (keeps row stroke GREEN; only switch stroke changes)
     local function setState(v)
-        on=v
-        if v then
-            SaveSet("Player.FlightOn", true) -- [SAVE]
-            local swStroke = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildOfClass("UIStroke")) or nil
-            if swStroke then swStroke.Color=THEME.GREEN end
-            local knobObj = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")) or nil
-            if knobObj then tween(knobObj,{Position=UDim2.new(1,-24,0.5,-11)},0.1) end
-            startFly()
-        else
-            SaveSet("Player.FlightOn", false) -- [SAVE]
-            local swStroke = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildOfClass("UIStroke")) or nil
-            if swStroke then swStroke.Color=THEME.RED end
-            local knobObj = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")) or nil
-            if knobObj then tween(knobObj,{Position=UDim2.new(0,2,0.5,-11)},0.1) end
-            stopFly()
+        flightOn=v
+        SaveSet("Player.FlightOn", v)
+        local row = scroll:FindFirstChild("Row_FlightToggle")
+        if row then
+            local sw = row:FindFirstChild("Switch")
+            local knobObj = sw and sw:FindFirstChild("Knob")
+            local swStroke = sw and sw:FindFirstChild("ToggleStroke")
+            if swStroke then swStroke.Color = v and THEME.GREEN or THEME.RED end
+            if knobObj then tween(knobObj,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.1) end
         end
+        if v then startFly() else stopFly() end
     end
 
     keepUI(UserInputService.InputBegan:Connect(function(io,gp)
@@ -1038,7 +1030,7 @@ registerRight("Player", function(scroll)
         if k==Enum.KeyCode.D then hold.right=true end
         if k==Enum.KeyCode.Space or k==Enum.KeyCode.E then hold.up=true end
         if k==Enum.KeyCode.LeftShift or k==Enum.KeyCode.Q then hold.down=true end
-        if k==Enum.KeyCode.F then setState(not flightOn) end -- (use setState to persist) [SAVE]
+        if k==Enum.KeyCode.F then setState(not flightOn) end
         if k==Enum.KeyCode.LeftBracket then applyRel(currentRel-0.05,true)
         elseif k==Enum.KeyCode.RightBracket then applyRel(currentRel+0.05,true) end
     end))
@@ -1076,14 +1068,15 @@ registerRight("Player", function(scroll)
     row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=nextOrder+1
     local lab=Instance.new("TextLabel",row); lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-140,1,0); lab.Position=UDim2.new(0,16,0,0)
     lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE; lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="Flight Mode"
-    local sw=Instance.new("Frame",row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-    sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-    local swStroke=Instance.new("UIStroke",sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
-    local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
-    local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    keepUI(btn.MouseButton1Click:Connect(function() setState(not flightOn) end)) -- [SAVE]
 
-    -- ---------- SLIDER (tap-to-set + drag threshold) ----------
+    local sw=Instance.new("Frame",row); sw.Name="Switch"; sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+    sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
+    local swStroke=Instance.new("UIStroke",sw); swStroke.Name="ToggleStroke"; swStroke.Thickness=1.8; swStroke.Color=THEME.RED
+    local knob=Instance.new("Frame",sw); knob.Name="Knob"; knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+    local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+    keepUI(btn.MouseButton1Click:Connect(function() setState(not flightOn) end))
+
+    -- ---------- SLIDER ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
     sRow.BackgroundColor3=THEME.BLACK; corner(sRow,12); stroke(sRow,2.2,THEME.GREEN); sRow.LayoutOrder=nextOrder+2
     local sLab=Instance.new("TextLabel",sRow); sLab.BackgroundTransparency=1; sLab.Position=UDim2.new(0,16,0,4)
@@ -1092,7 +1085,7 @@ registerRight("Player", function(scroll)
     bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true
     local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
 
-    -- ==== METAL SQUARE KNOB ====
+    -- METAL SQUARE KNOB
     local knobShadow=Instance.new("Frame",bar)
     knobShadow.Size=UDim2.fromOffset(18,34); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
     knobShadow.Position=UDim2.new(0,0,0.5,2); knobShadow.BackgroundColor3=THEME.DARK
@@ -1180,12 +1173,9 @@ registerRight("Player", function(scroll)
     -- ---------- INIT (restore saved state) ----------
     local savedRel   = SaveGet("Player.SensRel", (_G.UFOX_sensRel or 0))
     local savedFlyOn = SaveGet("Player.FlightOn", false)
-
     applyRel(savedRel, true)
-    visRel = currentRel
-    -- build toggle visuals will update inside setState:
     syncVisual(true)
-    if savedFlyOn then setState(true) else setState(false) end
+    setState(savedFlyOn) -- will set only the SWITCH stroke; row border remains GREEN
 end)
 -- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) =====
 -- Order: Run → Jump → Swim
