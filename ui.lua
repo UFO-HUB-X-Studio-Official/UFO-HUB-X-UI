@@ -1563,553 +1563,6 @@ registerRight("Player", function(scroll)
     -- apply current settings after build
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME) =====
-
-registerRight("Settings", function(scroll)
-    local Players    = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local Tween      = game:GetService("TweenService")
-    local Stats      = game:GetService("Stats")
-
-    -- ===== LOOK / LAYOUT =====
-    local ICON_SIZE   = 28
-    local TEXT_SIZE   = 16
-    local ROW_HEIGHT  = 44
-
-    local BOX_WIDTH   = 760
-    local INNER_PAD   = 12
-    local GAP_BETWEEN = 10
-    local FIRST_SHIFT = 24   -- FPS ไปขวา
-    local FOURTH_SHIFT= 10   -- Up ไปขวา
-    local LAST_BONUS  = 12   -- กัน Down โดนตัด
-
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-        DIM   = Color3.fromRGB(160,200,160),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
-
-    -- ===== STATE =====
-    _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
-    local S = _G.UFOX_FPS
-
-    -- ===== Settings panel wrapper =====
-    local WRAP = "UFOX_WRAP_UIFPS_ONLY"
-    local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
-    local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.AutomaticSize=Enum.AutomaticSize.Y; wrap.Size=UDim2.new(1,0,0,0)
-    local maxOrder=0 for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder,(ch.LayoutOrder or 0)) end end
-    wrap.LayoutOrder = maxOrder+1
-    local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
-
-    local header = Instance.new("TextLabel", wrap)
-    header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
-    header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.TEXT
-    header.TextXAlignment=Enum.TextXAlignment.Left; header.Text="UI FPS ⚡"; header.LayoutOrder=1
-
-    local row = Instance.new("Frame", wrap)
-    row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=2
-    local lab = Instance.new("TextLabel", row)
-    lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="UI FPS Display"
-
-    local sw = Instance.new("Frame", row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-    sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-    local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness=1.8
-    local knob=Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
-    local function setSwitch(v) S.enabled=v; swStroke.Color=v and THEME.GREEN or THEME.RED; tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)}); if S.frame then S.frame.Visible=v end end
-    knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
-    local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
-
-    -- ===== Readers: ใช้แหล่งเดียวกับแถบ Roblox =====
-    local function getPingMs()
-        local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
-        item = item and item:FindFirstChild("Data Ping")
-        if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
-        return 0
-    end
-    local function getKbps(name)
-        local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
-        item = item and item:FindFirstChild(name)
-        if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
-        return 0
-    end
-    local function getMemMBStable()
-        local ok,v = pcall(function() return Stats:GetTotalMemoryUsageMb() end)
-        if ok and v and v>0 then return v end
-        return 0
-    end
-
-    local ICONS = {
-        FPS      = "rbxassetid://116103940304617",
-        Ping     = "rbxassetid://125226433995402",
-        Memory   = "rbxassetid://131794120624488",
-        Upload   = "rbxassetid://125701675927454",
-        Download = "rbxassetid://134953518153703",
-    }
-
-    -- ===== HUD =====
-    local function createFPSFrame()
-        if S.frame and S.frame.Parent then return S.frame end
-
-        local gui = Instance.new("ScreenGui")
-        gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-        gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-        local box = Instance.new("Frame", gui)
-        box.Name="FPSBox"; box.Size=UDim2.new(0,BOX_WIDTH,0,ROW_HEIGHT); box.Position=UDim2.new(0.5,-BOX_WIDTH/2,0,8)
-        box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
-
-        local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
-
-        local function makeSlot(i, iconId, initText)
-            local shift = (i==1 and FIRST_SHIFT) or (i==4 and FOURTH_SHIFT) or 0
-            local bonus = (i==5) and LAST_BONUS or 0
-            local x = INNER_PAD + (i-1)*(SLOT_W + GAP_BETWEEN) + shift
-
-            local icon = Instance.new("ImageLabel", box)
-            icon.BackgroundTransparency=1; icon.Image=iconId
-            icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
-            icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
-
-            local txt = Instance.new("TextLabel", box)
-            txt.BackgroundTransparency=1
-            txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
-            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) + bonus - shift, 1, 0)
-            txt.Font = Enum.Font.GothamBold
-            txt.TextSize = TEXT_SIZE
-            txt.TextColor3 = THEME.GREEN
-            txt.TextXAlignment = Enum.TextXAlignment.Left
-            txt.TextTruncate = Enum.TextTruncate.None
-            txt.Text = initText
-            return txt
-        end
-
-        local tFPS   = makeSlot(1, ICONS.FPS,      "FPS: --")
-        local tPing  = makeSlot(2, ICONS.Ping,     "Ping: --ms")
-        local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
-        local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
-        local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
-
-        -- ===== REALTIME UPDATE (match Roblox) =====
-        local lastMem = 0
-        local uiAcc, UI_RATE = 0, 0.10  -- รีเฟรชข้อความทุก 0.10s (ค่าคำนวณทำทุกเฟรม)
-
-        RunService.Heartbeat:Connect(function(dt)
-            -- FPS: หลังเรนเดอร์ (สไตล์ Roblox perf stats) ไม่มีการ smooth
-            local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
-
-            uiAcc += dt
-            if uiAcc >= UI_RATE then
-                uiAcc = 0
-
-                -- อ่านค่าที่ Roblox แสดงใน Perf Stats
-                local ping  = getPingMs()
-                local up    = getKbps("Data Send Kbps")
-                local down  = getKbps("Data Receive Kbps")
-                local mem   = getMemMBStable(); if mem == 0 then mem = lastMem else lastMem = mem end
-
-                if S.enabled then
-                    tFPS.Text  = string.format("FPS: %d",   math.floor(fps + 0.5))
-                    tPing.Text = string.format("Ping: %dms", math.floor(ping + 0.5))
-                    tMem.Text  = string.format("Mem: %dMB",  math.floor(mem + 0.5))
-                    tUp.Text   = string.format("Up: %dKbps", math.floor(up + 0.5))
-                    tDown.Text = string.format("Down: %dKbps", math.floor(down + 0.5))
-                end
-            end
-        end)
-
-        box.Visible = S.enabled
-        S.frame = box
-        return box
-    end
-
-    createFPSFrame()
-    setSwitch(S.enabled)
-end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) =====
-registerRight("Settings", function(scroll)
-    local TweenService = game:GetService("TweenService")
-    local Lighting     = game:GetService("Lighting")
-    local Players      = game:GetService("Players")
-    local lp           = Players.LocalPlayer
-
-    -- THEME (A V1)
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-        RED   = Color3.fromRGB(255,40,40),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
-
-    -- Ensure ListLayout
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    -- STATE
-    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
-    local S = _G.UFOX_SMOOTH
-
-    -- Header
-    local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
-    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
-    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
-    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
-
-    -- Remove any old rows with same names (ป้องกันซ้อน/ค้าง)
-    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do
-        local old = scroll:FindFirstChild(n); if old then old:Destroy() end
-    end
-
-    -- Row factory (always create new)
-    local function makeRow(name, label, order, onToggle)
-        local row = Instance.new("Frame", scroll)
-        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
-        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
-
-        local lab=Instance.new("TextLabel", row)
-        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
-
-        local sw=Instance.new("Frame", row)
-        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK
-        corner(sw,13)
-        local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
-
-        local knob=Instance.new("Frame", sw)
-        knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
-        knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
-
-        local state=false
-        local function setState(v)
-            state=v
-            swStroke.Color = v and THEME.GREEN or THEME.RED
-            tween(knob, {Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
-            if onToggle then onToggle(v, setState) end
-        end
-        local btn=Instance.new("TextButton", sw)
-        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-        btn.MouseButton1Click:Connect(function() setState(not state) end)
-
-        return setState
-    end
-
-    -- ===== FX helpers (ย่อ: เหมือนเดิม) =====
-    local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
-    local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
-
-    local function capture(inst)
-        if S._snap[inst] then return end
-        local t={}; pcall(function()
-            if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
-            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
-            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
-            elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
-            elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
-            elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
-        end)
-        S._snap[inst]=t
-    end
-    for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
-
-    local function applyHalf()
-        for i,t in pairs(S._snap) do if i.Parent then pcall(function()
-            if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
-            elseif i:IsA("Trail") then i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
-            elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
-            elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
-            elseif i:IsA("Sparkles") then i.Enabled=false end
-        end) end end
-        for _,obj in ipairs(Lighting:GetChildren()) do
-            if PP[obj.ClassName] then
-                S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
-                obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
-                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
-            end
-        end
-    end
-    local function applyOff()
-        for i,_ in pairs(S._snap) do if i.Parent then pcall(function() i.Enabled=false end) end end
-        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then obj.Enabled=false end end
-    end
-    local function restoreAll()
-        for i,t in pairs(S._snap) do if i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
-        for obj,t in pairs(S._pp)   do if obj.Parent then for k,v in pairs(t) do pcall(function() obj[k]=v end) end end end
-    end
-
-    local function plasticMode(on)
-        for _,p in ipairs(workspace:GetDescendants()) do
-            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
-                if on then
-                    if not p:GetAttribute("Mat0") then p:SetAttribute("Mat0",p.Material.Name); p:SetAttribute("Refl0",p.Reflectance) end
-                    p.Material=Enum.Material.SmoothPlastic; p.Reflectance=0
-                else
-                    local m=p:GetAttribute("Mat0"); local r=p:GetAttribute("Refl0")
-                    if m then pcall(function() p.Material=Enum.Material[m] end) p:SetAttribute("Mat0",nil) end
-                    if r~=nil then p.Reflectance=r; p:SetAttribute("Refl0",nil) end
-                end
-            end
-        end
-    end
-
-    -- ===== 3 switches (fixed orders 11/12/13) =====
-    local set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v, set)
-        if v then S.mode=1; applyHalf()
-            -- force other off
-            local setter = scroll:FindFirstChild("A1_Remove") and scroll.A1_Remove:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==1 then S.mode=0; restoreAll() end end
-    end)
-
-    local set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v, set)
-        if v then S.mode=2; applyOff()
-            local setter = scroll:FindFirstChild("A1_Reduce") and scroll.A1_Reduce:GetAttribute("Setter")
-            if setter then setter(false) end
-        else if S.mode==2 then S.mode=0; restoreAll() end end
-    end)
-
-    local setPl  = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
-        S.plastic=v; plasticMode(v)
-    end)
-end)
--- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) =====
--- 1) Black Screen (Performance AFK)  [toggle]
--- 2) White Screen (Performance AFK)  [toggle]
--- 3) AFK Anti-Kick (20 min)          [toggle default ON]
--- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
---  • หน้าตา/ขนาด/กรอบสวิตช์ = แบบ A Legacy เดิมทั้งหมด
-
-registerRight("Settings", function(scroll)
-    local Players       = game:GetService("Players")
-    local TweenService  = game:GetService("TweenService")
-    local UIS           = game:GetService("UserInputService")
-    local RunService    = game:GetService("RunService")
-    local VirtualUser   = game:GetService("VirtualUser")
-    local lp            = Players.LocalPlayer
-
-    -- ===== THEME / HELPERS (A Legacy) =====
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
-
-    -- ===== STATE =====
-    _G.UFOX_AFK = _G.UFOX_AFK or {
-        blackOn=false, whiteOn=false, antiIdleOn=true, watcherOn=true,
-        lastInput=tick(), antiIdleLoop=nil, idleHooked=false,
-        gui=nil,
-    }
-    local S = _G.UFOX_AFK
-
-    -- ===== CLEAN preview section if exists =====
-    local old = scroll:FindFirstChild("Section_AFK_Preview"); if old then old:Destroy() end
-    local old2 = scroll:FindFirstChild("Section_AFK_Full");    if old2 then old2:Destroy() end
-
-    -- list/canvas เหมือนเดิม
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    local nextOrder = 10
-    for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
-    end
-
-    -- ===== Header =====
-    local header = Instance.new("TextLabel", scroll)
-    header.Name = "Section_AFK_Full"
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1,0,0,36)
-    header.Font = Enum.Font.GothamBold
-    header.TextSize = 16
-    header.TextColor3 = THEME.TEXT
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "AFK 💤"
-    header.LayoutOrder = nextOrder
-
-    -- ===== Overlay (Black/White full-screen) =====
-    local function ensureGui()
-        if S.gui and S.gui.Parent then return S.gui end
-        local gui = Instance.new("ScreenGui")
-        gui.Name="UFOX_AFK_GUI"
-        gui.IgnoreGuiInset=true
-        gui.ResetOnSpawn=false
-        gui.DisplayOrder=999999
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-        gui.Parent = lp:WaitForChild("PlayerGui")
-        S.gui = gui
-        return gui
-    end
-    local function clearOverlay(name)
-        if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end
-    end
-    local function showBlack(v)
-        clearOverlay("WhiteOverlay")
-        clearOverlay("BlackOverlay")
-        if not v then return end
-        local gui=ensureGui()
-        local black=Instance.new("Frame", gui)
-        black.Name="BlackOverlay"; black.BackgroundColor3=Color3.new(0,0,0)
-        black.Size=UDim2.fromScale(1,1); black.ZIndex=200; black.Active=true
-    end
-    local function showWhite(v)
-        clearOverlay("BlackOverlay")
-        clearOverlay("WhiteOverlay")
-        if not v then return end
-        local gui=ensureGui()
-        local white=Instance.new("Frame", gui)
-        white.Name="WhiteOverlay"; white.BackgroundColor3=Color3.new(1,1,1)
-        white.Size=UDim2.fromScale(1,1); white.ZIndex=200; white.Active=true
-    end
-    local function syncOverlays()
-        if S.blackOn then S.whiteOn=false; showWhite(false); showBlack(true)
-        elseif S.whiteOn then S.blackOn=false; showBlack(false); showWhite(true)
-        else showBlack(false); showWhite(false) end
-    end
-
-    -- ===== Anti-Kick core =====
-    local function pulseOnce()
-        local cam = workspace.CurrentCamera
-        local cf  = cam and cam.CFrame or CFrame.new()
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
-        end)
-    end
-    local function startAntiIdle()
-        if S.antiIdleLoop then return end
-        S.antiIdleLoop = task.spawn(function()
-            while S.antiIdleOn do
-                pulseOnce()
-                for i=1,540 do
-                    if not S.antiIdleOn then break end
-                    task.wait(1)
-                end
-            end
-            S.antiIdleLoop=nil
-        end)
-    end
-    if not S.idleHooked then
-        S.idleHooked = true
-        lp.Idled:Connect(function()
-            if S.antiIdleOn then pulseOnce() end
-        end)
-    end
-
-    -- ===== Watcher (5 นาทีไม่ขยับ → เปิด #3) =====
-    local INACTIVE = 5*60
-    local function markInput() S.lastInput = tick() end
-    UIS.InputBegan:Connect(markInput)
-    UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end)
-    if S.watcherConn then pcall(function() S.watcherConn:Disconnect() end) S.watcherConn=nil end
-    local function startWatcher()
-        if S.watcherConn then return end
-        S.watcherConn = RunService.Heartbeat:Connect(function()
-            if not S.watcherOn then return end
-            if tick() - S.lastInput >= INACTIVE then
-                S.antiIdleOn = true
-                if not S.antiIdleLoop then startAntiIdle() end
-                pulseOnce()
-                S.lastInput = tick()
-            end
-        end)
-    end
-
-    -- ===== UI Row helper (A Legacy switch) =====
-    local function makeRow(textLabel, defaultOn, onToggle)
-        local row = Instance.new("Frame", scroll)
-        row.Size = UDim2.new(1,-6,0,46)
-        row.BackgroundColor3 = THEME.BLACK
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
-        row.LayoutOrder = header.LayoutOrder + 1
-
-        local lab = Instance.new("TextLabel", row)
-        lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(1,-160,1,0)
-        lab.Position = UDim2.new(0,16,0,0)
-        lab.Font = Enum.Font.GothamBold
-        lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
-        lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = textLabel
-
-        local sw = Instance.new("Frame", row)
-        sw.AnchorPoint = Vector2.new(1,0.5)
-        sw.Position = UDim2.new(1,-12,0.5,0)
-        sw.Size = UDim2.fromOffset(52,26)
-        sw.BackgroundColor3 = THEME.BLACK
-        corner(sw,13)
-        local swStroke = Instance.new("UIStroke", sw)
-        swStroke.Thickness = 1.8
-        swStroke.Color = defaultOn and THEME.GREEN or THEME.RED
-
-        local knob = Instance.new("Frame", sw)
-        knob.Size = UDim2.fromOffset(22,22)
-        knob.Position = UDim2.new(defaultOn and 1 or 0, defaultOn and -24 or 2, 0.5, -11)
-        knob.BackgroundColor3 = THEME.WHITE
-        corner(knob,11)
-
-        local state = defaultOn
-        local function setState(v, instant)
-            state = v
-            swStroke.Color = v and THEME.GREEN or THEME.RED
-            tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
-            if onToggle then onToggle(v) end
-        end
-        local btn = Instance.new("TextButton", sw)
-        btn.BackgroundTransparency = 1
-        btn.Size = UDim2.fromScale(1,1)
-        btn.Text = ""
-        btn.AutoButtonColor = false
-        btn.MouseButton1Click:Connect(function() setState(not state, false) end)
-
-        return setState
-    end
-
-    -- ===== Rows + bindings =====
-    local setBlack = makeRow("Black Screen (Performance AFK)", S.blackOn, function(v)
-        S.blackOn = v; if v then S.whiteOn=false end; syncOverlays()
-    end)
-
-    local setWhite = makeRow("White Screen (Performance AFK)", S.whiteOn, function(v)
-        S.whiteOn = v; if v then S.blackOn=false end; syncOverlays()
-    end)
-
-    local setAnti  = makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, function(v)
-        S.antiIdleOn = v
-        if v then startAntiIdle() end
-    end)
-
-    local setWatch = makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, function(v)
-        S.watcherOn = v
-    end)
-
-    -- ===== Init =====
-    syncOverlays()
-    if S.antiIdleOn then startAntiIdle() end
-    startWatcher()
-end)
 --===== UFO HUB X • SERVER — Model A V1 (2 rows: change + live count) =====
 registerRight("Server", function(scroll)
     local Players        = game:GetService("Players")
@@ -2748,6 +2201,708 @@ registerRight("Update", function(scroll)
     for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
 end)
 -- ===== [/FULL PASTE] =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME) + Runner Save =====
+registerRight("Settings", function(scroll)
+    local Players    = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Tween      = game:GetService("TweenService")
+    local Stats      = game:GetService("Stats")
+    local Http       = game:GetService("HttpService")
+    local MPS        = game:GetService("MarketplaceService")
+
+    --------------------------------------------------------------------------------------
+    -- SAVE (per-map): ใช้ไฟล์ในตัวรัน "UFO HUB X/<PlaceId - PlaceName>.json" ถ้าไม่มี FS จะ fallback เป็น getgenv()
+    --------------------------------------------------------------------------------------
+    local function safePlaceName()
+        local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
+        local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+        return n:gsub("[^%w%-%._ ]","_")
+    end
+    local SAVE_DIR  = "UFO HUB X"
+    local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+    local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+                and typeof(writefile)=="function" and typeof(readfile)=="function")
+    if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
+    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
+    local RAM = getgenv().UFOX_RAM
+
+    local function loadSave()
+        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+            local ok,dec = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
+            if ok and type(dec)=="table" then return dec end
+        end
+        return RAM[SAVE_FILE] or {}
+    end
+    local function writeSave(t)
+        t = t or {}
+        if hasFS then pcall(function() writefile(SAVE_FILE, Http:JSONEncode(t)) end) end
+        RAM[SAVE_FILE] = t
+    end
+    local function getSave(path, default)
+        local data = loadSave(); local cur = data
+        for seg in string.gmatch(path,"[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
+        return (cur==nil) and default or cur
+    end
+    local function setSave(path, value)
+        local data = loadSave()
+        local parent = data; local key
+        for seg in string.gmatch(path,"[^%.]+") do
+            key = seg
+            if not parent[seg] or type(parent[seg])~="table" then parent[seg] = {} end
+            parent = parent[seg]
+        end
+        -- เขียนค่าที่ระดับบนสุดของ path
+        local stack, p = {}, data
+        for seg in string.gmatch(path,"[^%.]+") do table.insert(stack, seg) end
+        for i=1,#stack-1 do p = p[stack[i]] end
+        p[stack[#stack]] = value
+        writeSave(data)
+    end
+    --------------------------------------------------------------------------------------
+
+    -- ===== LOOK / LAYOUT =====
+    local ICON_SIZE   = 28
+    local TEXT_SIZE   = 16
+    local ROW_HEIGHT  = 44
+
+    local BOX_WIDTH   = 760
+    local INNER_PAD   = 12
+    local GAP_BETWEEN = 10
+    local FIRST_SHIFT = 24
+    local FOURTH_SHIFT= 10
+    local LAST_BONUS  = 12
+
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+        DIM   = Color3.fromRGB(160,200,160),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p) Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+
+    -- ===== STATE =====
+    _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
+    local S = _G.UFOX_FPS
+
+    -- ===== Settings panel wrapper =====
+    local WRAP = "UFOX_WRAP_UIFPS_ONLY"
+    local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
+    local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.AutomaticSize=Enum.AutomaticSize.Y; wrap.Size=UDim2.new(1,0,0,0)
+    local maxOrder=0 for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder,(ch.LayoutOrder or 0)) end end
+    wrap.LayoutOrder = maxOrder+1
+    local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
+
+    local header = Instance.new("TextLabel", wrap)
+    header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
+    header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.TEXT
+    header.TextXAlignment=Enum.TextXAlignment.Left; header.Text="UI FPS ⚡"; header.LayoutOrder=1
+
+    local row = Instance.new("Frame", wrap)
+    row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=2
+    local lab = Instance.new("TextLabel", row)
+    lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
+    lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="UI FPS Display"
+
+    local sw = Instance.new("Frame", row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+    sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
+    local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness=1.8
+    local knob=Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
+    knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
+
+    -- สวิตช์ + เซฟ
+    local function setSwitch(v)
+        S.enabled=v
+        swStroke.Color = v and THEME.GREEN or THEME.RED
+        tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
+        if S.frame then S.frame.Visible=v end
+        -- SAVE
+        setSave("Settings.UIFPS.Enabled", v)
+    end
+    local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+    btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
+
+    -- ===== Readers =====
+    local function getPingMs()
+        local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
+        item = item and item:FindFirstChild("Data Ping")
+        if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
+        return 0
+    end
+    local function getKbps(name)
+        local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
+        item = item and item:FindFirstChild(name)
+        if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
+        return 0
+    end
+    local function getMemMBStable()
+        local ok,v = pcall(function() return Stats:GetTotalMemoryUsageMb() end)
+        if ok and v and v>0 then return v end
+        return 0
+    end
+
+    local ICONS = {
+        FPS      = "rbxassetid://116103940304617",
+        Ping     = "rbxassetid://125226433995402",
+        Memory   = "rbxassetid://131794120624488",
+        Upload   = "rbxassetid://125701675927454",
+        Download = "rbxassetid://134953518153703",
+    }
+
+    -- ===== HUD =====
+    local function createFPSFrame()
+        if S.frame and S.frame.Parent then return S.frame end
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+        local box = Instance.new("Frame", gui)
+        box.Name="FPSBox"; box.Size=UDim2.new(0,BOX_WIDTH,0,ROW_HEIGHT); box.Position=UDim2.new(0.5,-BOX_WIDTH/2,0,8)
+        box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
+
+        local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
+
+        local function makeSlot(i, iconId, initText)
+            local shift = (i==1 and FIRST_SHIFT) or (i==4 and FOURTH_SHIFT) or 0
+            local bonus = (i==5) and LAST_BONUS or 0
+            local x = INNER_PAD + (i-1)*(SLOT_W + GAP_BETWEEN) + shift
+
+            local icon = Instance.new("ImageLabel", box); icon.BackgroundTransparency=1; icon.Image=iconId
+            icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE); icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
+
+            local txt = Instance.new("TextLabel", box)
+            txt.BackgroundTransparency=1
+            txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
+            txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) + bonus - shift, 1, 0)
+            txt.Font = Enum.Font.GothamBold; txt.TextSize = TEXT_SIZE; txt.TextColor3 = THEME.GREEN
+            txt.TextXAlignment = Enum.TextXAlignment.Left; txt.TextTruncate = Enum.TextTruncate.None; txt.Text = initText
+            return txt
+        end
+
+        local tFPS   = makeSlot(1, ICONS.FPS,      "FPS: --")
+        local tPing  = makeSlot(2, ICONS.Ping,     "Ping: --ms")
+        local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
+        local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
+        local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
+
+        local lastMem = 0
+        local uiAcc, UI_RATE = 0, 0.10
+        RunService.Heartbeat:Connect(function(dt)
+            local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
+            uiAcc += dt
+            if uiAcc >= UI_RATE then
+                uiAcc = 0
+                local ping  = getPingMs()
+                local up    = getKbps("Data Send Kbps")
+                local down  = getKbps("Data Receive Kbps")
+                local mem   = getMemMBStable(); if mem == 0 then mem = lastMem else lastMem = mem end
+                if S.enabled then
+                    tFPS.Text  = string.format("FPS: %d",   math.floor(fps + 0.5))
+                    tPing.Text = string.format("Ping: %dms", math.floor(ping + 0.5))
+                    tMem.Text  = string.format("Mem: %dMB",  math.floor(mem + 0.5))
+                    tUp.Text   = string.format("Up: %dKbps", math.floor(up + 0.5))
+                    tDown.Text = string.format("Down: %dKbps", math.floor(down + 0.5))
+                end
+            end
+        end)
+
+        box.Visible = S.enabled
+        S.frame = box
+        return box
+    end
+
+    -- Build + Restore saved state
+    createFPSFrame()
+    local savedOn = getSave("Settings.UIFPS.Enabled", false)
+    setSwitch(savedOn)
+end)
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) + Runner Save (per-map) =====
+registerRight("Settings", function(scroll)
+    local TweenService = game:GetService("TweenService")
+    local Lighting     = game:GetService("Lighting")
+    local Players      = game:GetService("Players")
+    local Http         = game:GetService("HttpService")
+    local MPS          = game:GetService("MarketplaceService")
+    local lp           = Players.LocalPlayer
+
+    --=================== PER-MAP SAVE (file: UFO HUB X/<PlaceId - Name>.json; fallback RAM) ===================
+    local function safePlaceName()
+        local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
+        local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+        return n:gsub("[^%w%-%._ ]","_")
+    end
+    local SAVE_DIR  = "UFO HUB X"
+    local SAVE_FILE = SAVE_DIR .. "/" .. tostring(game.PlaceId) .. " - " .. safePlaceName() .. ".json"
+    local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+                and typeof(readfile)=="function" and typeof(writefile)=="function")
+    if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
+    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
+    local RAM = getgenv().UFOX_RAM
+
+    local function loadSave()
+        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+            local ok, data = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
+            if ok and type(data)=="table" then return data end
+        end
+        return RAM[SAVE_FILE] or {}
+    end
+    local function writeSave(t)
+        t = t or {}
+        if hasFS then pcall(function() writefile(SAVE_FILE, Http:JSONEncode(t)) end) end
+        RAM[SAVE_FILE] = t
+    end
+    local function getSave(path, default)
+        local cur = loadSave()
+        for seg in string.gmatch(path, "[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
+        return (cur==nil) and default or cur
+    end
+    local function setSave(path, value)
+        local data, p, keys = loadSave(), nil, {}
+        for seg in string.gmatch(path, "[^%.]+") do table.insert(keys, seg) end
+        p = data
+        for i=1,#keys-1 do local k=keys[i]; if type(p[k])~="table" then p[k] = {} end; p = p[k] end
+        p[keys[#keys]] = value
+        writeSave(data)
+    end
+    --==========================================================================================================
+
+    -- THEME (A V1)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+        RED   = Color3.fromRGB(255,40,40),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p) TweenService:Create(o,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
+
+    -- Ensure ListLayout
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- STATE
+    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
+    local S = _G.UFOX_SMOOTH
+
+    -- ===== restore from SAVE =====
+    S.mode    = getSave("Settings.Smoother.Mode",    S.mode)      -- 0/1/2
+    S.plastic = getSave("Settings.Smoother.Plastic", S.plastic)   -- boolean
+
+    -- Header
+    local head = scroll:FindFirstChild("A1_Header") or Instance.new("TextLabel", scroll)
+    head.Name="A1_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
+    head.Font=Enum.Font.GothamBold; head.TextSize=16; head.TextColor3=THEME.TEXT
+    head.TextXAlignment=Enum.TextXAlignment.Left; head.Text="Smoother 🚀"; head.LayoutOrder = 10
+
+    -- Remove any old rows
+    for _,n in ipairs({"A1_Reduce","A1_Remove","A1_Plastic"}) do local old=scroll:FindFirstChild(n); if old then old:Destroy() end end
+
+    -- Row factory
+    local function makeRow(name, label, order, onToggle)
+        local row = Instance.new("Frame", scroll)
+        row.Name=name; row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK
+        row.LayoutOrder=order; corner(row,12); stroke(row,2.2,THEME.GREEN)
+
+        local lab=Instance.new("TextLabel", row)
+        lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
+        lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
+        lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text=label
+
+        local sw=Instance.new("Frame", row)
+        sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
+        sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK
+        corner(sw,13)
+        local swStroke=Instance.new("UIStroke", sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
+
+        local knob=Instance.new("Frame", sw)
+        knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE
+        knob.Position=UDim2.new(0,2,0.5,-11); corner(knob,11)
+
+        local state=false
+        local function setState(v)
+            state=v
+            swStroke.Color = v and THEME.GREEN or THEME.RED
+            tween(knob, {Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
+            if onToggle then onToggle(v) end
+        end
+        local btn=Instance.new("TextButton", sw)
+        btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
+        btn.MouseButton1Click:Connect(function() setState(not state) end)
+
+        return setState
+    end
+
+    -- ===== FX helpers (same as before) =====
+    local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
+    local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
+
+    local function capture(inst)
+        if S._snap[inst] then return end
+        local t={}; pcall(function()
+            if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
+            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
+            elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
+            elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
+        end)
+        S._snap[inst]=t
+    end
+    for _,d in ipairs(workspace:GetDescendants()) do if FX[d.ClassName] then capture(d) end end
+
+    local function applyHalf()
+        for i,t in pairs(S._snap) do if i.Parent then pcall(function()
+            if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
+            elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
+            elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
+            elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
+            elseif i:IsA("Sparkles") then i.Enabled=false end
+        end) end end
+        for _,obj in ipairs(Lighting:GetChildren()) do
+            if PP[obj.ClassName] then
+                S._pp[obj]={Enabled=obj.Enabled, Intensity=obj.Intensity, Size=obj.Size}
+                obj.Enabled=true; if obj.Intensity then obj.Intensity=(obj.Intensity or 1)*0.5 end
+                if obj.ClassName=="BlurEffect" and obj.Size then obj.Size=math.floor((obj.Size or 0)*0.5) end
+            end
+        end
+    end
+    local function applyOff()
+        for i,_ in pairs(S._snap) do if i.Parent then pcall(function() i.Enabled=false end) end end
+        for _,obj in ipairs(Lighting:GetChildren()) do if PP[obj.ClassName] then obj.Enabled=false end end
+    end
+    local function restoreAll()
+        for i,t in pairs(S._snap) do if i.Parent then for k,v in pairs(t) do pcall(function() i[k]=v end) end end end
+        for obj,t in pairs(S._pp)   do if obj.Parent then for k,v in pairs(t) do pcall(function() obj[k]=v end) end end end
+    end
+
+    local function plasticMode(on)
+        for _,p in ipairs(workspace:GetDescendants()) do
+            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
+                if on then
+                    if not p:GetAttribute("Mat0") then p:SetAttribute("Mat0",p.Material.Name); p:SetAttribute("Refl0",p.Reflectance) end
+                    p.Material=Enum.Material.SmoothPlastic; p.Reflectance=0
+                else
+                    local m=p:GetAttribute("Mat0"); local r=p:GetAttribute("Refl0")
+                    if m then pcall(function() p.Material=Enum.Material[m] end) p:SetAttribute("Mat0",nil) end
+                    if r~=nil then p.Reflectance=r; p:SetAttribute("Refl0",nil) end
+                end
+            end
+        end
+    end
+
+    -- ===== 3 switches (fixed orders 11/12/13) + SAVE =====
+    local set50, set100, setPl
+
+    set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
+        if v then S.mode=1; applyHalf(); if set100 then set100(false) end
+        else if S.mode==1 then S.mode=0; restoreAll() end end
+        setSave("Settings.Smoother.Mode", S.mode)
+    end)
+
+    set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
+        if v then S.mode=2; applyOff(); if set50 then set50(false) end
+        else if S.mode==2 then S.mode=0; restoreAll() end end
+        setSave("Settings.Smoother.Mode", S.mode)
+    end)
+
+    setPl   = makeRow("A1_Plastic","Plastic Map (Fast Mode)", 13, function(v)
+        S.plastic=v; plasticMode(v)
+        setSave("Settings.Smoother.Plastic", v)
+    end)
+
+    -- ===== Apply restored saved state to UI/World =====
+    if S.mode==1 then set50(true)
+    elseif S.mode==2 then set100(true)
+    else set50(false); set100(false); restoreAll() end
+    setPl(S.plastic)
+end)
+-- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) + Runner Save =====
+-- 1) Black Screen (Performance AFK)  [toggle]
+-- 2) White Screen (Performance AFK)  [toggle]
+-- 3) AFK Anti-Kick (20 min)          [toggle default ON]
+-- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
+
+registerRight("Settings", function(scroll)
+    local Players       = game:GetService("Players")
+    local TweenService  = game:GetService("TweenService")
+    local UIS           = game:GetService("UserInputService")
+    local RunService    = game:GetService("RunService")
+    local VirtualUser   = game:GetService("VirtualUser")
+    local Http          = game:GetService("HttpService")
+    local MPS           = game:GetService("MarketplaceService")
+    local lp            = Players.LocalPlayer
+
+    -- ===== PER-MAP SAVE (runner) =====
+    local function safePlaceName()
+        local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
+        local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+        return n:gsub("[^%w%-%._ ]","_")
+    end
+    local SAVE_DIR  = "UFO HUB X"
+    local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+    local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+                and typeof(writefile)=="function" and typeof(readfile)=="function")
+    if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
+    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
+    local RAM = getgenv().UFOX_RAM
+
+    local function loadSave()
+        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+            local ok,dec = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
+            if ok and type(dec)=="table" then return dec end
+        end
+        return RAM[SAVE_FILE] or {}
+    end
+    local function writeSave(t)
+        t = t or {}
+        if hasFS then pcall(function() writefile(SAVE_FILE, Http:JSONEncode(t)) end) end
+        RAM[SAVE_FILE] = t
+    end
+    local function getSave(path, default)
+        local data = loadSave(); local cur = data
+        for seg in string.gmatch(path,"[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
+        return (cur==nil) and default or cur
+    end
+    local function setSave(path, value)
+        local data = loadSave()
+        local p = data
+        local keys = {}
+        for seg in string.gmatch(path,"[^%.]+") do table.insert(keys, seg) end
+        for i=1,#keys-1 do
+            local k = keys[i]
+            if type(p[k])~="table" then p[k] = {} end
+            p = p[k]
+        end
+        p[keys[#keys]] = value
+        writeSave(data)
+    end
+    -- ===================================
+
+    -- ===== THEME / HELPERS (A Legacy) =====
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
+    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+
+    -- ===== STATE (defaults) =====
+    _G.UFOX_AFK = _G.UFOX_AFK or {
+        blackOn=false, whiteOn=false, antiIdleOn=true, watcherOn=true,
+        lastInput=tick(), antiIdleLoop=nil, idleHooked=false,
+        gui=nil, watcherConn=nil,
+    }
+    local S = _G.UFOX_AFK
+
+    -- ==== Restore from save (per map) ====
+    S.blackOn    = getSave("Settings.AFK.Black",     S.blackOn)
+    S.whiteOn    = getSave("Settings.AFK.White",     S.whiteOn)
+    S.antiIdleOn = getSave("Settings.AFK.AntiKick",  S.antiIdleOn)
+    S.watcherOn  = getSave("Settings.AFK.Watcher",   S.watcherOn)
+
+    -- ===== CLEAN preview section if exists =====
+    local old = scroll:FindFirstChild("Section_AFK_Preview"); if old then old:Destroy() end
+    local old2 = scroll:FindFirstChild("Section_AFK_Full");    if old2 then old2:Destroy() end
+
+    -- list/canvas เหมือนเดิม
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local nextOrder = 10
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
+    end
+
+    -- ===== Header =====
+    local header = Instance.new("TextLabel", scroll)
+    header.Name = "Section_AFK_Full"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "AFK 💤"
+    header.LayoutOrder = nextOrder
+
+    -- ===== Overlay (Black/White full-screen) =====
+    local function ensureGui()
+        if S.gui and S.gui.Parent then return S.gui end
+        local gui = Instance.new("ScreenGui")
+        gui.Name="UFOX_AFK_GUI"
+        gui.IgnoreGuiInset=true
+        gui.ResetOnSpawn=false
+        gui.DisplayOrder=999999
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        gui.Parent = lp:WaitForChild("PlayerGui")
+        S.gui = gui
+        return gui
+    end
+    local function clearOverlay(name)
+        if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end
+    end
+    local function showBlack(v)
+        clearOverlay("WhiteOverlay")
+        clearOverlay("BlackOverlay")
+        if not v then return end
+        local gui=ensureGui()
+        local black=Instance.new("Frame", gui)
+        black.Name="BlackOverlay"; black.BackgroundColor3=Color3.new(0,0,0)
+        black.Size=UDim2.fromScale(1,1); black.ZIndex=200; black.Active=true
+    end
+    local function showWhite(v)
+        clearOverlay("BlackOverlay")
+        clearOverlay("WhiteOverlay")
+        if not v then return end
+        local gui=ensureGui()
+        local white=Instance.new("Frame", gui)
+        white.Name="WhiteOverlay"; white.BackgroundColor3=Color3.new(1,1,1)
+        white.Size=UDim2.fromScale(1,1); white.ZIndex=200; white.Active=true
+    end
+    local function syncOverlays()
+        if S.blackOn then S.whiteOn=false; showWhite(false); showBlack(true)
+        elseif S.whiteOn then S.blackOn=false; showBlack(false); showWhite(true)
+        else showBlack(false); showWhite(false) end
+    end
+
+    -- ===== Anti-Kick core =====
+    local function pulseOnce()
+        local cam = workspace.CurrentCamera
+        local cf  = cam and cam.CFrame or CFrame.new()
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
+        end)
+    end
+    local function startAntiIdle()
+        if S.antiIdleLoop then return end
+        S.antiIdleLoop = task.spawn(function()
+            while S.antiIdleOn do
+                pulseOnce()
+                for i=1,540 do
+                    if not S.antiIdleOn then break end
+                    task.wait(1)
+                end
+            end
+            S.antiIdleLoop=nil
+        end)
+    end
+    if not S.idleHooked then
+        S.idleHooked = true
+        lp.Idled:Connect(function()
+            if S.antiIdleOn then pulseOnce() end
+        end)
+    end
+
+    -- ===== Watcher (5 นาทีไม่ขยับ → เปิด #3) =====
+    local INACTIVE = 5*60
+    local function markInput() S.lastInput = tick() end
+    UIS.InputBegan:Connect(markInput)
+    UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end)
+    if S.watcherConn then pcall(function() S.watcherConn:Disconnect() end) S.watcherConn=nil end
+    local function startWatcher()
+        if S.watcherConn then return end
+        S.watcherConn = RunService.Heartbeat:Connect(function()
+            if not S.watcherOn then return end
+            if tick() - S.lastInput >= INACTIVE then
+                S.antiIdleOn = true
+                setSave("Settings.AFK.AntiKick", true)
+                if not S.antiIdleLoop then startAntiIdle() end
+                pulseOnce()
+                S.lastInput = tick()
+            end
+        end)
+    end
+
+    -- ===== UI Row helper (A Legacy switch) =====
+    local function makeRow(textLabel, defaultOn, onToggle)
+        local row = Instance.new("Frame", scroll)
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row,12); stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder = header.LayoutOrder + 1
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,-160,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = textLabel
+
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1,-12,0.5,0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw,13)
+        local swStroke = Instance.new("UIStroke", sw)
+        swStroke.Thickness = 1.8
+        swStroke.Color = defaultOn and THEME.GREEN or THEME.RED
+
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.Position = UDim2.new(defaultOn and 1 or 0, defaultOn and -24 or 2, 0.5, -11)
+        knob.BackgroundColor3 = THEME.WHITE
+        corner(knob,11)
+
+        local state = defaultOn
+        local function setState(v)
+            state = v
+            swStroke.Color = v and THEME.GREEN or THEME.RED
+            tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
+            if onToggle then onToggle(v) end
+        end
+        local btn = Instance.new("TextButton", sw)
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.MouseButton1Click:Connect(function() setState(not state) end)
+
+        return setState
+    end
+
+    -- ===== Rows + bindings (with SAVE) =====
+    local setBlack = makeRow("Black Screen (Performance AFK)", S.blackOn, function(v)
+        S.blackOn = v; if v then S.whiteOn=false end; syncOverlays()
+        setSave("Settings.AFK.Black", v); if v==true then setSave("Settings.AFK.White", false) end
+    end)
+
+    local setWhite = makeRow("White Screen (Performance AFK)", S.whiteOn, function(v)
+        S.whiteOn = v; if v then S.blackOn=false end; syncOverlays()
+        setSave("Settings.AFK.White", v); if v==true then setSave("Settings.AFK.Black", false) end
+    end)
+
+    local setAnti  = makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, function(v)
+        S.antiIdleOn = v; setSave("Settings.AFK.AntiKick", v)
+        if v then startAntiIdle() end
+    end)
+
+    local setWatch = makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, function(v)
+        S.watcherOn = v; setSave("Settings.AFK.Watcher", v)
+    end)
+
+    -- ===== Init =====
+    syncOverlays()
+    if S.antiIdleOn then startAntiIdle() end
+    startWatcher()
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
