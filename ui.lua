@@ -2031,7 +2031,6 @@ registerRight("Server", function(scroll)
     -- ========= UFO Quick Toast (EN) =========
     local function QuickToast(msg)
         local PG = Players.LocalPlayer:WaitForChild("PlayerGui")
-        -- remove previous quick toast (avoid stacking)
         local old = PG:FindFirstChild("UFO_QuickToast"); if old then old:Destroy() end
 
         local gui = Instance.new("ScreenGui")
@@ -2044,7 +2043,7 @@ registerRight("Server", function(scroll)
         local W,H = 320, 70
         local box = Instance.new("Frame")
         box.AnchorPoint = Vector2.new(1,1)
-        box.Position = UDim2.new(1, -2, 1, -(2 - 24)) -- start low
+        box.Position = UDim2.new(1, -2, 1, -(2 - 24))
         box.Size = UDim2.fromOffset(W, H)
         box.BackgroundColor3 = Color3.fromRGB(10,10,10)
         box.BorderSizePixel = 0
@@ -2058,7 +2057,8 @@ registerRight("Server", function(scroll)
         local title = Instance.new("TextLabel")
         title.BackgroundTransparency = 1
         title.Font = Enum.Font.GothamBold
-        title.Text = "UFO HUB X"
+        title.RichText = true
+        title.Text = '<font color="#FFFFFF">UFO</font> <font color="#19FF7D">HUB X</font>'
         title.TextSize = 18
         title.TextColor3 = THEME.WHITE
         title.TextXAlignment = Enum.TextXAlignment.Left
@@ -2077,7 +2077,6 @@ registerRight("Server", function(scroll)
         text.Size = UDim2.fromOffset(W-24, 24)
         text.Parent = box
 
-        -- slide in
         TweenService:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
             {Position = UDim2.new(1, -2, 1, -2)}):Play()
 
@@ -2089,12 +2088,10 @@ registerRight("Server", function(scroll)
     end
     -- ========================================
 
-    -- Layout (A V1: single UIListLayout)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Header
     if not scroll:FindFirstChild("SID_Header") then
         local head = Instance.new("TextLabel", scroll)
         head.Name="SID_Header"; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,36)
@@ -2103,7 +2100,6 @@ registerRight("Server", function(scroll)
         head.LayoutOrder = 2000
     end
 
-    -- Row helpers
     local function makeRow(name, label, order)
         if scroll:FindFirstChild(name) then return scroll[name] end
         local row = Instance.new("Frame", scroll)
@@ -2135,14 +2131,13 @@ registerRight("Server", function(scroll)
         tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
         tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE
         tb.ClearTextOnFocus=false
-        tb.Text = "" -- clear default
+        tb.Text = ""
         tb.PlaceholderText = placeholder or "Paste JobId / VIP link / roblox:// link…"
         tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         tb.TextXAlignment = Enum.TextXAlignment.Left
         return tb
     end
 
-    -- Parsers
     local function trim(s) return (s or ""):gsub("^%s+",""):gsub("%s+$","") end
     local function parseInputToTeleport(infoText)
         local t = trim(infoText)
@@ -2162,7 +2157,6 @@ registerRight("Server", function(scroll)
         end
     end
 
-    -- Row #1: input
     local inputRow = makeRow("SID_Input", "Server ID / Link", 2001)
     local inputBox = inputRow:FindFirstChildWhichIsA("Frame") and inputRow:FindFirstChildWhichIsA("Frame"):FindFirstChildOfClass("TextBox")
     if not inputBox then
@@ -2171,7 +2165,6 @@ registerRight("Server", function(scroll)
         if inputBox.Text == "TextBox" then inputBox.Text = "" end
     end
 
-    -- Row #2: Join
     local joinRow = makeRow("SID_Join", "Join by this Server", 2002)
     if not joinRow:FindFirstChildOfClass("TextButton") then
         local joinBtn = makeActionButton(joinRow, "Join")
@@ -2198,7 +2191,6 @@ registerRight("Server", function(scroll)
         end)
     end
 
-    -- Row #3: Copy ID
     local copyRow = makeRow("SID_Copy", "Copy current Server ID", 2003)
     if not copyRow:FindFirstChildOfClass("TextButton") then
         local copyBtn = makeActionButton(copyRow, "Copy ID")
