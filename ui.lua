@@ -2264,9 +2264,9 @@ registerRight("Update", function(scroll)
     label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
     RunService.Heartbeat:Connect(refreshNoteSize)
 end)
--- ===== [FULL PASTE] UFO HUB X • Update Tab — System #2: Social Links (A V1) =====
+-- ===== [FULL PASTE] UFO HUB X • Update Tab — System #2: Social Links (A V1 + press effect + UFO toast) =====
 registerRight("Update", function(scroll)
-    -- THEME (A V1)
+    -- ===== THEME (A V1) =====
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         WHITE = Color3.fromRGB(255,255,255),
@@ -2275,15 +2275,73 @@ registerRight("Update", function(scroll)
     }
     local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
-    local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=2.5}) end) end
+    local TS = game:GetService("TweenService")
 
-    -- A V1 RULE: scroll ต้องมี UIListLayout เดียว
+    -- ===== UFO Quick Toast (same style family as your 2-step loader; EN only) =====
+    local function QuickToast(msg)
+        local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "UFO_QuickToast"
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.DisplayOrder = 999999
+        gui.Parent = PG
+
+        local W,H = 320, 70
+        local box = Instance.new("Frame")
+        box.Name = "Toast"
+        box.AnchorPoint = Vector2.new(1,1)
+        box.Position = UDim2.new(1, -2, 1, -(2 - 24))
+        box.Size = UDim2.fromOffset(W, H)
+        box.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        box.BorderSizePixel = 0
+        box.Parent = gui
+        corner(box, 10)
+        local st = Instance.new("UIStroke", box)
+        st.Thickness = 2
+        st.Color = THEME.GREEN
+        st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Font = Enum.Font.GothamBold
+        title.Text = "UFO HUB X"
+        title.TextSize = 18
+        title.TextColor3 = THEME.WHITE
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Position = UDim2.fromOffset(14, 10)
+        title.Size = UDim2.fromOffset(W-24, 20)
+        title.Parent = box
+
+        local text = Instance.new("TextLabel")
+        text.BackgroundTransparency = 1
+        text.Font = Enum.Font.Gotham
+        text.Text = msg
+        text.TextSize = 13
+        text.TextColor3 = Color3.fromRGB(200,200,200)
+        text.TextXAlignment = Enum.TextXAlignment.Left
+        text.Position = UDim2.fromOffset(14, 34)
+        text.Size = UDim2.fromOffset(W-24, 24)
+        text.Parent = box
+
+        -- slide in
+        TS:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -2, 1, -2)}):Play()
+
+        task.delay(1.25, function()
+            local t = TS:Create(box, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
+                {Position = UDim2.new(1, -2, 1, -(2 - 24))})
+            t:Play(); t.Completed:Wait(); gui:Destroy()
+        end)
+    end
+
+    -- ===== A V1 RULE: one UIListLayout under `scroll` =====
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0, 12)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- หา base ตามลำดับการรันสคริปต์ (สิ่งที่ถูกสร้างแล้วจะมาก่อนเสมอ)
+    -- dynamic base by current children → respects file/run order (System #1 above → this becomes #2 automatically)
     local base = 10
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= list then
@@ -2291,12 +2349,12 @@ registerRight("Update", function(scroll)
         end
     end
 
-    -- เคลียร์ของซ้ำ
+    -- clear duplicates
     for _,n in ipairs({"SOC2_Header","SOC2_Row_YT","SOC2_Row_FB","SOC2_Row_DC","SOC2_Row_IG"}) do
         local o = scroll:FindFirstChild(n); if o then o:Destroy() end
     end
 
-    -- ข้อมูล 4 รายการ (สีตามที่สั่ง)
+    -- data
     local DATA = {
         { key="YT", label="YouTube UFO HUB X",  color=Color3.fromRGB(220,30,30),
           link="https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6" },
@@ -2306,7 +2364,7 @@ registerRight("Update", function(scroll)
         { key="IG", label="Instagram UFO HUB X",color=Color3.fromRGB(225,48,108), link="" },
     }
 
-    -- Header เดียว (ตำแหน่ง/สไตล์ A V1)
+    -- header (single)
     local head = Instance.new("TextLabel", scroll)
     head.Name = "SOC2_Header"
     head.BackgroundTransparency = 1
@@ -2318,7 +2376,22 @@ registerRight("Update", function(scroll)
     head.Text = "Social update UFO HUB X 📣"
     head.LayoutOrder = base; base += 1
 
-    -- โรงงานสร้างแถว (ไม่มีไอคอนแถว + ลูกศรเดี่ยว ▶ ขวาสุด)
+    -- press effect util (darken briefly)
+    local function pressEffect(row, baseColor)
+        local dark = Color3.fromRGB(
+            math.max(math.floor(baseColor.R*255)-18,0),
+            math.max(math.floor(baseColor.G*255)-18,0),
+            math.max(math.floor(baseColor.B*255)-18,0)
+        )
+        TS:Create(row, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {BackgroundColor3 = dark}):Play()
+        task.delay(0.08, function()
+            TS:Create(row, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {BackgroundColor3 = baseColor}):Play()
+        end)
+    end
+
+    -- row factory (no row icons; right-side plain ▶ only)
     local function makeRow(item, order)
         local row = Instance.new("Frame", scroll)
         row.Name = "SOC2_Row_"..item.key
@@ -2330,14 +2403,14 @@ registerRight("Update", function(scroll)
         local lab = Instance.new("TextLabel", row)
         lab.BackgroundTransparency = 1
         lab.Position = UDim2.new(0, 16, 0, 0)
-        lab.Size = UDim2.new(1, -56, 1, 0) -- เผื่อพื้นที่ลูกศรด้านขวา
+        lab.Size = UDim2.new(1, -56, 1, 0) -- leave space for arrow
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
         lab.TextColor3 = THEME.WHITE
         lab.TextXAlignment = Enum.TextXAlignment.Left
         lab.Text = item.label
 
-        -- ▶ เดี่ยวๆ (ไม่มีกรอบ/เส้น/พื้นหลัง)
+        -- plain arrow (no bg / no stroke)
         local arrow = Instance.new("TextLabel", row)
         arrow.BackgroundTransparency = 1
         arrow.AnchorPoint = Vector2.new(1,0.5)
@@ -2348,27 +2421,29 @@ registerRight("Update", function(scroll)
         arrow.TextColor3 = THEME.WHITE
         arrow.Text = "▶"
 
-        -- คลิกทั้งแถว
+        -- click whole row
         local hit = Instance.new("TextButton", row)
         hit.BackgroundTransparency = 1
         hit.AutoButtonColor = false
         hit.Text = ""
         hit.Size = UDim2.fromScale(1,1)
         hit.MouseButton1Click:Connect(function()
+            pressEffect(row, item.color)
             if item.link ~= "" then
                 local ok=false
                 if typeof(setclipboard)=="function" then ok = pcall(function() setclipboard(item.link) end) end
-                notify(item.label, ok and "Link copied ✅" or ("Link: "..item.link))
+                QuickToast(item.label .. " — Link copied ✅")
+                if not ok then print("[UFO HUB X] Clipboard not available; link: "..item.link) end
             else
-                notify(item.label, "ยังไม่มีลิงก์ (ใส่ได้ภายหลัง)")
+                QuickToast(item.label .. " — No link set")
             end
         end)
     end
 
-    -- วาง 4 แถวถัดจาก Header ตามลำดับ
+    -- build rows under header in dynamic order
     for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
 end)
--- ===== [/FULL PASTE] Social Links • A V1 (dynamic order + plain ▶) =====
+-- ===== [/FULL PASTE] =====
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
