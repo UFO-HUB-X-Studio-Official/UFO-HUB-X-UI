@@ -2330,7 +2330,7 @@ registerRight("Update", function(scroll)
     local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
     local TS = game:GetService("TweenService")
 
-    -- ===== UFO Quick Toast (same style family as your 2-step loader; EN only) =====
+    -- ===== UFO Quick Toast (EN) — title with white 'UFO' + green 'HUB X' =====
     local function QuickToast(msg)
         local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
         local gui = Instance.new("ScreenGui")
@@ -2358,7 +2358,8 @@ registerRight("Update", function(scroll)
         local title = Instance.new("TextLabel")
         title.BackgroundTransparency = 1
         title.Font = Enum.Font.GothamBold
-        title.Text = "UFO HUB X"
+        title.RichText = true
+        title.Text = '<font color="#FFFFFF">UFO</font> <font color="#19FF7D">HUB X</font>'
         title.TextSize = 18
         title.TextColor3 = THEME.WHITE
         title.TextXAlignment = Enum.TextXAlignment.Left
@@ -2377,7 +2378,6 @@ registerRight("Update", function(scroll)
         text.Size = UDim2.fromOffset(W-24, 24)
         text.Parent = box
 
-        -- slide in
         TS:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
             {Position = UDim2.new(1, -2, 1, -2)}):Play()
 
@@ -2394,7 +2394,7 @@ registerRight("Update", function(scroll)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- dynamic base by current children → respects file/run order (System #1 above → this becomes #2 automatically)
+    -- dynamic base by current children (respects file/run order)
     local base = 10
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= list then
@@ -2426,7 +2426,7 @@ registerRight("Update", function(scroll)
     head.TextSize = 16
     head.TextColor3 = THEME.TEXT
     head.TextXAlignment = Enum.TextXAlignment.Left
-    head.Text = "Social update UFO HUB X 🌏"
+    head.Text = "Social update UFO HUB X 📣"
     head.LayoutOrder = base; base += 1
 
     -- press effect util (darken briefly)
