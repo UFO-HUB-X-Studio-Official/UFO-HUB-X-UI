@@ -1,3 +1,20 @@
+-- ==== UFO HUB X • One-shot Boot Guard (anti double-run) ====
+do
+    local BOOT = getgenv().UFO_BOOT or { status = "idle", t0 = 0 }
+    -- ถ้ากำลังบูตอยู่ → กันรันซ้ำทันที
+    if BOOT.status == "running" then
+        return
+    end
+    -- ถ้าบูตจบแล้วยังอยู่ในคูลดาวน์ (เช่น เผลอกดซ้ำเร็วๆ) → กันรันซ้ำ
+    local COOLDOWN = 8 -- วินาที (ปรับได้)
+    if BOOT.status == "done" and (os.clock() - (BOOT.t0 or 0)) < COOLDOWN then
+        return
+    end
+    -- ยึดล็อก
+    BOOT.status = "running"
+    BOOT.t0 = os.clock()
+    getgenv().UFO_BOOT = BOOT
+end
 --[[
 UFO HUB X • One-shot = Toast(2-step) + Main UI (100%)
 - Step1: Toast โหลด + แถบเปอร์เซ็นต์
@@ -2727,160 +2744,19 @@ do
         out2:Play(); out2.Completed:Wait(); gui2:Destroy()
     end)
 end
--- ===== UFO HUB X • Global Single-Press Guard (no duplicate UI + safe toast) =====
--- ใส่ไว้ด้านบนสุดของ LocalScript ที่ผูกปุ่ม Toggle / หรือสคริปต์เริ่มต้น UI
+-- ==== mark boot done + short cooldown unlock ====
+do
+    local B = getgenv().UFO_BOOT or {}
+    B.status = "done"
+    B.t0 = os.clock()
+    getgenv().UFO_BOOT = B
 
-local Players      = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local LP           = Players.LocalPlayer
-
-_G.UFOX = _G.UFOX or {}
-local S = _G.UFOX
-
--- ตั้งชื่อ GUI หลักของนายให้ตรงกับโปรเจกต์
-S.GUI_NAME    = S.GUI_NAME    or "UFO_HUB_X_UI"      -- ScreenGui หลัก
-S.TOGGLE_NAME = S.TOGGLE_NAME or "UFO_HUB_X_Toggle"  -- ปุ่ม Toggle (อย่าลบทิ้ง)
-
--- สถานะ: "idle" | "building" | "ready"
-S.state = S.state or "idle"
-
--- =============== UFO Quick Toast (EN; UFO ขาว + HUB X เขียว) ===============
-local function QuickToast(msg)
-    local PG = LP:WaitForChild("PlayerGui")
-    local old = PG:FindFirstChild("UFO_QuickToast")
-    if old then old:Destroy() end
-
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "UFO_QuickToast"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 999999
-    gui.Parent = PG
-
-    local W,H = 320, 70
-    local GREEN = Color3.fromRGB(25,255,125)
-
-    local box = Instance.new("Frame")
-    box.AnchorPoint = Vector2.new(1,1)
-    box.Position = UDim2.new(1, -2, 1, 22) -- เริ่มต่ำลงนิดเพื่อทำอนิเมชันขึ้น
-    box.Size = UDim2.fromOffset(W, H)
-    box.BackgroundColor3 = Color3.fromRGB(10,10,10)
-    box.BorderSizePixel = 0
-    box.Parent = gui
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
-    local st = Instance.new("UIStroke", box); st.Thickness = 2; st.Color = GREEN
-
-    local title = Instance.new("TextLabel")
-    title.BackgroundTransparency = 1
-    title.RichText = true
-    title.Font = Enum.Font.GothamBold
-    title.Text = '<font color="#FFFFFF">UFO</font> <font color="#00FF7D">HUB X</font>'
-    title.TextSize = 18
-    title.TextColor3 = Color3.fromRGB(235,235,235)
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Position = UDim2.fromOffset(14, 10)
-    title.Size = UDim2.fromOffset(W-24, 20)
-    title.Parent = box
-
-    local text = Instance.new("TextLabel")
-    text.BackgroundTransparency = 1
-    text.Font = Enum.Font.Gotham
-    text.Text = msg
-    text.TextSize = 13
-    text.TextColor3 = Color3.fromRGB(200,200,200)
-    text.TextXAlignment = Enum.TextXAlignment.Left
-    text.Position = UDim2.fromOffset(14, 34)
-    text.Size = UDim2.fromOffset(W-24, 24)
-    text.Parent = box
-
-    TweenService:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        {Position = UDim2.new(1, -2, 1, -2)}):Play()
-
-    task.delay(1.25, function()
-        local t = TweenService:Create(box, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
-            {Position = UDim2.new(1, -2, 1, 22)})
-        t:Play(); t.Completed:Wait(); gui:Destroy()
+    -- ปลดกลับเป็น idle หลังคูลดาวน์ (ให้กดรันใหม่ได้จริงเมื่ออยากรีบูต)
+    task.delay(8, function()
+        local X = getgenv().UFO_BOOT
+        if X and X.status == "done" then
+            X.status = "idle"
+            getgenv().UFO_BOOT = X
+        end
     end)
 end
--- ============================================================================
-
--- ฟังก์ชันเปิด UI แบบ “ครั้งเดียว”—กันกดรัว/เน็ตช้า
-function S.LaunchOnce(buildFunc, showFunc)
-    -- ถ้าโหลดอยู่ → แจ้งแล้วเมินการกดซ้ำ
-    if S.state == "building" then
-        QuickToast("Loading… please wait")
-        return
-    end
-
-    local PG  = LP:WaitForChild("PlayerGui")
-    local gui = PG:FindFirstChild(S.GUI_NAME)
-
-    -- ถ้าสร้างเสร็จแล้ว → แค่เปิด/โฟกัส ไม่สร้างใหม่
-    if S.state == "ready" and gui then
-        if typeof(showFunc) == "function" then
-            showFunc(gui)
-        else
-            gui.Enabled = not gui.Enabled
-        end
-        return
-    end
-
-    -- ยังไม่เคยสร้าง → เริ่มสร้างครั้งแรกเท่านั้น
-    if S.state == "idle" then
-        S.state = "building"
-        QuickToast("Starting UI…")
-
-        -- เรียกตัวสร้าง UI หลักของนาย
-        local ok, err = pcall(function()
-            assert(typeof(buildFunc) == "function", "buildFunc required")
-            buildFunc()  -- ภายในต้องสร้าง ScreenGui ชื่อ S.GUI_NAME
-        end)
-
-        if not ok then
-            S.state = "idle"
-            QuickToast("Failed to start UI: "..tostring(err))
-            warn("[UFO HUB X] Build error:", err)
-            return
-        end
-
-        -- ตรวจสอบว่าถูกสร้างจริง
-        gui = PG:WaitForChild(S.GUI_NAME, 3)
-        if not gui then
-            S.state = "idle"
-            QuickToast("UI not found after build.")
-            return
-        end
-
-        -- mark ready
-        S.state = "ready"
-        QuickToast("UI ready ✅")
-
-        if typeof(showFunc) == "function" then
-            showFunc(gui)
-        else
-            gui.Enabled = true
-        end
-    end
-end
-
--- ===== วิธีใช้งานกับปุ่ม Toggle ของนาย =======================================
--- ตัวอย่าง: แทนที่โค้ดเดิมตอนกดปุ่มด้วยบล็อกนี้
---[[
-ToggleButton.MouseButton1Click:Connect(function()
-    _G.UFOX.LaunchOnce(
-        function()
-            -- << สร้าง UI หลักของนายที่นี่ >>
-            -- ต้องสร้าง ScreenGui ชื่อ _G.UFOX.GUI_NAME (เช่น "UFO_HUB_X_UI")
-            -- และกำหนด _G.UFO_ShowMainUI ถ้ายังใช้อยู่ (ออปชัน)
-            if typeof(_G.UFO_ShowMainUI) == "function" then
-                _G.UFO_ShowMainUI()
-            end
-        end,
-        function(gui)
-            -- << พฤติกรรมเมื่อ UI ถูกสร้างแล้ว >>
-            gui.Enabled = not gui.Enabled
-        end
-    )
-end)
-]]
--- ============================================================================
