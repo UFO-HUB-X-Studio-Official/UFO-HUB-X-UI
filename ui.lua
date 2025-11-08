@@ -2007,7 +2007,8 @@ registerRight("Server", function(scroll)
     Players.PlayerAdded:Connect(updateCount)
     Players.PlayerRemoving:Connect(updateCount)
 end)
--- ===== UFO HUB X • Server — System #2: Server ID 🔑 (A V1 • black button style, clear TextBox) =====
+-- ===== [FULL PASTE] UFO HUB X • Server — System #2: Server ID 🔑
+-- A V1 layout • black buttons • clean TextBox • UFO-style Quick Toast (EN)
 registerRight("Server", function(scroll)
     local Players         = game:GetService("Players")
     local TeleportService = game:GetService("TeleportService")
@@ -2026,9 +2027,69 @@ registerRight("Server", function(scroll)
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
     local function tween(o,p,d) TweenService:Create(o, TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad,Enum.EasingDirection.Out), p):Play() end
-    local function notify(t,tx) pcall(function() game.StarterGui:SetCore("SendNotification",{Title=t,Text=tx or "",Duration=3}) end) end
 
-    -- Layout
+    -- ========= UFO Quick Toast (EN) =========
+    local function QuickToast(msg)
+        local PG = Players.LocalPlayer:WaitForChild("PlayerGui")
+        -- remove previous quick toast (avoid stacking)
+        local old = PG:FindFirstChild("UFO_QuickToast"); if old then old:Destroy() end
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "UFO_QuickToast"
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.DisplayOrder = 999999
+        gui.Parent = PG
+
+        local W,H = 320, 70
+        local box = Instance.new("Frame")
+        box.AnchorPoint = Vector2.new(1,1)
+        box.Position = UDim2.new(1, -2, 1, -(2 - 24)) -- start low
+        box.Size = UDim2.fromOffset(W, H)
+        box.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        box.BorderSizePixel = 0
+        box.Parent = gui
+        corner(box, 10)
+        local st = Instance.new("UIStroke", box)
+        st.Thickness = 2
+        st.Color = THEME.GREEN
+        st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Font = Enum.Font.GothamBold
+        title.Text = "UFO HUB X"
+        title.TextSize = 18
+        title.TextColor3 = THEME.WHITE
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Position = UDim2.fromOffset(14, 10)
+        title.Size = UDim2.fromOffset(W-24, 20)
+        title.Parent = box
+
+        local text = Instance.new("TextLabel")
+        text.BackgroundTransparency = 1
+        text.Font = Enum.Font.Gotham
+        text.Text = msg
+        text.TextSize = 13
+        text.TextColor3 = Color3.fromRGB(200,200,200)
+        text.TextXAlignment = Enum.TextXAlignment.Left
+        text.Position = UDim2.fromOffset(14, 34)
+        text.Size = UDim2.fromOffset(W-24, 24)
+        text.Parent = box
+
+        -- slide in
+        TweenService:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -2, 1, -2)}):Play()
+
+        task.delay(1.25, function()
+            local t = TweenService:Create(box, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
+                {Position = UDim2.new(1, -2, 1, -(2 - 24))})
+            t:Play(); t.Completed:Wait(); gui:Destroy()
+        end)
+    end
+    -- ========================================
+
+    -- Layout (A V1: single UIListLayout)
     local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -2042,7 +2103,7 @@ registerRight("Server", function(scroll)
         head.LayoutOrder = 2000
     end
 
-    -- Helpers
+    -- Row helpers
     local function makeRow(name, label, order)
         if scroll:FindFirstChild(name) then return scroll[name] end
         local row = Instance.new("Frame", scroll)
@@ -2074,14 +2135,14 @@ registerRight("Server", function(scroll)
         tb.BackgroundTransparency=1; tb.Size=UDim2.fromScale(1,1); tb.Position=UDim2.new(0,8,0,0)
         tb.Font=Enum.Font.Gotham; tb.TextSize=13; tb.TextColor3=THEME.WHITE
         tb.ClearTextOnFocus=false
-        tb.Text = ""  -- ⬅️ เคลียร์ค่าเริ่มต้น ไม่ให้ขึ้นคำว่า "TextBox"
+        tb.Text = "" -- clear default
         tb.PlaceholderText = placeholder or "Paste JobId / VIP link / roblox:// link…"
         tb.PlaceholderColor3 = Color3.fromRGB(180,180,185)
         tb.TextXAlignment = Enum.TextXAlignment.Left
         return tb
     end
 
-    -- Parser
+    -- Parsers
     local function trim(s) return (s or ""):gsub("^%s+",""):gsub("%s+$","") end
     local function parseInputToTeleport(infoText)
         local t = trim(infoText)
@@ -2097,7 +2158,7 @@ registerRight("Server", function(scroll)
             local jobId = deep_job or plain_job
             return { mode="public", placeId = tonumber(deep_place) or game.PlaceId, jobId = jobId }
         else
-            return nil, "Invalid input. Paste a JobId, a VIP link (privateServerLinkCode=...), or a roblox:// link."
+            return nil, "Invalid input. Paste a JobId, VIP link (privateServerLinkCode=...), or a roblox:// link."
         end
     end
 
@@ -2107,7 +2168,7 @@ registerRight("Server", function(scroll)
     if not inputBox then
         inputBox = makeRightInput(inputRow, "e.g. JobId or VIP link or roblox://...")
     else
-        if inputBox.Text == "TextBox" then inputBox.Text = "" end  -- ⬅️ เคลียร์ของเก่าที่ Roblox ใส่มา
+        if inputBox.Text == "TextBox" then inputBox.Text = "" end
     end
 
     -- Row #2: Join
@@ -2117,9 +2178,9 @@ registerRight("Server", function(scroll)
         joinBtn.MouseButton1Click:Connect(function()
             local raw = inputBox.Text or ""
             local target, err = parseInputToTeleport(raw)
-            if not target then notify("Server ID", err); return end
+            if not target then QuickToast(err); return end
             if target.mode=="public" and tostring(target.jobId)==tostring(game.JobId) then
-                notify("Server ID", "You are already in this server."); return
+                QuickToast("You are already in this server."); return
             end
             local ok, msg = false, nil
             if target.mode=="private" then
@@ -2128,11 +2189,11 @@ registerRight("Server", function(scroll)
                 ok, msg = pcall(function() TeleportService:TeleportToPlaceInstance(target.placeId, target.jobId, lp) end)
             end
             if not ok then
-                notify("Teleport Failed", tostring(msg))
+                QuickToast("Teleport failed: "..tostring(msg))
             else
-                local tip = (target.mode=="private") and ("privateCode:"..string.sub(target.code,1,6).."…")
-                                                   or  ("JobId:"..string.sub(target.jobId,1,8).."…")
-                notify("Teleporting…", tip)
+                local tip = (target.mode=="private") and ("Private code: "..string.sub(target.code,1,6).."…")
+                                                   or  ("JobId: "..string.sub(target.jobId,1,8).."…")
+                QuickToast("Teleporting…  "..tip)
             end
         end)
     end
@@ -2144,7 +2205,7 @@ registerRight("Server", function(scroll)
         copyBtn.MouseButton1Click:Connect(function()
             local id = tostring(game.JobId or "")
             local ok = pcall(function() setclipboard(id) end)
-            if ok then notify("Copied","Server ID copied:\n"..id) else notify("Server ID","Current ID:\n"..id.."\n(copy manually)") end
+            if ok then QuickToast("Server ID copied ✅") else QuickToast("Current Server ID: "..id) end
             if inputBox and id~="" then inputBox.Text = id end
         end)
     end
@@ -2373,7 +2434,7 @@ registerRight("Update", function(scroll)
     head.TextSize = 16
     head.TextColor3 = THEME.TEXT
     head.TextXAlignment = Enum.TextXAlignment.Left
-    head.Text = "Social update UFO HUB X 📣"
+    head.Text = "Social update UFO HUB X 🌏"
     head.LayoutOrder = base; base += 1
 
     -- press effect util (darken briefly)
