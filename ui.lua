@@ -9,6 +9,112 @@ do
     BOOT.status = "running"
     getgenv().UFO_BOOT = BOOT
 end
+-- ===== UFO HUB X • Local Save (executor filesystem) — per map (PlaceId) =====
+do
+    local HttpService = game:GetService("HttpService")
+    local MarketplaceService = game:GetService("MarketplaceService")
+
+    local FS = {
+        isfolder   = (typeof(isfolder)=="function") and isfolder   or function() return false end,
+        makefolder = (typeof(makefolder)=="function") and makefolder or function() end,
+        isfile     = (typeof(isfile)=="function") and isfile       or function() return false end,
+        readfile   = (typeof(readfile)=="function") and readfile   or function() return nil end,
+        writefile  = (typeof(writefile)=="function") and writefile or function() end,
+    }
+
+    local ROOT = "UFO HUB X"  -- โฟลเดอร์หลักในตัวรัน
+    local function safeMakeRoot() pcall(function() if not FS.isfolder(ROOT) then FS.makefolder(ROOT) end end) end
+    safeMakeRoot()
+
+    local placeId  = tostring(game.PlaceId)
+    local gameId   = tostring(game.GameId)
+    local mapName  = "Unknown"
+    pcall(function()
+        local inf = MarketplaceService:GetProductInfo(game.PlaceId)
+        if inf and inf.Name then mapName = inf.Name end
+    end)
+
+    local FILE = string.format("%s/%s.json", ROOT, placeId)
+    local _cache = nil
+    local _dirty = false
+    local _debounce = false
+
+    local function _load()
+        if _cache then return _cache end
+        local ok, txt = pcall(function()
+            if FS.isfile(FILE) then return FS.readfile(FILE) end
+            return nil
+        end)
+        local data = nil
+        if ok and txt and #txt > 0 then
+            local ok2, t = pcall(function() return HttpService:JSONDecode(txt) end)
+            data = ok2 and t or nil
+        end
+        if not data or type(data)~="table" then
+            data = { __meta = { placeId = placeId, gameId = gameId, mapName = mapName, savedAt = os.time() } }
+        end
+        _cache = data
+        return _cache
+    end
+
+    local function _flushNow()
+        if not _cache then return end
+        _cache.__meta = _cache.__meta or {}
+        _cache.__meta.placeId = placeId
+        _cache.__meta.gameId  = gameId
+        _cache.__meta.mapName = mapName
+        _cache.__meta.savedAt = os.time()
+        local ok, json = pcall(function() return HttpService:JSONEncode(_cache) end)
+        if ok and json then
+            pcall(function()
+                safeMakeRoot()
+                FS.writefile(FILE, json)
+            end)
+        end
+        _dirty = false
+    end
+
+    local function _scheduleFlush()
+        if _debounce then return end
+        _debounce = true
+        task.delay(0.25, function()
+            _debounce = false
+            if _dirty then _flushNow() end
+        end)
+    end
+
+    local Save = {}
+
+    -- อ่านค่า: key = "Tab.Key" เช่น "RJ.enabled" / "A1.Reduce" / "AFK.Black"
+    function Save.get(key, defaultValue)
+        local db = _load()
+        local v = db[key]
+        if v == nil then return defaultValue end
+        return v
+    end
+
+    -- เซ็ตค่า + เขียนไฟล์แบบดีบาวซ์
+    function Save.set(key, value)
+        local db = _load()
+        db[key] = value
+        _dirty = true
+        _scheduleFlush()
+    end
+
+    -- ตัวช่วย: apply ค่าเซฟถ้ามี ไม่งั้นใช้ default แล้วเซฟกลับ
+    function Save.apply(key, defaultValue, applyFn)
+        local v = Save.get(key, defaultValue)
+        if applyFn then
+            local ok = pcall(applyFn, v)
+            if ok and v ~= nil then Save.set(key, v) end
+        end
+        return v
+    end
+
+    -- ให้เรียกใช้ที่อื่นได้
+    getgenv().UFOX_SAVE = Save
+end
+-- ===== [/Local Save] =====
 --[[
 UFO HUB X • One-shot = Toast(2-step) + Main UI (100%)
 - Step1: Toast โหลด + แถบเปอร์เซ็นต์
