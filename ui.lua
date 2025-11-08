@@ -824,7 +824,7 @@ registerRight("Player", function(scroll)
     nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
--- เปลี่ยน knob กลม -> สี่เหลี่ยมแนวตั้งเมทัลลิก
+-- + Runner Save (per map) for Flight toggle + Sensitivity (SensRel)
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -833,6 +833,14 @@ registerRight("Player", function(scroll)
     local TweenService=game:GetService("TweenService")
     local PhysicsService=game:GetService("PhysicsService")
     local lp=Players.LocalPlayer
+
+    -- ---------- SAVE (runner) ----------
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get=function(_,_,d) return d end,
+        set=function() end
+    }
+    local function SaveGet(k, d) local ok, v = pcall(function() return SAVE.get(k, d) end); return ok and v or d end
+    local function SaveSet(k, v) pcall(function() SAVE.set(k, v) end) end
 
     -- ---------- SAFE STATE / CONNECTION MANAGER ----------
     _G.UFOX = _G.UFOX or {}
@@ -978,22 +986,6 @@ registerRight("Player", function(scroll)
         _G.UFOX.movers={bp=bp,ao=ao,att=att}
 
         createPad(); setPartsClip(char,true); forceNoclipLoop(true)
-
-        keepTemp(RunService.Heartbeat:Connect(function(dt)
-            sensApplied=sensApplied+(sensTarget-sensApplied)*math.clamp(dt*10,0,1)
-            local cam=workspace.CurrentCamera; if not cam then return end
-            local camCF=cam.CFrame; local fwd=camCF.LookVector
-            local rightH=Vector3.new(camCF.RightVector.X,0,camCF.RightVector.Z); rightH=(rightH.Magnitude>0) and rightH.Unit or Vector3.new()
-            local MOVE,STRAFE,ASC=speeds(); local pos=bp.Position
-            if hold.fwd  then pos+=fwd*(MOVE*dt) end
-            if hold.back then pos-=fwd*(MOVE*dt) end
-            if hold.left then pos-=rightH*(STRAFE*dt) end
-            if hold.right then pos+=rightH*(STRAFE*dt) end
-            if hold.up   then pos+=Vector3.new(0,ASC*dt,0) end
-            if hold.down then pos-=Vector3.new(0,ASC*dt,0) end
-            bp.Position=pos
-            ao.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+camCF.LookVector,Vector3.new(0,1,0))
-        end))
     end
 
     local function stopFly()
@@ -1013,7 +1005,30 @@ registerRight("Player", function(scroll)
         sensTarget=S_MIN+(S_MAX-S_MIN)*rel
         if sliderCenterLabel then sliderCenterLabel.Text=string.format("%d%%",math.floor(rel*100+0.5)) end
         if instant then sensApplied=sensTarget end
+        SaveSet("Player.SensRel", currentRel) -- [SAVE]
     end
+
+    -- UI toggle state handler (unify all entry points)
+    local on=false
+    local function setState(v)
+        on=v
+        if v then
+            SaveSet("Player.FlightOn", true) -- [SAVE]
+            local swStroke = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildOfClass("UIStroke")) or nil
+            if swStroke then swStroke.Color=THEME.GREEN end
+            local knobObj = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")) or nil
+            if knobObj then tween(knobObj,{Position=UDim2.new(1,-24,0.5,-11)},0.1) end
+            startFly()
+        else
+            SaveSet("Player.FlightOn", false) -- [SAVE]
+            local swStroke = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildOfClass("UIStroke")) or nil
+            if swStroke then swStroke.Color=THEME.RED end
+            local knobObj = (scroll:FindFirstChild("Row_FlightToggle") and scroll.Row_FlightToggle:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("Frame")) or nil
+            if knobObj then tween(knobObj,{Position=UDim2.new(0,2,0.5,-11)},0.1) end
+            stopFly()
+        end
+    end
+
     keepUI(UserInputService.InputBegan:Connect(function(io,gp)
         if gp then return end
         local k=io.KeyCode
@@ -1023,7 +1038,7 @@ registerRight("Player", function(scroll)
         if k==Enum.KeyCode.D then hold.right=true end
         if k==Enum.KeyCode.Space or k==Enum.KeyCode.E then hold.up=true end
         if k==Enum.KeyCode.LeftShift or k==Enum.KeyCode.Q then hold.down=true end
-        if k==Enum.KeyCode.F then if flightOn then stopFly() else startFly() end end
+        if k==Enum.KeyCode.F then setState(not flightOn) end -- (use setState to persist) [SAVE]
         if k==Enum.KeyCode.LeftBracket then applyRel(currentRel-0.05,true)
         elseif k==Enum.KeyCode.RightBracket then applyRel(currentRel+0.05,true) end
     end))
@@ -1066,13 +1081,7 @@ registerRight("Player", function(scroll)
     local swStroke=Instance.new("UIStroke",sw); swStroke.Thickness=1.8; swStroke.Color=THEME.RED
     local knob=Instance.new("Frame",sw); knob.Size=UDim2.fromOffset(22,22); knob.Position=UDim2.new(0,2,0.5,-11); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
     local btn=Instance.new("TextButton",sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    local on=false
-    local function setState(v)
-        on=v
-        if v then swStroke.Color=THEME.GREEN; tween(knob,{Position=UDim2.new(1,-24,0.5,-11)},0.1); startFly()
-        else     swStroke.Color=THEME.RED;   tween(knob,{Position=UDim2.new(0,2,0.5,-11)},0.1); stopFly() end
-    end
-    keepUI(btn.MouseButton1Click:Connect(function() setState(not on) end))
+    keepUI(btn.MouseButton1Click:Connect(function() setState(not flightOn) end)) -- [SAVE]
 
     -- ---------- SLIDER (tap-to-set + drag threshold) ----------
     local sRow=Instance.new("Frame",scroll); sRow.Name="Row_Sens"; sRow.Size=UDim2.new(1,-6,0,70)
@@ -1083,7 +1092,7 @@ registerRight("Player", function(scroll)
     bar.BackgroundColor3=THEME.BLACK; corner(bar,8); stroke(bar,1.8,THEME.GREEN); bar.Active=true
     local fill=Instance.new("Frame",bar); fill.BackgroundColor3=THEME.GREEN; corner(fill,8); fill.Size=UDim2.fromScale(0,1)
 
-    -- ==== NEW: สี่เหลี่ยมแนวตั้งเมทัลลิก ====
+    -- ==== METAL SQUARE KNOB ====
     local knobShadow=Instance.new("Frame",bar)
     knobShadow.Size=UDim2.fromOffset(18,34); knobShadow.AnchorPoint=Vector2.new(0.5,0.5)
     knobShadow.Position=UDim2.new(0,0,0.5,2); knobShadow.BackgroundColor3=THEME.DARK
@@ -1091,7 +1100,7 @@ registerRight("Player", function(scroll)
 
     local knobBtn=Instance.new("ImageButton",bar)
     knobBtn.AutoButtonColor=false; knobBtn.BackgroundColor3=THEME.GREY
-    knobBtn.Size=UDim2.fromOffset(16,32)          -- สี่เหลี่ยมยาวแนวตั้ง
+    knobBtn.Size=UDim2.fromOffset(16,32)
     knobBtn.AnchorPoint=Vector2.new(0.5,0.5)
     knobBtn.Position=UDim2.new(0,0,0.5,0)
     knobBtn.BorderSizePixel=0; knobBtn.ZIndex=3
@@ -1103,7 +1112,6 @@ registerRight("Player", function(scroll)
         ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216,216,222))
     }
     kGrad.Rotation=90
-    -- ======================================
 
     local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
     centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextStrokeTransparency=0.2; centerVal.Text="0%"
@@ -1114,12 +1122,12 @@ registerRight("Player", function(scroll)
         if now then visRel=currentRel else visRel = visRel + (currentRel - visRel)*0.30 end
         visRel = math.clamp(visRel,0,1)
         fill.Size=UDim2.fromScale(visRel,1)
-        knobBtn.Position=UDim2.new(visRel,0,0.5,0)     -- อัปเดตให้ใช้ anchor กลาง, ไม่มี offset
+        knobBtn.Position=UDim2.new(visRel,0,0.5,0)
         knobShadow.Position=UDim2.new(visRel,0,0.5,2)
         centerVal.Text=string.format("%d%%",math.floor(visRel*100+0.5))
     end
 
-    -- drag/tap logic (เหมือนเดิม)
+    -- drag/tap logic
     local function stopDrag()
         dragging=false; maybeDrag=false; downX=nil
         if RSdragConn then RSdragConn:Disconnect() RSdragConn=nil end
@@ -1169,12 +1177,20 @@ registerRight("Player", function(scroll)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then onPressFromInput(io) end
     end))
 
-    -- ---------- INIT ----------
-    if firstRun then applyRel(0,true) else applyRel(currentRel,true) end
+    -- ---------- INIT (restore saved state) ----------
+    local savedRel   = SaveGet("Player.SensRel", (_G.UFOX_sensRel or 0))
+    local savedFlyOn = SaveGet("Player.FlightOn", false)
+
+    applyRel(savedRel, true)
+    visRel = currentRel
+    -- build toggle visuals will update inside setState:
     syncVisual(true)
+    if savedFlyOn then setState(true) else setState(false) end
 end)
--- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 =====
+-- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) =====
 -- Order: Run → Jump → Swim
+-- Saves per GAME_ID/PLACE_ID into runner (getgenv().UFOX_SAVE). Keys:
+--   RJ/<gameId>/<placeId>/{enabled,infJump,runRel,jumpRel,swimRel}
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
@@ -1182,6 +1198,16 @@ registerRight("Player", function(scroll)
     local RS=game:GetService("RunService")
     local TweenService=game:GetService("TweenService")
     local lp=Players.LocalPlayer
+
+    -- ---------- SAVE (runner; per-map scope) ----------
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get=function(_,_,d) return d end,
+        set=function() end
+    }
+    local SCOPE = ("RJ/%d/%d"):format(tonumber(game.GameId) or 0, tonumber(game.PlaceId) or 0)
+    local function K(k) return SCOPE.."/"..k end
+    local function SaveGet(k, d) local ok,v = pcall(function() return SAVE.get(K(k), d) end); return ok and v or d end
+    local function SaveSet(k, v) pcall(function() SAVE.set(K(k), v) end) end
 
     -- ---------- STATE ----------
     _G.UFOX_RJ = _G.UFOX_RJ or { uiConns={}, tempConns={}, remember={}, defaults={} }
@@ -1192,11 +1218,12 @@ registerRight("Player", function(scroll)
     local function stopAllTemp() disconnectAll(RJ.tempConns); scroll.ScrollingEnabled=true end
     disconnectAll(RJ.uiConns)
 
-    RJ.remember.enabled = (RJ.remember.enabled==nil) and false or RJ.remember.enabled
-    RJ.remember.infJump = (RJ.remember.infJump==nil) and false or RJ.remember.infJump
-    RJ.remember.runRel  = (RJ.remember.runRel==nil)  and 0 or RJ.remember.runRel
-    RJ.remember.jumpRel = (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel
-    RJ.remember.swimRel = (RJ.remember.swimRel==nil) and 0 or RJ.remember.swimRel
+    -- restore from SAVE (fallback to previous remember / defaults)
+    RJ.remember.enabled = SaveGet("enabled", (RJ.remember.enabled==nil) and false or RJ.remember.enabled)
+    RJ.remember.infJump = SaveGet("infJump", (RJ.remember.infJump==nil) and false or RJ.remember.infJump)
+    RJ.remember.runRel  = SaveGet("runRel",  (RJ.remember.runRel==nil)  and 0 or RJ.remember.runRel)
+    RJ.remember.jumpRel = SaveGet("jumpRel", (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel)
+    RJ.remember.swimRel = SaveGet("swimRel", (RJ.remember.swimRel==nil) and 0 or RJ.remember.swimRel)
 
     local RUN_MIN,RUN_MAX   = 16,500
     local JUMP_MIN,JUMP_MAX = 50,500
@@ -1306,11 +1333,17 @@ registerRight("Player", function(scroll)
     mSw.Size=UDim2.fromOffset(52,26); mSw.BackgroundColor3=THEME.BLACK; corner(mSw,13); stroke(mSw,1.8, masterOn and THEME.GREEN or THEME.RED)
     local mKnob=Instance.new("Frame",mSw); mKnob.Size=UDim2.fromOffset(22,22); mKnob.Position=UDim2.new(masterOn and 1 or 0, masterOn and -24 or 2, 0.5,-11); mKnob.BackgroundColor3=THEME.WHITE; corner(mKnob,11)
     local mBtn=Instance.new("TextButton",mSw); mBtn.BackgroundTransparency=1; mBtn.Size=UDim2.fromScale(1,1); mBtn.Text=""
-    local function setMaster(v) masterOn=v; RJ.remember.enabled=v; local st=mSw:FindFirstChildOfClass("UIStroke"); if st then st.Color=v and THEME.GREEN or THEME.RED end; tween(mKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08); applyStats() end
+
+    local function setMaster(v)
+        masterOn=v; RJ.remember.enabled=v; SaveSet("enabled", v)
+        local st=mSw:FindFirstChildOfClass("UIStroke"); if st then st.Color=v and THEME.GREEN or THEME.RED end
+        tween(mKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08)
+        applyStats()
+    end
     keepUI(mBtn.MouseButton1Click:Connect(function() setMaster(not masterOn) end))
 
     -- ===== Slider builder =====
-    local function buildSlider(name, order, title, getRel, setRel)
+    local function buildSlider(name, order, title, getRel, setRel, saveKey)
         local row=Instance.new("Frame",scroll) row.Name=name row.LayoutOrder=order
         row.Size=UDim2.new(1,-6,0,70) row.BackgroundColor3=THEME.BLACK corner(row,12) stroke(row,2.2,THEME.GREEN)
 
@@ -1340,8 +1373,16 @@ registerRight("Player", function(scroll)
 
         local visRel=getRel()
         local function relFrom(x) return (x - bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X) end
-        local function setRelClamped(r) r=math.clamp(r,0,1); setRel(r); end
-        local function instantVisual() visRel=getRel(); fill.Size=UDim2.fromScale(visRel,1); knob.Position=UDim2.new(visRel,0,0.5,0); knobShadow.Position=UDim2.new(visRel,0,0.5,2); centerVal.Text=string.format("%d%%", math.floor(visRel*100+0.5)) end
+        local function setRelClamped(r)
+            r=math.clamp(r,0,1)
+            setRel(r)
+            SaveSet(saveKey, r)
+        end
+        local function instantVisual()
+            visRel=getRel()
+            fill.Size=UDim2.fromScale(visRel,1); knob.Position=UDim2.new(visRel,0,0.5,0); knobShadow.Position=UDim2.new(visRel,0,0.5,2)
+            centerVal.Text=string.format("%d%%", math.floor(visRel*100+0.5))
+        end
 
         local DRAG_THRESHOLD=5
         local dragging=false; local maybeDrag=false; local downX=nil
@@ -1404,15 +1445,18 @@ registerRight("Player", function(scroll)
     -- === Sliders in correct order: Run → Jump → Swim ===
     buildSlider("RJ_Run",  baseOrder+2, "Run Speed",
         function() return runRel end,
-        function(r) runRel=math.clamp(r,0,1); RJ.remember.runRel=runRel; applyStats() end)
+        function(r) runRel=math.clamp(r,0,1); RJ.remember.runRel=runRel; applyStats() end,
+        "runRel")
 
     buildSlider("RJ_Jump", baseOrder+3, "Jump Power",
         function() return jumpRel end,
-        function(r) jumpRel=math.clamp(r,0,1); RJ.remember.jumpRel=jumpRel; applyStats() end)
+        function(r) jumpRel=math.clamp(r,0,1); RJ.remember.jumpRel=jumpRel; applyStats() end,
+        "jumpRel")
 
     buildSlider("RJ_Swim", baseOrder+4, "Swim Speed",
         function() return swimRel end,
-        function(r) swimRel=math.clamp(r,0,1); RJ.remember.swimRel=swimRel; applyStats() end)
+        function(r) swimRel=math.clamp(r,0,1); RJ.remember.swimRel=swimRel; applyStats() end,
+        "swimRel")
 
     -- Infinite Jump
     local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+5
@@ -1424,9 +1468,15 @@ registerRight("Player", function(scroll)
     local iKnob=Instance.new("Frame",iSw); iKnob.Size=UDim2.fromOffset(22,22); iKnob.Position=UDim2.new(infJumpOn and 1 or 0, infJumpOn and -24 or 2, 0.5,-11)
     iKnob.BackgroundColor3=THEME.WHITE; corner(iKnob,11)
     local iBtn=Instance.new("TextButton",iSw); iBtn.BackgroundTransparency=1; iBtn.Size=UDim2.fromScale(1,1); iBtn.Text=""
-    local function setInf(v) infJumpOn=v; RJ.remember.infJump=v; local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end; tween(iKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08); bindInfJump() end
+    local function setInf(v)
+        infJumpOn=v; RJ.remember.infJump=v; SaveSet("infJump", v)
+        local st=iSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end
+        tween(iKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08)
+        bindInfJump()
+    end
     keepUI(iBtn.MouseButton1Click:Connect(function() setInf(not infJumpOn) end))
 
+    -- apply current settings after build
     applyStats(); bindInfJump()
 end)
 --===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME) =====
