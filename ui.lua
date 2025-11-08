@@ -1,18 +1,12 @@
--- ==== UFO HUB X • One-shot Boot Guard (anti double-run) ====
+-- ==== UFO HUB X • One-shot Boot Guard (PER SESSION; no cooldown reopen) ====
+-- วางบนสุดของไฟล์ก่อนโค้ดทั้งหมด
 do
-    local BOOT = getgenv().UFO_BOOT or { status = "idle", t0 = 0 }
-    -- ถ้ากำลังบูตอยู่ → กันรันซ้ำทันที
-    if BOOT.status == "running" then
+    local BOOT = getgenv().UFO_BOOT or { status = "idle" }  -- status: idle|running|done
+    -- ถ้ากำลังบูต หรือเคยบูตเสร็จแล้ว → ไม่ให้รันอีก
+    if BOOT.status == "running" or BOOT.status == "done" then
         return
     end
-    -- ถ้าบูตจบแล้วยังอยู่ในคูลดาวน์ (เช่น เผลอกดซ้ำเร็วๆ) → กันรันซ้ำ
-    local COOLDOWN = 8 -- วินาที (ปรับได้)
-    if BOOT.status == "done" and (os.clock() - (BOOT.t0 or 0)) < COOLDOWN then
-        return
-    end
-    -- ยึดล็อก
     BOOT.status = "running"
-    BOOT.t0 = os.clock()
     getgenv().UFO_BOOT = BOOT
 end
 --[[
@@ -2744,19 +2738,9 @@ do
         out2:Play(); out2.Completed:Wait(); gui2:Destroy()
     end)
 end
--- ==== mark boot done + short cooldown unlock ====
+-- ==== mark boot done (lock forever until reset) ====
 do
     local B = getgenv().UFO_BOOT or {}
     B.status = "done"
-    B.t0 = os.clock()
     getgenv().UFO_BOOT = B
-
-    -- ปลดกลับเป็น idle หลังคูลดาวน์ (ให้กดรันใหม่ได้จริงเมื่ออยากรีบูต)
-    task.delay(8, function()
-        local X = getgenv().UFO_BOOT
-        if X and X.status == "done" then
-            X.status = "idle"
-            getgenv().UFO_BOOT = X
-        end
-    end)
 end
