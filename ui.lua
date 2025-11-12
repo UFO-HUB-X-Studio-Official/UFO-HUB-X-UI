@@ -3039,7 +3039,7 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (transparent bg, logo on top, bar below, auto-close) ]==--
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (match main UI size/position) ]==--
 local CoreGui       = game:GetService("CoreGui")
 local TweenService  = game:GetService("TweenService")
 local RunService    = game:GetService("RunService")
@@ -3064,7 +3064,39 @@ local function findButtonByText(texts: {string})
 	return nil
 end
 
--- overlay (transparent; only the bar has black bg + green border)
+-- try to identify the main window frame to mirror its size/position
+local function findMainWindow(maxWait)
+	maxWait = maxWait or 3
+	local deadline = time() + maxWait
+	local best -- Frame
+	local bestArea = 0
+
+	repeat
+		if root then
+			for _,inst in ipairs(root:GetDescendants()) do
+				if inst:IsA("Frame") and inst.Visible then
+					local size = inst.AbsoluteSize
+					local pos  = inst.AbsolutePosition
+					-- heuristic: ignore tiny things / tooltips / full-screen blockers
+					if size.X >= 320 and size.Y >= 180 and size.X <= workspace.CurrentCamera.ViewportSize.X and size.Y <= workspace.CurrentCamera.ViewportSize.Y then
+						-- prefer the largest reasonable content frame
+						local area = size.X * size.Y
+						if area > bestArea then
+							bestArea = area
+							best = inst
+						end
+					end
+				end
+			end
+		end
+		if best then break end
+		RunService.Heartbeat:Wait()
+	until time() > deadline
+
+	return best
+end
+
+-- overlay (black shell with green stroke, same size/position as main)
 local function createDownloadOverlay()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "UFO_HUB_X_DownloadOverlay"
@@ -3082,40 +3114,79 @@ local function createDownloadOverlay()
 	blocker.Size = UDim2.fromScale(1,1)
 	blocker.Parent = sg
 
-	-- transparent container centered on screen
+	-- match main window
+	local main = findMainWindow(3)
+	-- fallback safe rect if not found
+	local mainSize, mainPos = Vector2.new(640,360), Vector2.new(
+		(workspace.CurrentCamera.ViewportSize.X-640)/2,
+		(workspace.CurrentCamera.ViewportSize.Y-360)/2
+	)
+	if main then
+		-- wait one heartbeat to ensure Absolute* values are valid
+		RunService.Heartbeat:Wait()
+		mainSize = main.AbsoluteSize
+		mainPos  = main.AbsolutePosition
+	end
+
+	-- black shell = same size/position as UI หลัก
+	local shell = Instance.new("Frame")
+	shell.Name = "Shell"
+	shell.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- black
+	shell.BorderSizePixel = 0
+	shell.Size = UDim2.fromOffset(mainSize.X, mainSize.Y)
+	shell.Position = UDim2.fromOffset(mainPos.X, mainPos.Y)
+	shell.ClipsDescendants = false
+	shell.Parent = sg
+
+	-- copy corner radius from main if present, else 12px
+	local cornerRadius = UDim.new(0, 12)
+	if main then
+		local mc = main:FindFirstChildOfClass("UICorner")
+		if mc then cornerRadius = mc.CornerRadius end
+	end
+	local shellCorner = Instance.new("UICorner", shell)
+	shellCorner.CornerRadius = cornerRadius
+
+	local shellStroke = Instance.new("UIStroke")
+	shellStroke.Thickness = 2
+	shellStroke.Color = Color3.fromRGB(0,255,140)     -- green border
+	shellStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	shellStroke.Parent = shell
+
+	-- vertical stack inside shell (logo top, bar below)
 	local stack = Instance.new("Frame")
 	stack.Name = "Stack"
-	stack.AnchorPoint = Vector2.new(0.5,0.5)
-	stack.Position = UDim2.fromScale(0.5,0.5)
-	stack.Size = UDim2.fromScale(0.8,0.6) -- safe area
 	stack.BackgroundTransparency = 1
-	stack.Parent = sg
+	stack.Size = UDim2.fromScale(1,1)
+	stack.Parent = shell
+
 	local layout = Instance.new("UIListLayout", stack)
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 22)
+	layout.Padding = UDim.new(0, math.max(16, math.floor(mainSize.Y*0.04)))
 
-	-- TOP: logo (bigger) – stays above the bar
+	-- TOP: logo (kept big but responsive)
 	local logo = Instance.new("ImageLabel")
 	logo.Name = "Logo"
 	logo.BackgroundTransparency = 1
 	logo.Image = "rbxassetid://117052960049460"
-	logo.Size = UDim2.fromScale(0.36, 0.36)  -- bigger
+	logo.Size = UDim2.fromScale(0.28, 0.28)  -- responsive to shell
 	logo.LayoutOrder = 1
 	logo.Parent = stack
 	local ar = Instance.new("UIAspectRatioConstraint", logo); ar.AspectRatio = 1
 
-	-- BOTTOM: progress bar container (only this has black bg + green stroke)
+	-- BOTTOM: progress bar (black bg lives on shell already; bar has its own green fill)
 	local barFrame = Instance.new("Frame")
 	barFrame.Name = "BarFrame"
-	barFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- black bg (only here)
+	barFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	barFrame.BorderSizePixel = 0
-	barFrame.Size = UDim2.fromScale(0.52, 0.16)         -- tuned for phone
+	barFrame.Size = UDim2.new(0.86, 0, 0, math.max(40, math.floor(mainSize.Y*0.14)))
 	barFrame.LayoutOrder = 2
 	barFrame.Parent = stack
-	Instance.new("UICorner", barFrame).CornerRadius = UDim.new(0, 8)
+	local barCorner = Instance.new("UICorner", barFrame)
+	barCorner.CornerRadius = UDim.new(0, math.max(8, math.floor(mainSize.Y*0.03)))
 	local barStroke = Instance.new("UIStroke", barFrame)
 	barStroke.Thickness = 2
 	barStroke.Color = Color3.fromRGB(0,255,140)
@@ -3129,9 +3200,10 @@ local function createDownloadOverlay()
 	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
 	fill.BorderSizePixel = 0
 	fill.Parent = barFrame
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 8)
+	local fillCorner = Instance.new("UICorner", fill)
+	fillCorner.CornerRadius = barCorner.CornerRadius
 
-	-- percent text (white with black outline) – centered on bar
+	-- percent text (white with black outline)
 	local num = Instance.new("TextLabel")
 	num.Name = "Percent"
 	num.BackgroundTransparency = 1
@@ -3141,24 +3213,27 @@ local function createDownloadOverlay()
 	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 	num.TextScaled = true
 	num.Text = "0%"
-	num.TextColor3 = Color3.fromRGB(255,255,255) -- white text
-	num.TextStrokeColor3 = Color3.fromRGB(0,0,0) -- black outline
+	num.TextColor3 = Color3.fromRGB(255,255,255)
+	num.TextStrokeColor3 = Color3.fromRGB(0,0,0)
 	num.TextStrokeTransparency = 0
 	num.Parent = barFrame
 
-	-- subtle fade-in (on bar only; stack starts visible)
+	-- subtle fade-in on shell/ bar
+	shell.BackgroundTransparency = 1
 	barFrame.BackgroundTransparency = 1
 	fill.Visible = false
 	num.TextTransparency = 1
+	TweenService:Create(shell, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
 	TweenService:Create(barFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
 	task.delay(0.10, function() fill.Visible = true; num.TextTransparency = 0 end)
 
-	return sg, stack, barFrame, num, fill
+	return sg, shell, barFrame, num, fill
 end
 
-local function destroyOverlay(sg: ScreenGui, barFrame: Frame)
+local function destroyOverlay(sg: ScreenGui, shell: Frame, barFrame: Frame)
 	if not sg or not sg.Parent then return end
 	pcall(function()
+		TweenService:Create(shell, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
 		TweenService:Create(barFrame, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
 	end)
 	task.delay(0.14, function() if sg then sg:Destroy() end end)
@@ -3181,7 +3256,7 @@ local function click(btn: Instance)
 end
 
 task.defer(function()
-	local overlay, stack, barFrame, percentLabel, fill = createDownloadOverlay()
+	local overlay, shell, barFrame, percentLabel, fill = createDownloadOverlay()
 
 	-- walk tabs while counting (Home → Quest → Shop → Settings → Player)
 	task.spawn(function()
@@ -3195,5 +3270,5 @@ task.defer(function()
 
 	runCounter(percentLabel, fill, 2.2)   -- animate 0→100
 
-	destroyOverlay(overlay, barFrame)     -- auto-close so main UI is usable
+	destroyOverlay(overlay, shell, barFrame)     -- auto-close so main UI is usable
 end)
