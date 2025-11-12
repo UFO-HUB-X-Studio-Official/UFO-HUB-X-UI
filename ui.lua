@@ -3140,3 +3140,108 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
+-- === [UFO HUB X • Auto Cycle Tabs + Download Overlay (exact position/size by ratio)] ===
+do
+    local RunS = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local lp = Players.LocalPlayer
+
+    -- THEME
+    local GREEN = Color3.fromRGB(25,255,125)
+    local BLACK = Color3.fromRGB(0,0,0)
+    local WHITE = Color3.fromRGB(255,255,255)
+
+    -- สร้าง Overlay แบบภาพตัวอย่าง: กล่องขาวตรงกลาง + ขอบเขียว + ฉากหลังดำ
+    local function showDownloadOverlay()
+        -- อิงสัดส่วนจากภาพ (กว้างราว 62% / สูงราว 55% ของจอ) เพื่อให้ “ตำแหน่ง/ขนาด” ดูเหมือนในรูป
+        local cam = workspace.CurrentCamera
+        local vs = cam and cam.ViewportSize or Vector2.new(1280,720)
+        local BOX_W = math.floor(vs.X * 0.62)
+        local BOX_H = math.floor(vs.Y * 0.55)
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name="UFOX_DL_GUI"
+        gui.IgnoreGuiInset=true
+        gui.DisplayOrder=999999
+        gui.ResetOnSpawn=false
+        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        gui.Parent = lp:WaitForChild("PlayerGui")
+
+        -- พื้นหลังดำเต็มจอ (เหมือนภาพที่ 2)
+        local bg = Instance.new("Frame", gui)
+        bg.Name="BG"
+        bg.BackgroundColor3 = BLACK
+        bg.BackgroundTransparency = 0
+        bg.Size = UDim2.fromScale(1,1)
+        bg.ZIndex = 100
+
+        -- กล่องสีขาวกึ่งกลาง + ขอบเขียว
+        local box = Instance.new("Frame", gui)
+        box.Name="WhiteBox"
+        box.BackgroundColor3 = WHITE
+        box.BorderSizePixel = 0
+        box.Position = UDim2.new(0.5, -BOX_W/2, 0.5, -BOX_H/2)
+        box.Size = UDim2.fromOffset(BOX_W, BOX_H)
+        box.ZIndex = 101
+        do
+            local c = Instance.new("UICorner", box); c.CornerRadius = UDim.new(0, 0) -- เหลี่ยมเป๊ะ
+            local s = Instance.new("UIStroke", box); s.Thickness = 3; s.Color = GREEN; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        end
+
+        -- ตำแหน่ง/ขนาด “แท่งแดง” ในภาพ → เปลี่ยนเป็นตัวเลข 0-100 ตรงตำแหน่ง/ขนาดเท่าเดิม
+        -- ประมาณจากรูป: กว้าง ~ 28% ของกล่อง / สูง ~ 14% ของกล่อง
+        local P_W = math.floor(BOX_W * 0.28)
+        local P_H = math.floor(BOX_H * 0.14)
+
+        local pct = Instance.new("TextLabel", gui)
+        pct.Name = "DLPercent"
+        pct.BackgroundTransparency = 1
+        pct.TextColor3 = BLACK          -- ตัวเลขสีดำบนพื้นขาวตามคอนทราสต์รูป
+        pct.Font = Enum.Font.GothamBlack
+        pct.TextScaled = true
+        pct.ZIndex = 102
+        pct.Size = UDim2.fromOffset(P_W, P_H)
+        pct.Position = UDim2.new(0.5, -P_W/2, 0.5, -P_H/2)
+        pct.Text = "Download 0"
+
+        return gui, pct
+    end
+
+    -- ไล่ “กด” แท็บ: Home → Quest → Shop → Settings → กลับ Player
+    local function cycleTabsOnce()
+        local R = getgenv().UFO_RIGHT
+        if not (R and typeof(showRight)=="function") then return end
+
+        local prev = R.current or "Player"
+        local order = {"Home","Quest","Shop","Settings"}
+
+        for _,tab in ipairs(order) do
+            pcall(function() showRight(tab) end)
+            RunS.Heartbeat:Wait()  -- 1 เฟรมให้ builder ทำงาน
+            task.wait(0.03)        -- สั้นๆ กันกระพริบ
+        end
+
+        pcall(function() showRight(prev) end)
+    end
+
+    -- รอให้ระบบ RIGHT พร้อมก่อนแล้วค่อยทำงาน
+    task.defer(function()
+        repeat RunS.Heartbeat:Wait() until (getgenv().UFO_RIGHT and typeof(showRight)=="function")
+
+        -- 1) โชว์หน้าดาวน์โหลดทันที (เหมือนรูป)
+        local gui, pctLabel = showDownloadOverlay()
+
+        -- 2) ระหว่างดาวน์โหลด ให้ "กด" ไล่ทุกแท็บเพื่อบิลด์ระบบขวาทั้งหมด
+        task.spawn(cycleTabsOnce)
+
+        -- 3) นับ 0→100 (ตรงกลางตำแหน่งเดิม ขนาดเดิม)
+        for i=0,100 do
+            if pctLabel then pctLabel.Text = ("Download %d"):format(i) end
+            task.wait(0.015) -- ~1.5s รวม ๆ ใกล้เคียงฟีลลิ่งในรูป
+        end
+
+        -- 4) ซ่อน Overlay เมื่อเสร็จ
+        if gui then gui:Destroy() end
+    end)
+end
+-- === [/Auto Cycle Tabs + Download Overlay] ===
