@@ -722,170 +722,6 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (logo bigger + green bar + guaranteed auto-close) ]==--
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
--- locate main UI (for clicking tabs)
-local root = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFO_HUB_X") or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
-
-local function findButtonByText(texts: {string})
-	if not root then return nil end
-	local map = {}
-	for _,t in ipairs(texts) do map[string.lower(t)] = true end
-	for _, inst in ipairs(root:GetDescendants()) do
-		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
-			local t = inst:IsA("TextButton") and (inst.Text or "") or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
-			if map[string.lower(t)] then return inst end
-		end
-	end
-	return nil
-end
-
--- overlay
-local function createDownloadOverlay()
-	local sg = Instance.new("ScreenGui")
-	sg.Name = "UFO_HUB_X_DownloadOverlay"
-	sg.ResetOnSpawn = false
-	sg.IgnoreGuiInset = true
-	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	sg.DisplayOrder = 2_000_000
-	sg.Parent = CoreGui
-
-	-- blocker ทั้งจอเพื่อกันคลิก UI หลักระหว่างโหลด
-	local blocker = Instance.new("TextButton")
-	blocker.BackgroundTransparency = 1
-	blocker.Text = ""
-	blocker.Size = UDim2.fromScale(1,1)
-	blocker.AutoButtonColor = false
-	blocker.Parent = sg
-
-	-- กล่องดำกลางจอ
-	local box = Instance.new("Frame")
-	box.AnchorPoint = Vector2.new(0.5, 0.5)
-	box.Position = UDim2.fromScale(0.5, 0.5)
-	box.Size = UDim2.fromScale(0.64, 0.58)
-	box.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	box.BorderSizePixel = 0
-	box.Parent = sg
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
-	local stroke = Instance.new("UIStroke", box); stroke.Thickness = 3; stroke.Color = Color3.fromRGB(0,255,140)
-
-	-- stack = โลโก้ + แถบโหลด
-	local stack = Instance.new("Frame")
-	stack.AnchorPoint = Vector2.new(0.5,0.5)
-	stack.Position = UDim2.fromScale(0.5,0.5)
-	stack.Size = UDim2.fromScale(0.8,0.7)
-	stack.BackgroundTransparency = 1
-	stack.Parent = box
-
-	local layout = Instance.new("UIListLayout", stack)
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 16)
-
-	-- โลโก้ (ใหญ่ขึ้น)
-	local logo = Instance.new("ImageLabel")
-	logo.BackgroundTransparency = 1
-	logo.Image = "rbxassetid://117052960049460"
-	logo.Size = UDim2.fromScale(0.30, 0.30)  -- ↑ จาก 0.22 -> 0.30
-	logo.Parent = stack
-	local ar = Instance.new("UIAspectRatioConstraint", logo); ar.AspectRatio = 1
-
-	-- กรอบแถบโหลด
-	local barOuter = Instance.new("Frame")
-	barOuter.Size = UDim2.fromScale(0.48, 0.20) -- กรอบเผื่อ padding
-	barOuter.BackgroundTransparency = 1
-	barOuter.Parent = stack
-
-	local bar = Instance.new("Frame")
-	bar.AnchorPoint = Vector2.new(0.5,0.5)
-	bar.Position = UDim2.fromScale(0.5,0.5)
-	bar.Size = UDim2.fromScale(1, 0.62)
-	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	bar.BorderSizePixel = 0
-	bar.Parent = barOuter
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6)
-	local barStroke = Instance.new("UIStroke", bar); barStroke.Thickness = 2; barStroke.Color = Color3.fromRGB(0,255,140)
-
-	local fill = Instance.new("Frame")
-	fill.AnchorPoint = Vector2.new(0,0.5)
-	fill.Position = UDim2.fromScale(0,0.5)
-	fill.Size = UDim2.fromScale(0,1)
-	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
-	fill.BorderSizePixel = 0
-	fill.Parent = bar
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 6)
-
-	local num = Instance.new("TextLabel")
-	num.BackgroundTransparency = 1
-	num.AnchorPoint = Vector2.new(0.5,0.5)
-	num.Position = UDim2.fromScale(0.5,0.5)
-	num.Size = UDim2.fromScale(1,1)
-	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-	num.TextScaled = true
-	num.TextColor3 = Color3.fromRGB(255,255,255) -- ตัวเลขสีขาว
-	num.Text = "0%"
-	num.Parent = bar
-
-	-- fade-in (ทวีนที่ box จริง ไม่แตะ ScreenGui)
-	box.BackgroundTransparency = 1
-	stack.Visible = false
-	TweenService:Create(box, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-	task.delay(0.12, function() stack.Visible = true end)
-
-	return sg, box, num, fill
-end
-
-local function destroyOverlay(sg: ScreenGui, box: Frame)
-	if not sg or not sg.Parent then return end
-	-- fade-out ที่กล่อง แล้วลบจริง
-	pcall(function()
-		TweenService:Create(box, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
-	end)
-	task.delay(0.14, function()
-		if sg then sg:Destroy() end
-	end)
-end
-
--- เคาน์เตอร์ 0..100 พร้อมเติมแถบ
-local function runCounter(label: TextLabel, fill: Frame, duration)
-	duration = duration or 2.2
-	for i = 0, 100 do
-		label.Text = ("%d%%"):format(i)
-		fill.Size = UDim2.fromScale(i/100, 1)
-		RunService.Heartbeat:Wait()
-		task.wait(duration/100)
-	end
-end
-
-local function click(btn: Instance)
-	if btn and btn.Activate then btn:Activate() end
-	task.wait(0.10)
-end
-
-task.defer(function()
-	local overlay, box, percentLabel, fill = createDownloadOverlay()
-
-	-- เดินปุ่ม: Home → Quest → Shop → Settings → กลับ Player
-	task.spawn(function()
-		local home     = findButtonByText({"Home"})
-		local quest    = findButtonByText({"Quest"})
-		local shop     = findButtonByText({"Shop"})
-		local settings = findButtonByText({"Settings","Setting","Update"})
-		local player   = findButtonByText({"Player"})
-		click(home); click(quest); click(shop); click(settings); click(player)
-	end)
-
-	-- นับ & เติมบาร์
-	runCounter(percentLabel, fill, 2.2)
-
-	-- ปิดทับแน่นอนหลังครบ 100 (คืนสิทธิ์กด UI หลัก)
-	destroyOverlay(overlay, box)
-end)
  -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เพิ่มระบบเซฟแบบ Runner (per-map) • ไม่เปลี่ยนหน้าตา/สีเดิม
 
@@ -3203,147 +3039,167 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
--- === [UFO HUB X • Auto Tab Walk + Download Overlay • FRONT + BLACK + FIT] ===
-do
-    local Players    = game:GetService("Players")
-    local Tween      = game:GetService("TweenService")
-    local RunService = game:GetService("RunService")
-    local lp = Players.LocalPlayer
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (logo bigger + green bar + guaranteed auto-close) ]==--
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-    }
+-- locate main UI (for clicking tabs)
+local root = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFO_HUB_X") or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
 
-    -- ====== Build overlay (หน้าสุดจริง ๆ) ======
-    local function makeOverlay()
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "UFOX_DownloadOverlay"
-        gui.ResetOnSpawn = false
-        gui.IgnoreGuiInset = true
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 2_000_000   -- มากกว่า UI หลักแบบขาดลอย
-        gui.Parent = lp:WaitForChild("PlayerGui")
-
-        -- ชั้นพื้นหลัง (รับอินพุตไว้เองกันคลิกทะลุ)
-        local dim = Instance.new("Frame", gui)
-        dim.Name = "Dim"
-        dim.Active = true                      -- block input
-        dim.Selectable = false
-        dim.ZIndex = 10_000
-        dim.BackgroundColor3 = THEME.BLACK
-        dim.BackgroundTransparency = 0
-        dim.Size = UDim2.fromScale(1,1)
-
-        -- กล่องสีดำ ขอบเขียว
-        local box = Instance.new("Frame", dim)
-        box.Name = "Box"
-        box.ZIndex = 10_001
-        box.AnchorPoint = Vector2.new(0.5,0.5)
-        box.Position = UDim2.fromScale(0.5, 0.52)
-        box.Size = UDim2.new(0.74, 0, 0.58, 0)        -- ค่าเริ่มต้น (ถ้าฟิตไม่ได้จะใช้ค่านี้)
-        box.BackgroundColor3 = THEME.BLACK           -- << เปลี่ยนเป็น “ดำ”
-        box.BorderSizePixel = 0
-        do
-            local stroke = Instance.new("UIStroke", box)
-            stroke.Thickness = 3.2
-            stroke.Color = THEME.GREEN
-        end
-
-        -- ตัวเลข Download 0–100 (ตำแหน่งเดียวกับสี่เหลี่ยมแดงเดิม)
-        local num = Instance.new("TextLabel", box)
-        num.Name = "Percent"
-        num.ZIndex = 10_002
-        num.BackgroundTransparency = 1
-        num.AnchorPoint = Vector2.new(0.5,0.5)
-        num.Position = UDim2.fromScale(0.5, 0.58)
-        num.Size = UDim2.new(0.34, 0, 0.10, 0)
-        num.Font = Enum.Font.GothamBlack
-        num.TextColor3 = THEME.WHITE                -- อ่านชัดบนพื้นดำ
-        num.TextScaled = true
-        num.Text = "Download 0%"
-
-        -- ====== FIT: ปรับขนาด/ตำแหน่งกล่องให้พอดีกับ UI หลัก ถ้าหาได้ ======
-        local function fitToMain()
-            local R = getgenv().UFO_RIGHT
-            local rshell
-            if R and R.frames then
-                for _,fd in pairs(R.frames) do
-                    if fd and fd.root and fd.root.Parent then
-                        rshell = fd.root.Parent -- นี่คือ RightShell (parent ของแต่ละแท็บ)
-                        break
-                    end
-                end
-            end
-            -- ถ้าหา RightShell ไม่ได้ ลองเดา main window จากชื่อที่ใช้บ่อย
-            if not rshell then
-                rshell = workspace:FindFirstChild("UFO_HUB_X_UI") or
-                         lp:WaitForChild("PlayerGui", 0.1):FindFirstChild("UFO_HUB_X_UI")
-            end
-
-            if rshell and rshell.AbsoluteSize.X > 0 then
-                local pos = rshell.AbsolutePosition
-                local sz  = rshell.AbsoluteSize
-                -- ครอบคลุม UI หลักแบบเผื่อขอบเล็กน้อย
-                box.Size     = UDim2.fromOffset(sz.X + 40, sz.Y + 40)
-                box.Position = UDim2.fromOffset(pos.X + sz.X/2, pos.Y + sz.Y/2)
-            end
-        end
-        -- รอ 1 เฟรมให้ขนาด UI หลักคงที่ก่อนค่อยฟิต
-        RunService.Heartbeat:Wait()
-        pcall(fitToMain)
-
-        return gui, num
-    end
-
-    local function destroyOverlay(gui)
-        if gui and gui.Parent then gui:Destroy() end
-    end
-
-    -- ===== รอให้ระบบ Right พร้อมก่อน =====
-    local function ready()
-        return (typeof(showRight) == "function") and getgenv().UFO_RIGHT and getgenv().UFO_RIGHT.builders
-    end
-    while not ready() do RunService.Heartbeat:Wait() end
-    local R = getgenv().UFO_RIGHT
-
-    -- ===== เดินกดแท็บอัตโนมัติ =====
-    local sequence = {"Player","Home","Quest","Shop","Settings"}
-    local prev = R.current or "Player"
-
-    local overlay, label = makeOverlay()
-
-    local function setPct(p)
-        p = math.clamp(math.floor(p + 0.5), 0, 100)
-        if label then label.Text = ("Download %d%%"):format(p) end
-    end
-
-    local steps = #sequence + 1
-    local perStep = 100 / steps
-    local pct = 0
-    setPct(pct)
-
-    for i,tab in ipairs(sequence) do
-        local f = R.frames[tab]
-        if not (f and f.built) then
-            pcall(function() showRight(tab) end)
-            f = R.frames[tab]
-            if f and f.root then f.root.Visible = false end
-        else
-            pcall(function() showRight(tab) end)
-        end
-        pct = math.min(100, perStep * i)
-        setPct(pct)
-        RunService.Heartbeat:Wait()
-    end
-
-    pcall(function() showRight("Player") end)
-    pct = 100; setPct(pct)
-
-    task.delay(0.25, function()
-        destroyOverlay(overlay)
-        if prev and prev ~= "Player" then pcall(function() showRight(prev) end) end
-    end)
+local function findButtonByText(texts: {string})
+	if not root then return nil end
+	local map = {}
+	for _,t in ipairs(texts) do map[string.lower(t)] = true end
+	for _, inst in ipairs(root:GetDescendants()) do
+		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
+			local t = inst:IsA("TextButton") and (inst.Text or "") or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
+			if map[string.lower(t)] then return inst end
+		end
+	end
+	return nil
 end
--- === [/Auto Tab Walk + Download Overlay • FRONT + BLACK + FIT] ===
+
+-- overlay
+local function createDownloadOverlay()
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "UFO_HUB_X_DownloadOverlay"
+	sg.ResetOnSpawn = false
+	sg.IgnoreGuiInset = true
+	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	sg.DisplayOrder = 2_000_000
+	sg.Parent = CoreGui
+
+	-- blocker ทั้งจอเพื่อกันคลิก UI หลักระหว่างโหลด
+	local blocker = Instance.new("TextButton")
+	blocker.BackgroundTransparency = 1
+	blocker.Text = ""
+	blocker.Size = UDim2.fromScale(1,1)
+	blocker.AutoButtonColor = false
+	blocker.Parent = sg
+
+	-- กล่องดำกลางจอ
+	local box = Instance.new("Frame")
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromScale(0.64, 0.58)
+	box.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	box.BorderSizePixel = 0
+	box.Parent = sg
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
+	local stroke = Instance.new("UIStroke", box); stroke.Thickness = 3; stroke.Color = Color3.fromRGB(0,255,140)
+
+	-- stack = โลโก้ + แถบโหลด
+	local stack = Instance.new("Frame")
+	stack.AnchorPoint = Vector2.new(0.5,0.5)
+	stack.Position = UDim2.fromScale(0.5,0.5)
+	stack.Size = UDim2.fromScale(0.8,0.7)
+	stack.BackgroundTransparency = 1
+	stack.Parent = box
+
+	local layout = Instance.new("UIListLayout", stack)
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 16)
+
+	-- โลโก้ (ใหญ่ขึ้น)
+	local logo = Instance.new("ImageLabel")
+	logo.BackgroundTransparency = 1
+	logo.Image = "rbxassetid://117052960049460"
+	logo.Size = UDim2.fromScale(0.30, 0.30)  -- ↑ จาก 0.22 -> 0.30
+	logo.Parent = stack
+	local ar = Instance.new("UIAspectRatioConstraint", logo); ar.AspectRatio = 1
+
+	-- กรอบแถบโหลด
+	local barOuter = Instance.new("Frame")
+	barOuter.Size = UDim2.fromScale(0.48, 0.20) -- กรอบเผื่อ padding
+	barOuter.BackgroundTransparency = 1
+	barOuter.Parent = stack
+
+	local bar = Instance.new("Frame")
+	bar.AnchorPoint = Vector2.new(0.5,0.5)
+	bar.Position = UDim2.fromScale(0.5,0.5)
+	bar.Size = UDim2.fromScale(1, 0.62)
+	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	bar.BorderSizePixel = 0
+	bar.Parent = barOuter
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6)
+	local barStroke = Instance.new("UIStroke", bar); barStroke.Thickness = 2; barStroke.Color = Color3.fromRGB(0,255,140)
+
+	local fill = Instance.new("Frame")
+	fill.AnchorPoint = Vector2.new(0,0.5)
+	fill.Position = UDim2.fromScale(0,0.5)
+	fill.Size = UDim2.fromScale(0,1)
+	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
+	fill.BorderSizePixel = 0
+	fill.Parent = bar
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 6)
+
+	local num = Instance.new("TextLabel")
+	num.BackgroundTransparency = 1
+	num.AnchorPoint = Vector2.new(0.5,0.5)
+	num.Position = UDim2.fromScale(0.5,0.5)
+	num.Size = UDim2.fromScale(1,1)
+	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+	num.TextScaled = true
+	num.TextColor3 = Color3.fromRGB(255,255,255) -- ตัวเลขสีขาว
+	num.Text = "0%"
+	num.Parent = bar
+
+	-- fade-in (ทวีนที่ box จริง ไม่แตะ ScreenGui)
+	box.BackgroundTransparency = 1
+	stack.Visible = false
+	TweenService:Create(box, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	task.delay(0.12, function() stack.Visible = true end)
+
+	return sg, box, num, fill
+end
+
+local function destroyOverlay(sg: ScreenGui, box: Frame)
+	if not sg or not sg.Parent then return end
+	-- fade-out ที่กล่อง แล้วลบจริง
+	pcall(function()
+		TweenService:Create(box, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+	end)
+	task.delay(0.14, function()
+		if sg then sg:Destroy() end
+	end)
+end
+
+-- เคาน์เตอร์ 0..100 พร้อมเติมแถบ
+local function runCounter(label: TextLabel, fill: Frame, duration)
+	duration = duration or 2.2
+	for i = 0, 100 do
+		label.Text = ("%d%%"):format(i)
+		fill.Size = UDim2.fromScale(i/100, 1)
+		RunService.Heartbeat:Wait()
+		task.wait(duration/100)
+	end
+end
+
+local function click(btn: Instance)
+	if btn and btn.Activate then btn:Activate() end
+	task.wait(0.10)
+end
+
+task.defer(function()
+	local overlay, box, percentLabel, fill = createDownloadOverlay()
+
+	-- เดินปุ่ม: Home → Quest → Shop → Settings → กลับ Player
+	task.spawn(function()
+		local home     = findButtonByText({"Home"})
+		local quest    = findButtonByText({"Quest"})
+		local shop     = findButtonByText({"Shop"})
+		local settings = findButtonByText({"Settings","Setting","Update"})
+		local player   = findButtonByText({"Player"})
+		click(home); click(quest); click(shop); click(settings); click(player)
+	end)
+
+	-- นับ & เติมบาร์
+	runCounter(percentLabel, fill, 2.2)
+
+	-- ปิดทับแน่นอนหลังครบ 100 (คืนสิทธิ์กด UI หลัก)
+	destroyOverlay(overlay, box)
+end)
