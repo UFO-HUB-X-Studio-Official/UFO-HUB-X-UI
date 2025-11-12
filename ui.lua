@@ -554,7 +554,31 @@ local btnShop,    setShopActive     = makeTabButton(LeftScroll, "Shop",    ICON_
 local btnUpdate,  setUpdateActive   = makeTabButton(LeftScroll, "Update",  ICON_UPDATE)
 local btnServer,  setServerActive   = makeTabButton(LeftScroll, "Server",  ICON_SERVER)
 local btnSettings,setSettingsActive = makeTabButton(LeftScroll, "Settings",ICON_SETTINGS)
+-- === [UFO HUB X • Autoboot Right Tabs] ===
+task.defer(function()
+    -- เก็บสถานะแท็บปัจจุบันไว้ (ถ้าเปิดอยู่)
+    local prev = RSTATE.current
+    local prevY = prev and RSTATE.scrollY[prev] or 0
 
+    -- รัน builder ของทุกแท็บรอบเดียว เพื่อให้ระบบที่ผูกกับ save/loop ติดขึ้นมาทันที
+    -- หมายเหตุ: showRight() จะ build เมื่อยังไม่เคย build เท่านั้น
+    for tabName, _ in pairs(RSTATE.builders) do
+        showRight(tabName)
+    end
+
+    -- คืนกลับแท็บเดิมถ้ามี ไม่งั้นไปแท็บแรกของคุณ (เช่น "Home" หรือที่ต้องการ)
+    if prev then
+        showRight(prev)
+        local f = RSTATE.frames[prev]
+        if f and f.scroll then
+            f.scroll.CanvasPosition = Vector2.new(0, prevY or 0)
+        end
+    else
+        -- เปลี่ยนตามแท็บเริ่มต้นของโปรเจกต์ (เช่น "Home" หรือ "Player")
+        showRight("Home")
+    end
+end)
+-- === [/Autoboot] ===
 -- ========== RIGHT ==========
 local RightShell=Instance.new("Frame",Body)
 RightShell.BackgroundColor3=THEME.BG_PANEL; RightShell.BorderSizePixel=0
