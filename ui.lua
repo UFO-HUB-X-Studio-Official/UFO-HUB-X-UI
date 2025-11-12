@@ -3039,53 +3039,17 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (auto-measure to green border) ]==--
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (match main UI + Y-nudge down) ]==--
 local CoreGui      = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local RunService   = game:GetService("RunService")
 
+-- === ปรับระยะเล็กน้อย (ถ้าต้องการจูนมือ ให้แก้ตรงนี้ได้) ===
+local EXTRA_Y_NUDGE_RATIO = 0.065  -- ขยับลงตามรูป ~6.5% ของความสูงกรอบหลัก
+
 local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
           or CoreGui:FindFirstChild("UFO_HUB_X")
           or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
-
--- หา frame ปลายทางที่เป็น "กรอบหลักขอบเขียว"
-local function pickGreenBorderFrame()
-	if not root then return nil end
-	local best, bestArea = nil, 0
-
-	for _, fr in ipairs(root:GetDescendants()) do
-		if fr:IsA("Frame") and fr.Visible then
-			local stroke = fr:FindFirstChildOfClass("UIStroke")
-			if stroke then
-				local c = stroke.Color
-				-- โทนเขียวของโปรเจกต์ (ยอมรับได้ ±เล็กน้อย)
-				local greenish = (c.G > 0.7 and c.B < 0.7 and c.R < 0.4)
-				if greenish then
-					local sz = fr.AbsoluteSize
-					local area = sz.X * sz.Y
-					-- ตัดของจิ๋ว ๆ ทิ้ง
-					if sz.X >= 400 and sz.Y >= 220 and area > bestArea then
-						best, bestArea = fr, area
-					end
-				end
-			end
-		end
-	end
-
-	-- สำรอง: ใช้กรอบที่ใหญ่สุดใน root
-	if not best then
-		for _, fr in ipairs(root:GetDescendants()) do
-			if fr:IsA("Frame") and fr.Visible then
-				local sz = fr.AbsoluteSize
-				if sz.X >= 400 and sz.Y >= 220 then
-					local area = sz.X * sz.Y
-					if area > bestArea then best,bestArea = fr,area end
-				end
-			end
-		end
-	end
-	return best
-end
 
 local function findButtonByText(texts)
 	if not root then return nil end
@@ -3100,6 +3064,41 @@ local function findButtonByText(texts)
 	end
 end
 
+-- เลือกกรอบหลักที่มีขอบเขียว (ใหญ่สุด)
+local function pickGreenBorderFrame()
+	if not root then return nil end
+	local best, bestArea = nil, 0
+	for _, fr in ipairs(root:GetDescendants()) do
+		if fr:IsA("Frame") and fr.Visible then
+			local stroke = fr:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				local c = stroke.Color
+				local greenish = (c.G > 0.7 and c.B < 0.7 and c.R < 0.4)
+				if greenish then
+					local sz = fr.AbsoluteSize
+					if sz.X >= 400 and sz.Y >= 220 then
+						local area = sz.X * sz.Y
+						if area > bestArea then best,bestArea = fr,area end
+					end
+				end
+			end
+		end
+	end
+	-- สำรอง: เอากรอบใหญ่สุดถ้าไม่เจอขอบเขียว
+	if not best then
+		for _, fr in ipairs(root:GetDescendants()) do
+			if fr:IsA("Frame") and fr.Visible then
+				local sz = fr.AbsoluteSize
+				if sz.X >= 400 and sz.Y >= 220 then
+					local area = sz.X * sz.Y
+					if area > bestArea then best,bestArea = fr,area end
+				end
+			end
+		end
+	end
+	return best
+end
+
 local function createOverlay()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "UFOX_DownloadOverlay"
@@ -3109,29 +3108,32 @@ local function createOverlay()
 	sg.DisplayOrder = 2_000_000
 	sg.Parent = CoreGui
 
-	-- กันคลิกพื้นหลัง
+	-- บล็อกการคลิกพื้นหลัง
 	local blocker = Instance.new("TextButton", sg)
 	blocker.Size = UDim2.fromScale(1,1)
 	blocker.BackgroundTransparency = 1
 	blocker.Text = ""
 	blocker.AutoButtonColor = false
 
-	-- หา “กรอบขอบเขียว” แล้ววัดขนาด/ตำแหน่ง
 	local target = pickGreenBorderFrame()
-	RunService.Heartbeat:Wait() -- ให้ Absolute* เสถียรก่อน
+	RunService.Heartbeat:Wait()
 
-	local tPos  = target and target.AbsolutePosition or (workspace.CurrentCamera.ViewportSize/2 - Vector2.new(320,180))
+	local vp = workspace.CurrentCamera.ViewportSize
+	local tPos  = target and target.AbsolutePosition or (vp/2 - Vector2.new(320,180))
 	local tSize = target and target.AbsoluteSize     or Vector2.new(640,360)
-	local cornerRadius = UDim.new(0,12)
+	local cornerRadius = UDim.new(0, 12)
 	if target then
 		local mc = target:FindFirstChildOfClass("UICorner")
 		if mc then cornerRadius = mc.CornerRadius end
 	end
 
-	-- กรอบดำขอบเขียว (ขนาดและตำแหน่ง "เท่ากันเป๊ะ" กับกรอบหลัก)
+	-- === ขยับลงล่างตามสัดส่วนความสูง (เป๊ะตามรูป) ===
+	local yNudge = math.floor(tSize.Y * EXTRA_Y_NUDGE_RATIO)
+
+	-- กรอบดำขอบเขียว (ขนาดเท่ากรอบหลัก + ขยับลง)
 	local shell = Instance.new("Frame", sg)
 	shell.Name = "Shell"
-	shell.Position = UDim2.fromOffset(tPos.X, tPos.Y)
+	shell.Position = UDim2.fromOffset(tPos.X, tPos.Y + yNudge)
 	shell.Size     = UDim2.fromOffset(tSize.X, tSize.Y)
 	shell.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	shell.BorderSizePixel = 0
@@ -3140,7 +3142,7 @@ local function createOverlay()
 	sStroke.Thickness = 2
 	sStroke.Color = Color3.fromRGB(0,255,140)
 
-	-- ภายใน: โลโก้ด้านบน + แถบโหลดด้านล่าง (แบ่งเว้นระยะสวย ๆ)
+	-- ภายใน: โลโก้ด้านบน + แถบโหลดด้านล่าง
 	local stack = Instance.new("Frame", shell)
 	stack.BackgroundTransparency = 1
 	stack.Size = UDim2.fromScale(1,1)
@@ -3150,14 +3152,12 @@ local function createOverlay()
 	lay.VerticalAlignment   = Enum.VerticalAlignment.Center
 	lay.Padding = UDim.new(0, math.max(16, math.floor(tSize.Y*0.05)))
 
-	-- โลโก้ (ใหญ่ขึ้นนิดให้บาลานซ์กับกรอบ)
 	local logo = Instance.new("ImageLabel", stack)
 	logo.BackgroundTransparency = 1
 	logo.Image = "rbxassetid://117052960049460"
 	logo.Size = UDim2.fromScale(0.30, 0.30)
 	Instance.new("UIAspectRatioConstraint", logo).AspectRatio = 1
 
-	-- แถบโหลด (พื้นดำ, ขอบเขียว)
 	local bar = Instance.new("Frame", stack)
 	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	bar.BorderSizePixel = 0
@@ -3168,7 +3168,6 @@ local function createOverlay()
 	barStroke.Thickness = 2
 	barStroke.Color = Color3.fromRGB(0,255,140)
 
-	-- fill เขียว
 	local fill = Instance.new("Frame", bar)
 	fill.AnchorPoint = Vector2.new(0,0.5)
 	fill.Position = UDim2.fromScale(0,0.5)
@@ -3178,7 +3177,6 @@ local function createOverlay()
 	local fillCorner = Instance.new("UICorner", fill)
 	fillCorner.CornerRadius = barCorner.CornerRadius
 
-	-- ตัวเลขสีขาว + ขอบดำ
 	local num = Instance.new("TextLabel", bar)
 	num.BackgroundTransparency = 1
 	num.AnchorPoint = Vector2.new(0.5,0.5)
@@ -3227,7 +3225,7 @@ local function click(btn) if btn and btn.Activate then btn:Activate() end task.w
 task.defer(function()
 	local sg, shell, bar, num, fill = createOverlay()
 
-	-- เดินแท็บ Home → Quest → Shop → Settings → Player ระหว่างนับ
+	-- เดินแท็บ Home → Quest → Shop → Settings → Player ระหว่างโหลด
 	task.spawn(function()
 		local home     = findButtonByText({"Home"})
 		local quest    = findButtonByText({"Quest"})
@@ -3238,5 +3236,5 @@ task.defer(function()
 	end)
 
 	runCounter(num, fill, 2.2)
-	destroyOverlay(sg, shell, bar) -- ปิดทับอัตโนมัติเมื่อครบ 100
+	destroyOverlay(sg, shell, bar) -- ปิดเมื่อครบ 100%
 end)
