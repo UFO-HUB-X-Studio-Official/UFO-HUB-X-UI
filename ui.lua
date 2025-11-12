@@ -722,107 +722,124 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
- -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
-registerRight("Player", function(scroll)
-    local Players = game:GetService("Players")
-    local Content = game:GetService("ContentProvider")
-    local lp      = Players.LocalPlayer
+ -- === [UFO HUB X • Auto Tab Walk + Download Overlay] ===
+do
+local Players    = game:GetService("Players")
+local Tween      = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
 
-    -- THEME
-    local BASE = rawget(_G, "THEME") or {}
-    local THEME = {
-        BG_INNER = BASE.BG_INNER or Color3.fromRGB(0, 0, 0),
-        GREEN    = BASE.GREEN    or BASE.ACCENT or Color3.fromRGB(25, 255, 125),
-        WHITE    = Color3.fromRGB(255, 255, 255),
-    }
-    local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 10)
-        c.Parent = ui
-        return c
+-- ===== THEME (ตาม A Legacy) =====
+local THEME = {
+    GREEN = Color3.fromRGB(25,255,125),
+    WHITE = Color3.fromRGB(255,255,255),
+    BLACK = Color3.fromRGB(0,0,0),
+}
+
+-- ===== Overlay (ดำหน้าสุด + กล่องดำขอบเขียว + ตัวเลข 0-100 ยาวขึ้น) =====
+local function makeOverlay()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "UFOX_DownloadOverlay"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.DisplayOrder = 10_000_000 -- ดันขึ้นหน้าสุดเหนือ UI หลัก
+    gui.Parent = lp:WaitForChild("PlayerGui")
+
+    -- พื้นหลังดำเต็มจอ (หน้าสุด)
+    local dim = Instance.new("Frame", gui)
+    dim.Name = "Dim"
+    dim.BackgroundColor3 = THEME.BLACK
+    dim.BackgroundTransparency = 0
+    dim.Size = UDim2.fromScale(1,1)
+    dim.ZIndex = 999
+
+    -- กล่องกลาง "พื้นดำ ขอบเขียว" (ยืดความยาวบน/ล่างเล็กน้อย)
+    local box = Instance.new("Frame", dim)
+    box.Name = "Box"
+    box.AnchorPoint = Vector2.new(0.5,0.5)
+    box.Position = UDim2.fromScale(0.5, 0.52)
+    box.Size = UDim2.new(0.78, 0, 0.62, 0) -- เดิม 0.74 x 0.58 → ยาวขึ้น/สูงขึ้น
+    box.BackgroundColor3 = THEME.BLACK     -- เปลี่ยนจากขาวเป็นดำ
+    box.BorderSizePixel = 0
+    box.ZIndex = 1000
+    do
+        local corner = Instance.new("UICorner", box); corner.CornerRadius = UDim.new(0, 0)
+        local stroke = Instance.new("UIStroke", box); stroke.Thickness = 3.2; stroke.Color = THEME.GREEN; stroke.ZIndex = 1001
     end
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 1.5
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Parent = ui
-        return s
+
+    -- ตัวเลข “Download 0-100” (เพิ่มความยาวพื้นที่ข้อความ)
+    local num = Instance.new("TextLabel", box)
+    num.Name = "Percent"
+    num.BackgroundTransparency = 1
+    num.AnchorPoint = Vector2.new(0.5,0.5)
+    num.Position = UDim2.fromScale(0.5, 0.58)
+    num.Size = UDim2.new(0.52, 0, 0.12, 0) -- เดิม 0.34 x 0.10 → ยาว/สูงขึ้น
+    num.Font = Enum.Font.GothamBlack
+    num.TextColor3 = THEME.WHITE           -- บนพื้นดำให้อ่านง่าย
+    num.TextScaled = true
+    num.ZIndex = 1002
+    num.Text = "Download 0%"
+
+    return gui, num
+end
+
+local function destroyOverlay(gui)
+    if gui and gui.Parent then gui:Destroy() end
+end
+
+-- ===== ตัวช่วยรอระบบ Right พร้อม =====
+local function ready()
+    return (typeof(showRight) == "function") and getgenv().UFO_RIGHT and getgenv().UFO_RIGHT.builders
+end
+while not ready() do RunService.Heartbeat:Wait() end
+local R = getgenv().UFO_RIGHT
+
+-- ===== ลิสต์แท็บและลูป “กด” อัตโนมัติ =====
+local sequence = {"Player","Home","Quest","Shop","Settings"} -- เดินตามนี้และกลับมาที่ Player
+local prev = R.current or "Player"
+
+-- สร้าง overlay แล้วเริ่มนับ 0→100
+local overlay, label = makeOverlay()
+
+local function setPct(p)
+    p = math.clamp(math.floor(p + 0.5), 0, 100)
+    if label then label.Text = ("Download %d%%"):format(p) end
+end
+
+-- เดินกดทีละแท็บ (build ถ้ายังไม่ built), กระจายเปอร์เซ็นต์ให้ครบ 100
+local steps = #sequence + 1 -- +1 สำหรับขั้น “กลับไป Player”
+local perStep = 100 / steps
+local pct = 0
+setPct(pct)
+
+for i,tab in ipairs(sequence) do
+    local f = R.frames[tab]
+    if not (f and f.built) then
+        pcall(function() showRight(tab) end)
+        f = R.frames[tab]
+        if f and f.root then f.root.Visible = false end -- ซ่อนแฟลช
+    else
+        pcall(function() showRight(tab) end) -- “กด” ให้ระบบในแท็บตื่น
     end
+    pct = math.min(100, perStep * i)
+    setPct(pct)
+    RunService.Heartbeat:Wait()
+end
 
-    -- สร้าง layout กลางถ้ายังไม่มี (ไม่ลบของแท็บอื่น)
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Padding = UDim.new(0, 12)
-        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        vlist.VerticalAlignment   = Enum.VerticalAlignment.Top
-        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
-        vlist.Parent = scroll
+-- กลับมาที่ Player และปิด overlay
+pcall(function() showRight("Player") end)
+pct = 100; setPct(pct)
+
+task.delay(0.25, function()
+    destroyOverlay(overlay)
+    if prev and prev ~= "Player" then
+        pcall(function() showRight(prev) end)
     end
-    scroll.ScrollingDirection  = Enum.ScrollingDirection.Y
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    -- ลบเฉพาะบล็อกโปรไฟล์ของตัวเอง (กันซ้ำ)
-    local old = scroll:FindFirstChild("Section_Profile")
-    if old then old:Destroy() end
-
-    -- ===== Section: Profile =====
-    local section = Instance.new("Frame")
-    section.Name = "Section_Profile"
-    section.BackgroundTransparency = 1
-    section.Size = UDim2.new(1, 0, 0, 0)
-    section.AutomaticSize = Enum.AutomaticSize.Y
-    section.LayoutOrder = 10
-    section.Parent = scroll
-
-    local layout = Instance.new("UIListLayout", section)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.VerticalAlignment   = Enum.VerticalAlignment.Top
-    layout.Padding             = UDim.new(0, 10)
-
-    -- Avatar
-    local avatarWrap = Instance.new("Frame", section)
-    avatarWrap.BackgroundColor3 = THEME.BG_INNER
-    avatarWrap.Size = UDim2.fromOffset(150, 150)
-    corner(avatarWrap, 12)
-    stroke(avatarWrap, 1.6, THEME.GREEN)
-
-    local avatarImg = Instance.new("ImageLabel", avatarWrap)
-    avatarImg.BackgroundTransparency = 1
-    avatarImg.Size = UDim2.fromScale(1, 1)
-    avatarImg.ImageTransparency = 1
-
-    task.spawn(function()
-        if lp then
-            local ok, url = pcall(function()
-                return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-            end)
-            if ok and url then
-                pcall(function() Content:PreloadAsync({url}) end)
-                avatarImg.Image = url
-                avatarImg.ImageTransparency = 0
-            end
-        end
-    end)
-
-    -- Name
-    local nameBar = Instance.new("Frame", section)
-    nameBar.BackgroundColor3 = THEME.BG_INNER
-    nameBar.Size = UDim2.fromOffset(220, 36)
-    corner(nameBar, 8)
-    stroke(nameBar, 1.3, THEME.GREEN)
-
-    local nameLbl = Instance.new("TextLabel", nameBar)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Size = UDim2.fromScale(1, 1)
-    nameLbl.Font = Enum.Font.GothamBold
-    nameLbl.TextSize = 16
-    nameLbl.TextColor3 = THEME.WHITE
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-    nameLbl.TextYAlignment = Enum.TextYAlignment.Center
-    nameLbl.Text = (lp and lp.DisplayName) or "Player"
 end)
+
+end
+-- === [/Auto Tab Walk + Download Overlay] ===
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เพิ่มระบบเซฟแบบ Runner (per-map) • ไม่เปลี่ยนหน้าตา/สีเดิม
 
