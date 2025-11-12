@@ -3039,173 +3039,147 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (match main UI size/position) ]==--
-local CoreGui       = game:GetService("CoreGui")
-local TweenService  = game:GetService("TweenService")
-local RunService    = game:GetService("RunService")
-local Players       = game:GetService("Players")
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (auto-measure to green border) ]==--
+local CoreGui      = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
 
--- locate main UI (for clicking tabs)
 local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
           or CoreGui:FindFirstChild("UFO_HUB_X")
           or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
 
-local function findButtonByText(texts: {string})
+-- หา frame ปลายทางที่เป็น "กรอบหลักขอบเขียว"
+local function pickGreenBorderFrame()
 	if not root then return nil end
-	local map = {}
-	for _,t in ipairs(texts) do map[string.lower(t)] = true end
-	for _, inst in ipairs(root:GetDescendants()) do
-		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
-			local t = inst:IsA("TextButton") and (inst.Text or "")
-			         or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
-			if map[string.lower(t)] then return inst end
-		end
-	end
-	return nil
-end
+	local best, bestArea = nil, 0
 
--- try to identify the main window frame to mirror its size/position
-local function findMainWindow(maxWait)
-	maxWait = maxWait or 3
-	local deadline = time() + maxWait
-	local best -- Frame
-	local bestArea = 0
-
-	repeat
-		if root then
-			for _,inst in ipairs(root:GetDescendants()) do
-				if inst:IsA("Frame") and inst.Visible then
-					local size = inst.AbsoluteSize
-					local pos  = inst.AbsolutePosition
-					-- heuristic: ignore tiny things / tooltips / full-screen blockers
-					if size.X >= 320 and size.Y >= 180 and size.X <= workspace.CurrentCamera.ViewportSize.X and size.Y <= workspace.CurrentCamera.ViewportSize.Y then
-						-- prefer the largest reasonable content frame
-						local area = size.X * size.Y
-						if area > bestArea then
-							bestArea = area
-							best = inst
-						end
+	for _, fr in ipairs(root:GetDescendants()) do
+		if fr:IsA("Frame") and fr.Visible then
+			local stroke = fr:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				local c = stroke.Color
+				-- โทนเขียวของโปรเจกต์ (ยอมรับได้ ±เล็กน้อย)
+				local greenish = (c.G > 0.7 and c.B < 0.7 and c.R < 0.4)
+				if greenish then
+					local sz = fr.AbsoluteSize
+					local area = sz.X * sz.Y
+					-- ตัดของจิ๋ว ๆ ทิ้ง
+					if sz.X >= 400 and sz.Y >= 220 and area > bestArea then
+						best, bestArea = fr, area
 					end
 				end
 			end
 		end
-		if best then break end
-		RunService.Heartbeat:Wait()
-	until time() > deadline
+	end
 
+	-- สำรอง: ใช้กรอบที่ใหญ่สุดใน root
+	if not best then
+		for _, fr in ipairs(root:GetDescendants()) do
+			if fr:IsA("Frame") and fr.Visible then
+				local sz = fr.AbsoluteSize
+				if sz.X >= 400 and sz.Y >= 220 then
+					local area = sz.X * sz.Y
+					if area > bestArea then best,bestArea = fr,area end
+				end
+			end
+		end
+	end
 	return best
 end
 
--- overlay (black shell with green stroke, same size/position as main)
-local function createDownloadOverlay()
+local function findButtonByText(texts)
+	if not root then return nil end
+	local set = {}
+	for _,t in ipairs(texts) do set[string.lower(t)] = true end
+	for _, inst in ipairs(root:GetDescendants()) do
+		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
+			local t = inst:IsA("TextButton") and (inst.Text or "")
+			       or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
+			if set[string.lower(t)] then return inst end
+		end
+	end
+end
+
+local function createOverlay()
 	local sg = Instance.new("ScreenGui")
-	sg.Name = "UFO_HUB_X_DownloadOverlay"
-	sg.ResetOnSpawn = false
+	sg.Name = "UFOX_DownloadOverlay"
 	sg.IgnoreGuiInset = true
+	sg.ResetOnSpawn = false
 	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	sg.DisplayOrder = 2_000_000
 	sg.Parent = CoreGui
 
-	-- full-screen blocker (prevent clicks on main UI)
-	local blocker = Instance.new("TextButton")
+	-- กันคลิกพื้นหลัง
+	local blocker = Instance.new("TextButton", sg)
+	blocker.Size = UDim2.fromScale(1,1)
 	blocker.BackgroundTransparency = 1
 	blocker.Text = ""
 	blocker.AutoButtonColor = false
-	blocker.Size = UDim2.fromScale(1,1)
-	blocker.Parent = sg
 
-	-- match main window
-	local main = findMainWindow(3)
-	-- fallback safe rect if not found
-	local mainSize, mainPos = Vector2.new(640,360), Vector2.new(
-		(workspace.CurrentCamera.ViewportSize.X-640)/2,
-		(workspace.CurrentCamera.ViewportSize.Y-360)/2
-	)
-	if main then
-		-- wait one heartbeat to ensure Absolute* values are valid
-		RunService.Heartbeat:Wait()
-		mainSize = main.AbsoluteSize
-		mainPos  = main.AbsolutePosition
-	end
+	-- หา “กรอบขอบเขียว” แล้ววัดขนาด/ตำแหน่ง
+	local target = pickGreenBorderFrame()
+	RunService.Heartbeat:Wait() -- ให้ Absolute* เสถียรก่อน
 
-	-- black shell = same size/position as UI หลัก
-	local shell = Instance.new("Frame")
-	shell.Name = "Shell"
-	shell.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- black
-	shell.BorderSizePixel = 0
-	shell.Size = UDim2.fromOffset(mainSize.X, mainSize.Y)
-	shell.Position = UDim2.fromOffset(mainPos.X, mainPos.Y)
-	shell.ClipsDescendants = false
-	shell.Parent = sg
-
-	-- copy corner radius from main if present, else 12px
-	local cornerRadius = UDim.new(0, 12)
-	if main then
-		local mc = main:FindFirstChildOfClass("UICorner")
+	local tPos  = target and target.AbsolutePosition or (workspace.CurrentCamera.ViewportSize/2 - Vector2.new(320,180))
+	local tSize = target and target.AbsoluteSize     or Vector2.new(640,360)
+	local cornerRadius = UDim.new(0,12)
+	if target then
+		local mc = target:FindFirstChildOfClass("UICorner")
 		if mc then cornerRadius = mc.CornerRadius end
 	end
-	local shellCorner = Instance.new("UICorner", shell)
-	shellCorner.CornerRadius = cornerRadius
 
-	local shellStroke = Instance.new("UIStroke")
-	shellStroke.Thickness = 2
-	shellStroke.Color = Color3.fromRGB(0,255,140)     -- green border
-	shellStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	shellStroke.Parent = shell
+	-- กรอบดำขอบเขียว (ขนาดและตำแหน่ง "เท่ากันเป๊ะ" กับกรอบหลัก)
+	local shell = Instance.new("Frame", sg)
+	shell.Name = "Shell"
+	shell.Position = UDim2.fromOffset(tPos.X, tPos.Y)
+	shell.Size     = UDim2.fromOffset(tSize.X, tSize.Y)
+	shell.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	shell.BorderSizePixel = 0
+	Instance.new("UICorner", shell).CornerRadius = cornerRadius
+	local sStroke = Instance.new("UIStroke", shell)
+	sStroke.Thickness = 2
+	sStroke.Color = Color3.fromRGB(0,255,140)
 
-	-- vertical stack inside shell (logo top, bar below)
-	local stack = Instance.new("Frame")
-	stack.Name = "Stack"
+	-- ภายใน: โลโก้ด้านบน + แถบโหลดด้านล่าง (แบ่งเว้นระยะสวย ๆ)
+	local stack = Instance.new("Frame", shell)
 	stack.BackgroundTransparency = 1
 	stack.Size = UDim2.fromScale(1,1)
-	stack.Parent = shell
+	local lay = Instance.new("UIListLayout", stack)
+	lay.FillDirection = Enum.FillDirection.Vertical
+	lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	lay.VerticalAlignment   = Enum.VerticalAlignment.Center
+	lay.Padding = UDim.new(0, math.max(16, math.floor(tSize.Y*0.05)))
 
-	local layout = Instance.new("UIListLayout", stack)
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, math.max(16, math.floor(mainSize.Y*0.04)))
-
-	-- TOP: logo (kept big but responsive)
-	local logo = Instance.new("ImageLabel")
-	logo.Name = "Logo"
+	-- โลโก้ (ใหญ่ขึ้นนิดให้บาลานซ์กับกรอบ)
+	local logo = Instance.new("ImageLabel", stack)
 	logo.BackgroundTransparency = 1
 	logo.Image = "rbxassetid://117052960049460"
-	logo.Size = UDim2.fromScale(0.28, 0.28)  -- responsive to shell
-	logo.LayoutOrder = 1
-	logo.Parent = stack
-	local ar = Instance.new("UIAspectRatioConstraint", logo); ar.AspectRatio = 1
+	logo.Size = UDim2.fromScale(0.30, 0.30)
+	Instance.new("UIAspectRatioConstraint", logo).AspectRatio = 1
 
-	-- BOTTOM: progress bar (black bg lives on shell already; bar has its own green fill)
-	local barFrame = Instance.new("Frame")
-	barFrame.Name = "BarFrame"
-	barFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	barFrame.BorderSizePixel = 0
-	barFrame.Size = UDim2.new(0.86, 0, 0, math.max(40, math.floor(mainSize.Y*0.14)))
-	barFrame.LayoutOrder = 2
-	barFrame.Parent = stack
-	local barCorner = Instance.new("UICorner", barFrame)
-	barCorner.CornerRadius = UDim.new(0, math.max(8, math.floor(mainSize.Y*0.03)))
-	local barStroke = Instance.new("UIStroke", barFrame)
+	-- แถบโหลด (พื้นดำ, ขอบเขียว)
+	local bar = Instance.new("Frame", stack)
+	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	bar.BorderSizePixel = 0
+	bar.Size = UDim2.new(0.86,0, 0, math.max(40, math.floor(tSize.Y*0.14)))
+	local barCorner = Instance.new("UICorner", bar)
+	barCorner.CornerRadius = UDim.new(0, math.max(8, math.floor(tSize.Y*0.03)))
+	local barStroke = Instance.new("UIStroke", bar)
 	barStroke.Thickness = 2
 	barStroke.Color = Color3.fromRGB(0,255,140)
 
-	-- green fill
-	local fill = Instance.new("Frame")
-	fill.Name = "Fill"
+	-- fill เขียว
+	local fill = Instance.new("Frame", bar)
 	fill.AnchorPoint = Vector2.new(0,0.5)
 	fill.Position = UDim2.fromScale(0,0.5)
 	fill.Size = UDim2.fromScale(0,1)
 	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
 	fill.BorderSizePixel = 0
-	fill.Parent = barFrame
 	local fillCorner = Instance.new("UICorner", fill)
 	fillCorner.CornerRadius = barCorner.CornerRadius
 
-	-- percent text (white with black outline)
-	local num = Instance.new("TextLabel")
-	num.Name = "Percent"
+	-- ตัวเลขสีขาว + ขอบดำ
+	local num = Instance.new("TextLabel", bar)
 	num.BackgroundTransparency = 1
 	num.AnchorPoint = Vector2.new(0.5,0.5)
 	num.Position = UDim2.fromScale(0.5,0.5)
@@ -3216,49 +3190,44 @@ local function createDownloadOverlay()
 	num.TextColor3 = Color3.fromRGB(255,255,255)
 	num.TextStrokeColor3 = Color3.fromRGB(0,0,0)
 	num.TextStrokeTransparency = 0
-	num.Parent = barFrame
 
-	-- subtle fade-in on shell/ bar
+	-- fade-in
 	shell.BackgroundTransparency = 1
-	barFrame.BackgroundTransparency = 1
-	fill.Visible = false
+	bar.BackgroundTransparency   = 1
 	num.TextTransparency = 1
+	fill.Visible = false
 	TweenService:Create(shell, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-	TweenService:Create(barFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-	task.delay(0.10, function() fill.Visible = true; num.TextTransparency = 0 end)
+	TweenService:Create(bar,   TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	task.delay(0.10, function() fill.Visible=true; num.TextTransparency=0 end)
 
-	return sg, shell, barFrame, num, fill
+	return sg, shell, bar, num, fill
 end
 
-local function destroyOverlay(sg: ScreenGui, shell: Frame, barFrame: Frame)
-	if not sg or not sg.Parent then return end
+local function destroyOverlay(sg, shell, bar)
+	if not (sg and sg.Parent) then return end
 	pcall(function()
 		TweenService:Create(shell, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
-		TweenService:Create(barFrame, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(bar,   TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
 	end)
 	task.delay(0.14, function() if sg then sg:Destroy() end end)
 end
 
--- counter 0..100 with fill animation
-local function runCounter(label: TextLabel, fill: Frame, duration)
+local function runCounter(num, fill, duration)
 	duration = duration or 2.2
-	for i = 0, 100 do
-		label.Text = ("%d%%"):format(i)
+	for i=0,100 do
+		num.Text = ("%d%%"):format(i)
 		fill.Size = UDim2.fromScale(i/100, 1)
 		RunService.Heartbeat:Wait()
 		task.wait(duration/100)
 	end
 end
 
-local function click(btn: Instance)
-	if btn and btn.Activate then btn:Activate() end
-	task.wait(0.10)
-end
+local function click(btn) if btn and btn.Activate then btn:Activate() end task.wait(0.10) end
 
 task.defer(function()
-	local overlay, shell, barFrame, percentLabel, fill = createDownloadOverlay()
+	local sg, shell, bar, num, fill = createOverlay()
 
-	-- walk tabs while counting (Home → Quest → Shop → Settings → Player)
+	-- เดินแท็บ Home → Quest → Shop → Settings → Player ระหว่างนับ
 	task.spawn(function()
 		local home     = findButtonByText({"Home"})
 		local quest    = findButtonByText({"Quest"})
@@ -3268,7 +3237,6 @@ task.defer(function()
 		click(home); click(quest); click(shop); click(settings); click(player)
 	end)
 
-	runCounter(percentLabel, fill, 2.2)   -- animate 0→100
-
-	destroyOverlay(overlay, shell, barFrame)     -- auto-close so main UI is usable
+	runCounter(num, fill, 2.2)
+	destroyOverlay(sg, shell, bar) -- ปิดทับอัตโนมัติเมื่อครบ 100
 end)
