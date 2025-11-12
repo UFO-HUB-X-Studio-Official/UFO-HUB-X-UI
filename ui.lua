@@ -722,124 +722,122 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
- -- === [UFO HUB X • Auto Tab Walk + Download Overlay] ===
+ -- === [UFO HUB X • Auto Tab Walk + Download Overlay • STABLE BASE] ===
 do
-local Players    = game:GetService("Players")
-local Tween      = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local lp = Players.LocalPlayer
+    local Players    = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
 
--- ===== THEME (ตาม A Legacy) =====
-local THEME = {
-    GREEN = Color3.fromRGB(25,255,125),
-    WHITE = Color3.fromRGB(255,255,255),
-    BLACK = Color3.fromRGB(0,0,0),
-}
+    -- kill overlay เก่าถ้ามี (กันซ้อน)
+    pcall(function()
+        local pg = lp:FindFirstChild("PlayerGui")
+        local old = pg and pg:FindFirstChild("UFOX_DownloadOverlay")
+        if old then old:Destroy() end
+    end)
 
--- ===== Overlay (ดำหน้าสุด + กล่องดำขอบเขียว + ตัวเลข 0-100 ยาวขึ้น) =====
-local function makeOverlay()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "UFOX_DownloadOverlay"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.DisplayOrder = 10_000_000 -- ดันขึ้นหน้าสุดเหนือ UI หลัก
-    gui.Parent = lp:WaitForChild("PlayerGui")
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        BLACK = Color3.fromRGB(0,0,0),
+        WHITE = Color3.fromRGB(255,255,255),
+    }
 
-    -- พื้นหลังดำเต็มจอ (หน้าสุด)
-    local dim = Instance.new("Frame", gui)
-    dim.Name = "Dim"
-    dim.BackgroundColor3 = THEME.BLACK
-    dim.BackgroundTransparency = 0
-    dim.Size = UDim2.fromScale(1,1)
-    dim.ZIndex = 999
+    -- ===== Overlay: ดำทั้งจอ + กล่องดำขอบเขียว + ตัวเลขยาวขึ้น (อยู่หน้าสุด) =====
+    local function makeOverlay()
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "UFOX_DownloadOverlay"
+        gui.IgnoreGuiInset = true
+        gui.ResetOnSpawn   = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder   = 10_000_000  -- ดันขึ้นหน้าสุดเหนือ UI หลัก
+        gui.Parent = lp:WaitForChild("PlayerGui")
 
-    -- กล่องกลาง "พื้นดำ ขอบเขียว" (ยืดความยาวบน/ล่างเล็กน้อย)
-    local box = Instance.new("Frame", dim)
-    box.Name = "Box"
-    box.AnchorPoint = Vector2.new(0.5,0.5)
-    box.Position = UDim2.fromScale(0.5, 0.52)
-    box.Size = UDim2.new(0.78, 0, 0.62, 0) -- เดิม 0.74 x 0.58 → ยาวขึ้น/สูงขึ้น
-    box.BackgroundColor3 = THEME.BLACK     -- เปลี่ยนจากขาวเป็นดำ
-    box.BorderSizePixel = 0
-    box.ZIndex = 1000
-    do
-        local corner = Instance.new("UICorner", box); corner.CornerRadius = UDim.new(0, 0)
-        local stroke = Instance.new("UIStroke", box); stroke.Thickness = 3.2; stroke.Color = THEME.GREEN; stroke.ZIndex = 1001
+        local dim = Instance.new("Frame", gui)
+        dim.Name = "Dim"
+        dim.Size = UDim2.fromScale(1,1)
+        dim.BackgroundColor3 = THEME.BLACK
+        dim.BackgroundTransparency = 0
+        dim.ZIndex = 999
+
+        local box = Instance.new("Frame", dim)
+        box.Name = "Box"
+        box.AnchorPoint = Vector2.new(0.5,0.5)
+        box.Position    = UDim2.fromScale(0.5, 0.52)
+        box.Size        = UDim2.new(0.78, 0, 0.62, 0) -- ยืดบน/ล่างให้ยาวขึ้น
+        box.BackgroundColor3 = THEME.BLACK           -- เปลี่ยนจากขาว -> ดำ
+        box.BorderSizePixel  = 0
+        box.ZIndex = 1000
+        local stroke = Instance.new("UIStroke", box)
+        stroke.Thickness = 3.2
+        stroke.Color     = THEME.GREEN
+        stroke.ZIndex    = 1001
+
+        local num = Instance.new("TextLabel", box)
+        num.Name = "Percent"
+        num.BackgroundTransparency = 1
+        num.AnchorPoint = Vector2.new(0.5,0.5)
+        num.Position = UDim2.fromScale(0.5, 0.58)
+        num.Size     = UDim2.new(0.52, 0, 0.12, 0)   -- ความยาวข้อความด้านล่าง “ยาวขึ้น”
+        num.Font = Enum.Font.GothamBlack
+        num.TextColor3 = THEME.WHITE                -- บนพื้นดำอ่านง่าย
+        num.TextScaled = true
+        num.ZIndex = 1002
+        num.Text = "Download 0%"
+
+        return gui, num
     end
 
-    -- ตัวเลข “Download 0-100” (เพิ่มความยาวพื้นที่ข้อความ)
-    local num = Instance.new("TextLabel", box)
-    num.Name = "Percent"
-    num.BackgroundTransparency = 1
-    num.AnchorPoint = Vector2.new(0.5,0.5)
-    num.Position = UDim2.fromScale(0.5, 0.58)
-    num.Size = UDim2.new(0.52, 0, 0.12, 0) -- เดิม 0.34 x 0.10 → ยาว/สูงขึ้น
-    num.Font = Enum.Font.GothamBlack
-    num.TextColor3 = THEME.WHITE           -- บนพื้นดำให้อ่านง่าย
-    num.TextScaled = true
-    num.ZIndex = 1002
-    num.Text = "Download 0%"
-
-    return gui, num
-end
-
-local function destroyOverlay(gui)
-    if gui and gui.Parent then gui:Destroy() end
-end
-
--- ===== ตัวช่วยรอระบบ Right พร้อม =====
-local function ready()
-    return (typeof(showRight) == "function") and getgenv().UFO_RIGHT and getgenv().UFO_RIGHT.builders
-end
-while not ready() do RunService.Heartbeat:Wait() end
-local R = getgenv().UFO_RIGHT
-
--- ===== ลิสต์แท็บและลูป “กด” อัตโนมัติ =====
-local sequence = {"Player","Home","Quest","Shop","Settings"} -- เดินตามนี้และกลับมาที่ Player
-local prev = R.current or "Player"
-
--- สร้าง overlay แล้วเริ่มนับ 0→100
-local overlay, label = makeOverlay()
-
-local function setPct(p)
-    p = math.clamp(math.floor(p + 0.5), 0, 100)
-    if label then label.Text = ("Download %d%%"):format(p) end
-end
-
--- เดินกดทีละแท็บ (build ถ้ายังไม่ built), กระจายเปอร์เซ็นต์ให้ครบ 100
-local steps = #sequence + 1 -- +1 สำหรับขั้น “กลับไป Player”
-local perStep = 100 / steps
-local pct = 0
-setPct(pct)
-
-for i,tab in ipairs(sequence) do
-    local f = R.frames[tab]
-    if not (f and f.built) then
-        pcall(function() showRight(tab) end)
-        f = R.frames[tab]
-        if f and f.root then f.root.Visible = false end -- ซ่อนแฟลช
-    else
-        pcall(function() showRight(tab) end) -- “กด” ให้ระบบในแท็บตื่น
+    local function setPct(lbl, p)
+        p = math.clamp(math.floor(p + 0.5), 0, 100)
+        if lbl then lbl.Text = ("Download %d%%"):format(p) end
     end
-    pct = math.min(100, perStep * i)
-    setPct(pct)
-    RunService.Heartbeat:Wait()
-end
 
--- กลับมาที่ Player และปิด overlay
-pcall(function() showRight("Player") end)
-pct = 100; setPct(pct)
-
-task.delay(0.25, function()
-    destroyOverlay(overlay)
-    if prev and prev ~= "Player" then
-        pcall(function() showRight(prev) end)
+    -- ===== รอระบบ Right พร้อม =====
+    local function ready()
+        local ok = (typeof(showRight)=="function")
+        local S  = getgenv().UFO_RIGHT
+        return ok and S and S.builders and S.frames
     end
-end)
+    while not ready() do RunService.Heartbeat:Wait() end
+    local R = getgenv().UFO_RIGHT
 
+    -- ===== ลำดับเดินแท็บ แล้วกลับมาที่ Player =====
+    local sequence = {"Player","Home","Quest","Shop","Settings"}
+    local prev = R.current or "Player"
+
+    -- สร้าง overlay และเริ่มนับ
+    local overlay, label = makeOverlay()
+    setPct(label, 0)
+
+    local steps   = #sequence + 1
+    local perStep = 100/steps
+    local pct     = 0
+
+    for i, tab in ipairs(sequence) do
+        local f = R.frames[tab]
+        if not (f and f.built) then
+            pcall(function() showRight(tab) end) -- build ครั้งแรก
+            f = R.frames[tab]
+            if f and f.root then f.root.Visible = false end -- กันแฟลช
+        else
+            pcall(function() showRight(tab) end) -- ปลุก runner/restore save
+        end
+        pct = math.min(100, perStep * i)
+        setPct(label, pct)
+        RunService.Heartbeat:Wait()
+    end
+
+    -- กลับสู่ Player, 100%, ปิด overlay แล้วคืนแท็บเดิมถ้าไม่ใช่ Player
+    pcall(function() showRight("Player") end)
+    setPct(label, 100)
+
+    task.delay(0.25, function()
+        pcall(function() overlay:Destroy() end)
+        if prev and prev ~= "Player" then
+            pcall(function() showRight(prev) end)
+        end
+    end)
 end
--- === [/Auto Tab Walk + Download Overlay] ===
+-- === [/Auto Tab Walk + Download Overlay • STABLE BASE] ===
 -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เพิ่มระบบเซฟแบบ Runner (per-map) • ไม่เปลี่ยนหน้าตา/สีเดิม
 
