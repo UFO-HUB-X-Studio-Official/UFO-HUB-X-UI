@@ -722,12 +722,11 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (green bar + auto-close) ]==--
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (logo + green bar + auto-close) ]==--
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
 
 -- locate main UI
 local root = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFO_HUB_X") or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
@@ -750,14 +749,14 @@ local function findButtonByText(texts: {string})
 	return nil
 end
 
--- overlay (ratios matched to screenshot)
+-- overlay (ratios matched to your reference)
 local function createDownloadOverlay()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "UFO_HUB_X_DownloadOverlay"
 	sg.ResetOnSpawn = false
 	sg.IgnoreGuiInset = true
 	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	sg.DisplayOrder = 2_000_000 -- on top of everything
+	sg.DisplayOrder = 2_000_000 -- top-most
 	sg.Parent = CoreGui
 
 	-- big black box (≈ 64% x 58% of screen, centered)
@@ -769,24 +768,58 @@ local function createDownloadOverlay()
 	bigBox.BackgroundColor3 = Color3.fromRGB(0,0,0)
 	bigBox.BorderSizePixel = 0
 	bigBox.Parent = sg
-
-	local corner = Instance.new("UICorner", bigBox); corner.CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", bigBox).CornerRadius = UDim.new(0, 8)
 	local stroke = Instance.new("UIStroke", bigBox)
 	stroke.Thickness = 3
 	stroke.Color = Color3.fromRGB(0,255,140)
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-	-- progress bar “exactly where the red bar was” (≈ 26% x 11% of box), centered
+	-- vertical stack to keep logo + bar perfectly centered
+	local stack = Instance.new("Frame")
+	stack.Name = "Stack"
+	stack.AnchorPoint = Vector2.new(0.5,0.5)
+	stack.Position = UDim2.fromScale(0.5,0.5)
+	stack.Size = UDim2.fromScale(0.8,0.7) -- inner safe area
+	stack.BackgroundTransparency = 1
+	stack.Parent = bigBox
+
+	local layout = Instance.new("UIListLayout", stack)
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 16)
+
+	-- top logo (above the bar)
+	local logo = Instance.new("ImageLabel")
+	logo.Name = "Logo"
+	logo.BackgroundTransparency = 1
+	logo.Image = "rbxassetid://117052960049460"
+	logo.Size = UDim2.fromScale(0.22, 0.22) -- tuned to look balanced
+	logo.LayoutOrder = 1
+	logo.Parent = stack
+	local ar = Instance.new("UIAspectRatioConstraint", logo)
+	ar.AspectRatio = 1
+
+	-- progress bar area (≈ red-bar position/size)
 	local barBG = Instance.new("Frame")
 	barBG.Name = "BarBG"
-	barBG.AnchorPoint = Vector2.new(0.5, 0.5)
-	barBG.Position = UDim2.fromScale(0.5, 0.5)
-	barBG.Size = UDim2.fromScale(0.26, 0.11)
-	barBG.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	barBG.BorderSizePixel = 0
-	barBG.Parent = bigBox
-	Instance.new("UICorner", barBG).CornerRadius = UDim.new(0, 6)
-	local barStroke = Instance.new("UIStroke", barBG)
+	barBG.Size = UDim2.fromScale(0.42, 0.18) -- container for padding around the bar
+	barBG.BackgroundTransparency = 1
+	barBG.LayoutOrder = 2
+	barBG.Parent = stack
+
+	-- inner bar (≈ 26% x 11% of big box -> here sized relative to BarBG)
+	local barFrame = Instance.new("Frame")
+	barFrame.Name = "BarFrame"
+	barFrame.AnchorPoint = Vector2.new(0.5,0.5)
+	barFrame.Position = UDim2.fromScale(0.5,0.5)
+	barFrame.Size = UDim2.fromScale(1, 0.62)
+	barFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	barFrame.BorderSizePixel = 0
+	barFrame.Parent = barBG
+	Instance.new("UICorner", barFrame).CornerRadius = UDim.new(0, 6)
+	local barStroke = Instance.new("UIStroke", barFrame)
 	barStroke.Thickness = 2
 	barStroke.Color = Color3.fromRGB(0,255,140)
 
@@ -798,10 +831,10 @@ local function createDownloadOverlay()
 	fill.Size = UDim2.fromScale(0, 1) -- start at 0%
 	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
 	fill.BorderSizePixel = 0
-	fill.Parent = barBG
+	fill.Parent = barFrame
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 6)
 
-	-- percent text centered on the bar
+	-- percent text (white) centered on the bar
 	local num = Instance.new("TextLabel")
 	num.Name = "Percent"
 	num.BackgroundTransparency = 1
@@ -810,27 +843,27 @@ local function createDownloadOverlay()
 	num.Size = UDim2.fromScale(1, 1)
 	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 	num.TextScaled = true
-	num.TextColor3 = Color3.fromRGB(0,0,0) -- ดำบนพื้นเขียว อ่านง่าย
+	num.TextColor3 = Color3.fromRGB(255,255,255) -- WHITE
 	num.Text = "0%"
-	num.Parent = barBG
+	num.Parent = barFrame
 
 	-- fade-in
 	bigBox.BackgroundTransparency = 1
-	barBG.Visible = false
+	stack.Visible = false
 	TweenService:Create(bigBox, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-	task.delay(0.12, function() barBG.Visible = true end)
+	task.delay(0.12, function() stack.Visible = true end)
 
 	return sg, num, fill
 end
 
 local function destroyOverlay(sg: ScreenGui)
 	if sg and sg.Parent then
-		TweenService:Create(sg, TweenInfo.new(0.15), {Transparency = 1}):Play()
-		task.delay(0.18, function() if sg then sg:Destroy() end end)
+		TweenService:Create(sg, TweenInfo.new(0.12), {Transparency = 1}):Play()
+		task.delay(0.15, function() if sg then sg:Destroy() end end)
 	end
 end
 
--- 0..100 and animate fill
+-- 0..100 with fill animation
 local function runCounter(label: TextLabel, fill: Frame, duration)
 	duration = duration or 2.4
 	local steps = 100
@@ -860,12 +893,12 @@ task.defer(function()
 		local shop     = findButtonByText({"Shop"})
 		local settings = findButtonByText({"Settings","Setting","Update"})
 		local player   = findButtonByText({"Player"})
-		click(home);   click(quest); click(shop); click(settings); click(player)
+		click(home); click(quest); click(shop); click(settings); click(player)
 	end)
 
-	runCounter(percentLabel, fill, 2.4) -- 0→100 with green bar fill
+	runCounter(percentLabel, fill, 2.4) -- 0→100
 
-	-- close overlay when finished
+	-- auto-close when finished
 	destroyOverlay(overlay)
 end)
  -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
