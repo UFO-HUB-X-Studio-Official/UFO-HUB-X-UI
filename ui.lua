@@ -722,6 +722,159 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay ]==--
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- locate main UI (keeps your existing names intact)
+local root = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFO_HUB_X") or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
+
+-- small helper: find a button by its visible Text (case-insensitive)
+local function findButtonByText(texts: {string})
+	if not root then return nil end
+	local map = {}
+	for _,t in ipairs(texts) do map[string.lower(t)] = true end
+	for _, inst in ipairs(root:GetDescendants()) do
+		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
+			local t = ""
+			if inst:IsA("TextButton") then t = inst.Text or "" end
+			if inst:IsA("ImageButton") and inst:FindFirstChildWhichIsA("TextLabel") then
+				t = inst:FindFirstChildWhichIsA("TextLabel").Text or ""
+			end
+			if map[string.lower(t)] then
+				return inst
+			end
+		end
+	end
+	return nil
+end
+
+--== Overlay (sizes are ratio-matched to your screenshot to look 1:1 on any screen) ==--
+local function createDownloadOverlay()
+	-- screen gui
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "UFO_HUB_X_DownloadOverlay"
+	sg.ResetOnSpawn = false
+	sg.IgnoreGuiInset = true
+	sg.DisplayOrder = 1_000_000
+	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	sg.Parent = CoreGui
+
+	local screenW, screenH = workspace.CurrentCamera.ViewportSize.X, workspace.CurrentCamera.ViewportSize.Y
+
+	-- ratios approximated from your Image #2 (1536x691 reference):
+	-- big box ≈ 64% width, 58% height, centered
+	-- red bar (now number) ≈ 26% width, 11% height, centered
+	local bigBox = Instance.new("Frame")
+	bigBox.Name = "Box"
+	bigBox.AnchorPoint = Vector2.new(0.5, 0.5)
+	bigBox.Position = UDim2.fromScale(0.5, 0.5)
+	bigBox.Size = UDim2.fromScale(0.64, 0.58)
+	bigBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- black
+	bigBox.BorderSizePixel = 0
+	bigBox.BackgroundTransparency = 0
+	bigBox.Parent = sg
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = bigBox
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 3
+	stroke.Color = Color3.fromRGB(0, 255, 140) -- green border
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = bigBox
+
+	-- number box (replaces the red bar, same size & position ratio)
+	local num = Instance.new("TextLabel")
+	num.Name = "Percent"
+	num.AnchorPoint = Vector2.new(0.5, 0.5)
+	num.Position = UDim2.fromScale(0.5, 0.5)
+	num.Size = UDim2.fromScale(0.26, 0.11)
+	num.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	num.BorderSizePixel = 0
+	num.Text = "0"
+	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+	num.TextScaled = true
+	num.TextColor3 = Color3.fromRGB(255, 255, 255)
+	num.ZIndex = 2
+	num.Parent = bigBox
+
+	local numCorner = Instance.new("UICorner")
+	numCorner.CornerRadius = UDim.new(0, 4)
+	numCorner.Parent = num
+
+	local numStroke = Instance.new("UIStroke")
+	numStroke.Thickness = 0 -- bar in the mock was flat; keep number clean
+	numStroke.Parent = num
+
+	-- subtle fade-in
+	bigBox.BackgroundTransparency = 1
+	num.TextTransparency = 1
+	TweenService:Create(bigBox, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	TweenService:Create(num, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+
+	return sg, num
+end
+
+local function destroyOverlay(sg: ScreenGui)
+	if sg and sg.Parent then
+		TweenService:Create(sg, TweenInfo.new(0.15), {Transparency = 1}):Play()
+		task.delay(0.18, function()
+			if sg then sg:Destroy() end
+		end)
+	end
+end
+
+-- count 0..100 with tight timing
+local function runCounter(label: TextLabel, duration)
+	duration = duration or 2.4 -- ~24ms per step -> smooth but fast
+	local steps = 100
+	for i = 0, steps do
+		label.Text = tostring(i)
+		RunService.Heartbeat:Wait()
+		task.wait(duration / steps)
+	end
+end
+
+-- activate a button (simulate user click)
+local function click(btn: Instance)
+	if not btn then return end
+	if btn.Activate then btn:Activate() end
+	-- optional visual ping delay
+	task.wait(0.15)
+end
+
+-- orchestrate the flow
+task.defer(function()
+	-- open overlay
+	local overlay, percentLabel = createDownloadOverlay()
+
+	-- do the tab tour while counting
+	task.spawn(function()
+		-- start from Player (already selected), then Home → Quest → Shop → Settings/Update → back to Player
+		local home    = findButtonByText({"Home"})
+		local quest   = findButtonByText({"Quest"})
+		local shop    = findButtonByText({"Shop"})
+		local settings= findButtonByText({"Settings","Setting","Update"}) -- support both wordings
+		local player  = findButtonByText({"Player"})
+
+		-- touch each tab with short cadence
+		click(home)
+		click(quest)
+		click(shop)
+		click(settings)
+		click(player) -- return to Player at the end
+	end)
+
+	runCounter(percentLabel, 2.4) -- 0→100
+
+	-- close overlay
+	destroyOverlay(overlay)
+end)
  -- ===== UFO HUB X • Player Tab — MODEL A LEGACY 2.3.9j (TAP-FIX + METAL SQUARE KNOB) =====
 -- เพิ่มระบบเซฟแบบ Runner (per-map) • ไม่เปลี่ยนหน้าตา/สีเดิม
 
