@@ -3039,14 +3039,16 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (logo bigger + green bar + guaranteed auto-close) ]==--
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (transparent bg, logo on top, bar below, auto-close) ]==--
+local CoreGui       = game:GetService("CoreGui")
+local TweenService  = game:GetService("TweenService")
+local RunService    = game:GetService("RunService")
+local Players       = game:GetService("Players")
 
 -- locate main UI (for clicking tabs)
-local root = CoreGui:FindFirstChild("UFO_HUB_X_UI") or CoreGui:FindFirstChild("UFO_HUB_X") or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
+local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+          or CoreGui:FindFirstChild("UFO_HUB_X")
+          or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
 
 local function findButtonByText(texts: {string})
 	if not root then return nil end
@@ -3054,14 +3056,15 @@ local function findButtonByText(texts: {string})
 	for _,t in ipairs(texts) do map[string.lower(t)] = true end
 	for _, inst in ipairs(root:GetDescendants()) do
 		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
-			local t = inst:IsA("TextButton") and (inst.Text or "") or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
+			local t = inst:IsA("TextButton") and (inst.Text or "")
+			         or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
 			if map[string.lower(t)] then return inst end
 		end
 	end
 	return nil
 end
 
--- overlay
+-- overlay (transparent; only the bar has black bg + green border)
 local function createDownloadOverlay()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "UFO_HUB_X_DownloadOverlay"
@@ -3071,104 +3074,97 @@ local function createDownloadOverlay()
 	sg.DisplayOrder = 2_000_000
 	sg.Parent = CoreGui
 
-	-- blocker ทั้งจอเพื่อกันคลิก UI หลักระหว่างโหลด
+	-- full-screen blocker (prevent clicks on main UI)
 	local blocker = Instance.new("TextButton")
 	blocker.BackgroundTransparency = 1
 	blocker.Text = ""
-	blocker.Size = UDim2.fromScale(1,1)
 	blocker.AutoButtonColor = false
+	blocker.Size = UDim2.fromScale(1,1)
 	blocker.Parent = sg
 
-	-- กล่องดำกลางจอ
-	local box = Instance.new("Frame")
-	box.AnchorPoint = Vector2.new(0.5, 0.5)
-	box.Position = UDim2.fromScale(0.5, 0.5)
-	box.Size = UDim2.fromScale(0.64, 0.58)
-	box.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	box.BorderSizePixel = 0
-	box.Parent = sg
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
-	local stroke = Instance.new("UIStroke", box); stroke.Thickness = 3; stroke.Color = Color3.fromRGB(0,255,140)
-
-	-- stack = โลโก้ + แถบโหลด
+	-- transparent container centered on screen
 	local stack = Instance.new("Frame")
+	stack.Name = "Stack"
 	stack.AnchorPoint = Vector2.new(0.5,0.5)
 	stack.Position = UDim2.fromScale(0.5,0.5)
-	stack.Size = UDim2.fromScale(0.8,0.7)
+	stack.Size = UDim2.fromScale(0.8,0.6) -- safe area
 	stack.BackgroundTransparency = 1
-	stack.Parent = box
-
+	stack.Parent = sg
 	local layout = Instance.new("UIListLayout", stack)
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 16)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 22)
 
-	-- โลโก้ (ใหญ่ขึ้น)
+	-- TOP: logo (bigger) – stays above the bar
 	local logo = Instance.new("ImageLabel")
+	logo.Name = "Logo"
 	logo.BackgroundTransparency = 1
 	logo.Image = "rbxassetid://117052960049460"
-	logo.Size = UDim2.fromScale(0.30, 0.30)  -- ↑ จาก 0.22 -> 0.30
+	logo.Size = UDim2.fromScale(0.36, 0.36)  -- bigger
+	logo.LayoutOrder = 1
 	logo.Parent = stack
 	local ar = Instance.new("UIAspectRatioConstraint", logo); ar.AspectRatio = 1
 
-	-- กรอบแถบโหลด
-	local barOuter = Instance.new("Frame")
-	barOuter.Size = UDim2.fromScale(0.48, 0.20) -- กรอบเผื่อ padding
-	barOuter.BackgroundTransparency = 1
-	barOuter.Parent = stack
+	-- BOTTOM: progress bar container (only this has black bg + green stroke)
+	local barFrame = Instance.new("Frame")
+	barFrame.Name = "BarFrame"
+	barFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)   -- black bg (only here)
+	barFrame.BorderSizePixel = 0
+	barFrame.Size = UDim2.fromScale(0.52, 0.16)         -- tuned for phone
+	barFrame.LayoutOrder = 2
+	barFrame.Parent = stack
+	Instance.new("UICorner", barFrame).CornerRadius = UDim.new(0, 8)
+	local barStroke = Instance.new("UIStroke", barFrame)
+	barStroke.Thickness = 2
+	barStroke.Color = Color3.fromRGB(0,255,140)
 
-	local bar = Instance.new("Frame")
-	bar.AnchorPoint = Vector2.new(0.5,0.5)
-	bar.Position = UDim2.fromScale(0.5,0.5)
-	bar.Size = UDim2.fromScale(1, 0.62)
-	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	bar.BorderSizePixel = 0
-	bar.Parent = barOuter
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6)
-	local barStroke = Instance.new("UIStroke", bar); barStroke.Thickness = 2; barStroke.Color = Color3.fromRGB(0,255,140)
-
+	-- green fill
 	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
 	fill.AnchorPoint = Vector2.new(0,0.5)
 	fill.Position = UDim2.fromScale(0,0.5)
 	fill.Size = UDim2.fromScale(0,1)
 	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
 	fill.BorderSizePixel = 0
-	fill.Parent = bar
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 6)
+	fill.Parent = barFrame
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 8)
 
+	-- percent text (white with black outline) – centered on bar
 	local num = Instance.new("TextLabel")
+	num.Name = "Percent"
 	num.BackgroundTransparency = 1
 	num.AnchorPoint = Vector2.new(0.5,0.5)
 	num.Position = UDim2.fromScale(0.5,0.5)
 	num.Size = UDim2.fromScale(1,1)
 	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 	num.TextScaled = true
-	num.TextColor3 = Color3.fromRGB(255,255,255) -- ตัวเลขสีขาว
 	num.Text = "0%"
-	num.Parent = bar
+	num.TextColor3 = Color3.fromRGB(255,255,255) -- white text
+	num.TextStrokeColor3 = Color3.fromRGB(0,0,0) -- black outline
+	num.TextStrokeTransparency = 0
+	num.Parent = barFrame
 
-	-- fade-in (ทวีนที่ box จริง ไม่แตะ ScreenGui)
-	box.BackgroundTransparency = 1
-	stack.Visible = false
-	TweenService:Create(box, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-	task.delay(0.12, function() stack.Visible = true end)
+	-- subtle fade-in (on bar only; stack starts visible)
+	barFrame.BackgroundTransparency = 1
+	fill.Visible = false
+	num.TextTransparency = 1
+	TweenService:Create(barFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	task.delay(0.10, function() fill.Visible = true; num.TextTransparency = 0 end)
 
-	return sg, box, num, fill
+	return sg, stack, barFrame, num, fill
 end
 
-local function destroyOverlay(sg: ScreenGui, box: Frame)
+local function destroyOverlay(sg: ScreenGui, barFrame: Frame)
 	if not sg or not sg.Parent then return end
-	-- fade-out ที่กล่อง แล้วลบจริง
 	pcall(function()
-		TweenService:Create(box, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(barFrame, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
 	end)
-	task.delay(0.14, function()
-		if sg then sg:Destroy() end
-	end)
+	task.delay(0.14, function() if sg then sg:Destroy() end end)
 end
 
--- เคาน์เตอร์ 0..100 พร้อมเติมแถบ
+-- counter 0..100 with fill animation
 local function runCounter(label: TextLabel, fill: Frame, duration)
 	duration = duration or 2.2
 	for i = 0, 100 do
@@ -3185,9 +3181,9 @@ local function click(btn: Instance)
 end
 
 task.defer(function()
-	local overlay, box, percentLabel, fill = createDownloadOverlay()
+	local overlay, stack, barFrame, percentLabel, fill = createDownloadOverlay()
 
-	-- เดินปุ่ม: Home → Quest → Shop → Settings → กลับ Player
+	-- walk tabs while counting (Home → Quest → Shop → Settings → Player)
 	task.spawn(function()
 		local home     = findButtonByText({"Home"})
 		local quest    = findButtonByText({"Quest"})
@@ -3197,9 +3193,7 @@ task.defer(function()
 		click(home); click(quest); click(shop); click(settings); click(player)
 	end)
 
-	-- นับ & เติมบาร์
-	runCounter(percentLabel, fill, 2.2)
+	runCounter(percentLabel, fill, 2.2)   -- animate 0→100
 
-	-- ปิดทับแน่นอนหลังครบ 100 (คืนสิทธิ์กด UI หลัก)
-	destroyOverlay(overlay, box)
+	destroyOverlay(overlay, barFrame)     -- auto-close so main UI is usable
 end)
