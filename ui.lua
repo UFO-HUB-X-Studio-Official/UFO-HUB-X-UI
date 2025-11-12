@@ -554,31 +554,7 @@ local btnShop,    setShopActive     = makeTabButton(LeftScroll, "Shop",    ICON_
 local btnUpdate,  setUpdateActive   = makeTabButton(LeftScroll, "Update",  ICON_UPDATE)
 local btnServer,  setServerActive   = makeTabButton(LeftScroll, "Server",  ICON_SERVER)
 local btnSettings,setSettingsActive = makeTabButton(LeftScroll, "Settings",ICON_SETTINGS)
--- === [UFO HUB X • Autoboot Right Tabs] ===
-task.defer(function()
-    -- เก็บสถานะแท็บปัจจุบันไว้ (ถ้าเปิดอยู่)
-    local prev = RSTATE.current
-    local prevY = prev and RSTATE.scrollY[prev] or 0
 
-    -- รัน builder ของทุกแท็บรอบเดียว เพื่อให้ระบบที่ผูกกับ save/loop ติดขึ้นมาทันที
-    -- หมายเหตุ: showRight() จะ build เมื่อยังไม่เคย build เท่านั้น
-    for tabName, _ in pairs(RSTATE.builders) do
-        showRight(tabName)
-    end
-
-    -- คืนกลับแท็บเดิมถ้ามี ไม่งั้นไปแท็บแรกของคุณ (เช่น "Home" หรือที่ต้องการ)
-    if prev then
-        showRight(prev)
-        local f = RSTATE.frames[prev]
-        if f and f.scroll then
-            f.scroll.CanvasPosition = Vector2.new(0, prevY or 0)
-        end
-    else
-        -- เปลี่ยนตามแท็บเริ่มต้นของโปรเจกต์ (เช่น "Home" หรือ "Player")
-        showRight("Home")
-    end
-end)
--- === [/Autoboot] ===
 -- ========== RIGHT ==========
 local RightShell=Instance.new("Frame",Body)
 RightShell.BackgroundColor3=THEME.BG_PANEL; RightShell.BorderSizePixel=0
@@ -2927,34 +2903,6 @@ registerRight("Settings", function(scroll)
     if S.antiIdleOn then startAntiIdle() end
     startWatcher()
 end)
--- ===== UFO HUB X • AutoRun All Right Tabs =====
-task.defer(function()
-    local R = getgenv().UFO_REGISTERED or getgenv().UFOX_REGISTERED or _G.RSTATE
-    if not R then return end
-
-    local showRight = rawget(_G, "showRight")
-    if not showRight or type(showRight) ~= "function" then return end
-
-    local prevTab = R.currentTab or "Home"
-
-    -- loop build ทุกแท็บที่มี registerRight
-    for tabName, builder in pairs(R.builders or {}) do
-        if typeof(builder) == "function" then
-            -- build หากยังไม่ได้สร้าง
-            local frameData = R.frames and R.frames[tabName]
-            if not (frameData and frameData.built) then
-                pcall(function()
-                    showRight(tabName)
-                end)
-            end
-        end
-    end
-
-    -- คืนกลับแท็บเดิมหลัง preload เสร็จ
-    task.wait(0.25)
-    pcall(function() showRight(prevTab) end)
-end)
--- ===== [/AutoRun All Right Tabs] =====
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
@@ -3191,3 +3139,32 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
+-- === [UFO HUB X • Autobuild Right (no-click)] ===
+do
+    local RunS = game:GetService("RunService")
+    task.defer(function()
+        -- รอ 1 เฟรมให้ RightShell/Frames พร้อม
+        RunS.Heartbeat:Wait()
+
+        -- จำแท็บปัจจุบัน (ถ้ายังไม่มี ให้ใช้ "Home" หรือแท็บแรกของนาย)
+        local prev = RSTATE.current or "Home"
+
+        -- ถ้ายังไม่เคย build ให้บังคับ build ทุกแท็บหนึ่งรอบ
+        for tabName, _ in pairs(RSTATE.builders) do
+            local f = RSTATE.frames[tabName]
+            if not (f and f.built) then
+                -- showRight จะ build ให้เฉพาะครั้งแรก
+                local old = RSTATE.current
+                pcall(function() showRight(tabName) end)
+                -- ซ่อนกลับ ไม่ให้เกิดแฟลชจอ
+                local ft = RSTATE.frames[tabName]
+                if ft and ft.root then ft.root.Visible = false end
+                RSTATE.current = old
+            end
+        end
+
+        -- คืนแท็บเดิม (หรือเปลี่ยนตามค่าเริ่มต้นที่ต้องการ)
+        pcall(function() showRight(prev) end)
+    end)
+end
+-- === [/Autobuild] ===
