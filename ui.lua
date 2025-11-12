@@ -2927,6 +2927,34 @@ registerRight("Settings", function(scroll)
     if S.antiIdleOn then startAntiIdle() end
     startWatcher()
 end)
+-- ===== UFO HUB X • AutoRun All Right Tabs =====
+task.defer(function()
+    local R = getgenv().UFO_REGISTERED or getgenv().UFOX_REGISTERED or _G.RSTATE
+    if not R then return end
+
+    local showRight = rawget(_G, "showRight")
+    if not showRight or type(showRight) ~= "function" then return end
+
+    local prevTab = R.currentTab or "Home"
+
+    -- loop build ทุกแท็บที่มี registerRight
+    for tabName, builder in pairs(R.builders or {}) do
+        if typeof(builder) == "function" then
+            -- build หากยังไม่ได้สร้าง
+            local frameData = R.frames and R.frames[tabName]
+            if not (frameData and frameData.built) then
+                pcall(function()
+                    showRight(tabName)
+                end)
+            end
+        end
+    end
+
+    -- คืนกลับแท็บเดิมหลัง preload เสร็จ
+    task.wait(0.25)
+    pcall(function() showRight(prevTab) end)
+end)
+-- ===== [/AutoRun All Right Tabs] =====
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
