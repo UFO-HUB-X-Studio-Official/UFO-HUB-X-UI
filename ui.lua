@@ -2201,18 +2201,23 @@ registerRight("Update", function(scroll)
     for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
 end)
 -- ===== [/FULL PASTE] =====
---===== UFO HUB X • SETTINGS — UI FPS Monitor (MATCH ROBLOX REALTIME) + Runner Save =====
-registerRight("Settings", function(scroll)
+-- === [UFO HUB X • Autorun: UI FPS (honor saved switch)] ===
+do
     local Players    = game:GetService("Players")
     local RunService = game:GetService("RunService")
-    local Tween      = game:GetService("TweenService")
     local Stats      = game:GetService("Stats")
     local Http       = game:GetService("HttpService")
     local MPS        = game:GetService("MarketplaceService")
 
-    --------------------------------------------------------------------------------------
-    -- SAVE (per-map): ใช้ไฟล์ในตัวรัน "UFO HUB X/<PlaceId - PlaceName>.json" ถ้าไม่มี FS จะ fallback เป็น getgenv()
-    --------------------------------------------------------------------------------------
+    -- THEME (match Settings builder)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+
+    -- ----- read saved flag (per map) -----
     local function safePlaceName()
         local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
         local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
@@ -2222,111 +2227,32 @@ registerRight("Settings", function(scroll)
     local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
     local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
                 and typeof(writefile)=="function" and typeof(readfile)=="function")
-    if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
-    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
-    local RAM = getgenv().UFOX_RAM
 
-    local function loadSave()
-        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
-            local ok,dec = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
-            if ok and type(dec)=="table" then return dec end
+    local function readEnabled()
+        local t = nil
+        if hasFS then
+            local ok,txt = pcall(function() return readfile(SAVE_FILE) end)
+            if ok and type(txt)=="string" and #txt>0 then
+                local ok2,dec = pcall(function() return Http:JSONDecode(txt) end)
+                if ok2 and type(dec)=="table" then t=dec end
+            end
         end
-        return RAM[SAVE_FILE] or {}
-    end
-    local function writeSave(t)
-        t = t or {}
-        if hasFS then pcall(function() writefile(SAVE_FILE, Http:JSONEncode(t)) end) end
-        RAM[SAVE_FILE] = t
-    end
-    local function getSave(path, default)
-        local data = loadSave(); local cur = data
-        for seg in string.gmatch(path,"[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
-        return (cur==nil) and default or cur
-    end
-    local function setSave(path, value)
-        local data = loadSave()
-        local parent = data; local key
-        for seg in string.gmatch(path,"[^%.]+") do
-            key = seg
-            if not parent[seg] or type(parent[seg])~="table" then parent[seg] = {} end
-            parent = parent[seg]
+        if not t then
+            -- fallback RAM cache (ถ้า Settings เคยเซฟไว้ในหน่วยความจำ)
+            local RAM = getgenv().UFOX_RAM or {}
+            t = RAM[SAVE_FILE]
         end
-        -- เขียนค่าที่ระดับบนสุดของ path
-        local stack, p = {}, data
-        for seg in string.gmatch(path,"[^%.]+") do table.insert(stack, seg) end
-        for i=1,#stack-1 do p = p[stack[i]] end
-        p[stack[#stack]] = value
-        writeSave(data)
+        local v = false
+        if type(t)=="table" and t.Settings and t.Settings.UIFPS then
+            v = (t.Settings.UIFPS.Enabled == true)
+        end
+        return v
     end
-    --------------------------------------------------------------------------------------
 
-    -- ===== LOOK / LAYOUT =====
-    local ICON_SIZE   = 28
-    local TEXT_SIZE   = 16
-    local ROW_HEIGHT  = 44
-
-    local BOX_WIDTH   = 760
-    local INNER_PAD   = 12
-    local GAP_BETWEEN = 10
-    local FIRST_SHIFT = 24
-    local FOURTH_SHIFT= 10
-    local LAST_BONUS  = 12
-
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-        DIM   = Color3.fromRGB(160,200,160),
-    }
+    -- ----- headless HUD builder (เหมือนใน Settings) -----
     local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
     local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.0 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
 
-    -- ===== STATE =====
-    _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
-    local S = _G.UFOX_FPS
-
-    -- ===== Settings panel wrapper =====
-    local WRAP = "UFOX_WRAP_UIFPS_ONLY"
-    local old = scroll:FindFirstChild(WRAP); if old then old:Destroy() end
-    local wrap = Instance.new("Frame", scroll); wrap.Name=WRAP; wrap.BackgroundTransparency=1; wrap.AutomaticSize=Enum.AutomaticSize.Y; wrap.Size=UDim2.new(1,0,0,0)
-    local maxOrder=0 for _,ch in ipairs(scroll:GetChildren()) do if ch:IsA("GuiObject") then maxOrder = math.max(maxOrder,(ch.LayoutOrder or 0)) end end
-    wrap.LayoutOrder = maxOrder+1
-    local list = Instance.new("UIListLayout", wrap); list.Padding=UDim.new(0,12); list.SortOrder=Enum.SortOrder.LayoutOrder
-
-    local header = Instance.new("TextLabel", wrap)
-    header.BackgroundTransparency=1; header.Size=UDim2.new(1,0,0,36)
-    header.Font=Enum.Font.GothamBold; header.TextSize=16; header.TextColor3=THEME.TEXT
-    header.TextXAlignment=Enum.TextXAlignment.Left; header.Text="UI FPS ⚡"; header.LayoutOrder=1
-
-    local row = Instance.new("Frame", wrap)
-    row.Size=UDim2.new(1,-6,0,46); row.BackgroundColor3=THEME.BLACK; corner(row,12); stroke(row,2.2,THEME.GREEN); row.LayoutOrder=2
-    local lab = Instance.new("TextLabel", row)
-    lab.BackgroundTransparency=1; lab.Size=UDim2.new(1,-160,1,0); lab.Position=UDim2.new(0,16,0,0)
-    lab.Font=Enum.Font.GothamBold; lab.TextSize=13; lab.TextColor3=THEME.WHITE
-    lab.TextXAlignment=Enum.TextXAlignment.Left; lab.Text="UI FPS Display"
-
-    local sw = Instance.new("Frame", row); sw.AnchorPoint=Vector2.new(1,0.5); sw.Position=UDim2.new(1,-12,0.5,0)
-    sw.Size=UDim2.fromOffset(52,26); sw.BackgroundColor3=THEME.BLACK; corner(sw,13)
-    local swStroke = Instance.new("UIStroke", sw); swStroke.Thickness=1.8
-    local knob=Instance.new("Frame", sw); knob.Size=UDim2.fromOffset(22,22); knob.BackgroundColor3=THEME.WHITE; corner(knob,11)
-    knob.Position=UDim2.new(0,2,0.5,-11); swStroke.Color=THEME.RED
-
-    -- สวิตช์ + เซฟ
-    local function setSwitch(v)
-        S.enabled=v
-        swStroke.Color = v and THEME.GREEN or THEME.RED
-        tween(knob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
-        if S.frame then S.frame.Visible=v end
-        -- SAVE
-        setSave("Settings.UIFPS.Enabled", v)
-    end
-    local btn=Instance.new("TextButton", sw); btn.BackgroundTransparency=1; btn.Size=UDim2.fromScale(1,1); btn.Text=""
-    btn.MouseButton1Click:Connect(function() setSwitch(not S.enabled) end)
-
-    -- ===== Readers =====
     local function getPingMs()
         local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
         item = item and item:FindFirstChild("Data Ping")
@@ -2339,23 +2265,20 @@ registerRight("Settings", function(scroll)
         if item then local n=tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)")); return n or 0 end
         return 0
     end
-    local function getMemMBStable()
+    local function getMemMBStable(last)
         local ok,v = pcall(function() return Stats:GetTotalMemoryUsageMb() end)
         if ok and v and v>0 then return v end
-        return 0
+        return last or 0
     end
 
-    local ICONS = {
-        FPS      = "rbxassetid://116103940304617",
-        Ping     = "rbxassetid://125226433995402",
-        Memory   = "rbxassetid://131794120624488",
-        Upload   = "rbxassetid://125701675927454",
-        Download = "rbxassetid://134953518153703",
-    }
-
-    -- ===== HUD =====
-    local function createFPSFrame()
-        if S.frame and S.frame.Parent then return S.frame end
+    local function ensureHud(S)
+        if S.frame and S.frame.Parent then
+            S.frame.Visible = S.enabled
+            return S.frame
+        end
+        local BOX_WIDTH, ROW_HEIGHT = 760, 44
+        local ICON_SIZE, INNER_PAD, GAP = 28, 12, 10
+        local FIRST_SHIFT, FOURTH_SHIFT, LAST_BONUS = 24, 10, 12
 
         local gui = Instance.new("ScreenGui")
         gui.Name="UFOX_FPS_GUI"; gui.IgnoreGuiInset=true; gui.ResetOnSpawn=false; gui.DisplayOrder=1000001
@@ -2366,49 +2289,58 @@ registerRight("Settings", function(scroll)
         box.Name="FPSBox"; box.Size=UDim2.new(0,BOX_WIDTH,0,ROW_HEIGHT); box.Position=UDim2.new(0.5,-BOX_WIDTH/2,0,8)
         box.BackgroundColor3=THEME.BLACK; box.BorderSizePixel=0; corner(box,10); stroke(box,2,THEME.GREEN)
 
-        local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP_BETWEEN*4)) / 5)
-
+        local SLOT_W = math.floor((BOX_WIDTH - (INNER_PAD*2) - (GAP*4)) / 5)
         local function makeSlot(i, iconId, initText)
             local shift = (i==1 and FIRST_SHIFT) or (i==4 and FOURTH_SHIFT) or 0
             local bonus = (i==5) and LAST_BONUS or 0
-            local x = INNER_PAD + (i-1)*(SLOT_W + GAP_BETWEEN) + shift
+            local x = INNER_PAD + (i-1)*(SLOT_W + GAP) + shift
 
-            local icon = Instance.new("ImageLabel", box); icon.BackgroundTransparency=1; icon.Image=iconId
-            icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE); icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
+            local icon = Instance.new("ImageLabel", box)
+            icon.BackgroundTransparency=1; icon.Image=iconId
+            icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
+            icon.Position = UDim2.new(0, x, 0.5, -ICON_SIZE/2)
 
             local txt = Instance.new("TextLabel", box)
             txt.BackgroundTransparency=1
             txt.Position = UDim2.new(0, x + ICON_SIZE + 6, 0, 0)
             txt.Size = UDim2.new(0, SLOT_W - (ICON_SIZE + 12) + bonus - shift, 1, 0)
-            txt.Font = Enum.Font.GothamBold; txt.TextSize = TEXT_SIZE; txt.TextColor3 = THEME.GREEN
-            txt.TextXAlignment = Enum.TextXAlignment.Left; txt.TextTruncate = Enum.TextTruncate.None; txt.Text = initText
+            txt.Font = Enum.Font.GothamBold
+            txt.TextSize = 16
+            txt.TextColor3 = THEME.GREEN
+            txt.TextXAlignment = Enum.TextXAlignment.Left
+            txt.Text = initText
             return txt
         end
 
+        local ICONS = {
+            FPS      = "rbxassetid://116103940304617",
+            Ping     = "rbxassetid://125226433995402",
+            Memory   = "rbxassetid://131794120624488",
+            Upload   = "rbxassetid://125701675927454",
+            Download = "rbxassetid://134953518153703",
+        }
         local tFPS   = makeSlot(1, ICONS.FPS,      "FPS: --")
         local tPing  = makeSlot(2, ICONS.Ping,     "Ping: --ms")
         local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
         local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
         local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
 
-        local lastMem = 0
-        local uiAcc, UI_RATE = 0, 0.10
+        local lastMem, acc, RATE = 0, 0, 0.10
         RunService.Heartbeat:Connect(function(dt)
-            local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
-            uiAcc += dt
-            if uiAcc >= UI_RATE then
-                uiAcc = 0
-                local ping  = getPingMs()
-                local up    = getKbps("Data Send Kbps")
-                local down  = getKbps("Data Receive Kbps")
-                local mem   = getMemMBStable(); if mem == 0 then mem = lastMem else lastMem = mem end
-                if S.enabled then
-                    tFPS.Text  = string.format("FPS: %d",   math.floor(fps + 0.5))
-                    tPing.Text = string.format("Ping: %dms", math.floor(ping + 0.5))
-                    tMem.Text  = string.format("Mem: %dMB",  math.floor(mem + 0.5))
-                    tUp.Text   = string.format("Up: %dKbps", math.floor(up + 0.5))
-                    tDown.Text = string.format("Down: %dKbps", math.floor(down + 0.5))
-                end
+            acc += dt
+            if not S.enabled then return end
+            if acc >= RATE then
+                acc = 0
+                local fps  = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
+                local ping = getPingMs()
+                local up   = getKbps("Data Send Kbps")
+                local down = getKbps("Data Receive Kbps")
+                lastMem = getMemMBStable(lastMem)
+                tFPS.Text  = ("FPS: %d"):format(math.floor(fps + 0.5))
+                tPing.Text = ("Ping: %dms"):format(math.floor(ping + 0.5))
+                tMem.Text  = ("Mem: %dMB"):format(math.floor(lastMem + 0.5))
+                tUp.Text   = ("Up: %dKbps"):format(math.floor(up + 0.5))
+                tDown.Text = ("Down: %dKbps"):format(math.floor(down + 0.5))
             end
         end)
 
@@ -2417,11 +2349,20 @@ registerRight("Settings", function(scroll)
         return box
     end
 
-    -- Build + Restore saved state
-    createFPSFrame()
-    local savedOn = getSave("Settings.UIFPS.Enabled", false)
-    setSwitch(savedOn)
-end)
+    -- wait main UI ready then autorun if saved=ON
+    task.spawn(function()
+        repeat task.wait(0.1) until game:GetService("CoreGui"):FindFirstChild("UFO_HUB_X_UI")
+
+        local shouldEnable = readEnabled()
+        if not shouldEnable then return end
+
+        _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
+        local S = _G.UFOX_FPS
+        S.enabled = true
+        ensureHud(S)  -- สร้าง HUD ถ้ายังไม่มี (ยังไม่เปิดแท็บ Settings) และโชว์ทันที
+    end)
+end
+-- === [/Autorun: UI FPS] ===
 --===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) + Runner Save (per-map) =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
@@ -3139,36 +3080,3 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
--- === [UFO HUB X • Autobuild Right (no-click) • FIXED SCOPE] ===
-do
-    local RunS = game:GetService("RunService")
-    task.defer(function()
-        -- รอให้ UI หลักสร้าง registry/ฟังก์ชันก่อน
-        local t0 = os.clock()
-        while true do
-            local RS = (getgenv and getgenv().UFO_RIGHT) or nil
-            if RS and RS.builders and RS.frames and type(showRight)=="function" then break end
-            if os.clock() - t0 > 5 then return end -- กันค้าง
-            RunS.Heartbeat:Wait()
-        end
-
-        local RS = getgenv().UFO_RIGHT
-        local prev = RS.current or "Home"
-
-        -- บังคับ build ทุกแท็บ 1 รอบ (ครั้งแรกเท่านั้น)
-        for tabName,_ in pairs(RS.builders) do
-            local f = RS.frames[tabName]
-            if not (f and f.built) then
-                local old = RS.current
-                pcall(function() showRight(tabName) end)
-                f = RS.frames[tabName]
-                if f and f.root then f.root.Visible = false end -- กันแฟลช
-                RS.current = old
-            end
-        end
-
-        -- กลับแท็บเดิม
-        pcall(function() showRight(prev) end)
-    end)
-end
--- === [/Autobuild] ===
