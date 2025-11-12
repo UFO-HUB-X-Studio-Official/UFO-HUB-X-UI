@@ -722,39 +722,6 @@ registerRight("Shop", function(scroll) end)
 registerRight("Update", function(scroll) end)
 registerRight("Server", function(scroll) end)
 registerRight("Settings", function(scroll) end)
--- === [UFO HUB X • Right AutoPrime (build-once, no-click)] ===
-do
-    local RunS = game:GetService("RunService")
-    task.defer(function()
-        -- รอให้ระบบ Right พร้อม และมี builder อย่างน้อย 1 แท็บ
-        repeat RunS.Heartbeat:Wait() until
-            (typeof(showRight) == "function")
-            and getgenv().UFO_RIGHT
-            and next(getgenv().UFO_RIGHT.builders) ~= nil
-
-        local R = getgenv().UFO_RIGHT
-        local prevTab = R.current or "Home"
-
-        -- บังคับ build ทุกแท็บครั้งแรก (ถ้ายังไม่ built)
-        for tabName, _ in pairs(R.builders) do
-            local f = R.frames[tabName]
-            if not (f and f.built) then
-                local old = R.current
-                -- showRight จะเรียก builder ของแท็บนั้นทั้งหมดให้อยู่แล้ว
-                pcall(function() showRight(tabName) end)
-
-                -- ซ่อนกลับเพื่อกันแฟลช/เปลี่ยนหน้า
-                f = R.frames[tabName]
-                if f and f.root then f.root.Visible = false end
-                R.current = old
-            end
-        end
-
-        -- คืนแท็บเดิม
-        pcall(function() showRight(prevTab) end)
-    end)
-end
--- === [/Right AutoPrime] ===
  -- ===== Player tab (Right) — Profile ONLY (avatar + name, isolated) =====
 registerRight("Player", function(scroll)
     local Players = game:GetService("Players")
