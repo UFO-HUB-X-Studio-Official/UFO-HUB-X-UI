@@ -3139,31 +3139,35 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
--- === [UFO HUB X • Autobuild Right (no-click)] ===
+-- === [UFO HUB X • Autobuild Right (no-click) • FIXED SCOPE] ===
 do
     local RunS = game:GetService("RunService")
     task.defer(function()
-        -- รอ 1 เฟรมให้ RightShell/Frames พร้อม
-        RunS.Heartbeat:Wait()
+        -- รอให้ UI หลักสร้าง registry/ฟังก์ชันก่อน
+        local t0 = os.clock()
+        while true do
+            local RS = (getgenv and getgenv().UFO_RIGHT) or nil
+            if RS and RS.builders and RS.frames and type(showRight)=="function" then break end
+            if os.clock() - t0 > 5 then return end -- กันค้าง
+            RunS.Heartbeat:Wait()
+        end
 
-        -- จำแท็บปัจจุบัน (ถ้ายังไม่มี ให้ใช้ "Home" หรือแท็บแรกของนาย)
-        local prev = RSTATE.current or "Home"
+        local RS = getgenv().UFO_RIGHT
+        local prev = RS.current or "Home"
 
-        -- ถ้ายังไม่เคย build ให้บังคับ build ทุกแท็บหนึ่งรอบ
-        for tabName, _ in pairs(RSTATE.builders) do
-            local f = RSTATE.frames[tabName]
+        -- บังคับ build ทุกแท็บ 1 รอบ (ครั้งแรกเท่านั้น)
+        for tabName,_ in pairs(RS.builders) do
+            local f = RS.frames[tabName]
             if not (f and f.built) then
-                -- showRight จะ build ให้เฉพาะครั้งแรก
-                local old = RSTATE.current
+                local old = RS.current
                 pcall(function() showRight(tabName) end)
-                -- ซ่อนกลับ ไม่ให้เกิดแฟลชจอ
-                local ft = RSTATE.frames[tabName]
-                if ft and ft.root then ft.root.Visible = false end
-                RSTATE.current = old
+                f = RS.frames[tabName]
+                if f and f.root then f.root.Visible = false end -- กันแฟลช
+                RS.current = old
             end
         end
 
-        -- คืนแท็บเดิม (หรือเปลี่ยนตามค่าเริ่มต้นที่ต้องการ)
+        -- กลับแท็บเดิม
         pcall(function() showRight(prev) end)
     end)
 end
