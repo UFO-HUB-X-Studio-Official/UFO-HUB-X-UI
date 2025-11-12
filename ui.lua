@@ -3140,108 +3140,147 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
--- === [UFO HUB X • Auto Cycle Tabs + Download Overlay (exact position/size by ratio)] ===
+-- === [UFO HUB X • Auto Tab Walk + Download Overlay • FRONT + BLACK + FIT] ===
 do
-    local RunS = game:GetService("RunService")
-    local Players = game:GetService("Players")
+    local Players    = game:GetService("Players")
+    local Tween      = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
-    -- THEME
-    local GREEN = Color3.fromRGB(25,255,125)
-    local BLACK = Color3.fromRGB(0,0,0)
-    local WHITE = Color3.fromRGB(255,255,255)
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+    }
 
-    -- สร้าง Overlay แบบภาพตัวอย่าง: กล่องขาวตรงกลาง + ขอบเขียว + ฉากหลังดำ
-    local function showDownloadOverlay()
-        -- อิงสัดส่วนจากภาพ (กว้างราว 62% / สูงราว 55% ของจอ) เพื่อให้ “ตำแหน่ง/ขนาด” ดูเหมือนในรูป
-        local cam = workspace.CurrentCamera
-        local vs = cam and cam.ViewportSize or Vector2.new(1280,720)
-        local BOX_W = math.floor(vs.X * 0.62)
-        local BOX_H = math.floor(vs.Y * 0.55)
-
+    -- ====== Build overlay (หน้าสุดจริง ๆ) ======
+    local function makeOverlay()
         local gui = Instance.new("ScreenGui")
-        gui.Name="UFOX_DL_GUI"
-        gui.IgnoreGuiInset=true
-        gui.DisplayOrder=999999
-        gui.ResetOnSpawn=false
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        gui.Name = "UFOX_DownloadOverlay"
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder = 2_000_000   -- มากกว่า UI หลักแบบขาดลอย
         gui.Parent = lp:WaitForChild("PlayerGui")
 
-        -- พื้นหลังดำเต็มจอ (เหมือนภาพที่ 2)
-        local bg = Instance.new("Frame", gui)
-        bg.Name="BG"
-        bg.BackgroundColor3 = BLACK
-        bg.BackgroundTransparency = 0
-        bg.Size = UDim2.fromScale(1,1)
-        bg.ZIndex = 100
+        -- ชั้นพื้นหลัง (รับอินพุตไว้เองกันคลิกทะลุ)
+        local dim = Instance.new("Frame", gui)
+        dim.Name = "Dim"
+        dim.Active = true                      -- block input
+        dim.Selectable = false
+        dim.ZIndex = 10_000
+        dim.BackgroundColor3 = THEME.BLACK
+        dim.BackgroundTransparency = 0
+        dim.Size = UDim2.fromScale(1,1)
 
-        -- กล่องสีขาวกึ่งกลาง + ขอบเขียว
-        local box = Instance.new("Frame", gui)
-        box.Name="WhiteBox"
-        box.BackgroundColor3 = WHITE
+        -- กล่องสีดำ ขอบเขียว
+        local box = Instance.new("Frame", dim)
+        box.Name = "Box"
+        box.ZIndex = 10_001
+        box.AnchorPoint = Vector2.new(0.5,0.5)
+        box.Position = UDim2.fromScale(0.5, 0.52)
+        box.Size = UDim2.new(0.74, 0, 0.58, 0)        -- ค่าเริ่มต้น (ถ้าฟิตไม่ได้จะใช้ค่านี้)
+        box.BackgroundColor3 = THEME.BLACK           -- << เปลี่ยนเป็น “ดำ”
         box.BorderSizePixel = 0
-        box.Position = UDim2.new(0.5, -BOX_W/2, 0.5, -BOX_H/2)
-        box.Size = UDim2.fromOffset(BOX_W, BOX_H)
-        box.ZIndex = 101
         do
-            local c = Instance.new("UICorner", box); c.CornerRadius = UDim.new(0, 0) -- เหลี่ยมเป๊ะ
-            local s = Instance.new("UIStroke", box); s.Thickness = 3; s.Color = GREEN; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            local stroke = Instance.new("UIStroke", box)
+            stroke.Thickness = 3.2
+            stroke.Color = THEME.GREEN
         end
 
-        -- ตำแหน่ง/ขนาด “แท่งแดง” ในภาพ → เปลี่ยนเป็นตัวเลข 0-100 ตรงตำแหน่ง/ขนาดเท่าเดิม
-        -- ประมาณจากรูป: กว้าง ~ 28% ของกล่อง / สูง ~ 14% ของกล่อง
-        local P_W = math.floor(BOX_W * 0.28)
-        local P_H = math.floor(BOX_H * 0.14)
+        -- ตัวเลข Download 0–100 (ตำแหน่งเดียวกับสี่เหลี่ยมแดงเดิม)
+        local num = Instance.new("TextLabel", box)
+        num.Name = "Percent"
+        num.ZIndex = 10_002
+        num.BackgroundTransparency = 1
+        num.AnchorPoint = Vector2.new(0.5,0.5)
+        num.Position = UDim2.fromScale(0.5, 0.58)
+        num.Size = UDim2.new(0.34, 0, 0.10, 0)
+        num.Font = Enum.Font.GothamBlack
+        num.TextColor3 = THEME.WHITE                -- อ่านชัดบนพื้นดำ
+        num.TextScaled = true
+        num.Text = "Download 0%"
 
-        local pct = Instance.new("TextLabel", gui)
-        pct.Name = "DLPercent"
-        pct.BackgroundTransparency = 1
-        pct.TextColor3 = BLACK          -- ตัวเลขสีดำบนพื้นขาวตามคอนทราสต์รูป
-        pct.Font = Enum.Font.GothamBlack
-        pct.TextScaled = true
-        pct.ZIndex = 102
-        pct.Size = UDim2.fromOffset(P_W, P_H)
-        pct.Position = UDim2.new(0.5, -P_W/2, 0.5, -P_H/2)
-        pct.Text = "Download 0"
+        -- ====== FIT: ปรับขนาด/ตำแหน่งกล่องให้พอดีกับ UI หลัก ถ้าหาได้ ======
+        local function fitToMain()
+            local R = getgenv().UFO_RIGHT
+            local rshell
+            if R and R.frames then
+                for _,fd in pairs(R.frames) do
+                    if fd and fd.root and fd.root.Parent then
+                        rshell = fd.root.Parent -- นี่คือ RightShell (parent ของแต่ละแท็บ)
+                        break
+                    end
+                end
+            end
+            -- ถ้าหา RightShell ไม่ได้ ลองเดา main window จากชื่อที่ใช้บ่อย
+            if not rshell then
+                rshell = workspace:FindFirstChild("UFO_HUB_X_UI") or
+                         lp:WaitForChild("PlayerGui", 0.1):FindFirstChild("UFO_HUB_X_UI")
+            end
 
-        return gui, pct
+            if rshell and rshell.AbsoluteSize.X > 0 then
+                local pos = rshell.AbsolutePosition
+                local sz  = rshell.AbsoluteSize
+                -- ครอบคลุม UI หลักแบบเผื่อขอบเล็กน้อย
+                box.Size     = UDim2.fromOffset(sz.X + 40, sz.Y + 40)
+                box.Position = UDim2.fromOffset(pos.X + sz.X/2, pos.Y + sz.Y/2)
+            end
+        end
+        -- รอ 1 เฟรมให้ขนาด UI หลักคงที่ก่อนค่อยฟิต
+        RunService.Heartbeat:Wait()
+        pcall(fitToMain)
+
+        return gui, num
     end
 
-    -- ไล่ “กด” แท็บ: Home → Quest → Shop → Settings → กลับ Player
-    local function cycleTabsOnce()
-        local R = getgenv().UFO_RIGHT
-        if not (R and typeof(showRight)=="function") then return end
+    local function destroyOverlay(gui)
+        if gui and gui.Parent then gui:Destroy() end
+    end
 
-        local prev = R.current or "Player"
-        local order = {"Home","Quest","Shop","Settings"}
+    -- ===== รอให้ระบบ Right พร้อมก่อน =====
+    local function ready()
+        return (typeof(showRight) == "function") and getgenv().UFO_RIGHT and getgenv().UFO_RIGHT.builders
+    end
+    while not ready() do RunService.Heartbeat:Wait() end
+    local R = getgenv().UFO_RIGHT
 
-        for _,tab in ipairs(order) do
+    -- ===== เดินกดแท็บอัตโนมัติ =====
+    local sequence = {"Player","Home","Quest","Shop","Settings"}
+    local prev = R.current or "Player"
+
+    local overlay, label = makeOverlay()
+
+    local function setPct(p)
+        p = math.clamp(math.floor(p + 0.5), 0, 100)
+        if label then label.Text = ("Download %d%%"):format(p) end
+    end
+
+    local steps = #sequence + 1
+    local perStep = 100 / steps
+    local pct = 0
+    setPct(pct)
+
+    for i,tab in ipairs(sequence) do
+        local f = R.frames[tab]
+        if not (f and f.built) then
             pcall(function() showRight(tab) end)
-            RunS.Heartbeat:Wait()  -- 1 เฟรมให้ builder ทำงาน
-            task.wait(0.03)        -- สั้นๆ กันกระพริบ
+            f = R.frames[tab]
+            if f and f.root then f.root.Visible = false end
+        else
+            pcall(function() showRight(tab) end)
         end
-
-        pcall(function() showRight(prev) end)
+        pct = math.min(100, perStep * i)
+        setPct(pct)
+        RunService.Heartbeat:Wait()
     end
 
-    -- รอให้ระบบ RIGHT พร้อมก่อนแล้วค่อยทำงาน
-    task.defer(function()
-        repeat RunS.Heartbeat:Wait() until (getgenv().UFO_RIGHT and typeof(showRight)=="function")
+    pcall(function() showRight("Player") end)
+    pct = 100; setPct(pct)
 
-        -- 1) โชว์หน้าดาวน์โหลดทันที (เหมือนรูป)
-        local gui, pctLabel = showDownloadOverlay()
-
-        -- 2) ระหว่างดาวน์โหลด ให้ "กด" ไล่ทุกแท็บเพื่อบิลด์ระบบขวาทั้งหมด
-        task.spawn(cycleTabsOnce)
-
-        -- 3) นับ 0→100 (ตรงกลางตำแหน่งเดิม ขนาดเดิม)
-        for i=0,100 do
-            if pctLabel then pctLabel.Text = ("Download %d"):format(i) end
-            task.wait(0.015) -- ~1.5s รวม ๆ ใกล้เคียงฟีลลิ่งในรูป
-        end
-
-        -- 4) ซ่อน Overlay เมื่อเสร็จ
-        if gui then gui:Destroy() end
+    task.delay(0.25, function()
+        destroyOverlay(overlay)
+        if prev and prev ~= "Player" then pcall(function() showRight(prev) end) end
     end)
 end
--- === [/Auto Cycle Tabs + Download Overlay] ===
+-- === [/Auto Tab Walk + Download Overlay • FRONT + BLACK + FIT] ===
