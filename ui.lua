@@ -3039,31 +3039,46 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (Y-down + logo top + 3s tab) ]==--
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (Y-down + logo bigger + 2s tour) ]==--
 local CoreGui      = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local RunService   = game:GetService("RunService")
 
 -- ขยับกรอบดาวน์โหลดลงจากกรอบหลัก (ยิ่งเยอะยิ่งลงล่าง)
-local EXTRA_Y_NUDGE_RATIO = 0.12  -- 12% ของความสูงกรอบหลัก (ถ้ายังไม่เป๊ะ ปรับตรงนี้ได้)
+local EXTRA_Y_NUDGE_RATIO = 0.16  -- 16% ของความสูงกรอบหลัก (ขยับลงมากกว่าเดิม)
+
+-- ระยะเวลารวมที่อยากให้ดาวน์โหลด (วินาที)
+local TOTAL_DOWNLOAD_DURATION = 2
 
 local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
           or CoreGui:FindFirstChild("UFO_HUB_X")
           or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
 
--- หา Tab Button ด้วยข้อความ
-local function findButtonByText(texts)
-	if not root then return nil end
+-- หา Tab Button ด้วยข้อความ (รอให้มีจริง ๆ ก่อนใช้)
+local function waitForButtonByText(texts, timeout)
+	timeout = timeout or 3
+	local deadline = time() + timeout
 	local set = {}
 	for _,t in ipairs(texts) do set[string.lower(t)] = true end
-	for _, inst in ipairs(root:GetDescendants()) do
-		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
-			local t = inst:IsA("TextButton") and (inst.Text or "")
-			       or (inst:FindFirstChildWhichIsA("TextLabel") and inst:FindFirstChildWhichIsA("TextLabel").Text or "")
-			if set[string.lower(t)] then
-				return inst
+
+	while time() < deadline do
+		if root then
+			for _, inst in ipairs(root:GetDescendants()) do
+				if inst:IsA("TextButton") or inst:IsA("ImageButton") then
+					local txt = ""
+					if inst:IsA("TextButton") then
+						txt = inst.Text or ""
+					else
+						local lbl = inst:FindFirstChildWhichIsA("TextLabel")
+						if lbl then txt = lbl.Text or "" end
+					end
+					if set[string.lower(txt)] then
+						return inst
+					end
+				end
 			end
 		end
+		RunService.Heartbeat:Wait()
 	end
 	return nil
 end
@@ -3170,12 +3185,12 @@ local function createOverlay()
 	lay.Padding = UDim.new(0, math.max(16, math.floor(tSize.Y * 0.05)))
 	lay.Parent = stack
 
-	-- LOGO (อยู่ด้านบน)
+	-- LOGO (ใหญ่ขึ้นอีก)
 	local logo = Instance.new("ImageLabel")
 	logo.Name = "Logo"
 	logo.BackgroundTransparency = 1
 	logo.Image = "rbxassetid://117052960049460"
-	logo.Size = UDim2.fromScale(0.30, 0.30)
+	logo.Size = UDim2.fromScale(0.34, 0.34) -- จาก 0.30 -> 0.34
 	logo.LayoutOrder = 1
 	logo.Parent = stack
 	local ar = Instance.new("UIAspectRatioConstraint")
@@ -3252,9 +3267,9 @@ local function destroyOverlay(sg, shell, bar)
 	end)
 end
 
--- เคาน์เตอร์ 0–100 + แถบเขียวยาวขึ้น
+-- เคาน์เตอร์ 0–100 + แถบเขียวยาวขึ้น (ทั้งหมดใช้เวลา TOTAL_DOWNLOAD_DURATION)
 local function runCounter(num, fill, duration)
-	duration = duration or 15 -- ให้สัมพันธ์กับ 3 วิ * 5 แท็บ
+	duration = duration or TOTAL_DOWNLOAD_DURATION
 	for i = 0, 100 do
 		num.Text = ("%d%%"):format(i)
 		fill.Size = UDim2.fromScale(i/100, 1)
@@ -3263,33 +3278,33 @@ local function runCounter(num, fill, duration)
 	end
 end
 
--- กดปุ่มแต่ละแท็บค้าง ~3 วินาที
-local function click(btn)
-	if not btn then return end
-	if btn.Activate then
-		btn:Activate()
+-- เดินแท็บให้ครบภายใน TOTAL_DOWNLOAD_DURATION
+local function runTabTour()
+	local tabs = {
+		waitForButtonByText({"Home"}),
+		waitForButtonByText({"Quest"}),
+		waitForButtonByText({"Shop"}),
+		waitForButtonByText({"Settings","Setting","Update"}),
+		waitForButtonByText({"Player"}),
+	}
+	local perTab = TOTAL_DOWNLOAD_DURATION / #tabs
+
+	for _,btn in ipairs(tabs) do
+		if btn and btn.Activate then
+			btn:Activate()
+		end
+		task.wait(perTab)
 	end
-	task.wait(3) -- 3 วินาทีตามที่ขอ
 end
 
 task.defer(function()
 	local sg, shell, bar, num, fill = createOverlay()
 
-	-- เดินแท็บ: Home → Quest → Shop → Settings → Player (แต่ละอัน 3 วินาที)
-	task.spawn(function()
-		local home     = findButtonByText({"Home"})
-		local quest    = findButtonByText({"Quest"})
-		local shop     = findButtonByText({"Shop"})
-		local settings = findButtonByText({"Settings","Setting","Update"})
-		local player   = findButtonByText({"Player"})
-		click(home)
-		click(quest)
-		click(shop)
-		click(settings)
-		click(player)
-	end)
+	-- เดินแท็บควบคู่ไปกับ progress
+	task.spawn(runTabTour)
 
-	runCounter(num, fill, 15)   -- 0→100 ให้ใช้เวลารวม ~15 วิ
+	runCounter(num, fill, TOTAL_DOWNLOAD_DURATION)
 
-	destroyOverlay(sg, shell, bar) -- ครบ 100 แล้ว overlay หาย ใช้ UI หลักต่อได้
+	-- ครบ 100 แล้ว overlay หาย ใช้ UI หลักต่อได้
+	destroyOverlay(sg, shell, bar)
 end)
