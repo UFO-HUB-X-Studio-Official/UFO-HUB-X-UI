@@ -3039,266 +3039,282 @@ do
     B.status = "done"
     getgenv().UFO_BOOT = B
 end
---==[ UFO HUB X • Auto Tab Tour + Download Overlay (2s + Y-down + logo top) ]==--
-do
-    local CoreGui      = game:GetService("CoreGui")
-    local TweenService = game:GetService("TweenService")
-    local RunService   = game:GetService("RunService")
+--==[ UFO HUB X • Auto Tab Tour + Download Overlay (Y-down + logo bigger + 2s tabs) ]==--
+local CoreGui      = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
 
-    -- โหลดให้จบภายใน 2 วินาที และแบ่งเวลาให้กดทุกแท็บในกรอบเวลาเดียวกัน
-    local TOTAL_DOWNLOAD_DURATION = 2       -- 0 → 100 ใช้เวลา 2 วิ
-    local EXTRA_Y_NUDGE_RATIO     = 0.14    -- ขยับกรอบดาวน์โหลดลงจากกรอบหลัก ~14%
+-- ขยับกรอบดาวน์โหลดลงจากกรอบหลัก (ปรับตรงนี้ถ้ายังไม่เป๊ะ)
+local EXTRA_Y_NUDGE_RATIO = 0.18  -- 18% ของความสูงกรอบหลัก
+local TAB_HOLD_SEC        = 2     -- เวลากดค้างแต่ละแท็บ
+local TAB_COUNT           = 5     -- Home, Quest, Shop, Settings, Player
 
-    -- หา root UI หลัก
-    local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
-            or CoreGui:FindFirstChild("UFO_HUB_X")
-            or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
+local root = CoreGui:FindFirstChild("UFO_HUB_X_UI")
+          or CoreGui:FindFirstChild("UFO_HUB_X")
+          or CoreGui:WaitForChild("UFO_HUB_X_UI", 5)
 
-    -- หา Tab Button ด้วยข้อความ
-    local function findButtonByText(texts)
-        if not root then return nil end
-        local set = {}
-        for _,t in ipairs(texts) do set[string.lower(t)] = true end
-        for _, inst in ipairs(root:GetDescendants()) do
-            if inst:IsA("TextButton") or inst:IsA("ImageButton") then
-                local txt
-                if inst:IsA("TextButton") then
-                    txt = inst.Text or ""
-                else
-                    local lbl = inst:FindFirstChildWhichIsA("TextLabel")
-                    txt = lbl and lbl.Text or ""
-                end
-                if set[string.lower(txt)] then
-                    return inst
-                end
-            end
-        end
-        return nil
-    end
-
-    -- เลือกกรอบดำขอบเขียวใหญ่สุด (กรอบหลักของ UI)
-    local function pickGreenBorderFrame()
-        if not root then return nil end
-        local best, bestArea = nil, 0
-        for _, fr in ipairs(root:GetDescendants()) do
-            if fr:IsA("Frame") and fr.Visible then
-                local stroke = fr:FindFirstChildOfClass("UIStroke")
-                if stroke then
-                    local c = stroke.Color
-                    local greenish = (c.G > 0.7 and c.B < 0.7 and c.R < 0.4)
-                    if greenish then
-                        local sz = fr.AbsoluteSize
-                        if sz.X >= 400 and sz.Y >= 220 then
-                            local area = sz.X * sz.Y
-                            if area > bestArea then
-                                best, bestArea = fr, area
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        -- ถ้าไม่เจอ stroke เขียว ใช้กรอบใหญ่สุดแทน
-        if not best then
-            for _, fr in ipairs(root:GetDescendants()) do
-                if fr:IsA("Frame") and fr.Visible then
-                    local sz = fr.AbsoluteSize
-                    if sz.X >= 400 and sz.Y >= 220 then
-                        local area = sz.X * sz.Y
-                        if area > bestArea then
-                            best, bestArea = fr, area
-                        end
-                    end
-                end
-            end
-        end
-        return best
-    end
-
-    -- สร้าง overlay
-    local function createOverlay()
-        local sg = Instance.new("ScreenGui")
-        sg.Name = "UFOX_DownloadOverlay"
-        sg.IgnoreGuiInset = true
-        sg.ResetOnSpawn = false
-        sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        sg.DisplayOrder = 2_000_000
-        sg.Parent = CoreGui
-
-        -- บล็อกการคลิกพื้นหลัง
-        local blocker = Instance.new("TextButton")
-        blocker.Size = UDim2.fromScale(1,1)
-        blocker.BackgroundTransparency = 1
-        blocker.Text = ""
-        blocker.AutoButtonColor = false
-        blocker.Parent = sg
-
-        local target = pickGreenBorderFrame()
-        RunService.Heartbeat:Wait()
-
-        local vp   = workspace.CurrentCamera.ViewportSize
-        local tPos = target and target.AbsolutePosition or (vp/2 - Vector2.new(320,180))
-        local tSize= target and target.AbsoluteSize     or Vector2.new(640,360)
-
-        local cornerRadius = UDim.new(0, 12)
-        if target then
-            local mc = target:FindFirstChildOfClass("UICorner")
-            if mc then cornerRadius = mc.CornerRadius end
-        end
-
-        local yNudge = math.floor(tSize.Y * EXTRA_Y_NUDGE_RATIO)
-
-        -- กรอบดำขอบเขียวเท่ากรอบหลัก + ขยับลง
-        local shell = Instance.new("Frame")
-        shell.Name = "Shell"
-        shell.Position = UDim2.fromOffset(tPos.X, tPos.Y + yNudge)
-        shell.Size     = UDim2.fromOffset(tSize.X, tSize.Y)
-        shell.BackgroundColor3 = Color3.fromRGB(0,0,0)
-        shell.BorderSizePixel  = 0
-        shell.Parent = sg
-        Instance.new("UICorner", shell).CornerRadius = cornerRadius
-        local sStroke = Instance.new("UIStroke", shell)
-        sStroke.Thickness = 2
-        sStroke.Color = Color3.fromRGB(0,255,140)
-
-        -- ภายใน: LOGO ด้านบน + BAR ด้านล่าง
-        local stack = Instance.new("Frame")
-        stack.BackgroundTransparency = 1
-        stack.Size = UDim2.fromScale(1,1)
-        stack.Parent = shell
-
-        local lay = Instance.new("UIListLayout")
-        lay.FillDirection = Enum.FillDirection.Vertical
-        lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        lay.VerticalAlignment   = Enum.VerticalAlignment.Center
-        lay.SortOrder = Enum.SortOrder.LayoutOrder
-        lay.Padding = UDim.new(0, math.max(16, math.floor(tSize.Y * 0.05)))
-        lay.Parent = stack
-
-        -- LOGO (ใหญ่ขึ้น)
-        local logo = Instance.new("ImageLabel")
-        logo.Name = "Logo"
-        logo.BackgroundTransparency = 1
-        logo.Image = "rbxassetid://117052960049460"
-        logo.Size = UDim2.fromScale(0.34, 0.34)
-        logo.LayoutOrder = 1
-        logo.Parent = stack
-        local ar = Instance.new("UIAspectRatioConstraint")
-        ar.AspectRatio = 1
-        ar.Parent = logo
-
-        -- BAR
-        local bar = Instance.new("Frame")
-        bar.Name = "BarFrame"
-        bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
-        bar.BorderSizePixel  = 0
-        bar.Size = UDim2.new(0.86, 0, 0, math.max(40, math.floor(tSize.Y * 0.14)))
-        bar.LayoutOrder = 2
-        bar.Parent = stack
-
-        local barCorner = Instance.new("UICorner", bar)
-        barCorner.CornerRadius = UDim.new(0, math.max(8, math.floor(tSize.Y * 0.03)))
-        local barStroke = Instance.new("UIStroke", bar)
-        barStroke.Thickness = 2
-        barStroke.Color = Color3.fromRGB(0,255,140)
-
-        local fill = Instance.new("Frame")
-        fill.Name = "Fill"
-        fill.AnchorPoint = Vector2.new(0,0.5)
-        fill.Position = UDim2.fromScale(0,0.5)
-        fill.Size = UDim2.fromScale(0,1)
-        fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
-        fill.BorderSizePixel  = 0
-        fill.Parent = bar
-        local fillCorner = Instance.new("UICorner", fill)
-        fillCorner.CornerRadius = barCorner.CornerRadius
-
-        local num = Instance.new("TextLabel")
-        num.Name = "Percent"
-        num.BackgroundTransparency = 1
-        num.AnchorPoint = Vector2.new(0.5,0.5)
-        num.Position = UDim2.fromScale(0.5,0.5)
-        num.Size = UDim2.fromScale(1,1)
-        num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json",
-                                Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-        num.TextScaled = true
-        num.Text = "0%"
-        num.TextColor3 = Color3.fromRGB(255,255,255)
-        num.TextStrokeColor3 = Color3.fromRGB(0,0,0)
-        num.TextStrokeTransparency = 0
-        num.Parent = bar
-
-        -- fade-in
-        shell.BackgroundTransparency = 1
-        bar.BackgroundTransparency   = 1
-        num.TextTransparency = 1
-        fill.Visible = false
-        TweenService:Create(shell, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {BackgroundTransparency = 0}):Play()
-        TweenService:Create(bar,   TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {BackgroundTransparency = 0}):Play()
-        task.delay(0.10, function()
-            fill.Visible = true
-            num.TextTransparency = 0
-        end)
-
-        return sg, shell, bar, num, fill
-    end
-
-    local function destroyOverlay(sg, shell, bar)
-        if not (sg and sg.Parent) then return end
-        pcall(function()
-            TweenService:Create(shell, TweenInfo.new(0.12),
-                {BackgroundTransparency = 1}):Play()
-            TweenService:Create(bar,   TweenInfo.new(0.12),
-                {BackgroundTransparency = 1}):Play()
-        end)
-        task.delay(0.14, function()
-            if sg then sg:Destroy() end
-        end)
-    end
-
-    -- นับ 0–100 ภายใน TOTAL_DOWNLOAD_DURATION
-    local function runCounter(num, fill, duration)
-        duration = duration or TOTAL_DOWNLOAD_DURATION
-        for i = 0, 100 do
-            num.Text = ("%d%%"):format(i)
-            fill.Size = UDim2.fromScale(i/100, 1)
-            RunService.Heartbeat:Wait()
-            task.wait(duration/100)
-        end
-    end
-
-    task.defer(function()
-        local sg, shell, bar, num, fill = createOverlay()
-
-        -- เดินแท็บ Home → Quest → Shop → Settings → Player ภายใน 2 วินาที
-        task.spawn(function()
-            local tabs = {
-                findButtonByText({"Home"}),
-                findButtonByText({"Quest"}),
-                findButtonByText({"Shop"}),
-                findButtonByText({"Settings","Setting","Update"}),
-                findButtonByText({"Player"}),
-            }
-            local count = 0
-            for _,b in ipairs(tabs) do
-                if b then count += 1 end
-            end
-            local perTab = (count > 0) and (TOTAL_DOWNLOAD_DURATION / count) or 0
-
-            for _,btn in ipairs(tabs) do
-                if btn and btn.Activate then
-                    btn:Activate()
-                end
-                if perTab > 0 then
-                    task.wait(perTab)
-                end
-            end
-        end)
-
-        runCounter(num, fill, TOTAL_DOWNLOAD_DURATION)
-        destroyOverlay(sg, shell, bar)
-    end)
+-- อ่านข้อความที่โชว์บนปุ่ม (รองรับ TextButton + TextLabel ลูกด้านใน)
+local function getButtonText(btn)
+	if not btn then return "" end
+	local t = ""
+	if btn:IsA("TextButton") then
+		t = btn.Text or ""
+	elseif btn:IsA("ImageButton") then
+		t = ""
+	end
+	if t == "" then
+		local lbl = btn:FindFirstChildWhichIsA("TextLabel")
+		if lbl and lbl.Text then
+			t = lbl.Text
+		end
+	end
+	return t
 end
---==[/ UFO HUB X • Auto Tab Tour + Download Overlay ]==--
+
+-- หา Tab Button ด้วยข้อความ (ไม่สนตัวพิมพ์เล็กใหญ่)
+local function findButtonByText(texts)
+	if not root then return nil end
+	local set = {}
+	for _,t in ipairs(texts) do set[string.lower(t)] = true end
+
+	for _, inst in ipairs(root:GetDescendants()) do
+		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
+			local t = string.lower(getButtonText(inst))
+			if set[t] then
+				return inst
+			end
+		end
+	end
+	return nil
+end
+
+-- เลือกกรอบหลัก (กรอบดำขอบเขียวใหญ่สุด)
+local function pickGreenBorderFrame()
+	if not root then return nil end
+	local best, bestArea = nil, 0
+
+	for _, fr in ipairs(root:GetDescendants()) do
+		if fr:IsA("Frame") and fr.Visible then
+			local stroke = fr:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				local c = stroke.Color
+				local greenish = (c.G > 0.7 and c.B < 0.7 and c.R < 0.4)
+				if greenish then
+					local sz = fr.AbsoluteSize
+					if sz.X >= 400 and sz.Y >= 220 then
+						local area = sz.X * sz.Y
+						if area > bestArea then
+							best, bestArea = fr, area
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- ถ้าไม่เจอขอบเขียว ใช้กรอบใหญ่สุดแทน
+	if not best then
+		for _, fr in ipairs(root:GetDescendants()) do
+			if fr:IsA("Frame") and fr.Visible then
+				local sz = fr.AbsoluteSize
+				if sz.X >= 400 and sz.Y >= 220 then
+					local area = sz.X * sz.Y
+					if area > bestArea then
+						best, bestArea = fr, area
+					end
+				end
+			end
+		end
+	end
+
+	return best
+end
+
+local function createOverlay()
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "UFOX_DownloadOverlay"
+	sg.IgnoreGuiInset = true
+	sg.ResetOnSpawn = false
+	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	sg.DisplayOrder = 2_000_000
+	sg.Parent = CoreGui
+
+	-- บล็อกการคลิกพื้นหลังทั้งหมด
+	local blocker = Instance.new("TextButton")
+	blocker.Size = UDim2.fromScale(1,1)
+	blocker.BackgroundTransparency = 1
+	blocker.Text = ""
+	blocker.AutoButtonColor = false
+	blocker.Parent = sg
+
+	local target = pickGreenBorderFrame()
+	RunService.Heartbeat:Wait()
+
+	local vp   = workspace.CurrentCamera.ViewportSize
+	local tPos = target and target.AbsolutePosition or (vp/2 - Vector2.new(320,180))
+	local tSize= target and target.AbsoluteSize     or Vector2.new(640,360)
+
+	-- corner radius ก๊อปจากกรอบหลัก
+	local cornerRadius = UDim.new(0, 12)
+	if target then
+		local mc = target:FindFirstChildOfClass("UICorner")
+		if mc then cornerRadius = mc.CornerRadius end
+	end
+
+	-- ขยับลงล่าง
+	local yNudge = math.floor(tSize.Y * EXTRA_Y_NUDGE_RATIO)
+
+	-- กรอบดำขอบเขียว (ขนาดเท่ากรอบหลัก + ขยับลง)
+	local shell = Instance.new("Frame")
+	shell.Name = "Shell"
+	shell.Position = UDim2.fromOffset(tPos.X, tPos.Y + yNudge)
+	shell.Size     = UDim2.fromOffset(tSize.X, tSize.Y)
+	shell.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	shell.BorderSizePixel = 0
+	shell.Parent = sg
+	Instance.new("UICorner", shell).CornerRadius = cornerRadius
+	local sStroke = Instance.new("UIStroke")
+	sStroke.Thickness = 2
+	sStroke.Color = Color3.fromRGB(0,255,140)
+	sStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	sStroke.Parent = shell
+
+	-- ด้านใน: logo อยู่บน / bar อยู่ล่าง
+	local stack = Instance.new("Frame")
+	stack.BackgroundTransparency = 1
+	stack.Size = UDim2.fromScale(1,1)
+	stack.Parent = shell
+
+	local lay = Instance.new("UIListLayout")
+	lay.FillDirection = Enum.FillDirection.Vertical
+	lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	lay.VerticalAlignment   = Enum.VerticalAlignment.Center
+	lay.SortOrder = Enum.SortOrder.LayoutOrder
+	lay.Padding = UDim.new(0, math.max(16, math.floor(tSize.Y * 0.05)))
+	lay.Parent = stack
+
+	-- LOGO (ใหญ่ขึ้นอีก)
+	local logo = Instance.new("ImageLabel")
+	logo.Name = "Logo"
+	logo.BackgroundTransparency = 1
+	logo.Image = "rbxassetid://117052960049460"
+	logo.Size = UDim2.fromScale(0.34, 0.34) -- จาก 0.30 → 0.34
+	logo.LayoutOrder = 1
+	logo.Parent = stack
+	local ar = Instance.new("UIAspectRatioConstraint")
+	ar.AspectRatio = 1
+	ar.Parent = logo
+
+	-- BAR
+	local bar = Instance.new("Frame")
+	bar.Name = "BarFrame"
+	bar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+	bar.BorderSizePixel = 0
+	bar.Size = UDim2.new(0.86, 0, 0, math.max(40, math.floor(tSize.Y * 0.14)))
+	bar.LayoutOrder = 2
+	bar.Parent = stack
+
+	local barCorner = Instance.new("UICorner")
+	barCorner.CornerRadius = UDim.new(0, math.max(8, math.floor(tSize.Y * 0.03)))
+	barCorner.Parent = bar
+
+	local barStroke = Instance.new("UIStroke")
+	barStroke.Thickness = 2
+	barStroke.Color = Color3.fromRGB(0,255,140)
+	barStroke.Parent = bar
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.AnchorPoint = Vector2.new(0,0.5)
+	fill.Position = UDim2.fromScale(0,0.5)
+	fill.Size = UDim2.fromScale(0,1)
+	fill.BackgroundColor3 = Color3.fromRGB(0,255,140)
+	fill.BorderSizePixel = 0
+	fill.Parent = bar
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = barCorner.CornerRadius
+	fillCorner.Parent = fill
+
+	local num = Instance.new("TextLabel")
+	num.Name = "Percent"
+	num.BackgroundTransparency = 1
+	num.AnchorPoint = Vector2.new(0.5,0.5)
+	num.Position = UDim2.fromScale(0.5,0.5)
+	num.Size = UDim2.fromScale(1,1)
+	num.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+	num.TextScaled = true
+	num.Text = "0%"
+	num.TextColor3 = Color3.fromRGB(255,255,255)
+	num.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+	num.TextStrokeTransparency = 0
+	num.Parent = bar
+
+	-- fade-in
+	shell.BackgroundTransparency = 1
+	bar.BackgroundTransparency   = 1
+	num.TextTransparency = 1
+	fill.Visible = false
+	TweenService:Create(shell, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	TweenService:Create(bar,   TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+	task.delay(0.10, function()
+		fill.Visible = true
+		num.TextTransparency = 0
+	end)
+
+	return sg, shell, bar, num, fill
+end
+
+local function destroyOverlay(sg, shell, bar)
+	if not (sg and sg.Parent) then return end
+	pcall(function()
+		TweenService:Create(shell, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(bar,   TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+	end)
+	task.delay(0.14, function()
+		if sg then sg:Destroy() end
+	end)
+end
+
+-- เคาน์เตอร์ 0–100 + แถบเขียวยาวขึ้น (เวลารวม = TAB_HOLD_SEC * TAB_COUNT)
+local function runCounter(num, fill, duration)
+	duration = duration or (TAB_HOLD_SEC * TAB_COUNT)
+	for i = 0, 100 do
+		num.Text = ("%d%%"):format(i)
+		fill.Size = UDim2.fromScale(i/100, 1)
+		RunService.Heartbeat:Wait()
+		task.wait(duration/100)
+	end
+end
+
+-- กดปุ่มแต่ละแท็บค้าง ~TAB_HOLD_SEC วินาที
+local function click(btn)
+	if not btn then return end
+	if btn.Activate then
+		btn:Activate()
+	end
+	task.wait(TAB_HOLD_SEC)
+end
+
+task.defer(function()
+	local sg, shell, bar, num, fill = createOverlay()
+
+	-- เดินแท็บ: Home → Quest → Shop → Settings → Player
+	task.spawn(function()
+		local home     = findButtonByText({"Home"})
+		local quest    = findButtonByText({"Quest"})
+		local shop     = findButtonByText({"Shop"})
+		local settings = findButtonByText({"Settings","Setting","Update"})
+		local player   = findButtonByText({"Player"})
+		click(home)
+		click(quest)
+		click(shop)
+		click(settings)
+		click(player)
+	end)
+
+	-- นับ 0→100 ใช้เวลารวม ~ 2 วินาที/แท็บ * 5 แท็บ = 10 วิ
+	runCounter(num, fill)
+
+	-- ครบ 100 แล้ว overlay หาย ใช้ UI หลักต่อได้
+	destroyOverlay(sg, shell, bar)
+end)
