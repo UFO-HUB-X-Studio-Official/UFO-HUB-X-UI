@@ -3075,7 +3075,9 @@ end
 local function findButtonByText(texts)
 	if not root then return nil end
 	local set = {}
-	for _,t in ipairs(texts) do set[string.lower(t)] = true end
+	for _,t in ipairs(texts) do
+		set[string.lower(t)] = true
+	end
 
 	for _, inst in ipairs(root:GetDescendants()) do
 		if inst:IsA("TextButton") or inst:IsA("ImageButton") then
@@ -3295,10 +3297,23 @@ local function click(btn)
 	task.wait(TAB_HOLD_SEC)
 end
 
+-- 🔥 ฟังก์ชันนี้ใช้ "กด" แท็บ Player อีกครั้งหลัง overlay หาย
+local function forceOpenPlayerTab()
+	local playerBtn = findButtonByText({"Player"})
+	if not playerBtn then
+		return
+	end
+
+	-- ใช้ Activate เพื่อให้ไปเรียก handler ของปุ่มจริง
+	if playerBtn.Activate then
+		playerBtn:Activate()
+	end
+end
+
 task.defer(function()
 	local sg, shell, bar, num, fill = createOverlay()
 
-	-- เดินแท็บ: Home → Quest → Shop → Settings → Player
+	-- เดินแท็บ: Home → Quest → Shop → Settings → Player (โชว์ทัวร์)
 	task.spawn(function()
 		local home     = findButtonByText({"Home"})
 		local quest    = findButtonByText({"Quest"})
@@ -3317,4 +3332,9 @@ task.defer(function()
 
 	-- ครบ 100 แล้ว overlay หาย ใช้ UI หลักต่อได้
 	destroyOverlay(sg, shell, bar)
+
+	-- ✅ กด Player ซ้ำอีกครั้งหลัง overlay ปิดแล้ว
+	-- เพื่อให้ระบบฝั่ง Right โหลดค่าที่เซฟไว้แล้วทำงานทันที
+	task.wait(0.15)
+	forceOpenPlayerTab()
 end)
