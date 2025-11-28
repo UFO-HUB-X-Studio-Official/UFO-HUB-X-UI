@@ -1276,10 +1276,183 @@ registerRight("Player", function(scroll)
         end
     end)
 end)
--- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) =====
+-- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) + AA1 =====
 -- Order: Run → Jump → Swim
 -- Saves per GAME_ID/PLACE_ID into runner (getgenv().UFOX_SAVE). Keys:
 --   RJ/<gameId>/<placeId>/{enabled,infJump,runRel,jumpRel,swimRel}
+
+----------------------------------------------------------------------
+-- AA1 BLOCK — Auto-run from SaveState (ไม่ต้องแตะ UI)
+----------------------------------------------------------------------
+do
+    local Players = game:GetService("Players")
+    local UIS     = game:GetService("UserInputService")
+    local RS      = game:GetService("RunService")
+    local lp      = Players.LocalPlayer
+
+    -- ใช้ Runner SAVE เดิม (ถ้าไม่มี ก็ใช้ stub เฉย ๆ)
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get = function(_,_,d) return d end,
+        set = function() end
+    }
+
+    local SCOPE = ("RJ/%d/%d"):format(tonumber(game.GameId) or 0, tonumber(game.PlaceId) or 0)
+    local function K(k) return SCOPE.."/"..k end
+    local function SaveGet(k, d)
+        local ok, v = pcall(function() return SAVE.get(K(k), d) end)
+        return ok and v or d
+    end
+    local function SaveSet(k, v)
+        pcall(function() SAVE.set(K(k), v) end)
+    end
+
+    -- reuse global RJ state ถ้ามีอยู่แล้วจาก UI
+    _G.UFOX_RJ = _G.UFOX_RJ or { uiConns = {}, tempConns = {}, remember = {}, defaults = {} }
+    local RJ = _G.UFOX_RJ
+
+    local function disconnectAll(t)
+        for i = #t, 1, -1 do
+            local c = t[i]
+            pcall(function() c:Disconnect() end)
+            t[i] = nil
+        end
+    end
+
+    -- อ่านค่าจาก Save -> ยัดเข้า remember
+    RJ.remember.enabled = SaveGet("enabled", (RJ.remember.enabled == nil) and false or RJ.remember.enabled)
+    RJ.remember.infJump = SaveGet("infJump", (RJ.remember.infJump == nil) and false or RJ.remember.infJump)
+    RJ.remember.runRel  = SaveGet("runRel",  (RJ.remember.runRel  == nil) and 0 or RJ.remember.runRel)
+    RJ.remember.jumpRel = SaveGet("jumpRel", (RJ.remember.jumpRel == nil) and 0 or RJ.remember.jumpRel)
+    RJ.remember.swimRel = SaveGet("swimRel", (RJ.remember.swimRel == nil) and 0 or RJ.remember.swimRel)
+
+    local RUN_MIN,RUN_MAX   = 16,500
+    local JUMP_MIN,JUMP_MAX = 50,500
+    local SWIM_MIN,SWIM_MAX = 16,500
+
+    local function lerp(a,b,t) return a + (b-a)*t end
+    local function mapRel(r,mn,mx) r = math.clamp(r,0,1); return lerp(mn,mx,r) end
+
+    local function getHumanoid()
+        local ch = lp.Character
+        return ch and ch:FindFirstChildOfClass("Humanoid")
+    end
+
+    -- เก็บค่า default ครั้งแรก
+    RJ.defaults = RJ.defaults or { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
+
+    local function snapshotDefaults()
+        local h = getHumanoid()
+        if not h then return end
+        if RJ.defaults.WalkSpeed == nil    then RJ.defaults.WalkSpeed = h.WalkSpeed end
+        if RJ.defaults.UseJumpPower == nil then RJ.defaults.UseJumpPower = h.UseJumpPower end
+        if RJ.defaults.JumpPower == nil    then RJ.defaults.JumpPower = h.JumpPower end
+        if RJ.defaults.JumpHeight == nil   then RJ.defaults.JumpHeight = h.JumpHeight end
+    end
+
+    local function currentTargetWalkSpeed(h)
+        local state = h:GetState()
+        local usingSwim = (state == Enum.HumanoidStateType.Swimming)
+        local rel = usingSwim and (RJ.remember.swimRel or 0) or (RJ.remember.runRel or 0)
+        local mn  = usingSwim and SWIM_MIN or RUN_MIN
+        local mx  = usingSwim and SWIM_MAX or RUN_MAX
+        return math.floor(mapRel(rel, mn, mx) + 0.5)
+    end
+
+    local function applyStatsAA1()
+        local h = getHumanoid()
+        if not h then return end
+
+        if RJ.remember.enabled then
+            snapshotDefaults()
+            local ws = currentTargetWalkSpeed(h)
+            local jp = math.floor(mapRel(RJ.remember.jumpRel or 0, JUMP_MIN, JUMP_MAX) + 0.5)
+
+            pcall(function()
+                if h.UseJumpPower then
+                    h.JumpPower = jp
+                else
+                    -- ใกล้เคียงเดิม: map เป็น JumpHeight โดยคร่าว ๆ
+                    h.JumpHeight = 7 + (jp - 50)*0.25
+                end
+                h.WalkSpeed = ws
+            end)
+        else
+            -- ถ้าเคยมี default -> restore กลับ
+            pcall(function()
+                if RJ.defaults.WalkSpeed then h.WalkSpeed = RJ.defaults.WalkSpeed end
+                if RJ.defaults.UseJumpPower ~= nil then
+                    if RJ.defaults.UseJumpPower then
+                        if RJ.defaults.JumpPower then h.JumpPower = RJ.defaults.JumpPower end
+                    else
+                        if RJ.defaults.JumpHeight then h.JumpHeight = RJ.defaults.JumpHeight end
+                    end
+                end
+            end)
+        end
+    end
+
+    -- Inf Jump: auto-bind ตาม save
+    local function clearTemp()
+        disconnectAll(RJ.tempConns)
+    end
+    local function keepTmp(c)
+        table.insert(RJ.tempConns, c)
+        return c
+    end
+
+    local function bindInfJumpAA1()
+        clearTemp()
+        if not RJ.remember.infJump then return end
+        keepTmp(UIS.JumpRequest:Connect(function()
+            local h = getHumanoid()
+            if h then
+                pcall(function()
+                    h:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+            end
+        end))
+    end
+
+    -- ตาม Humanoid state ให้ปรับสปีดอีกครั้งเวลาเปลี่ยนเดิน/ว่ายน้ำ/ลงพื้น
+    local humStateConnAA1
+    local function hookHumanoidState()
+        if humStateConnAA1 then
+            pcall(function() humStateConnAA1:Disconnect() end)
+            humStateConnAA1 = nil
+        end
+        local h = getHumanoid()
+        if not h then return end
+        humStateConnAA1 = h.StateChanged:Connect(function(_, new)
+            if new == Enum.HumanoidStateType.Swimming
+            or new == Enum.HumanoidStateType.Running
+            or new == Enum.HumanoidStateType.RunningNoPhysics
+            or new == Enum.HumanoidStateType.Landed then
+                applyStatsAA1()
+            end
+        end)
+    end
+
+    -- เมื่อ Character เปลี่ยน/เกิดใหม่ → apply AA1 ซ้ำ
+    lp.CharacterAdded:Connect(function()
+        RJ.defaults = { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
+        task.defer(function()
+            hookHumanoidState()
+            applyStatsAA1()
+            bindInfJumpAA1()
+        end)
+    end)
+
+    -- RUN ครั้งแรกตอนโหลดสคริปต์
+    task.defer(function()
+        hookHumanoidState()
+        applyStatsAA1()
+        bindInfJumpAA1()
+    end)
+end
+
+----------------------------------------------------------------------
+-- ด้านล่าง = โค้ดเดิมของนาย (UI + Runtime ปกติ) ไม่ได้แก้แม้แต่ตัวเดียว
+----------------------------------------------------------------------
 
 registerRight("Player", function(scroll)
     local Players=game:GetService("Players")
