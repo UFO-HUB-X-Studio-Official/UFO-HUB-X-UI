@@ -1784,84 +1784,171 @@ registerRight("Player", function(scroll)
 
     --================= GLOBAL XRAY STATE =================
     _G.UFOX_XRAY = _G.UFOX_XRAY or {
-        enabled = false,
-        loop    = nil,
+        xrayEnabled  = false,
+        feetEnabled  = false,
+        loop         = nil,
     }
     local XR = _G.UFOX_XRAY
 
-    local ESP_NAME = "UFO_XRAY_HL"
+    local ESP_NAME        = "UFO_XRAY_HL"
+    local FOOT_ROOT_NAME  = "UFO_FootRoot"
+    local FOOT_TARGET_NAME= "UFO_FootTarget"
+    local FOOT_BEAM_PREFIX= "UFO_FootBeam_"
+
+    local function clearHighlights()
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local char = pl.Character
+                if char then
+                    local hl = char:FindFirstChild(ESP_NAME)
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+
+    local function clearFeet()
+        local char = lp.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _,d in ipairs(hrp:GetChildren()) do
+                if d:IsA("Beam") and d.Name:sub(1,#FOOT_BEAM_PREFIX)==FOOT_BEAM_PREFIX then
+                    d:Destroy()
+                elseif d:IsA("Attachment") and d.Name==FOOT_ROOT_NAME then
+                    d:Destroy()
+                end
+            end
+        end
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local c = pl.Character
+                local h = c and c:FindFirstChild("HumanoidRootPart")
+                if h then
+                    local a = h:FindFirstChild(FOOT_TARGET_NAME)
+                    if a then a:Destroy() end
+                end
+            end
+        end
+    end
 
     local function stopLoop()
         if XR.loop then
             pcall(function() XR.loop:Disconnect() end)
             XR.loop = nil
         end
+        clearHighlights()
+        clearFeet()
     end
 
-    local function startLoop()
+    local function ensureLoop()
         if XR.loop then return end
         XR.loop = RunService.Heartbeat:Connect(function()
-            if not XR.enabled then
-                -- ลบ Highlight ถ้าปิดระบบ
-                for _,pl in ipairs(Players:GetPlayers()) do
-                    if pl ~= lp then
-                        local char = pl.Character
-                        if char then
-                            local hl = char:FindFirstChild(ESP_NAME)
-                            if hl then hl:Destroy() end
-                        end
-                    end
-                end
+            if not XR.xrayEnabled and not XR.feetEnabled then
+                stopLoop()
                 return
             end
 
-            -- โค้ดหลักแบบในรูป (ดัดแปลงให้ปลอดภัย)
+            local lchar = lp.Character
+            local lhrp  = lchar and lchar:FindFirstChild("HumanoidRootPart")
+
+            -- ===== X-RAY HIGHLIGHT (รายการที่ 1) =====
             pcall(function()
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
                         local char = pl.Character
                         if char then
                             local hl = char:FindFirstChild(ESP_NAME)
-                            if not hl and XR.enabled then
-                                hl = Instance.new("Highlight")
-                                hl.Name = ESP_NAME
-                                hl.FillColor    = Color3.new(0, 1, 0.08)      -- เขียว
-                                hl.OutlineColor = Color3.new(0.9, 1, 0)       -- เหลือง-เขียว
-                                hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
-                                hl.Parent = char
-                            elseif not XR.enabled and hl then
+                            if XR.xrayEnabled then
+                                if not hl then
+                                    hl = Instance.new("Highlight")
+                                    hl.Name = ESP_NAME
+                                    hl.FillColor    = THEME.GREEN
+                                    hl.OutlineColor = THEME.WHITE      -- เปลี่ยนจากเหลือง → ขาว
+                                    hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
+                                    hl.Parent = char
+                                end
+                            elseif hl then
                                 hl:Destroy()
                             end
                         end
                     end
                 end
             end)
+
+            -- ===== FOOT LINE (รายการที่ 2) =====
+            if XR.feetEnabled and lhrp then
+                -- root attach ที่เท้าเรา
+                local rootAtt = lhrp:FindFirstChild(FOOT_ROOT_NAME)
+                if not rootAtt then
+                    rootAtt = Instance.new("Attachment")
+                    rootAtt.Name = FOOT_ROOT_NAME
+                    rootAtt.Position = Vector3.new(0,-3,0) -- ใกล้เท้า
+                    rootAtt.Parent = lhrp
+                end
+                rootAtt.Position = Vector3.new(0,-3,0)
+
+                -- ล้าง beam เก่า (จะสร้างใหม่ตาม player ปัจจุบัน)
+                for _,d in ipairs(lhrp:GetChildren()) do
+                    if d:IsA("Beam") and d.Name:sub(1,#FOOT_BEAM_PREFIX)==FOOT_BEAM_PREFIX then
+                        d:Destroy()
+                    end
+                end
+
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local targetAtt = hrp:FindFirstChild(FOOT_TARGET_NAME)
+                            if not targetAtt then
+                                targetAtt = Instance.new("Attachment")
+                                targetAtt.Name = FOOT_TARGET_NAME
+                                targetAtt.Position = Vector3.new(0,-3,0)
+                                targetAtt.Parent = hrp
+                            end
+                            targetAtt.Position = Vector3.new(0,-3,0)
+
+                            local beam = Instance.new("Beam")
+                            beam.Name = FOOT_BEAM_PREFIX..pl.UserId
+                            beam.Attachment0 = rootAtt
+                            beam.Attachment1 = targetAtt
+                            beam.Color = ColorSequence.new(THEME.GREEN)
+                            beam.Width0 = 0.08
+                            beam.Width1 = 0.08
+                            beam.Transparency = NumberSequence.new(0)
+                            beam.FaceCamera = true
+                            beam.LightEmission = 0.7
+                            beam.Parent = lhrp
+                        end
+                    end
+                end
+            else
+                clearFeet()
+            end
         end)
     end
 
     local function setXrayEnabled(v)
-        XR.enabled = v and true or false
-        if XR.enabled then
-            startLoop()
+        XR.xrayEnabled = v and true or false
+        if XR.xrayEnabled or XR.feetEnabled then
+            ensureLoop()
         else
-            -- ปิดแล้วก็ล้าง Highlight ทิ้ง
-            pcall(function()
-                for _,pl in ipairs(Players:GetPlayers()) do
-                    if pl ~= lp then
-                        local char = pl.Character
-                        if char then
-                            local hl = char:FindFirstChild(ESP_NAME)
-                            if hl then hl:Destroy() end
-                        end
-                    end
-                end
-            end)
+            stopLoop()
+        end
+    end
+
+    local function setFeetEnabled(v)
+        XR.feetEnabled = v and true or false
+        if XR.xrayEnabled or XR.feetEnabled then
+            ensureLoop()
+        else
+            stopLoop()
         end
     end
 
     --================= MODEL A V1 LAYOUT =================
     -- ลบของเก่าเฉพาะบล็อกนี้
-    for _,n in ipairs({"XRAY_Header","XRAY_Row"}) do
+    for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
     end
@@ -1881,7 +1968,7 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Header: ชื่อระบบมองทะลุ + emoji ภาษาอังกฤษ
+    -- Header
     local header = Instance.new("TextLabel", scroll)
     header.Name = "XRAY_Header"
     header.BackgroundTransparency = 1
@@ -1893,64 +1980,86 @@ registerRight("Player", function(scroll)
     header.Text = "Mong Thalu 👁 (X-Ray Vision)"
     header.LayoutOrder = base + 1
 
-    -- Row 1 : มองทะลุ (ภาษาอังกฤษ)
-    local row = Instance.new("Frame", scroll)
-    row.Name = "XRAY_Row"
-    row.Size = UDim2.new(1,-6,0,46)
-    row.BackgroundColor3 = THEME.BLACK
-    corner(row,12)
-    stroke(row,2.2,THEME.GREEN)
-    row.LayoutOrder = base + 2
+    --======== Helper: สร้างแถวสวิตช์แบบ Model A V1 =========
+    local function makeRow(name, order, labelText, getState, setState)
+        local row = Instance.new("Frame", scroll)
+        row.Name = name
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row,12)
+        stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder = order
 
-    local lab = Instance.new("TextLabel", row)
-    lab.BackgroundTransparency = 1
-    lab.Size = UDim2.new(1,-160,1,0)
-    lab.Position = UDim2.new(0,16,0,0)
-    lab.Font = Enum.Font.GothamBold
-    lab.TextSize = 13
-    lab.TextColor3 = THEME.WHITE
-    lab.TextXAlignment = Enum.TextXAlignment.Left
-    lab.Text = "X-Ray Vision (See players through walls)"
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,-160,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
 
-    local sw = Instance.new("Frame", row)
-    sw.AnchorPoint = Vector2.new(1,0.5)
-    sw.Position = UDim2.new(1,-12,0.5,0)
-    sw.Size = UDim2.fromOffset(52,26)
-    sw.BackgroundColor3 = THEME.BLACK
-    corner(sw,13)
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1,-12,0.5,0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw,13)
 
-    local swStroke = Instance.new("UIStroke", sw)
-    swStroke.Thickness = 1.8
+        local swStroke = Instance.new("UIStroke", sw)
+        swStroke.Thickness = 1.8
 
-    local knob = Instance.new("Frame", sw)
-    knob.Size = UDim2.fromOffset(22,22)
-    knob.BackgroundColor3 = THEME.WHITE
-    knob.Position = UDim2.new(0,2,0.5,-11)
-    corner(knob,11)
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
 
-    local function updateSwitchUI(on)
-        swStroke.Color = on and THEME.GREEN or THEME.RED
-        tween(knob,{
-            Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
-        },0.1)
+        local function update(on)
+            swStroke.Color = on and THEME.GREEN or THEME.RED
+            tween(knob,{
+                Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
+            },0.1)
+        end
+
+        local btn = Instance.new("TextButton", sw)
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+
+        btn.MouseButton1Click:Connect(function()
+            local new = not getState()
+            setState(new)
+            update(new)
+        end)
+
+        -- sync initial
+        update(getState())
     end
 
-    local btn = Instance.new("TextButton", sw)
-    btn.BackgroundTransparency = 1
-    btn.Size = UDim2.fromScale(1,1)
-    btn.Text = ""
-    btn.AutoButtonColor = false
+    -- Row 1: มองทะลุ / X-Ray
+    makeRow(
+        "XRAY_Row1",
+        base + 2,
+        "X-Ray Vision (See players through walls)",
+        function() return XR.xrayEnabled end,
+        setXrayEnabled
+    )
 
-    btn.MouseButton1Click:Connect(function()
-        local new = not XR.enabled
-        setXrayEnabled(new)
-        updateSwitchUI(new)
-    end)
+    -- Row 2: เส้นที่เท้า / Foot Line
+    makeRow(
+        "XRAY_Row2",
+        base + 3,
+        "Foot Line (Green line from your feet to players)",
+        function() return XR.feetEnabled end,
+        setFeetEnabled
+    )
 
-    -- sync ตอนเปิดแท็บ
-    updateSwitchUI(XR.enabled)
-    if XR.enabled then
-        startLoop()
+    -- ถ้ามี state เปิดไว้แล้วจากรอบก่อน ให้ loop วิ่งต่อ
+    if XR.xrayEnabled or XR.feetEnabled then
+        ensureLoop()
     end
 end)
 -- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
