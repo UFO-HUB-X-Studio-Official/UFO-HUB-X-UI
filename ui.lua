@@ -2100,8 +2100,7 @@ registerRight("Update", function(scroll)
     for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
 end)
 -- ===== [/FULL PASTE] =====
- --===== UFO HUB X • SETTINGS — UI FPS Monitor (Auto-run from SaveState + CPU/GPU) =====
--- แทนเวอร์ชันเก่าทั้งบล็อกได้เลย
+ --===== UFO HUB X • SETTINGS — UI FPS Monitor (AA1 + Stats-linked FPS/CPU/GPU) =====
 
 -- ########## SERVICES ##########
 local Players    = game:GetService("Players")
@@ -2225,20 +2224,12 @@ end
 _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
 local S = _G.UFOX_FPS
 
--- ########## READERS (Stats เหมือน panel Roblox) ##########
+-- ########## READERS (ใช้ Stats เดียวกับ panel Roblox) ##########
+
+-- ping / mem ใช้เหมือนเดิม (Stats.Network + Stats:GetTotalMemoryUsageMb)
 local function getPingMs()
     local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
     item = item and item:FindFirstChild("Data Ping")
-    if item and item.GetValueString then
-        local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)"))
-        return n or 0
-    end
-    return 0
-end
-
-local function getKbps(name)
-    local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
-    item = item and item:FindFirstChild(name)
     if item and item.GetValueString then
         local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)"))
         return n or 0
@@ -2254,16 +2245,33 @@ local function getMemMBStable()
     return 0
 end
 
--- หา StatsItem โดยดูจากชื่อ (ใช้กับ CPU / GPU)
+-- helper อ่านตัวเลขจาก StatsItem (string → number)
+local function readStatNumber(item)
+    if not item then return 0 end
+    local ok,s = pcall(function()
+        return item:GetValueString()
+    end)
+    if not ok or type(s) ~= "string" then
+        return 0
+    end
+    local n = tonumber(string.match(s,"(%d+%.?%d*)"))
+    return n or 0
+end
+
+-- หา StatsItem จากชื่อ (ใช้ครั้งแรกแล้ว cache ไว้)
 local function findStatsItemByKeyword(keyword)
     keyword = string.lower(keyword)
     local function scan(obj)
         for _,child in ipairs(obj:GetChildren()) do
+            -- พยายามเรียก GetValueString เพื่อคัดเฉพาะ StatsItem
             local ok = pcall(function()
                 return child:GetValueString()
             end)
-            if ok and string.find(string.lower(child.Name), keyword, 1, true) then
-                return child
+            if ok then
+                local nameLower = string.lower(child.Name)
+                if string.find(nameLower, keyword, 1, true) then
+                    return child
+                end
             end
             local found = scan(child)
             if found then return found end
@@ -2273,24 +2281,29 @@ local function findStatsItemByKeyword(keyword)
     return scan(root or Stats)
 end
 
-local function getCpuMs()
-    local item = findStatsItemByKeyword("cpu")
-    if item then
-        local s = item:GetValueString()
-        local n = tonumber(string.match(s,"(%d+%.?%d*)"))
-        return n or 0
+-- cache ตัว item ต่าง ๆ ไว้ (ถ้าหลุดค่อยหาใหม่)
+local fpsItem, cpuItem, gpuItem
+
+local function getFpsStats()
+    if not fpsItem or not fpsItem.Parent then
+        -- บางเกมใช้ชื่อ FPS, บางอันใช้ FrameRate อะไรประมาณนี้ เลยหาด้วย "fps" ก่อนแล้วค่อย "frame"
+        fpsItem = findStatsItemByKeyword("fps") or findStatsItemByKeyword("frame")
     end
-    return 0
+    return readStatNumber(fpsItem)
+end
+
+local function getCpuMs()
+    if not cpuItem or not cpuItem.Parent then
+        cpuItem = findStatsItemByKeyword("cpu")
+    end
+    return readStatNumber(cpuItem)
 end
 
 local function getGpuMs()
-    local item = findStatsItemByKeyword("gpu")
-    if item then
-        local s = item:GetValueString()
-        local n = tonumber(string.match(s,"(%d+%.?%d*)"))
-        return n or 0
+    if not gpuItem or not gpuItem.Parent then
+        gpuItem = findStatsItemByKeyword("gpu")
     end
-    return 0
+    return readStatNumber(gpuItem)
 end
 
 local ICONS = {
@@ -2350,7 +2363,7 @@ local function createFPSFrame()
         return txt
     end
 
-    -- ลำดับใหม่: FPS, Ping, Mem, CPU, GPU
+    -- ลำดับ: FPS, Ping, Mem, CPU, GPU
     local tFPS  = makeSlot(1, ICONS.FPS,    "FPS: --")
     local tPing = makeSlot(2, ICONS.Ping,   "Ping: --ms")
     local tMem  = makeSlot(3, ICONS.Memory, "Mem: --MB")
@@ -2358,18 +2371,18 @@ local function createFPSFrame()
     local tGPU  = makeSlot(5, ICONS.GPU,    "GPU: -- ms")
 
     local lastMem = 0
-    local uiAcc, UI_RATE = 0, 0.10 -- อัปเดต ~ทุก 0.1 วิ ใกล้เคียง panel Roblox
+    local uiAcc, UI_RATE = 0, 0.10 -- ใกล้เคียง panel Roblox
 
     RunService.Heartbeat:Connect(function(dt)
-        local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
         uiAcc += dt
         if uiAcc >= UI_RATE then
             uiAcc = 0
 
+            -- ดึงค่าแบบเดียวกับ panel Roblox (ผ่าน StatsItem)
+            local fps   = getFpsStats()
             local ping  = getPingMs()
             local mem   = getMemMBStable()
             if mem == 0 then mem = lastMem else lastMem = mem end
-
             local cpuMs = getCpuMs()
             local gpuMs = getGpuMs()
 
@@ -2388,7 +2401,7 @@ local function createFPSFrame()
     return box
 end
 
--- เปิด/ปิดระบบ HUD + เซฟ
+-- เปิด/ปิดระบบ HUD + เซฟ (AA1)
 local function setFPSSystemEnabled(v)
     S.enabled = v
     if S.frame then
