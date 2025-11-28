@@ -2100,8 +2100,8 @@ registerRight("Update", function(scroll)
     for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
 end)
 -- ===== [/FULL PASTE] =====
- --===== UFO HUB X • SETTINGS — UI FPS Monitor (Auto-run from SaveState) =====
--- วางบล็อกนี้ทั้งก้อนลงในสคริปต์ UFO HUB X ของนาย แทนเวอร์ชันเก่าได้เลย
+ --===== UFO HUB X • SETTINGS — UI FPS Monitor (Auto-run from SaveState + CPU/GPU) =====
+-- แทนเวอร์ชันเก่าทั้งบล็อกได้เลย
 
 -- ########## SERVICES ##########
 local Players    = game:GetService("Players")
@@ -2221,15 +2221,15 @@ local function tween(o,p)
     Tween:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play()
 end
 
--- ########## GLOBAL STATE (ระบบจริง) ##########
+-- ########## GLOBAL STATE ##########
 _G.UFOX_FPS = _G.UFOX_FPS or { enabled=false, frame=nil }
 local S = _G.UFOX_FPS
 
--- ########## READERS ##########
+-- ########## READERS (Stats เหมือน panel Roblox) ##########
 local function getPingMs()
     local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
     item = item and item:FindFirstChild("Data Ping")
-    if item then
+    if item and item.GetValueString then
         local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)"))
         return n or 0
     end
@@ -2239,7 +2239,7 @@ end
 local function getKbps(name)
     local item = Stats.Network and Stats.Network:FindFirstChild("ServerStatsItem")
     item = item and item:FindFirstChild(name)
-    if item then
+    if item and item.GetValueString then
         local n = tonumber(string.match(item:GetValueString(),"(%d+%.?%d*)"))
         return n or 0
     end
@@ -2254,15 +2254,54 @@ local function getMemMBStable()
     return 0
 end
 
+-- หา StatsItem โดยดูจากชื่อ (ใช้กับ CPU / GPU)
+local function findStatsItemByKeyword(keyword)
+    keyword = string.lower(keyword)
+    local function scan(obj)
+        for _,child in ipairs(obj:GetChildren()) do
+            local ok = pcall(function()
+                return child:GetValueString()
+            end)
+            if ok and string.find(string.lower(child.Name), keyword, 1, true) then
+                return child
+            end
+            local found = scan(child)
+            if found then return found end
+        end
+    end
+    local root = Stats:FindFirstChild("PerformanceStats") or Stats
+    return scan(root or Stats)
+end
+
+local function getCpuMs()
+    local item = findStatsItemByKeyword("cpu")
+    if item then
+        local s = item:GetValueString()
+        local n = tonumber(string.match(s,"(%d+%.?%d*)"))
+        return n or 0
+    end
+    return 0
+end
+
+local function getGpuMs()
+    local item = findStatsItemByKeyword("gpu")
+    if item then
+        local s = item:GetValueString()
+        local n = tonumber(string.match(s,"(%d+%.?%d*)"))
+        return n or 0
+    end
+    return 0
+end
+
 local ICONS = {
-    FPS      = "rbxassetid://116103940304617",
-    Ping     = "rbxassetid://125226433995402",
-    Memory   = "rbxassetid://131794120624488",
-    Upload   = "rbxassetid://125701675927454",
-    Download = "rbxassetid://134953518153703",
+    FPS    = "rbxassetid://116103940304617",
+    Ping   = "rbxassetid://125226433995402",
+    Memory = "rbxassetid://131794120624488",
+    CPU    = "rbxassetid://125701675927454", -- ใช้ไอคอนเดิมแทน CPU
+    GPU    = "rbxassetid://134953518153703", -- ใช้ไอคอนเดิมแทน GPU
 }
 
--- ########## HUD จริง (ไม่เกี่ยวกับ UI Settings) ##########
+-- ########## HUD จริง ##########
 local function createFPSFrame()
     if S.frame and S.frame.Parent then
         return S.frame
@@ -2311,35 +2350,35 @@ local function createFPSFrame()
         return txt
     end
 
-    local tFPS   = makeSlot(1, ICONS.FPS,      "FPS: --")
-    local tPing  = makeSlot(2, ICONS.Ping,     "Ping: --ms")
-    local tMem   = makeSlot(3, ICONS.Memory,   "Mem: --MB")
-    local tUp    = makeSlot(4, ICONS.Upload,   "Up: --Kbps")
-    local tDown  = makeSlot(5, ICONS.Download, "Down: --Kbps")
+    -- ลำดับใหม่: FPS, Ping, Mem, CPU, GPU
+    local tFPS  = makeSlot(1, ICONS.FPS,    "FPS: --")
+    local tPing = makeSlot(2, ICONS.Ping,   "Ping: --ms")
+    local tMem  = makeSlot(3, ICONS.Memory, "Mem: --MB")
+    local tCPU  = makeSlot(4, ICONS.CPU,    "CPU: -- ms")
+    local tGPU  = makeSlot(5, ICONS.GPU,    "GPU: -- ms")
 
     local lastMem = 0
-    local uiAcc, UI_RATE = 0, 0.10
+    local uiAcc, UI_RATE = 0, 0.10 -- อัปเดต ~ทุก 0.1 วิ ใกล้เคียง panel Roblox
 
     RunService.Heartbeat:Connect(function(dt)
         local fps = math.clamp(1 / math.max(dt, 1/10000), 1, 1000)
         uiAcc += dt
         if uiAcc >= UI_RATE then
             uiAcc = 0
+
             local ping  = getPingMs()
-            local up    = getKbps("Data Send Kbps")
-            local down  = getKbps("Data Receive Kbps")
             local mem   = getMemMBStable()
-            if mem == 0 then
-                mem = lastMem
-            else
-                lastMem = mem
-            end
+            if mem == 0 then mem = lastMem else lastMem = mem end
+
+            local cpuMs = getCpuMs()
+            local gpuMs = getGpuMs()
+
             if S.enabled then
-                tFPS.Text  = string.format("FPS: %d",   math.floor(fps + 0.5))
+                tFPS.Text  = string.format("FPS: %d",    math.floor(fps + 0.5))
                 tPing.Text = string.format("Ping: %dms", math.floor(ping + 0.5))
                 tMem.Text  = string.format("Mem: %dMB",  math.floor(mem + 0.5))
-                tUp.Text   = string.format("Up: %dKbps", math.floor(up + 0.5))
-                tDown.Text = string.format("Down: %dKbps", math.floor(down + 0.5))
+                tCPU.Text  = string.format("CPU: %.2f ms", cpuMs)
+                tGPU.Text  = string.format("GPU: %.2f ms", gpuMs)
             end
         end
     end)
@@ -2349,7 +2388,7 @@ local function createFPSFrame()
     return box
 end
 
--- ฟังก์ชัน “ระบบจริง” → เซฟ + เปิด/ปิด HUD (ไม่ยุ่งกับ UI ฝั่งขวา)
+-- เปิด/ปิดระบบ HUD + เซฟ
 local function setFPSSystemEnabled(v)
     S.enabled = v
     if S.frame then
@@ -2360,7 +2399,6 @@ end
 
 -- ########## UI ฝั่งขวาในแท็บ Settings ##########
 registerRight("Settings", function(scroll)
-    -- ล้าง WRAP เก่า
     local WRAP = "UFOX_WRAP_UIFPS_ONLY"
     local old = scroll:FindFirstChild(WRAP)
     if old then old:Destroy() end
@@ -2426,7 +2464,6 @@ registerRight("Settings", function(scroll)
     knob.Position = UDim2.new(0,2,0.5,-11)
     corner(knob,11)
 
-    -- ปรับหน้าตาสวิตช์ตามค่า enabled (UI เท่านั้น)
     local function updateSwitchUI(v)
         swStroke.Color = v and THEME.GREEN or THEME.RED
         tween(knob, {
@@ -2434,10 +2471,8 @@ registerRight("Settings", function(scroll)
         })
     end
 
-    -- อ่านค่าจาก save (แต่ “ระบบจริง” ถูกจัดการด้านล่างแล้ว)
     local savedOn = getSave("Settings.UIFPS.Enabled", false)
 
-    -- ปุ่มสวิตช์
     local btn = Instance.new("TextButton", sw)
     btn.BackgroundTransparency = 1
     btn.Size = UDim2.fromScale(1,1)
@@ -2445,17 +2480,15 @@ registerRight("Settings", function(scroll)
 
     btn.MouseButton1Click:Connect(function()
         local new = not S.enabled
-        setFPSSystemEnabled(new)  -- เซฟ + เปิด/ปิด HUD จริง
-        updateSwitchUI(new)       -- ขยับสวิตช์ให้ตรง
+        setFPSSystemEnabled(new)
+        updateSwitchUI(new)
     end)
 
-    -- ตอนเปิดแท็บ Settings → sync UI ให้ตรงกับค่าปัจจุบัน
     updateSwitchUI(savedOn)
 end)
 
--- ########## AUTO-RUN จาก SaveState (ไม่ต้องแตะ UI เลย) ##########
+-- ########## AUTO-RUN จาก SaveState (AA1) ##########
 task.defer(function()
-    -- ถ้าเคยเปิดไว้ → เปิดให้เลย, ถ้าเคยปิด → ปิดไว้
     local savedOn = getSave("Settings.UIFPS.Enabled", false)
     createFPSFrame()
     setFPSSystemEnabled(savedOn)
