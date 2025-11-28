@@ -1741,15 +1741,89 @@ registerRight("Player", function(scroll)
     -- apply current settings after build
     applyStats(); bindInfJump()
 end)
---===== UFO HUB X • Player — มองทะลุ / X-Ray Vision (Model A V1) =====
+--===== UFO HUB X • Player — มองทะลุ / X-Ray Vision (Model A V1 + AA1) =====
 -- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
+-- AA1: ถ้าเคยเซฟสถานะสวิตช์ไว้ จะเปิดระบบให้อัตโนมัติเมื่อโหลดสคริปต์
 
 registerRight("Player", function(scroll)
-    local Players      = game:GetService("Players")
-    local RunService   = game:GetService("RunService")
-    local TweenService = game:GetService("TweenService")
+    local Players         = game:GetService("Players")
+    local RunService      = game:GetService("RunService")
+    local TweenService    = game:GetService("TweenService")
+    local HttpService     = game:GetService("HttpService")
+    local MarketplaceServ = game:GetService("MarketplaceService")
 
-    local lp           = Players.LocalPlayer
+    local lp              = Players.LocalPlayer
+
+    --================ PER-MAP SAVE (Runner FS + RAM) ================
+    local function safePlaceName()
+        local ok,info = pcall(function()
+            return MarketplaceServ:GetProductInfo(game.PlaceId)
+        end)
+        local name = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+        name = name:gsub("[^%w%-%._ ]","_")
+        return name
+    end
+
+    local SAVE_DIR  = "UFO HUB X"
+    local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+
+    local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+                and typeof(readfile)=="function" and typeof(writefile)=="function")
+
+    if hasFS and not isfolder(SAVE_DIR) then
+        pcall(makefolder, SAVE_DIR)
+    end
+
+    getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
+    local RAM = getgenv().UFOX_RAM
+
+    local function loadSave()
+        if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+            local ok, data = pcall(function()
+                return HttpService:JSONDecode(readfile(SAVE_FILE))
+            end)
+            if ok and type(data)=="table" then
+                return data
+            end
+        end
+        return RAM[SAVE_FILE] or {}
+    end
+
+    local function writeSave(tbl)
+        tbl = tbl or {}
+        if hasFS then
+            pcall(function()
+                writefile(SAVE_FILE, HttpService:JSONEncode(tbl))
+            end)
+        end
+        RAM[SAVE_FILE] = tbl
+    end
+
+    local function getSave(path, default)
+        local data = loadSave()
+        local cur  = data
+        for seg in string.gmatch(path,"[^%.]+") do
+            cur = (type(cur)=="table") and cur[seg] or nil
+        end
+        if cur == nil then return default end
+        return cur
+    end
+
+    local function setSave(path, value)
+        local data = loadSave()
+        local keys = {}
+        for seg in string.gmatch(path,"[^%.]+") do
+            table.insert(keys, seg)
+        end
+        local p = data
+        for i=1,#keys-1 do
+            local k = keys[i]
+            if type(p[k])~="table" then p[k] = {} end
+            p = p[k]
+        end
+        p[keys[#keys]] = value
+        writeSave(data)
+    end
 
     --================ THEME A V1 ================
     local THEME = {
@@ -1796,6 +1870,13 @@ registerRight("Player", function(scroll)
     local FOOT_TARGET_NAME = "UFO_FootTarget"
     local FOOT_BEAM_PREFIX = "UFO_FootBeam_"
     local NAME_TAG_NAME    = "UFO_NameTag"
+
+    --------------------------------------------------------------------
+    -- AA1 RESTORE: โหลดสถานะจาก SaveState → ตั้งค่า XR.* ตั้งแต่ต้น
+    --------------------------------------------------------------------
+    XR.xrayEnabled  = (getSave("Player.XRay.Enabled",  XR.xrayEnabled)  and true or false)
+    XR.feetEnabled  = (getSave("Player.XRay.Feet",     XR.feetEnabled)  and true or false)
+    XR.namesEnabled = (getSave("Player.XRay.Names",    XR.namesEnabled) and true or false)
 
     -- ===== CLEAR HELPERS =====
     local function clearHighlights()
@@ -1986,8 +2067,10 @@ registerRight("Player", function(scroll)
         end)
     end
 
+    --========== SETTERS + SAVE (AA1) ==========
     local function setXrayEnabled(v)
         XR.xrayEnabled = v and true or false
+        setSave("Player.XRay.Enabled", XR.xrayEnabled)
         if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
             ensureLoop()
         else
@@ -1997,6 +2080,7 @@ registerRight("Player", function(scroll)
 
     local function setFeetEnabled(v)
         XR.feetEnabled = v and true or false
+        setSave("Player.XRay.Feet", XR.feetEnabled)
         if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
             ensureLoop()
         else
@@ -2006,6 +2090,7 @@ registerRight("Player", function(scroll)
 
     local function setNamesEnabled(v)
         XR.namesEnabled = v and true or false
+        setSave("Player.XRay.Names", XR.namesEnabled)
         if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
             ensureLoop()
         else
@@ -2102,7 +2187,7 @@ registerRight("Player", function(scroll)
             update(new)
         end)
 
-        -- sync initial
+        -- sync initial จาก AA1 state
         update(getState())
     end
 
@@ -2133,7 +2218,7 @@ registerRight("Player", function(scroll)
         setNamesEnabled
     )
 
-    -- ถ้ามี state เปิดไว้แล้วจากรอบก่อน ให้ loop วิ่งต่อ
+    -- AA1: ถ้ามี state เปิดไว้จาก Save → ให้ระบบทำงานต่อทันที
     if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
         ensureLoop()
     end
