@@ -1741,6 +1741,218 @@ registerRight("Player", function(scroll)
     -- apply current settings after build
     applyStats(); bindInfJump()
 end)
+--===== UFO HUB X • Player — มองทะลุ / X-Ray Vision (Model A V1) =====
+-- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
+
+registerRight("Player", function(scroll)
+    local Players      = game:GetService("Players")
+    local RunService   = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+
+    local lp           = Players.LocalPlayer
+
+    --================ THEME A V1 ================
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+
+    local function corner(ui,r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0,r or 12)
+        c.Parent = ui
+    end
+
+    local function stroke(ui,th,col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2.2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+    end
+
+    local function tween(o,p,d)
+        TweenService:Create(
+            o,
+            TweenInfo.new(d or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            p
+        ):Play()
+    end
+
+    --================= GLOBAL XRAY STATE =================
+    _G.UFOX_XRAY = _G.UFOX_XRAY or {
+        enabled = false,
+        loop    = nil,
+    }
+    local XR = _G.UFOX_XRAY
+
+    local ESP_NAME = "UFO_XRAY_HL"
+
+    local function stopLoop()
+        if XR.loop then
+            pcall(function() XR.loop:Disconnect() end)
+            XR.loop = nil
+        end
+    end
+
+    local function startLoop()
+        if XR.loop then return end
+        XR.loop = RunService.Heartbeat:Connect(function()
+            if not XR.enabled then
+                -- ลบ Highlight ถ้าปิดระบบ
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        if char then
+                            local hl = char:FindFirstChild(ESP_NAME)
+                            if hl then hl:Destroy() end
+                        end
+                    end
+                end
+                return
+            end
+
+            -- โค้ดหลักแบบในรูป (ดัดแปลงให้ปลอดภัย)
+            pcall(function()
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        if char then
+                            local hl = char:FindFirstChild(ESP_NAME)
+                            if not hl and XR.enabled then
+                                hl = Instance.new("Highlight")
+                                hl.Name = ESP_NAME
+                                hl.FillColor    = Color3.new(0, 1, 0.08)      -- เขียว
+                                hl.OutlineColor = Color3.new(0.9, 1, 0)       -- เหลือง-เขียว
+                                hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
+                                hl.Parent = char
+                            elseif not XR.enabled and hl then
+                                hl:Destroy()
+                            end
+                        end
+                    end
+                end
+            end)
+        end)
+    end
+
+    local function setXrayEnabled(v)
+        XR.enabled = v and true or false
+        if XR.enabled then
+            startLoop()
+        else
+            -- ปิดแล้วก็ล้าง Highlight ทิ้ง
+            pcall(function()
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        if char then
+                            local hl = char:FindFirstChild(ESP_NAME)
+                            if hl then hl:Destroy() end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    --================= MODEL A V1 LAYOUT =================
+    -- ลบของเก่าเฉพาะบล็อกนี้
+    for _,n in ipairs({"XRAY_Header","XRAY_Row"}) do
+        local o = scroll:FindFirstChild(n)
+        if o then o:Destroy() end
+    end
+
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout", scroll)
+        vlist.Padding   = UDim.new(0,12)
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    local base = 0
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= vlist then
+            base = math.max(base, ch.LayoutOrder or 0)
+        end
+    end
+
+    -- Header: ชื่อระบบมองทะลุ + emoji ภาษาอังกฤษ
+    local header = Instance.new("TextLabel", scroll)
+    header.Name = "XRAY_Header"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Mong Thalu 👁 (X-Ray Vision)"
+    header.LayoutOrder = base + 1
+
+    -- Row 1 : มองทะลุ (ภาษาอังกฤษ)
+    local row = Instance.new("Frame", scroll)
+    row.Name = "XRAY_Row"
+    row.Size = UDim2.new(1,-6,0,46)
+    row.BackgroundColor3 = THEME.BLACK
+    corner(row,12)
+    stroke(row,2.2,THEME.GREEN)
+    row.LayoutOrder = base + 2
+
+    local lab = Instance.new("TextLabel", row)
+    lab.BackgroundTransparency = 1
+    lab.Size = UDim2.new(1,-160,1,0)
+    lab.Position = UDim2.new(0,16,0,0)
+    lab.Font = Enum.Font.GothamBold
+    lab.TextSize = 13
+    lab.TextColor3 = THEME.WHITE
+    lab.TextXAlignment = Enum.TextXAlignment.Left
+    lab.Text = "X-Ray Vision (See players through walls)"
+
+    local sw = Instance.new("Frame", row)
+    sw.AnchorPoint = Vector2.new(1,0.5)
+    sw.Position = UDim2.new(1,-12,0.5,0)
+    sw.Size = UDim2.fromOffset(52,26)
+    sw.BackgroundColor3 = THEME.BLACK
+    corner(sw,13)
+
+    local swStroke = Instance.new("UIStroke", sw)
+    swStroke.Thickness = 1.8
+
+    local knob = Instance.new("Frame", sw)
+    knob.Size = UDim2.fromOffset(22,22)
+    knob.BackgroundColor3 = THEME.WHITE
+    knob.Position = UDim2.new(0,2,0.5,-11)
+    corner(knob,11)
+
+    local function updateSwitchUI(on)
+        swStroke.Color = on and THEME.GREEN or THEME.RED
+        tween(knob,{
+            Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
+        },0.1)
+    end
+
+    local btn = Instance.new("TextButton", sw)
+    btn.BackgroundTransparency = 1
+    btn.Size = UDim2.fromScale(1,1)
+    btn.Text = ""
+    btn.AutoButtonColor = false
+
+    btn.MouseButton1Click:Connect(function()
+        local new = not XR.enabled
+        setXrayEnabled(new)
+        updateSwitchUI(new)
+    end)
+
+    -- sync ตอนเปิดแท็บ
+    updateSwitchUI(XR.enabled)
+    if XR.enabled then
+        startLoop()
+    end
+end)
 -- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
