@@ -1784,17 +1784,20 @@ registerRight("Player", function(scroll)
 
     --================= GLOBAL XRAY STATE =================
     _G.UFOX_XRAY = _G.UFOX_XRAY or {
-        xrayEnabled  = false,
-        feetEnabled  = false,
-        loop         = nil,
+        xrayEnabled   = false,   -- Row1
+        feetEnabled   = false,   -- Row2
+        namesEnabled  = false,   -- Row3
+        loop          = nil,
     }
     local XR = _G.UFOX_XRAY
 
-    local ESP_NAME        = "UFO_XRAY_HL"
-    local FOOT_ROOT_NAME  = "UFO_FootRoot"
-    local FOOT_TARGET_NAME= "UFO_FootTarget"
-    local FOOT_BEAM_PREFIX= "UFO_FootBeam_"
+    local ESP_NAME         = "UFO_XRAY_HL"
+    local FOOT_ROOT_NAME   = "UFO_FootRoot"
+    local FOOT_TARGET_NAME = "UFO_FootTarget"
+    local FOOT_BEAM_PREFIX = "UFO_FootBeam_"
+    local NAME_TAG_NAME    = "UFO_NameTag"
 
+    -- ===== CLEAR HELPERS =====
     local function clearHighlights()
         for _,pl in ipairs(Players:GetPlayers()) do
             if pl ~= lp then
@@ -1831,6 +1834,21 @@ registerRight("Player", function(scroll)
         end
     end
 
+    local function clearNames()
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local char = pl.Character
+                if char then
+                    local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    if head then
+                        local tag = head:FindFirstChild(NAME_TAG_NAME)
+                        if tag then tag:Destroy() end
+                    end
+                end
+            end
+        end
+    end
+
     local function stopLoop()
         if XR.loop then
             pcall(function() XR.loop:Disconnect() end)
@@ -1838,12 +1856,13 @@ registerRight("Player", function(scroll)
         end
         clearHighlights()
         clearFeet()
+        clearNames()
     end
 
     local function ensureLoop()
         if XR.loop then return end
         XR.loop = RunService.Heartbeat:Connect(function()
-            if not XR.xrayEnabled and not XR.feetEnabled then
+            if not XR.xrayEnabled and not XR.feetEnabled and not XR.namesEnabled then
                 stopLoop()
                 return
             end
@@ -1851,7 +1870,7 @@ registerRight("Player", function(scroll)
             local lchar = lp.Character
             local lhrp  = lchar and lchar:FindFirstChild("HumanoidRootPart")
 
-            -- ===== X-RAY HIGHLIGHT (รายการที่ 1) =====
+            -- ===== X-RAY HIGHLIGHT (Row 1) =====
             pcall(function()
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
@@ -1863,7 +1882,7 @@ registerRight("Player", function(scroll)
                                     hl = Instance.new("Highlight")
                                     hl.Name = ESP_NAME
                                     hl.FillColor    = THEME.GREEN
-                                    hl.OutlineColor = THEME.WHITE      -- เปลี่ยนจากเหลือง → ขาว
+                                    hl.OutlineColor = THEME.WHITE      -- ขอบขาว
                                     hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
                                     hl.Parent = char
                                 end
@@ -1875,19 +1894,17 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (รายการที่ 2) =====
+            -- ===== FOOT LINE (Row 2) =====
             if XR.feetEnabled and lhrp then
-                -- root attach ที่เท้าเรา
                 local rootAtt = lhrp:FindFirstChild(FOOT_ROOT_NAME)
                 if not rootAtt then
                     rootAtt = Instance.new("Attachment")
                     rootAtt.Name = FOOT_ROOT_NAME
-                    rootAtt.Position = Vector3.new(0,-3,0) -- ใกล้เท้า
+                    rootAtt.Position = Vector3.new(0,-3,0)
                     rootAtt.Parent = lhrp
                 end
                 rootAtt.Position = Vector3.new(0,-3,0)
 
-                -- ล้าง beam เก่า (จะสร้างใหม่ตาม player ปัจจุบัน)
                 for _,d in ipairs(lhrp:GetChildren()) do
                     if d:IsA("Beam") and d.Name:sub(1,#FOOT_BEAM_PREFIX)==FOOT_BEAM_PREFIX then
                         d:Destroy()
@@ -1925,12 +1942,53 @@ registerRight("Player", function(scroll)
             else
                 clearFeet()
             end
+
+            -- ===== PLAYER NAME ESP (Row 3) =====
+            if XR.namesEnabled then
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+                        if head then
+                            local tag = head:FindFirstChild(NAME_TAG_NAME)
+                            if not tag then
+                                tag = Instance.new("BillboardGui")
+                                tag.Name = NAME_TAG_NAME
+                                tag.Size = UDim2.new(0,120,0,30)
+                                tag.StudsOffset = Vector3.new(0, 3, 0)
+                                tag.AlwaysOnTop = true        -- เห็นทะลุทุกอย่าง
+                                tag.MaxDistance = 10000       -- เห็นไกล
+                                tag.Adornee     = head
+                                tag.Parent      = head
+
+                                local lbl = Instance.new("TextLabel", tag)
+                                lbl.BackgroundTransparency = 1
+                                lbl.Size = UDim2.new(1,0,1,0)
+                                lbl.Font = Enum.Font.GothamBold
+                                lbl.TextScaled = true
+                                lbl.TextColor3 = THEME.WHITE        -- ตัวอักษรขาว
+                                lbl.TextStrokeColor3 = THEME.GREEN -- ขอบเขียว
+                                lbl.TextStrokeTransparency = 0
+                                lbl.Text = ""
+                            end
+
+                            local label = tag:FindFirstChildOfClass("TextLabel")
+                            if label then
+                                local display = (pl.DisplayName and pl.DisplayName ~= "") and pl.DisplayName or pl.Name
+                                label.Text = display
+                            end
+                        end
+                    end
+                end
+            else
+                clearNames()
+            end
         end)
     end
 
     local function setXrayEnabled(v)
         XR.xrayEnabled = v and true or false
-        if XR.xrayEnabled or XR.feetEnabled then
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
             ensureLoop()
         else
             stopLoop()
@@ -1939,7 +1997,16 @@ registerRight("Player", function(scroll)
 
     local function setFeetEnabled(v)
         XR.feetEnabled = v and true or false
-        if XR.xrayEnabled or XR.feetEnabled then
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
+            ensureLoop()
+        else
+            stopLoop()
+        end
+    end
+
+    local function setNamesEnabled(v)
+        XR.namesEnabled = v and true or false
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
             ensureLoop()
         else
             stopLoop()
@@ -1948,7 +2015,7 @@ registerRight("Player", function(scroll)
 
     --================= MODEL A V1 LAYOUT =================
     -- ลบของเก่าเฉพาะบล็อกนี้
-    for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2"}) do
+    for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2","XRAY_Row3"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
     end
@@ -2057,8 +2124,17 @@ registerRight("Player", function(scroll)
         setFeetEnabled
     )
 
+    -- Row 3: ดูชื่อผู้เล่น / Player Name ESP
+    makeRow(
+        "XRAY_Row3",
+        base + 4,
+        "Player Name ESP (Show player names over heads)",
+        function() return XR.namesEnabled end,
+        setNamesEnabled
+    )
+
     -- ถ้ามี state เปิดไว้แล้วจากรอบก่อน ให้ loop วิ่งต่อ
-    if XR.xrayEnabled or XR.feetEnabled then
+    if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
         ensureLoop()
     end
 end)
