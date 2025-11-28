@@ -1741,6 +1741,301 @@ registerRight("Player", function(scroll)
     -- apply current settings after build
     applyStats(); bindInfJump()
 end)
+-- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
+registerRight("Update", function(scroll)
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local RunService = game:GetService("RunService")
+
+    -- CONFIG
+    local MAP_SUFFIX = " — อัพเดต v1.0 ✍️"
+    local NOTES_TEXT = "- เพิ่มจุดเกิดใหม่\n-A1\n-A2\n-A3\n-A4\n-A5\n-A6\n-A7\n-A8\n-A9"
+
+    -- THEME
+    local THEME = {
+        GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
+        BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185)
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
+
+    -- clear old
+    for _,n in ipairs({"UP_Header","UP_Wrap"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+
+    -- list defaults
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
+    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    local base = 3100
+
+    -- title
+    local head = Instance.new("TextLabel",scroll)
+    head.Name="UP_Header"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
+    head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
+    head.Text="Map Update 🗺️"
+
+    -- wrap
+    local wrap = Instance.new("Frame",scroll)
+    wrap.Name="UP_Wrap"; wrap.LayoutOrder=base+1; wrap.Size=UDim2.new(1,-6,0,260)
+    wrap.BackgroundColor3=THEME.BLACK; corner(wrap,12); stroke(wrap,2.2,THEME.GREEN)
+
+    -- ===== Header (now BLACK)
+    local header = Instance.new("Frame",wrap)
+    header.BackgroundColor3 = THEME.BLACK   -- ← เปลี่ยนเป็นดำ
+    header.Position = UDim2.new(0,12,0,12)
+    header.Size = UDim2.new(1,-24,0,60)
+    corner(header,10); stroke(header,1.6,THEME.GREEN,0)
+
+    local icon = Instance.new("ImageLabel",header)
+    icon.BackgroundTransparency=1
+    icon.Size = UDim2.fromOffset(48,48)
+    icon.Position = UDim2.new(0,8,0,6)
+    icon.ScaleType = Enum.ScaleType.Fit
+    icon.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(game.GameId)
+
+    local mapName = "Current Place"
+    pcall(function()
+        local inf = MarketplaceService:GetProductInfo(game.PlaceId)
+        if inf and inf.Name then mapName = inf.Name end
+    end)
+
+    local nameLbl = Instance.new("TextLabel",header)
+    nameLbl.BackgroundTransparency=1
+    nameLbl.Position = UDim2.new(0,8+48+10,0,0)
+    nameLbl.Size = UDim2.new(1,-(8+48+10+12),1,0)
+    nameLbl.Font = Enum.Font.GothamBlack
+    nameLbl.TextSize = 16
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextColor3 = THEME.WHITE       -- ← ตัวอักษรขาวให้ตัดกับพื้นดำ
+    nameLbl.Text = mapName .. ((MAP_SUFFIX ~= "" and (" "..MAP_SUFFIX)) or "")
+
+    -- ===== Notes (BLACK + no scrollbar visuals)
+    local notesScroll = Instance.new("ScrollingFrame",wrap)
+    notesScroll.Name = "UP_Notes"
+    notesScroll.Position = UDim2.new(0,12,0,12+60+12)
+    notesScroll.Size = UDim2.new(1,-24,1,-(12+60+12+12))
+    notesScroll.BackgroundColor3 = THEME.BLACK  -- ← เปลี่ยนเป็นดำ
+    notesScroll.BorderSizePixel = 0
+    notesScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    notesScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+    notesScroll.CanvasSize = UDim2.new(0,0,0,0)
+    notesScroll.Active = true
+    -- ซ่อนเส้นสกรอลล์ทั้งหมด
+    notesScroll.ScrollBarThickness = 0
+    notesScroll.ScrollBarImageTransparency = 1
+    corner(notesScroll,10); stroke(notesScroll,1.8,THEME.GREEN,0.15)
+
+    local PAD_L, PAD_R, PAD_T, PAD_B = 14, 10, 10, 10
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft   = UDim.new(0,PAD_L)
+    pad.PaddingRight  = UDim.new(0,PAD_R)
+    pad.PaddingTop    = UDim.new(0,PAD_T)
+    pad.PaddingBottom = UDim.new(0,PAD_B)
+    pad.Parent = notesScroll
+
+    local label = Instance.new("TextLabel", notesScroll)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0,0,0,0)
+    label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, 0)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.TextColor3 = THEME.WHITE          -- ← ข้อความขาวบนพื้นดำ
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.TextWrapped = true
+    label.RichText = true
+    label.Text = NOTES_TEXT
+
+    local function refreshNoteSize()
+        local _ = label.TextBounds
+        label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, label.TextBounds.Y)
+        notesScroll.CanvasSize = UDim2.new(0,0,0, label.TextBounds.Y + PAD_T + PAD_B)
+    end
+    refreshNoteSize()
+    label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
+    RunService.Heartbeat:Connect(refreshNoteSize)
+end)
+-- ===== [FULL PASTE] UFO HUB X • Update Tab — System #2: Social Links (A V1 + press effect + UFO toast) =====
+registerRight("Update", function(scroll)
+    -- ===== THEME (A V1) =====
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
+    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
+    local TS = game:GetService("TweenService")
+
+    -- ===== UFO Quick Toast (EN) — title with white 'UFO' + green 'HUB X' =====
+    local function QuickToast(msg)
+        local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "UFO_QuickToast"
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.DisplayOrder = 999999
+        gui.Parent = PG
+
+        local W,H = 320, 70
+        local box = Instance.new("Frame")
+        box.Name = "Toast"
+        box.AnchorPoint = Vector2.new(1,1)
+        box.Position = UDim2.new(1, -2, 1, -(2 - 24))
+        box.Size = UDim2.fromOffset(W, H)
+        box.BackgroundColor3 = Color3.fromRGB(10,10,10)
+        box.BorderSizePixel = 0
+        box.Parent = gui
+        corner(box, 10)
+        local st = Instance.new("UIStroke", box)
+        st.Thickness = 2
+        st.Color = THEME.GREEN
+        st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Font = Enum.Font.GothamBold
+        title.RichText = true
+        title.Text = '<font color="#FFFFFF">UFO</font> <font color="#19FF7D">HUB X</font>'
+        title.TextSize = 18
+        title.TextColor3 = THEME.WHITE
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Position = UDim2.fromOffset(14, 10)
+        title.Size = UDim2.fromOffset(W-24, 20)
+        title.Parent = box
+
+        local text = Instance.new("TextLabel")
+        text.BackgroundTransparency = 1
+        text.Font = Enum.Font.Gotham
+        text.Text = msg
+        text.TextSize = 13
+        text.TextColor3 = Color3.fromRGB(200,200,200)
+        text.TextXAlignment = Enum.TextXAlignment.Left
+        text.Position = UDim2.fromOffset(14, 34)
+        text.Size = UDim2.fromOffset(W-24, 24)
+        text.Parent = box
+
+        TS:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -2, 1, -2)}):Play()
+
+        task.delay(1.25, function()
+            local t = TS:Create(box, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
+                {Position = UDim2.new(1, -2, 1, -(2 - 24))})
+            t:Play(); t.Completed:Wait(); gui:Destroy()
+        end)
+    end
+
+    -- ===== A V1 RULE: one UIListLayout under `scroll` =====
+    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0, 12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- dynamic base by current children (respects file/run order)
+    local base = 10
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= list then
+            base = math.max(base, (ch.LayoutOrder or 0) + 1)
+        end
+    end
+
+    -- clear duplicates
+    for _,n in ipairs({"SOC2_Header","SOC2_Row_YT","SOC2_Row_FB","SOC2_Row_DC","SOC2_Row_IG"}) do
+        local o = scroll:FindFirstChild(n); if o then o:Destroy() end
+    end
+
+    -- data
+    local DATA = {
+        { key="YT", label="YouTube UFO HUB X",  color=Color3.fromRGB(220,30,30),
+          link="https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6" },
+        { key="FB", label="Facebook UFO HUB X", color=Color3.fromRGB(40,120,255), link="" },
+        { key="DC", label="Discord UFO HUB X",  color=Color3.fromRGB(88,101,242),
+          link="https://discord.gg/A6Mqpfj3" },
+        { key="IG", label="Instagram UFO HUB X",color=Color3.fromRGB(225,48,108), link="" },
+    }
+
+    -- header (single)
+    local head = Instance.new("TextLabel", scroll)
+    head.Name = "SOC2_Header"
+    head.BackgroundTransparency = 1
+    head.Size = UDim2.new(1, 0, 0, 36)
+    head.Font = Enum.Font.GothamBold
+    head.TextSize = 16
+    head.TextColor3 = THEME.TEXT
+    head.TextXAlignment = Enum.TextXAlignment.Left
+    head.Text = "Social update UFO HUB X 📣"
+    head.LayoutOrder = base; base += 1
+
+    -- press effect util (darken briefly)
+    local function pressEffect(row, baseColor)
+        local dark = Color3.fromRGB(
+            math.max(math.floor(baseColor.R*255)-18,0),
+            math.max(math.floor(baseColor.G*255)-18,0),
+            math.max(math.floor(baseColor.B*255)-18,0)
+        )
+        TS:Create(row, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {BackgroundColor3 = dark}):Play()
+        task.delay(0.08, function()
+            TS:Create(row, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {BackgroundColor3 = baseColor}):Play()
+        end)
+    end
+
+    -- row factory (no row icons; right-side plain ▶ only)
+    local function makeRow(item, order)
+        local row = Instance.new("Frame", scroll)
+        row.Name = "SOC2_Row_"..item.key
+        row.Size = UDim2.new(1, -6, 0, 46)
+        row.LayoutOrder = order
+        row.BackgroundColor3 = item.color
+        corner(row, 12); stroke(row, 2.2, THEME.GREEN)
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Position = UDim2.new(0, 16, 0, 0)
+        lab.Size = UDim2.new(1, -56, 1, 0) -- leave space for arrow
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = item.label
+
+        -- plain arrow (no bg / no stroke)
+        local arrow = Instance.new("TextLabel", row)
+        arrow.BackgroundTransparency = 1
+        arrow.AnchorPoint = Vector2.new(1,0.5)
+        arrow.Position = UDim2.new(1, -14, 0.5, 0)
+        arrow.Size = UDim2.fromOffset(18, 18)
+        arrow.Font = Enum.Font.GothamBlack
+        arrow.TextSize = 18
+        arrow.TextColor3 = THEME.WHITE
+        arrow.Text = "▶"
+
+        -- click whole row
+        local hit = Instance.new("TextButton", row)
+        hit.BackgroundTransparency = 1
+        hit.AutoButtonColor = false
+        hit.Text = ""
+        hit.Size = UDim2.fromScale(1,1)
+        hit.MouseButton1Click:Connect(function()
+            pressEffect(row, item.color)
+            if item.link ~= "" then
+                local ok=false
+                if typeof(setclipboard)=="function" then ok = pcall(function() setclipboard(item.link) end) end
+                QuickToast(item.label .. " — Link copied ✅")
+                if not ok then print("[UFO HUB X] Clipboard not available; link: "..item.link) end
+            else
+                QuickToast(item.label .. " — No link set")
+            end
+        end)
+    end
+
+    -- build rows under header in dynamic order
+    for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
+end)
+-- ===== [/FULL PASTE] =====
 --===== UFO HUB X • SERVER — Model A V1 (2 rows: change + live count) =====
 registerRight("Server", function(scroll)
     local Players        = game:GetService("Players")
@@ -2084,302 +2379,7 @@ registerRight("Server", function(scroll)
         end)
     end
 end)
--- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
-registerRight("Update", function(scroll)
-    local Players = game:GetService("Players")
-    local MarketplaceService = game:GetService("MarketplaceService")
-    local RunService = game:GetService("RunService")
-
-    -- CONFIG
-    local MAP_SUFFIX = " — อัพเดต v1.0 ✍️"
-    local NOTES_TEXT = "- เพิ่มจุดเกิดใหม่\n-A1\n-A2\n-A3\n-A4\n-A5\n-A6\n-A7\n-A8\n-A9"
-
-    -- THEME
-    local THEME = {
-        GREEN=Color3.fromRGB(25,255,125), WHITE=Color3.fromRGB(255,255,255),
-        BLACK=Color3.fromRGB(0,0,0), GREY=Color3.fromRGB(180,180,185)
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
-    local function stroke(ui,th,col,trans) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Transparency=trans or 0; s.Parent=ui; return s end
-
-    -- clear old
-    for _,n in ipairs({"UP_Header","UP_Wrap"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
-
-    -- list defaults
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
-    list.Padding = UDim.new(0,12); list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local base = 3100
-
-    -- title
-    local head = Instance.new("TextLabel",scroll)
-    head.Name="UP_Header"; head.LayoutOrder=base; head.BackgroundTransparency=1; head.Size=UDim2.new(1,0,0,32)
-    head.Font=Enum.Font.GothamBlack; head.TextSize=16; head.TextColor3=THEME.WHITE; head.TextXAlignment=Enum.TextXAlignment.Left
-    head.Text="Map Update 🗺️"
-
-    -- wrap
-    local wrap = Instance.new("Frame",scroll)
-    wrap.Name="UP_Wrap"; wrap.LayoutOrder=base+1; wrap.Size=UDim2.new(1,-6,0,260)
-    wrap.BackgroundColor3=THEME.BLACK; corner(wrap,12); stroke(wrap,2.2,THEME.GREEN)
-
-    -- ===== Header (now BLACK)
-    local header = Instance.new("Frame",wrap)
-    header.BackgroundColor3 = THEME.BLACK   -- ← เปลี่ยนเป็นดำ
-    header.Position = UDim2.new(0,12,0,12)
-    header.Size = UDim2.new(1,-24,0,60)
-    corner(header,10); stroke(header,1.6,THEME.GREEN,0)
-
-    local icon = Instance.new("ImageLabel",header)
-    icon.BackgroundTransparency=1
-    icon.Size = UDim2.fromOffset(48,48)
-    icon.Position = UDim2.new(0,8,0,6)
-    icon.ScaleType = Enum.ScaleType.Fit
-    icon.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(game.GameId)
-
-    local mapName = "Current Place"
-    pcall(function()
-        local inf = MarketplaceService:GetProductInfo(game.PlaceId)
-        if inf and inf.Name then mapName = inf.Name end
-    end)
-
-    local nameLbl = Instance.new("TextLabel",header)
-    nameLbl.BackgroundTransparency=1
-    nameLbl.Position = UDim2.new(0,8+48+10,0,0)
-    nameLbl.Size = UDim2.new(1,-(8+48+10+12),1,0)
-    nameLbl.Font = Enum.Font.GothamBlack
-    nameLbl.TextSize = 16
-    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    nameLbl.TextColor3 = THEME.WHITE       -- ← ตัวอักษรขาวให้ตัดกับพื้นดำ
-    nameLbl.Text = mapName .. ((MAP_SUFFIX ~= "" and (" "..MAP_SUFFIX)) or "")
-
-    -- ===== Notes (BLACK + no scrollbar visuals)
-    local notesScroll = Instance.new("ScrollingFrame",wrap)
-    notesScroll.Name = "UP_Notes"
-    notesScroll.Position = UDim2.new(0,12,0,12+60+12)
-    notesScroll.Size = UDim2.new(1,-24,1,-(12+60+12+12))
-    notesScroll.BackgroundColor3 = THEME.BLACK  -- ← เปลี่ยนเป็นดำ
-    notesScroll.BorderSizePixel = 0
-    notesScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-    notesScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
-    notesScroll.CanvasSize = UDim2.new(0,0,0,0)
-    notesScroll.Active = true
-    -- ซ่อนเส้นสกรอลล์ทั้งหมด
-    notesScroll.ScrollBarThickness = 0
-    notesScroll.ScrollBarImageTransparency = 1
-    corner(notesScroll,10); stroke(notesScroll,1.8,THEME.GREEN,0.15)
-
-    local PAD_L, PAD_R, PAD_T, PAD_B = 14, 10, 10, 10
-    local pad = Instance.new("UIPadding")
-    pad.PaddingLeft   = UDim.new(0,PAD_L)
-    pad.PaddingRight  = UDim.new(0,PAD_R)
-    pad.PaddingTop    = UDim.new(0,PAD_T)
-    pad.PaddingBottom = UDim.new(0,PAD_B)
-    pad.Parent = notesScroll
-
-    local label = Instance.new("TextLabel", notesScroll)
-    label.BackgroundTransparency = 1
-    label.Position = UDim2.new(0,0,0,0)
-    label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, 0)
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 16
-    label.TextColor3 = THEME.WHITE          -- ← ข้อความขาวบนพื้นดำ
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Top
-    label.TextWrapped = true
-    label.RichText = true
-    label.Text = NOTES_TEXT
-
-    local function refreshNoteSize()
-        local _ = label.TextBounds
-        label.Size = UDim2.new(1,-(PAD_L+PAD_R), 0, label.TextBounds.Y)
-        notesScroll.CanvasSize = UDim2.new(0,0,0, label.TextBounds.Y + PAD_T + PAD_B)
-    end
-    refreshNoteSize()
-    label:GetPropertyChangedSignal("TextBounds"):Connect(refreshNoteSize)
-    RunService.Heartbeat:Connect(refreshNoteSize)
-end)
--- ===== [FULL PASTE] UFO HUB X • Update Tab — System #2: Social Links (A V1 + press effect + UFO toast) =====
-registerRight("Update", function(scroll)
-    -- ===== THEME (A V1) =====
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke"); s.Thickness=th or 2.2; s.Color=col or THEME.GREEN; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=ui end
-    local TS = game:GetService("TweenService")
-
-    -- ===== UFO Quick Toast (EN) — title with white 'UFO' + green 'HUB X' =====
-    local function QuickToast(msg)
-        local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "UFO_QuickToast"
-        gui.ResetOnSpawn = false
-        gui.IgnoreGuiInset = true
-        gui.DisplayOrder = 999999
-        gui.Parent = PG
-
-        local W,H = 320, 70
-        local box = Instance.new("Frame")
-        box.Name = "Toast"
-        box.AnchorPoint = Vector2.new(1,1)
-        box.Position = UDim2.new(1, -2, 1, -(2 - 24))
-        box.Size = UDim2.fromOffset(W, H)
-        box.BackgroundColor3 = Color3.fromRGB(10,10,10)
-        box.BorderSizePixel = 0
-        box.Parent = gui
-        corner(box, 10)
-        local st = Instance.new("UIStroke", box)
-        st.Thickness = 2
-        st.Color = THEME.GREEN
-        st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-        local title = Instance.new("TextLabel")
-        title.BackgroundTransparency = 1
-        title.Font = Enum.Font.GothamBold
-        title.RichText = true
-        title.Text = '<font color="#FFFFFF">UFO</font> <font color="#19FF7D">HUB X</font>'
-        title.TextSize = 18
-        title.TextColor3 = THEME.WHITE
-        title.TextXAlignment = Enum.TextXAlignment.Left
-        title.Position = UDim2.fromOffset(14, 10)
-        title.Size = UDim2.fromOffset(W-24, 20)
-        title.Parent = box
-
-        local text = Instance.new("TextLabel")
-        text.BackgroundTransparency = 1
-        text.Font = Enum.Font.Gotham
-        text.Text = msg
-        text.TextSize = 13
-        text.TextColor3 = Color3.fromRGB(200,200,200)
-        text.TextXAlignment = Enum.TextXAlignment.Left
-        text.Position = UDim2.fromOffset(14, 34)
-        text.Size = UDim2.fromOffset(W-24, 24)
-        text.Parent = box
-
-        TS:Create(box, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {Position = UDim2.new(1, -2, 1, -2)}):Play()
-
-        task.delay(1.25, function()
-            local t = TS:Create(box, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
-                {Position = UDim2.new(1, -2, 1, -(2 - 24))})
-            t:Play(); t.Completed:Wait(); gui:Destroy()
-        end)
-    end
-
-    -- ===== A V1 RULE: one UIListLayout under `scroll` =====
-    local list = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0, 12)
-    list.SortOrder = Enum.SortOrder.LayoutOrder
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    -- dynamic base by current children (respects file/run order)
-    local base = 10
-    for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch ~= list then
-            base = math.max(base, (ch.LayoutOrder or 0) + 1)
-        end
-    end
-
-    -- clear duplicates
-    for _,n in ipairs({"SOC2_Header","SOC2_Row_YT","SOC2_Row_FB","SOC2_Row_DC","SOC2_Row_IG"}) do
-        local o = scroll:FindFirstChild(n); if o then o:Destroy() end
-    end
-
-    -- data
-    local DATA = {
-        { key="YT", label="YouTube UFO HUB X",  color=Color3.fromRGB(220,30,30),
-          link="https://youtube.com/@ufohubxstudio?si=XXFZ0rcJn9zva3x6" },
-        { key="FB", label="Facebook UFO HUB X", color=Color3.fromRGB(40,120,255), link="" },
-        { key="DC", label="Discord UFO HUB X",  color=Color3.fromRGB(88,101,242),
-          link="https://discord.gg/A6Mqpfj3" },
-        { key="IG", label="Instagram UFO HUB X",color=Color3.fromRGB(225,48,108), link="" },
-    }
-
-    -- header (single)
-    local head = Instance.new("TextLabel", scroll)
-    head.Name = "SOC2_Header"
-    head.BackgroundTransparency = 1
-    head.Size = UDim2.new(1, 0, 0, 36)
-    head.Font = Enum.Font.GothamBold
-    head.TextSize = 16
-    head.TextColor3 = THEME.TEXT
-    head.TextXAlignment = Enum.TextXAlignment.Left
-    head.Text = "Social update UFO HUB X 📣"
-    head.LayoutOrder = base; base += 1
-
-    -- press effect util (darken briefly)
-    local function pressEffect(row, baseColor)
-        local dark = Color3.fromRGB(
-            math.max(math.floor(baseColor.R*255)-18,0),
-            math.max(math.floor(baseColor.G*255)-18,0),
-            math.max(math.floor(baseColor.B*255)-18,0)
-        )
-        TS:Create(row, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {BackgroundColor3 = dark}):Play()
-        task.delay(0.08, function()
-            TS:Create(row, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {BackgroundColor3 = baseColor}):Play()
-        end)
-    end
-
-    -- row factory (no row icons; right-side plain ▶ only)
-    local function makeRow(item, order)
-        local row = Instance.new("Frame", scroll)
-        row.Name = "SOC2_Row_"..item.key
-        row.Size = UDim2.new(1, -6, 0, 46)
-        row.LayoutOrder = order
-        row.BackgroundColor3 = item.color
-        corner(row, 12); stroke(row, 2.2, THEME.GREEN)
-
-        local lab = Instance.new("TextLabel", row)
-        lab.BackgroundTransparency = 1
-        lab.Position = UDim2.new(0, 16, 0, 0)
-        lab.Size = UDim2.new(1, -56, 1, 0) -- leave space for arrow
-        lab.Font = Enum.Font.GothamBold
-        lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
-        lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = item.label
-
-        -- plain arrow (no bg / no stroke)
-        local arrow = Instance.new("TextLabel", row)
-        arrow.BackgroundTransparency = 1
-        arrow.AnchorPoint = Vector2.new(1,0.5)
-        arrow.Position = UDim2.new(1, -14, 0.5, 0)
-        arrow.Size = UDim2.fromOffset(18, 18)
-        arrow.Font = Enum.Font.GothamBlack
-        arrow.TextSize = 18
-        arrow.TextColor3 = THEME.WHITE
-        arrow.Text = "▶"
-
-        -- click whole row
-        local hit = Instance.new("TextButton", row)
-        hit.BackgroundTransparency = 1
-        hit.AutoButtonColor = false
-        hit.Text = ""
-        hit.Size = UDim2.fromScale(1,1)
-        hit.MouseButton1Click:Connect(function()
-            pressEffect(row, item.color)
-            if item.link ~= "" then
-                local ok=false
-                if typeof(setclipboard)=="function" then ok = pcall(function() setclipboard(item.link) end) end
-                QuickToast(item.label .. " — Link copied ✅")
-                if not ok then print("[UFO HUB X] Clipboard not available; link: "..item.link) end
-            else
-                QuickToast(item.label .. " — No link set")
-            end
-        end)
-    end
-
-    -- build rows under header in dynamic order
-    for _,it in ipairs(DATA) do makeRow(it, base); base += 1 end
-end)
--- ===== [/FULL PASTE] =====
- --===== UFO HUB X • SETTINGS — UI FPS Monitor (AA1 + Stats-linked FPS/CPU/GPU) =====
+--===== UFO HUB X • SETTINGS — UI FPS Monitor (AA1 + Stats-linked FPS/CPU/GPU) =====
 
 -- ########## SERVICES ##########
 local Players    = game:GetService("Players")
@@ -2785,7 +2785,7 @@ task.defer(function()
     createFPSFrame()
     setFPSSystemEnabled(savedOn)
 end)
---===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) + Runner Save (per-map) =====
+--===== UFO HUB X • SETTINGS — Smoother 🚀 (A V1 • fixed 3 rows) + Runner Save (per-map) + AA1 =====
 registerRight("Settings", function(scroll)
     local TweenService = game:GetService("TweenService")
     local Lighting     = game:GetService("Lighting")
@@ -2966,14 +2966,22 @@ registerRight("Settings", function(scroll)
     local set50, set100, setPl
 
     set50  = makeRow("A1_Reduce", "Reduce Effects 50%", 11, function(v)
-        if v then S.mode=1; applyHalf(); if set100 then set100(false) end
-        else if S.mode==1 then S.mode=0; restoreAll() end end
+        if v then
+            S.mode=1; applyHalf()
+            if set100 then set100(false) end
+        else
+            if S.mode==1 then S.mode=0; restoreAll() end
+        end
         setSave("Settings.Smoother.Mode", S.mode)
     end)
 
     set100 = makeRow("A1_Remove", "Remove Effects 100%", 12, function(v)
-        if v then S.mode=2; applyOff(); if set50 then set50(false) end
-        else if S.mode==2 then S.mode=0; restoreAll() end end
+        if v then
+            S.mode=2; applyOff()
+            if set50 then set50(false) end
+        else
+            if S.mode==2 then S.mode=0; restoreAll() end
+        end
         setSave("Settings.Smoother.Mode", S.mode)
     end)
 
@@ -2983,113 +2991,446 @@ registerRight("Settings", function(scroll)
     end)
 
     -- ===== Apply restored saved state to UI/World =====
-    if S.mode==1 then set50(true)
-    elseif S.mode==2 then set100(true)
-    else set50(false); set100(false); restoreAll() end
+    if S.mode==1 then
+        set50(true)
+    elseif S.mode==2 then
+        set100(true)
+    else
+        set50(false); set100(false); restoreAll()
+    end
     setPl(S.plastic)
 end)
--- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) + Runner Save =====
--- 1) Black Screen (Performance AFK)  [toggle]
--- 2) White Screen (Performance AFK)  [toggle]
--- 3) AFK Anti-Kick (20 min)          [toggle default ON]
--- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
 
-registerRight("Settings", function(scroll)
-    local Players       = game:GetService("Players")
-    local TweenService  = game:GetService("TweenService")
-    local UIS           = game:GetService("UserInputService")
-    local RunService    = game:GetService("RunService")
-    local VirtualUser   = game:GetService("VirtualUser")
-    local Http          = game:GetService("HttpService")
-    local MPS           = game:GetService("MarketplaceService")
-    local lp            = Players.LocalPlayer
+-- ########## AA1 — Auto-run Smoother from SaveState (ไม่ต้องกดปุ่ม UI) ##########
+task.defer(function()
+    local TweenService = game:GetService("TweenService")
+    local Lighting     = game:GetService("Lighting")
+    local Players      = game:GetService("Players")
+    local Http         = game:GetService("HttpService")
+    local MPS          = game:GetService("MarketplaceService")
+    local lp           = Players.LocalPlayer
 
-    -- ===== PER-MAP SAVE (runner) =====
+    -- ใช้ SAVE เดิมแบบเดียวกับด้านบน
     local function safePlaceName()
         local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
         local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
         return n:gsub("[^%w%-%._ ]","_")
     end
     local SAVE_DIR  = "UFO HUB X"
-    local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+    local SAVE_FILE = SAVE_DIR .. "/" .. tostring(game.PlaceId) .. " - " .. safePlaceName() .. ".json"
     local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
-                and typeof(writefile)=="function" and typeof(readfile)=="function")
+                and typeof(readfile)=="function" and typeof(writefile)=="function")
     if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
     getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
     local RAM = getgenv().UFOX_RAM
 
     local function loadSave()
         if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
-            local ok,dec = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
-            if ok and type(dec)=="table" then return dec end
+            local ok, data = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
+            if ok and type(data)=="table" then return data end
         end
         return RAM[SAVE_FILE] or {}
     end
-    local function writeSave(t)
-        t = t or {}
-        if hasFS then pcall(function() writefile(SAVE_FILE, Http:JSONEncode(t)) end) end
-        RAM[SAVE_FILE] = t
-    end
     local function getSave(path, default)
-        local data = loadSave(); local cur = data
-        for seg in string.gmatch(path,"[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
+        local cur = loadSave()
+        for seg in string.gmatch(path, "[^%.]+") do cur = (type(cur)=="table") and cur[seg] or nil end
         return (cur==nil) and default or cur
     end
-    local function setSave(path, value)
-        local data = loadSave()
-        local p = data
-        local keys = {}
-        for seg in string.gmatch(path,"[^%.]+") do table.insert(keys, seg) end
-        for i=1,#keys-1 do
-            local k = keys[i]
-            if type(p[k])~="table" then p[k] = {} end
-            p = p[k]
-        end
-        p[keys[#keys]] = value
-        writeSave(data)
+
+    -- ใช้ state เดียวกับ UI
+    _G.UFOX_SMOOTH = _G.UFOX_SMOOTH or { mode=0, plastic=false, _snap={}, _pp={} }
+    local S = _G.UFOX_SMOOTH
+
+    local FX = {ParticleEmitter=true, Trail=true, Beam=true, Smoke=true, Fire=true, Sparkles=true}
+    local PP = {BloomEffect=true, ColorCorrectionEffect=true, DepthOfFieldEffect=true, SunRaysEffect=true, BlurEffect=true}
+
+    local function capture(inst)
+        if S._snap[inst] then return end
+        local t={}; pcall(function()
+            if inst:IsA("ParticleEmitter") then t.Rate=inst.Rate; t.Enabled=inst.Enabled
+            elseif inst:IsA("Trail") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Beam") then t.Enabled=inst.Enabled; t.Brightness=inst.Brightness
+            elseif inst:IsA("Smoke") then t.Enabled=inst.Enabled; t.Opacity=inst.Opacity
+            elseif inst:IsA("Fire") then t.Enabled=inst.Enabled; t.Heat=inst.Heat; t.Size=inst.Size
+            elseif inst:IsA("Sparkles") then t.Enabled=inst.Enabled end
+        end)
+        S._snap[inst]=t
     end
-    -- ===================================
+    for _,d in ipairs(workspace:GetDescendants()) do
+        if FX[d.ClassName] then capture(d) end
+    end
 
-    -- ===== THEME / HELPERS (A Legacy) =====
-    local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-    }
-    local function corner(ui,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 12) c.Parent=ui end
-    local function stroke(ui,th,col) local s=Instance.new("UIStroke") s.Thickness=th or 2.2 s.Color=col or THEME.GREEN s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=ui end
-    local function tween(o,p) TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play() end
+    local function applyHalf()
+        for i,t in pairs(S._snap) do
+            if i.Parent then pcall(function()
+                if i:IsA("ParticleEmitter") then i.Rate=(t.Rate or 10)*0.5
+                elseif i:IsA("Trail") or i:IsA("Beam") then i.Brightness=(t.Brightness or 1)*0.5
+                elseif i:IsA("Smoke") then i.Opacity=(t.Opacity or 1)*0.5
+                elseif i:IsA("Fire") then i.Heat=(t.Heat or 5)*0.5; i.Size=(t.Size or 5)*0.7
+                elseif i:IsA("Sparkles") then i.Enabled=false end
+            end) end
+        end
+        for _,obj in ipairs(Lighting:GetChildren()) do
+            if PP[obj.ClassName] then
+                S._pp[obj] = S._pp[obj] or {}
+                local snap = S._pp[obj]
+                if snap.Enabled == nil then
+                    snap.Enabled = obj.Enabled
+                    if obj.Intensity ~= nil then snap.Intensity = obj.Intensity end
+                    if obj.ClassName=="BlurEffect" and obj.Size then snap.Size = obj.Size end
+                end
+                obj.Enabled = true
+                if obj.Intensity and snap.Intensity ~= nil then
+                    obj.Intensity = (snap.Intensity or obj.Intensity or 1)*0.5
+                end
+                if obj.ClassName=="BlurEffect" and obj.Size and snap.Size ~= nil then
+                    obj.Size = math.floor((snap.Size or obj.Size or 0)*0.5)
+                end
+            end
+        end
+    end
 
-    -- ===== STATE (defaults) =====
-    _G.UFOX_AFK = _G.UFOX_AFK or {
-        blackOn=false, whiteOn=false, antiIdleOn=true, watcherOn=true,
-        lastInput=tick(), antiIdleLoop=nil, idleHooked=false,
-        gui=nil, watcherConn=nil,
-    }
-    local S = _G.UFOX_AFK
+    local function applyOff()
+        for i,_ in pairs(S._snap) do
+            if i.Parent then pcall(function() i.Enabled=false end) end
+        end
+        for _,obj in ipairs(Lighting:GetChildren()) do
+            if PP[obj.ClassName] then obj.Enabled=false end
+        end
+    end
 
-    -- ==== Restore from save (per map) ====
-    S.blackOn    = getSave("Settings.AFK.Black",     S.blackOn)
-    S.whiteOn    = getSave("Settings.AFK.White",     S.whiteOn)
-    S.antiIdleOn = getSave("Settings.AFK.AntiKick",  S.antiIdleOn)
-    S.watcherOn  = getSave("Settings.AFK.Watcher",   S.watcherOn)
+    local function restoreAll()
+        for i,t in pairs(S._snap) do
+            if i.Parent then
+                for k,v in pairs(t) do pcall(function() i[k]=v end) end
+            end
+        end
+        for obj,t in pairs(S._pp) do
+            if obj.Parent then
+                for k,v in pairs(t) do pcall(function() obj[k]=v end) end
+            end
+        end
+    end
 
-    -- ===== CLEAN preview section if exists =====
+    local function plasticMode(on)
+        for _,p in ipairs(workspace:GetDescendants()) do
+            if p:IsA("BasePart") and not p:IsDescendantOf(lp.Character) then
+                if on then
+                    if not p:GetAttribute("Mat0") then
+                        p:SetAttribute("Mat0", p.Material.Name)
+                        p:SetAttribute("Refl0", p.Reflectance)
+                    end
+                    p.Material = Enum.Material.SmoothPlastic
+                    p.Reflectance = 0
+                else
+                    local m = p:GetAttribute("Mat0")
+                    local r = p:GetAttribute("Refl0")
+                    if m then pcall(function() p.Material = Enum.Material[m] end); p:SetAttribute("Mat0", nil) end
+                    if r ~= nil then p.Reflectance = r; p:SetAttribute("Refl0", nil) end
+                end
+            end
+        end
+    end
+
+    -- อ่าน SaveState แล้ว apply อัตโนมัติ (AA1)
+    local mode    = getSave("Settings.Smoother.Mode",    S.mode or 0)
+    local plastic = getSave("Settings.Smoother.Plastic", S.plastic or false)
+    S.mode    = mode
+    S.plastic = plastic
+
+    if mode == 1 then
+        applyHalf()
+    elseif mode == 2 then
+        applyOff()
+    else
+        restoreAll()
+    end
+    plasticMode(plastic)
+end)
+-- ===== UFO HUB X • Settings — AFK 💤 (MODEL A LEGACY, full systems) + Runner Save + AA1 =====
+-- 1) Black Screen (Performance AFK)  [toggle]
+-- 2) White Screen (Performance AFK)  [toggle]
+-- 3) AFK Anti-Kick (20 min)          [toggle default ON]
+-- 4) Activity Watcher (5 min → enable #3) [toggle default ON]
+-- + AA1: Auto-run จาก SaveState โดยตรง ไม่ต้องแตะ UI
+
+-- ########## SERVICES ##########
+local Players       = game:GetService("Players")
+local TweenService  = game:GetService("TweenService")
+local UIS           = game:GetService("UserInputService")
+local RunService    = game:GetService("RunService")
+local VirtualUser   = game:GetService("VirtualUser")
+local Http          = game:GetService("HttpService")
+local MPS           = game:GetService("MarketplaceService")
+local lp            = Players.LocalPlayer
+
+-- ########## PER-MAP SAVE (file + RAM fallback) ##########
+local function safePlaceName()
+    local ok,info = pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
+    local n = (ok and info and info.Name) or ("Place_"..tostring(game.PlaceId))
+    return n:gsub("[^%w%-%._ ]","_")
+end
+
+local SAVE_DIR  = "UFO HUB X"
+local SAVE_FILE = SAVE_DIR.."/"..tostring(game.PlaceId).." - "..safePlaceName()..".json"
+
+local hasFS = (typeof(isfolder)=="function" and typeof(makefolder)=="function"
+            and typeof(writefile)=="function" and typeof(readfile)=="function")
+
+if hasFS and not isfolder(SAVE_DIR) then pcall(makefolder, SAVE_DIR) end
+
+getgenv().UFOX_RAM = getgenv().UFOX_RAM or {}
+local RAM = getgenv().UFOX_RAM
+
+local function loadSave()
+    if hasFS and pcall(function() return readfile(SAVE_FILE) end) then
+        local ok,dec = pcall(function() return Http:JSONDecode(readfile(SAVE_FILE)) end)
+        if ok and type(dec)=="table" then return dec end
+    end
+    return RAM[SAVE_FILE] or {}
+end
+
+local function writeSave(t)
+    t = t or {}
+    if hasFS then
+        pcall(function()
+            writefile(SAVE_FILE, Http:JSONEncode(t))
+        end)
+    end
+    RAM[SAVE_FILE] = t
+end
+
+local function getSave(path, default)
+    local data = loadSave()
+    local cur  = data
+    for seg in string.gmatch(path,"[^%.]+") do
+        cur = (type(cur)=="table") and cur[seg] or nil
+    end
+    return (cur==nil) and default or cur
+end
+
+local function setSave(path, value)
+    local data = loadSave()
+    local keys = {}
+    for seg in string.gmatch(path,"[^%.]+") do table.insert(keys, seg) end
+    local p = data
+    for i=1,#keys-1 do
+        local k = keys[i]
+        if type(p[k])~="table" then p[k] = {} end
+        p = p[k]
+    end
+    p[keys[#keys]] = value
+    writeSave(data)
+end
+
+-- ########## THEME / HELPERS ##########
+local THEME = {
+    GREEN = Color3.fromRGB(25,255,125),
+    RED   = Color3.fromRGB(255,40,40),
+    WHITE = Color3.fromRGB(255,255,255),
+    BLACK = Color3.fromRGB(0,0,0),
+    TEXT  = Color3.fromRGB(255,255,255),
+}
+
+local function corner(ui,r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,r or 12)
+    c.Parent = ui
+end
+
+local function stroke(ui,th,col)
+    local s = Instance.new("UIStroke")
+    s.Thickness = th or 2.2
+    s.Color = col or THEME.GREEN
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = ui
+end
+
+local function tween(o,p)
+    TweenService:Create(o, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p):Play()
+end
+
+-- ########## GLOBAL AFK STATE ##########
+_G.UFOX_AFK = _G.UFOX_AFK or {
+    blackOn    = false,
+    whiteOn    = false,
+    antiIdleOn = true,   -- default ON
+    watcherOn  = true,   -- default ON
+    lastInput  = tick(),
+    antiIdleLoop = nil,
+    idleHooked   = false,
+    gui          = nil,
+    watcherConn  = nil,
+    inputConns   = {},
+}
+
+local S = _G.UFOX_AFK
+
+-- ===== restore from SAVE → override defaults =====
+S.blackOn    = getSave("Settings.AFK.Black",    S.blackOn)
+S.whiteOn    = getSave("Settings.AFK.White",    S.whiteOn)
+S.antiIdleOn = getSave("Settings.AFK.AntiKick", S.antiIdleOn)
+S.watcherOn  = getSave("Settings.AFK.Watcher",  S.watcherOn)
+
+-- ########## CORE: OVERLAY (Black / White) ##########
+local function ensureGui()
+    if S.gui and S.gui.Parent then return S.gui end
+    local gui = Instance.new("ScreenGui")
+    gui.Name="UFOX_AFK_GUI"
+    gui.IgnoreGuiInset = true
+    gui.ResetOnSpawn   = false
+    gui.DisplayOrder   = 999999
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = lp:WaitForChild("PlayerGui")
+    S.gui = gui
+    return gui
+end
+
+local function clearOverlay(name)
+    if S.gui then
+        local f = S.gui:FindFirstChild(name)
+        if f then f:Destroy() end
+    end
+end
+
+local function showBlack(v)
+    clearOverlay("WhiteOverlay")
+    clearOverlay("BlackOverlay")
+    if not v then return end
+    local gui = ensureGui()
+    local black = Instance.new("Frame", gui)
+    black.Name = "BlackOverlay"
+    black.BackgroundColor3 = Color3.new(0,0,0)
+    black.Size = UDim2.fromScale(1,1)
+    black.ZIndex = 200
+    black.Active = true
+end
+
+local function showWhite(v)
+    clearOverlay("BlackOverlay")
+    clearOverlay("WhiteOverlay")
+    if not v then return end
+    local gui = ensureGui()
+    local white = Instance.new("Frame", gui)
+    white.Name = "WhiteOverlay"
+    white.BackgroundColor3 = Color3.new(1,1,1)
+    white.Size = UDim2.fromScale(1,1)
+    white.ZIndex = 200
+    white.Active = true
+end
+
+local function syncOverlays()
+    if S.blackOn then
+        S.whiteOn = false
+        showWhite(false)
+        showBlack(true)
+    elseif S.whiteOn then
+        S.blackOn = false
+        showBlack(false)
+        showWhite(true)
+    else
+        showBlack(false)
+        showWhite(false)
+    end
+end
+
+-- ########## CORE: Anti-Kick / Activity ##########
+local function pulseOnce()
+    local cam = workspace.CurrentCamera
+    local cf  = cam and cam.CFrame or CFrame.new()
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0,0), cf)
+    end)
+end
+
+local function startAntiIdle()
+    if S.antiIdleLoop then return end
+    S.antiIdleLoop = task.spawn(function()
+        while S.antiIdleOn do
+            pulseOnce()
+            for i=1,540 do  -- ~9 นาที (ตรงกับค่าเดิม)
+                if not S.antiIdleOn then break end
+                task.wait(1)
+            end
+        end
+        S.antiIdleLoop = nil
+    end)
+end
+
+-- hook Roblox Idle แค่ครั้งเดียว (เหมือนเดิม แต่ global)
+if not S.idleHooked then
+    S.idleHooked = true
+    lp.Idled:Connect(function()
+        if S.antiIdleOn then
+            pulseOnce()
+        end
+    end)
+end
+
+-- input watcher (mouse/keyboard/touch) → update lastInput
+local function ensureInputHooks()
+    if S.inputConns and #S.inputConns > 0 then return end
+    local function markInput() S.lastInput = tick() end
+    table.insert(S.inputConns, UIS.InputBegan:Connect(markInput))
+    table.insert(S.inputConns, UIS.InputChanged:Connect(function(io)
+        if io.UserInputType ~= Enum.UserInputType.MouseWheel then
+            markInput()
+        end
+    end))
+end
+
+local INACTIVE = 5*60 -- 5 นาที
+local function startWatcher()
+    if S.watcherConn then return end
+    S.watcherConn = RunService.Heartbeat:Connect(function()
+        if not S.watcherOn then return end
+        if tick() - S.lastInput >= INACTIVE then
+            -- เปิด Anti-Kick อัตโนมัติ (เหมือนเดิม)
+            S.antiIdleOn = true
+            setSave("Settings.AFK.AntiKick", true)
+            if not S.antiIdleLoop then startAntiIdle() end
+            pulseOnce()
+            S.lastInput = tick()
+        end
+    end)
+end
+
+-- ########## AA1: AUTO-RUN จาก SaveState (ไม่ต้องแตะ UI) ##########
+task.defer(function()
+    -- sync หน้าจอ AFK (black/white) ตามค่าที่เซฟไว้
+    syncOverlays()
+
+    -- ถ้า Anti-Kick ON → start loop ให้เลย
+    if S.antiIdleOn then
+        startAntiIdle()
+    end
+
+    -- watcher & input hooks (ดูการขยับทุก 5 นาทีเหมือนเดิม)
+    ensureInputHooks()
+    startWatcher()
+end)
+
+-- ########## UI ฝั่งขวา (MODEL A LEGACY • เหมือนเดิม) ##########
+registerRight("Settings", function(scroll)
+    -- ลบ section เก่า (ถ้ามี)
     local old = scroll:FindFirstChild("Section_AFK_Preview"); if old then old:Destroy() end
-    local old2 = scroll:FindFirstChild("Section_AFK_Full");    if old2 then old2:Destroy() end
+    local old2 = scroll:FindFirstChild("Section_AFK_Full");  if old2 then old2:Destroy() end
 
-    -- list/canvas เหมือนเดิม
+    -- layout เดิม
     local vlist = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout", scroll)
-    vlist.Padding = UDim.new(0,12); vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    vlist.Padding = UDim.new(0,12)
+    vlist.SortOrder = Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
     local nextOrder = 10
     for _,ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch~=vlist then nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1) end
+        if ch:IsA("GuiObject") and ch ~= vlist then
+            nextOrder = math.max(nextOrder, (ch.LayoutOrder or 0)+1)
+        end
     end
 
-    -- ===== Header =====
+    -- Header
     local header = Instance.new("TextLabel", scroll)
     header.Name = "Section_AFK_Full"
     header.BackgroundTransparency = 1
@@ -3101,101 +3442,13 @@ registerRight("Settings", function(scroll)
     header.Text = "AFK 💤"
     header.LayoutOrder = nextOrder
 
-    -- ===== Overlay (Black/White full-screen) =====
-    local function ensureGui()
-        if S.gui and S.gui.Parent then return S.gui end
-        local gui = Instance.new("ScreenGui")
-        gui.Name="UFOX_AFK_GUI"
-        gui.IgnoreGuiInset=true
-        gui.ResetOnSpawn=false
-        gui.DisplayOrder=999999
-        gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-        gui.Parent = lp:WaitForChild("PlayerGui")
-        S.gui = gui
-        return gui
-    end
-    local function clearOverlay(name)
-        if S.gui then local f=S.gui:FindFirstChild(name); if f then f:Destroy() end end
-    end
-    local function showBlack(v)
-        clearOverlay("WhiteOverlay")
-        clearOverlay("BlackOverlay")
-        if not v then return end
-        local gui=ensureGui()
-        local black=Instance.new("Frame", gui)
-        black.Name="BlackOverlay"; black.BackgroundColor3=Color3.new(0,0,0)
-        black.Size=UDim2.fromScale(1,1); black.ZIndex=200; black.Active=true
-    end
-    local function showWhite(v)
-        clearOverlay("BlackOverlay")
-        clearOverlay("WhiteOverlay")
-        if not v then return end
-        local gui=ensureGui()
-        local white=Instance.new("Frame", gui)
-        white.Name="WhiteOverlay"; white.BackgroundColor3=Color3.new(1,1,1)
-        white.Size=UDim2.fromScale(1,1); white.ZIndex=200; white.Active=true
-    end
-    local function syncOverlays()
-        if S.blackOn then S.whiteOn=false; showWhite(false); showBlack(true)
-        elseif S.whiteOn then S.blackOn=false; showBlack(false); showWhite(true)
-        else showBlack(false); showWhite(false) end
-    end
-
-    -- ===== Anti-Kick core =====
-    local function pulseOnce()
-        local cam = workspace.CurrentCamera
-        local cf  = cam and cam.CFrame or CFrame.new()
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new(0,0), cf)
-        end)
-    end
-    local function startAntiIdle()
-        if S.antiIdleLoop then return end
-        S.antiIdleLoop = task.spawn(function()
-            while S.antiIdleOn do
-                pulseOnce()
-                for i=1,540 do
-                    if not S.antiIdleOn then break end
-                    task.wait(1)
-                end
-            end
-            S.antiIdleLoop=nil
-        end)
-    end
-    if not S.idleHooked then
-        S.idleHooked = true
-        lp.Idled:Connect(function()
-            if S.antiIdleOn then pulseOnce() end
-        end)
-    end
-
-    -- ===== Watcher (5 นาทีไม่ขยับ → เปิด #3) =====
-    local INACTIVE = 5*60
-    local function markInput() S.lastInput = tick() end
-    UIS.InputBegan:Connect(markInput)
-    UIS.InputChanged:Connect(function(io) if io.UserInputType ~= Enum.UserInputType.MouseWheel then markInput() end end)
-    if S.watcherConn then pcall(function() S.watcherConn:Disconnect() end) S.watcherConn=nil end
-    local function startWatcher()
-        if S.watcherConn then return end
-        S.watcherConn = RunService.Heartbeat:Connect(function()
-            if not S.watcherOn then return end
-            if tick() - S.lastInput >= INACTIVE then
-                S.antiIdleOn = true
-                setSave("Settings.AFK.AntiKick", true)
-                if not S.antiIdleLoop then startAntiIdle() end
-                pulseOnce()
-                S.lastInput = tick()
-            end
-        end)
-    end
-
-    -- ===== UI Row helper (A Legacy switch) =====
+    -- Row helper (เหมือนโค้ดเดิม)
     local function makeRow(textLabel, defaultOn, onToggle)
         local row = Instance.new("Frame", scroll)
         row.Size = UDim2.new(1,-6,0,46)
         row.BackgroundColor3 = THEME.BLACK
-        corner(row,12); stroke(row,2.2,THEME.GREEN)
+        corner(row,12)
+        stroke(row,2.2,THEME.GREEN)
         row.LayoutOrder = header.LayoutOrder + 1
 
         local lab = Instance.new("TextLabel", row)
@@ -3214,6 +3467,7 @@ registerRight("Settings", function(scroll)
         sw.Size = UDim2.fromOffset(52,26)
         sw.BackgroundColor3 = THEME.BLACK
         corner(sw,13)
+
         local swStroke = Instance.new("UIStroke", sw)
         swStroke.Thickness = 1.8
         swStroke.Color = defaultOn and THEME.GREEN or THEME.RED
@@ -3231,39 +3485,60 @@ registerRight("Settings", function(scroll)
             tween(knob, {Position = UDim2.new(v and 1 or 0, v and -24 or 2, 0.5, -11)})
             if onToggle then onToggle(v) end
         end
+
         local btn = Instance.new("TextButton", sw)
         btn.BackgroundTransparency = 1
         btn.Size = UDim2.fromScale(1,1)
         btn.Text = ""
         btn.AutoButtonColor = false
-        btn.MouseButton1Click:Connect(function() setState(not state) end)
+        btn.MouseButton1Click:Connect(function()
+            setState(not state)
+        end)
 
         return setState
     end
 
-    -- ===== Rows + bindings (with SAVE) =====
+    -- ===== Rows + bindings (ใช้ STATE เดิม + SAVE + CORE) =====
     local setBlack = makeRow("Black Screen (Performance AFK)", S.blackOn, function(v)
-        S.blackOn = v; if v then S.whiteOn=false end; syncOverlays()
-        setSave("Settings.AFK.Black", v); if v==true then setSave("Settings.AFK.White", false) end
+        S.blackOn = v
+        if v then S.whiteOn = false end
+        syncOverlays()
+        setSave("Settings.AFK.Black", v)
+        if v == true then
+            setSave("Settings.AFK.White", false)
+        end
     end)
 
     local setWhite = makeRow("White Screen (Performance AFK)", S.whiteOn, function(v)
-        S.whiteOn = v; if v then S.blackOn=false end; syncOverlays()
-        setSave("Settings.AFK.White", v); if v==true then setSave("Settings.AFK.Black", false) end
+        S.whiteOn = v
+        if v then S.blackOn = false end
+        syncOverlays()
+        setSave("Settings.AFK.White", v)
+        if v == true then
+            setSave("Settings.AFK.Black", false)
+        end
     end)
 
     local setAnti  = makeRow("AFK Anti-Kick (20 min)", S.antiIdleOn, function(v)
-        S.antiIdleOn = v; setSave("Settings.AFK.AntiKick", v)
-        if v then startAntiIdle() end
+        S.antiIdleOn = v
+        setSave("Settings.AFK.AntiKick", v)
+        if v then
+            startAntiIdle()
+        end
     end)
 
     local setWatch = makeRow("Activity Watcher (5 min → enable #3)", S.watcherOn, function(v)
-        S.watcherOn = v; setSave("Settings.AFK.Watcher", v)
+        S.watcherOn = v
+        setSave("Settings.AFK.Watcher", v)
+        -- watcher loop จะเช็ค S.watcherOn อยู่แล้ว
     end)
 
-    -- ===== Init =====
+    -- ===== Init เมื่อเปิดแท็บ Settings (ให้ตรงกับสถานะจริง) =====
     syncOverlays()
-    if S.antiIdleOn then startAntiIdle() end
+    if S.antiIdleOn then
+        startAntiIdle()
+    end
+    ensureInputHooks()
     startWatcher()
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
