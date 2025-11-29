@@ -5216,10 +5216,10 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel v2) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
--- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
+-- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel (ตาม template)
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5248,7 +5248,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งของระบบอื่น)
+    -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งระบบอื่น)
     ------------------------------------------------------------------------
     for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
         local o = scroll:FindFirstChild(name) or scroll.Parent:FindFirstChild(name)
@@ -5256,7 +5256,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UIListLayout (ใช้ร่วมกับระบบอื่นได้ 1 อันต่อ scroll)
+    -- UIListLayout
     ------------------------------------------------------------------------
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
@@ -5267,7 +5267,7 @@ registerRight("Shop", function(scroll)
     end
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- หาค่า base LayoutOrder จากของเดิมทั้งหมดใน scroll
+    -- base LayoutOrder
     local base = 0
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -5276,7 +5276,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- HEADER: "V A2 Test 🧪"
+    -- HEADER
     ------------------------------------------------------------------------
     local header = Instance.new("TextLabel")
     header.Name = "VA2_Header"
@@ -5291,7 +5291,7 @@ registerRight("Shop", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- ฟังก์ชันสร้างแถวพื้นฐาน (แบบ Model A V1)
+    -- แถวพื้นฐาน (ซ้ายสั้นลง)
     ------------------------------------------------------------------------
     local function makeRow(name, order, labelText)
         local row = Instance.new("Frame")
@@ -5303,11 +5303,11 @@ registerRight("Shop", function(scroll)
         stroke(row, 2.2, THEME.GREEN)
         row.LayoutOrder = order
 
-        -- Label ซ้าย
+        -- ซ้ายให้สั้นลง (0.35 แทน 0.45)
         local lab = Instance.new("TextLabel")
         lab.Parent = row
         lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(0.45, -16, 1, 0) -- เว้นด้านขวาไว้ให้กล่อง Select
+        lab.Size = UDim2.new(0.35, -16, 1, 0)
         lab.Position = UDim2.new(0, 16, 0, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
@@ -5323,10 +5323,8 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
-    -- parent สำหรับ popup (ใช้กรอบขวามือของแท็บ Shop)
     local panelParent = scroll.Parent
 
-    -- ปุ่ม Select Options (ดำ, เส้นเขียวเข้ม, ข้อความกลาง, ลูกศรขวา)
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "VA2_Select"
     selectBtn.Parent = row
@@ -5362,7 +5360,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search (ดำ + เส้นเขียวนีออน ขนาด/ตำแหน่งแบบรูปที่ 3)
+    -- Popup Panel: ใช้ขนาด/ตำแหน่งจาก VA2_TemplatePanel ถ้ามี
     ------------------------------------------------------------------------
     local optionsPanel
 
@@ -5373,15 +5371,25 @@ registerRight("Shop", function(scroll)
         optionsPanel.Name = "VA2_OptionsPanel"
         optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
-        optionsPanel.AnchorPoint = Vector2.new(1, 0)
-        -- ชิดขวา สูงเต็มกรอบ เหมือนตอนกล่องขาว/แดงเดิม
-        optionsPanel.Position = UDim2.new(1, -6, 0, 0)
-        optionsPanel.Size     = UDim2.new(0, 330, 1, -10)
         optionsPanel.ClipsDescendants = true
+
+        -- ถ้ามี template ใช้ค่ามันตรง ๆ
+        local template = panelParent:FindFirstChild("VA2_TemplatePanel")
+        if template and template:IsA("Frame") then
+            optionsPanel.AnchorPoint = template.AnchorPoint
+            optionsPanel.Position    = template.Position
+            optionsPanel.Size        = template.Size
+        else
+            -- fallback: อยู่ขวาบน ขนาดใกล้ ๆ ของเดิม และ inset จากขอบให้เส้นไม่หาย
+            optionsPanel.AnchorPoint = Vector2.new(1, 0)
+            optionsPanel.Position    = UDim2.new(1, -6, 0, 6)
+            optionsPanel.Size        = UDim2.new(0, 330, 1, -12)
+        end
+
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
-        -- Header ด้านบน: 🔍 Search (ให้ใช้แค่พื้นดำด้านใน ไม่ยุ่งเส้นนอก)
+        -- HEADER: 🔍 Search
         local headerBar = Instance.new("Frame")
         headerBar.Name = "Header"
         headerBar.Parent = optionsPanel
@@ -5401,7 +5409,7 @@ registerRight("Shop", function(scroll)
         headerText.TextXAlignment = Enum.TextXAlignment.Left
         headerText.Text = "🔍 Search"
 
-        -- BODY ข้างล่าง + ช่อง Search จริง
+        -- BODY + ช่อง Search จริง
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
@@ -5417,7 +5425,6 @@ registerRight("Shop", function(scroll)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
-        -- ช่องค้นหา TextBox ใช้งานได้จริง
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
@@ -5435,7 +5442,6 @@ registerRight("Shop", function(scroll)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN_DARK)
 
-        -- เอฟเฟกต์เส้นตอนโฟกัส
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
         end)
@@ -5443,7 +5449,6 @@ registerRight("Shop", function(scroll)
             sbStroke.Color = THEME.GREEN_DARK
         end)
 
-        -- ตัวอย่าง event ค้นหา (ตอนนี้ยังแค่ print ไว้ก่อน)
         searchBox:GetPropertyChangedSignal("Text"):Connect(function()
             print("[V A2] Search query =", searchBox.Text)
         end)
@@ -5457,16 +5462,16 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- คลิกปุ่ม: toggle เส้น + เปิด/ปิด Search Panel
+    -- Toggle ปุ่ม Select Options
     ------------------------------------------------------------------------
     local opened = false
     selectBtn.MouseButton1Click:Connect(function()
         opened = not opened
         if opened then
-            selectStroke.Color = THEME.GREEN      -- เขียวนีออน
+            selectStroke.Color = THEME.GREEN
             openPanel()
         else
-            selectStroke.Color = THEME.GREEN_DARK -- เขียวเข้ม
+            selectStroke.Color = THEME.GREEN_DARK
             closePanel()
         end
         print("[V A2] Select Options clicked, opened =", opened)
