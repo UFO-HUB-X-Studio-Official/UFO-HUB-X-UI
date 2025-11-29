@@ -1751,8 +1751,9 @@ registerRight("Player", function(scroll)
     local TweenService    = game:GetService("TweenService")
     local HttpService     = game:GetService("HttpService")
     local MarketplaceServ = game:GetService("MarketplaceService")
-    local lp              = Players.LocalPlayer
     local Workspace       = game:GetService("Workspace")
+
+    local lp              = Players.LocalPlayer
 
     --================ PER-MAP SAVE (Runner FS + RAM) ================
     local function safePlaceName()
@@ -1862,7 +1863,7 @@ registerRight("Player", function(scroll)
         feetEnabled   = false,   -- Row2
         namesEnabled  = false,   -- Row3
         loop          = nil,
-        tracers       = {},      -- สำหรับเส้นเท้า (Drawing)
+        tracers       = {},      -- Drawing lines per player
     }
     local XR = _G.UFOX_XRAY
 
@@ -1870,7 +1871,11 @@ registerRight("Player", function(scroll)
     local NAME_TAG_NAME = "UFO_NameTag"
     local DISABLED_ATTR = "UFOX_OrigEnabled"
 
-    -- Drawing API check (สำหรับเส้นเท้า)
+    -- limit สำหรับเส้นเท้า
+    local MAX_TRACER_DIST   = 300   -- ระยะห่างไม่เกิน 300 studs
+    local MAX_HEIGHT_DIFF   = 60    -- ส่วนต่างสูงต่ำไม่เกิน 60 studs
+
+    -- Drawing API check
     local hasDrawing = false
     pcall(function()
         if Drawing and Drawing.new then
@@ -1981,7 +1986,9 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) – Drawing Tracer 2D (real-time ตลอด) =====
+            -- ===== FOOT LINE (Row 2) – Drawing Tracer (เฉพาะผู้เล่นจริงในระยะ 300 / สูงต่ำ 60) =====
+            local aliveMap = {}  -- map ผู้เล่นที่ใช้เส้นจริง ๆ รอบนี้
+
             if XR.feetEnabled and hasDrawing and cam and lhrp then
                 if not XR.tracers then XR.tracers = {} end
 
@@ -1996,34 +2003,65 @@ registerRight("Player", function(scroll)
 
                         if char and hrp then
                             local footWorld = hrp.Position + Vector3.new(0,-3,0)
-                            local tScreenPos = cam:WorldToViewportPoint(footWorld)
+                            local vec       = footWorld - lFootWorld
+                            local dist      = vec.Magnitude
+                            local heightDiff= math.abs(vec.Y)
 
-                            if not line then
-                                local ok, obj = pcall(function()
-                                    return Drawing.new("Line")
-                                end)
-                                if ok and obj then
-                                    line = obj
-                                    line.Color = THEME.GREEN
-                                    line.Thickness = 2
-                                    line.Transparency = 1
-                                    XR.tracers[pl] = line
+                            -- เงื่อนไข: มีผู้เล่นจริง + อยู่ในระยะ 300 + สูงต่ำไม่เกิน 60
+                            if dist > 0 and dist <= MAX_TRACER_DIST and heightDiff <= MAX_HEIGHT_DIFF then
+                                aliveMap[pl] = true
+
+                                local tScreenPos = cam:WorldToViewportPoint(footWorld)
+
+                                if not line then
+                                    local ok, obj = pcall(function()
+                                        return Drawing.new("Line")
+                                    end)
+                                    if ok and obj then
+                                        line = obj
+                                        line.Color = THEME.GREEN
+                                        line.Thickness = 2
+                                        line.Transparency = 1
+                                        XR.tracers[pl] = line
+                                    end
+                                end
+
+                                if line then
+                                    line.From    = Vector2.new(lScreenPos.X, lScreenPos.Y)
+                                    line.To      = Vector2.new(tScreenPos.X, tScreenPos.Y)
+                                    line.Visible = true
+                                end
+                            else
+                                -- อยู่นอกระยะ / สูงเกิน ซ่อนเส้น
+                                if line then
+                                    line.Visible = false
                                 end
                             end
-
-                            if line then
-                                -- อัปเดตตำแหน่งทุกเฟรม (real time)
-                                line.From = Vector2.new(lScreenPos.X, lScreenPos.Y)
-                                line.To   = Vector2.new(tScreenPos.X, tScreenPos.Y)
-                                line.Visible = true
-                            end
                         else
+                            -- ไม่มีตัวละครจริง ลบเส้นทิ้ง
                             if line then
                                 pcall(function()
                                     line.Visible = false
                                     line:Remove()
                                 end)
                             end
+                            XR.tracers[pl] = nil
+                        end
+                    end
+                end
+
+                -- ล้าง tracer ของผู้เล่นที่ออกเกมไปแล้ว
+                for pl,line in pairs(XR.tracers) do
+                    if not aliveMap[pl] then
+                        local inGame = false
+                        for _,p in ipairs(Players:GetPlayers()) do
+                            if p == pl then inGame = true break end
+                        end
+                        if (not inGame) and line then
+                            pcall(function()
+                                line.Visible = false
+                                line:Remove()
+                            end)
                             XR.tracers[pl] = nil
                         end
                     end
