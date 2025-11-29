@@ -2007,7 +2007,6 @@ registerRight("Player", function(scroll)
                 local lFootWorld = lhrp.Position + Vector3.new(0,-3,0)
                 local lScreenPos = cam:WorldToViewportPoint(lFootWorld)
 
-                -- clamp/fix origin point ถ้าอยู่หลังกล้อง
                 if lScreenPos.Z < 0 then
                     lScreenPos = Vector3.new(vw - lScreenPos.X, vh - lScreenPos.Y, 0)
                 end
@@ -2028,7 +2027,6 @@ registerRight("Player", function(scroll)
                             local footWorld = hrp.Position + Vector3.new(0,-3,0)
                             local tScreenPos = cam:WorldToViewportPoint(footWorld)
 
-                            -- ถ้าอยู่หลังกล้อง ให้ flip มาด้านหน้าแล้ว clamp ขอบจอ
                             if tScreenPos.Z < 0 then
                                 tScreenPos = Vector3.new(vw - tScreenPos.X, vh - tScreenPos.Y, 0)
                             end
@@ -2065,7 +2063,6 @@ registerRight("Player", function(scroll)
                     end
                 end
 
-                -- ล้างเส้นของผู้เล่นที่ออกเกมไปแล้ว (กันเส้นเกินจำนวนผู้เล่น)
                 for pl, line in pairs(XR.tracers) do
                     if (typeof(pl) ~= "Instance") or (pl.Parent ~= Players) or not seen[pl] then
                         if line then
@@ -2081,13 +2078,14 @@ registerRight("Player", function(scroll)
                 clearFeet()
             end
 
-            -- ===== PLAYER NAME ESP (Row 3) =====
+            -- ===== PLAYER NAME ESP (Row 3) – ไม่จำกัดระยะ =====
             if XR.namesEnabled then
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
                         local char = pl.Character
                         local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
                         if head then
+                            -- ปิด BillboardGui ชื่อเดิมของเกม
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name ~= NAME_TAG_NAME then
                                     if child:GetAttribute(DISABLED_ATTR) == nil then
@@ -2097,6 +2095,7 @@ registerRight("Player", function(scroll)
                                 end
                             end
 
+                            -- หา / สร้าง NAME_TAG_NAME (กันซ้อน)
                             local tag = nil
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
@@ -2113,12 +2112,15 @@ registerRight("Player", function(scroll)
                                 tag.Name = NAME_TAG_NAME
                                 tag.Size = UDim2.new(0,120,0,30)
                                 tag.StudsOffset = Vector3.new(0, 3, 0)
-                                tag.AlwaysOnTop = true
-                                tag.MaxDistance = 10000
                                 tag.Adornee     = head
                                 tag.Parent      = head
                             end
 
+                            -- บังคับค่าไม่จำกัดระยะทุกเฟรม (0 = ไม่จำกัด)
+                            tag.AlwaysOnTop = true
+                            tag.MaxDistance = 0
+
+                            -- หา / สร้าง TextLabel เดียว
                             local label = nil
                             for _,child in ipairs(tag:GetChildren()) do
                                 if child:IsA("TextLabel") then
