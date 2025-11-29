@@ -5216,6 +5216,285 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
+--===== UFO HUB X • Shop — Model A V2 (Right Panel, Model A V1 Base) =====
+-- ใช้ในแท็บ Shop ฝั่งขวา • Template: Model A V1 + Behavior: A V2
+
+registerRight("Shop", function(scroll)
+    ------------------------------------------------------------------------
+    -- THEME + HELPERS
+    ------------------------------------------------------------------------
+    local THEME = {
+        BG_DARK   = Color3.fromRGB(0, 0, 0),
+        GREEN     = Color3.fromRGB(0, 255, 140),
+        GREEN_DIM = Color3.fromRGB(0, 180, 100),
+        TEXT_MAIN = Color3.fromRGB(255, 255, 255),
+        TEXT_SUB  = Color3.fromRGB(180, 180, 180)
+    }
+
+    local TweenService = game:GetService("TweenService")
+
+    local function tween(o, t, props)
+        if not o then return end
+        local ti = TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local ok, tw = pcall(TweenService.Create, TweenService, o, ti, props)
+        if ok and tw then tw:Play() end
+    end
+
+    ------------------------------------------------------------------------
+    -- ENSURE SINGLE UILISTLAYOUT + DYNAMIC LAYOUTORDER (Model A V1 Rule)
+    ------------------------------------------------------------------------
+    local layout = scroll:FindFirstChildOfClass("UIListLayout")
+    if not layout then
+        layout = Instance.new("UIListLayout")
+        layout.Name = "Layout"
+        layout.FillDirection = Enum.FillDirection.Vertical
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Padding = UDim.new(0, 6)
+        layout.Parent = scroll
+    end
+
+    -- base = max LayoutOrder ของ children ที่มีอยู่แล้ว
+    local function computeBaseLayoutOrder()
+        local maxOrder = 0
+        for _, child in ipairs(scroll:GetChildren()) do
+            if child ~= layout and child:IsA("Frame") then
+                local lo = tonumber(child.LayoutOrder) or 0
+                if lo > maxOrder then
+                    maxOrder = lo
+                end
+            end
+        end
+        return maxOrder + 1
+    end
+
+    local BASE = computeBaseLayoutOrder()
+
+    ------------------------------------------------------------------------
+    -- HEADER (สูง 36, GothamBold 16, ขาว, ชิดซ้าย)  [Model A V1 Spec]
+    ------------------------------------------------------------------------
+    local header = Instance.new("Frame")
+    header.Name = "Shop_Header"
+    header.BackgroundColor3 = THEME.BG_DARK
+    header.BorderSizePixel = 0
+    header.Size = UDim2.new(1, 0, 0, 36)
+    header.LayoutOrder = BASE
+    header.Parent = scroll
+    corner(header, UDim.new(0, 12))
+    stroke(header, THEME.GREEN, 1)
+
+    local headerLabel = Instance.new("TextLabel")
+    headerLabel.Name = "Title"
+    headerLabel.BackgroundTransparency = 1
+    headerLabel.Size = UDim2.new(1, -16, 1, 0)
+    headerLabel.Position = UDim2.new(0, 8, 0, 0)
+    headerLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json",
+        Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    headerLabel.Text = "Shop • Model A V2"
+    headerLabel.TextSize = 16
+    headerLabel.TextColor3 = THEME.TEXT_MAIN
+    headerLabel.Parent = header
+
+    ------------------------------------------------------------------------
+    -- SEARCH BAR (A V2 Feature)
+    ------------------------------------------------------------------------
+    local searchFrame = Instance.new("Frame")
+    searchFrame.Name = "Shop_Search"
+    searchFrame.BackgroundColor3 = THEME.BG_DARK
+    searchFrame.BorderSizePixel = 0
+    searchFrame.Size = UDim2.new(1, 0, 0, 36)
+    searchFrame.LayoutOrder = BASE + 1
+    searchFrame.Parent = scroll
+    corner(searchFrame, UDim.new(0, 12))
+    stroke(searchFrame, THEME.GREEN, 1)
+
+    local searchIcon = Instance.new("ImageLabel")
+    searchIcon.Name = "Icon"
+    searchIcon.BackgroundTransparency = 1
+    searchIcon.AnchorPoint = Vector2.new(0, 0.5)
+    searchIcon.Position = UDim2.new(0, 10, 0.5, 0)
+    searchIcon.Size = UDim2.new(0, 18, 0, 18)
+    searchIcon.Image = "rbxassetid://6031154877" -- icon แว่นขยายมาตรฐาน
+    searchIcon.ImageColor3 = THEME.TEXT_SUB
+    searchIcon.Parent = searchFrame
+
+    local searchBox = Instance.new("TextBox")
+    searchBox.Name = "Input"
+    searchBox.BackgroundTransparency = 1
+    searchBox.ClearTextOnFocus = false
+    searchBox.AnchorPoint = Vector2.new(0, 0.5)
+    searchBox.Position = UDim2.new(0, 34, 0.5, 0)
+    searchBox.Size = UDim2.new(1, -44, 1, -4)
+    searchBox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json",
+        Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+    searchBox.TextXAlignment = Enum.TextXAlignment.Left
+    searchBox.Text = ""
+    searchBox.PlaceholderText = "Search items..."
+    searchBox.TextSize = 14
+    searchBox.TextColor3 = THEME.TEXT_MAIN
+    searchBox.PlaceholderColor3 = THEME.TEXT_SUB
+    searchBox.Parent = searchFrame
+
+    ------------------------------------------------------------------------
+    -- DATA: รายการสินค้า (ตัวอย่าง)  [M จะเปลี่ยนชื่อ/ไอเท็มทีหลังได้]
+    ------------------------------------------------------------------------
+    local ITEMS = {
+        {
+            Id   = "shop_speed",
+            Name = "Speed Boost",
+            Desc = "Increase walk speed for this session.",
+            Tag  = "speed boost run"
+        },
+        {
+            Id   = "shop_jump",
+            Name = "Jump Power",
+            Desc = "Jump higher anywhere on the map.",
+            Tag  = "jump power high"
+        },
+        {
+            Id   = "shop_coin",
+            Name = "2x Coins",
+            Desc = "Double coins for a limited time.",
+            Tag  = "coin money double"
+        },
+        {
+            Id   = "shop_vip",
+            Name = "VIP Access",
+            Desc = "Unlock VIP area and perks.",
+            Tag  = "vip area perk"
+        },
+    }
+
+    ------------------------------------------------------------------------
+    -- ROW FACTORY (Model A V1 + A V2 FX)
+    ------------------------------------------------------------------------
+    local rows = {}  -- ใช้เก็บไว้สำหรับ search
+
+    local function createRow(index, item)
+        local row = Instance.new("Frame")
+        row.Name = "Shop_Row_" .. tostring(item.Id)
+        row.BackgroundColor3 = THEME.BG_DARK
+        row.BorderSizePixel = 0
+        row.Size = UDim2.new(1, 0, 0, 46)
+        row.LayoutOrder = BASE + 1 + index + 1 -- header=BASE, search=BASE+1, row เริ่มต่อจากนั้น
+        row.Parent = scroll
+        corner(row, UDim.new(0, 12))
+        local strokeObj = stroke(row, THEME.GREEN_DIM, 2)
+
+        -- A V2 Left Green Bar
+        local leftBar = Instance.new("Frame")
+        leftBar.Name = "LeftBar"
+        leftBar.BackgroundColor3 = THEME.GREEN
+        leftBar.BorderSizePixel = 0
+        leftBar.AnchorPoint = Vector2.new(0, 0.5)
+        leftBar.Position = UDim2.new(0, 0, 0.5, 0)
+        leftBar.Size = UDim2.new(0, 4, 1, -8)
+        leftBar.Parent = row
+        corner(leftBar, UDim.new(0, 8))
+
+        -- Text Main (ชื่อสินค้า)
+        local title = Instance.new("TextLabel")
+        title.Name = "Title"
+        title.BackgroundTransparency = 1
+        title.AnchorPoint = Vector2.new(0, 0)
+        title.Position = UDim2.new(0, 10, 0, 4)
+        title.Size = UDim2.new(1, -20, 0, 20)
+        title.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json",
+            Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Text = item.Name
+        title.TextSize = 13
+        title.TextColor3 = THEME.TEXT_MAIN
+        title.Parent = row
+
+        -- Text Desc (รายละเอียด)
+        local desc = Instance.new("TextLabel")
+        desc.Name = "Desc"
+        desc.BackgroundTransparency = 1
+        desc.AnchorPoint = Vector2.new(0, 0)
+        desc.Position = UDim2.new(0, 10, 0, 22)
+        desc.Size = UDim2.new(1, -20, 0, 18)
+        desc.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json",
+            Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+        desc.TextXAlignment = Enum.TextXAlignment.Left
+        desc.Text = item.Desc
+        desc.TextSize = 11
+        desc.TextColor3 = THEME.TEXT_SUB
+        desc.TextTruncate = Enum.TextTruncate.AtEnd
+        desc.Parent = row
+
+        -- Invisible button สำหรับคลิกทั้งแถว
+        local hit = Instance.new("TextButton")
+        hit.Name = "Hitbox"
+        hit.BackgroundTransparency = 1
+        hit.AutoButtonColor = false
+        hit.Text = ""
+        hit.Size = UDim2.new(1, 0, 1, 0)
+        hit.ZIndex = 2
+        hit.Parent = row
+
+        -- A V2 FX: Hover = เส้นเขียว dim → bright
+        local isHover = false
+
+        hit.MouseEnter:Connect(function()
+            isHover = true
+            tween(strokeObj, 0.12, {Color = THEME.GREEN})
+        end)
+
+        hit.MouseLeave:Connect(function()
+            isHover = false
+            tween(strokeObj, 0.12, {Color = THEME.GREEN_DIM})
+        end)
+
+        -- คลิก (ตรงนี้แค่ log, M ค่อยเอาไปผูกระบบ Shop จริงทีหลัง)
+        hit.MouseButton1Click:Connect(function()
+            print("[UFO HUB X] Shop item clicked:", item.Id, item.Name)
+            -- TODO: ตรงนี้ M ผูกซื้อของ or เปิด panel ย่อยได้เอง
+        end)
+
+        -- key สำหรับ search (lowercase + ตัด space)
+        local key = string.lower((item.Name .. " " .. (item.Tag or "")))
+        key = key:gsub("%s+", "")
+
+        rows[#rows + 1] = {
+            Frame = row,
+            Key   = key,
+        }
+    end
+
+    ------------------------------------------------------------------------
+    -- CREATE ROWS
+    ------------------------------------------------------------------------
+    for i, item in ipairs(ITEMS) do
+        createRow(i, item)
+    end
+
+    ------------------------------------------------------------------------
+    -- REAL-TIME SEARCH (A V2 Core Behavior)
+    ------------------------------------------------------------------------
+    local function applySearch()
+        local txt = searchBox.Text or ""
+        txt = txt:lower()
+        txt = txt:gsub("%s+", "")
+
+        if txt == "" then
+            -- โชว์ทุก row
+            for _, r in ipairs(rows) do
+                r.Frame.Visible = true
+            end
+        else
+            for _, r in ipairs(rows) do
+                local ok = string.find(r.Key, txt, 1, true) ~= nil
+                r.Frame.Visible = ok
+            end
+        end
+    end
+
+    searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
+
+    -- initial apply (กรณีมีค่าเดิมจาก Save)
+    applySearch()
+end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
     {btn = btnPlayer,   set = setPlayerActive,   name = "Player",   icon = ICON_PLAYER},
