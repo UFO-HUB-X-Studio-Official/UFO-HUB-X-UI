@@ -1751,7 +1751,6 @@ registerRight("Player", function(scroll)
     local TweenService    = game:GetService("TweenService")
     local HttpService     = game:GetService("HttpService")
     local MarketplaceServ = game:GetService("MarketplaceService")
-
     local lp              = Players.LocalPlayer
 
     --================ PER-MAP SAVE (Runner FS + RAM) ================
@@ -1865,11 +1864,10 @@ registerRight("Player", function(scroll)
     }
     local XR = _G.UFOX_XRAY
 
-    local ESP_NAME         = "UFO_XRAY_HL"
-    local FOOT_ROOT_NAME   = "UFO_FootRoot"
-    local FOOT_TARGET_NAME = "UFO_FootTarget"
-    local FOOT_BEAM_PREFIX = "UFO_FootBeam_"
-    local NAME_TAG_NAME    = "UFO_NameTag"
+    local ESP_NAME             = "UFO_XRAY_HL"
+    local FOOT_BEAM_PREFIX     = "UFO_FootBeam_"
+    local FOOT_LINES_FOLDER    = "UFO_FootLines"
+    local NAME_TAG_NAME        = "UFO_NameTag"
 
     --------------------------------------------------------------------
     -- AA1 RESTORE: โหลดสถานะจาก SaveState → ตั้งค่า XR.* ตั้งแต่ต้น
@@ -1892,26 +1890,9 @@ registerRight("Player", function(scroll)
     end
 
     local function clearFeet()
-        local char = lp.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            for _,d in ipairs(hrp:GetChildren()) do
-                if d:IsA("Beam") and d.Name:sub(1,#FOOT_BEAM_PREFIX)==FOOT_BEAM_PREFIX then
-                    d:Destroy()
-                elseif d:IsA("Attachment") and d.Name==FOOT_ROOT_NAME then
-                    d:Destroy()
-                end
-            end
-        end
-        for _,pl in ipairs(Players:GetPlayers()) do
-            if pl ~= lp then
-                local c = pl.Character
-                local h = c and c:FindFirstChild("HumanoidRootPart")
-                if h then
-                    local a = h:FindFirstChild(FOOT_TARGET_NAME)
-                    if a then a:Destroy() end
-                end
-            end
+        local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
+        if folder then
+            folder:Destroy()
         end
     end
 
@@ -1922,8 +1903,12 @@ registerRight("Player", function(scroll)
                 if char then
                     local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
                     if head then
-                        local tag = head:FindFirstChild(NAME_TAG_NAME)
-                        if tag then tag:Destroy() end
+                        -- ลบทุก BillboardGui ที่เป็น NameTag ของเรา
+                        for _,child in ipairs(head:GetChildren()) do
+                            if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
+                                child:Destroy()
+                            end
+                        end
                     end
                 end
             end
@@ -1975,48 +1960,44 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) =====
+            -- ===== FOOT LINE (Row 2) – ใช้ LineHandleAdornment ให้เห็นทะลุกำแพง =====
             if XR.feetEnabled and lhrp then
-                local rootAtt = lhrp:FindFirstChild(FOOT_ROOT_NAME)
-                if not rootAtt then
-                    rootAtt = Instance.new("Attachment")
-                    rootAtt.Name = FOOT_ROOT_NAME
-                    rootAtt.Position = Vector3.new(0,-3,0)
-                    rootAtt.Parent = lhrp
+                local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
+                if not folder then
+                    folder = Instance.new("Folder")
+                    folder.Name = FOOT_LINES_FOLDER
+                    folder.Parent = workspace
                 end
-                rootAtt.Position = Vector3.new(0,-3,0)
 
-                for _,d in ipairs(lhrp:GetChildren()) do
-                    if d:IsA("Beam") and d.Name:sub(1,#FOOT_BEAM_PREFIX)==FOOT_BEAM_PREFIX then
-                        d:Destroy()
+                -- เคลียร์เส้นเก่าทั้งหมดทุกเฟรม แล้ววาดใหม่
+                for _,child in ipairs(folder:GetChildren()) do
+                    if child:IsA("LineHandleAdornment") then
+                        child:Destroy()
                     end
                 end
+
+                local origin = lhrp.Position + Vector3.new(0,-3,0)
 
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
                         local char = pl.Character
                         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                         if hrp then
-                            local targetAtt = hrp:FindFirstChild(FOOT_TARGET_NAME)
-                            if not targetAtt then
-                                targetAtt = Instance.new("Attachment")
-                                targetAtt.Name = FOOT_TARGET_NAME
-                                targetAtt.Position = Vector3.new(0,-3,0)
-                                targetAtt.Parent = hrp
+                            local targetPos = hrp.Position + Vector3.new(0,-3,0)
+                            local dir       = targetPos - origin
+                            local dist      = dir.Magnitude
+                            if dist > 0 then
+                                local line = Instance.new("LineHandleAdornment")
+                                line.Name        = FOOT_BEAM_PREFIX..pl.UserId
+                                line.Color3      = THEME.GREEN
+                                line.Thickness   = 0.08
+                                line.Length      = dist
+                                line.AlwaysOnTop = true -- เห็นทะลุกำแพง/สิ่งของ
+                                line.ZIndex      = 1
+                                line.Adornee     = workspace.Terrain
+                                line.CFrame      = CFrame.new(origin, targetPos) * CFrame.new(0,0,-dist/2)
+                                line.Parent      = folder
                             end
-                            targetAtt.Position = Vector3.new(0,-3,0)
-
-                            local beam = Instance.new("Beam")
-                            beam.Name = FOOT_BEAM_PREFIX..pl.UserId
-                            beam.Attachment0 = rootAtt
-                            beam.Attachment1 = targetAtt
-                            beam.Color = ColorSequence.new(THEME.GREEN)
-                            beam.Width0 = 0.08
-                            beam.Width1 = 0.08
-                            beam.Transparency = NumberSequence.new(0)
-                            beam.FaceCamera = true
-                            beam.LightEmission = 0.7
-                            beam.Parent = lhrp
                         end
                     end
                 end
@@ -2031,7 +2012,19 @@ registerRight("Player", function(scroll)
                         local char = pl.Character
                         local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
                         if head then
-                            local tag = head:FindFirstChild(NAME_TAG_NAME)
+                            -- กันชื่อซ้อน: ให้เหลือ BillboardGui ชื่อ UFO_NameTag แค่ 1 อัน
+                            local primaryTag = nil
+                            for _,child in ipairs(head:GetChildren()) do
+                                if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
+                                    if not primaryTag then
+                                        primaryTag = child
+                                    else
+                                        child:Destroy()
+                                    end
+                                end
+                            end
+
+                            local tag = primaryTag
                             if not tag then
                                 tag = Instance.new("BillboardGui")
                                 tag.Name = NAME_TAG_NAME
@@ -2099,7 +2092,6 @@ registerRight("Player", function(scroll)
     end
 
     --================= MODEL A V1 LAYOUT =================
-    -- ลบของเก่าเฉพาะบล็อกนี้
     for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2","XRAY_Row3"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
@@ -2187,7 +2179,6 @@ registerRight("Player", function(scroll)
             update(new)
         end)
 
-        -- sync initial จาก AA1 state
         update(getState())
     end
 
