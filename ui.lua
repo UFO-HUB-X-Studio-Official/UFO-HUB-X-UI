@@ -1752,7 +1752,6 @@ registerRight("Player", function(scroll)
     local HttpService     = game:GetService("HttpService")
     local MarketplaceServ = game:GetService("MarketplaceService")
     local Workspace       = game:GetService("Workspace")
-
     local lp              = Players.LocalPlayer
 
     --================ PER-MAP SAVE (Runner FS + RAM) ================
@@ -1863,19 +1862,28 @@ registerRight("Player", function(scroll)
         feetEnabled   = false,   -- Row2
         namesEnabled  = false,   -- Row3
         loop          = nil,
-        tracers       = {},      -- Drawing lines per player
+        tracers       = {},      -- Player -> Drawing.Line
     }
     local XR = _G.UFOX_XRAY
+
+    -- เคลียร์เส้นค้างจากการรันรอบเก่า (กันจำนวนเส้นเกิน)
+    if XR.tracers then
+        for _, line in pairs(XR.tracers) do
+            pcall(function()
+                if line then
+                    line.Visible = false
+                    if line.Remove then line:Remove() end
+                end
+            end)
+        end
+    end
+    XR.tracers = {}
 
     local ESP_NAME      = "UFO_XRAY_HL"
     local NAME_TAG_NAME = "UFO_NameTag"
     local DISABLED_ATTR = "UFOX_OrigEnabled"
 
-    -- limit สำหรับเส้นเท้า
-    local MAX_TRACER_DIST   = 300   -- ระยะห่างไม่เกิน 300 studs
-    local MAX_HEIGHT_DIFF   = 60    -- ส่วนต่างสูงต่ำไม่เกิน 60 studs
-
-    -- Drawing API check
+    -- Drawing API check (สำหรับเส้นเท้า)
     local hasDrawing = false
     pcall(function()
         if Drawing and Drawing.new then
@@ -1907,7 +1915,10 @@ registerRight("Player", function(scroll)
         if XR.tracers then
             for pl, line in pairs(XR.tracers) do
                 if line then
-                    pcall(function() line.Visible = false line:Remove() end)
+                    pcall(function()
+                        line.Visible = false
+                        if line.Remove then line:Remove() end
+                    end)
                 end
             end
         end
@@ -1986,14 +1997,24 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) – Drawing Tracer (เฉพาะผู้เล่นจริงในระยะ 300 / สูงต่ำ 60) =====
-            local aliveMap = {}  -- map ผู้เล่นที่ใช้เส้นจริง ๆ รอบนี้
-
+            -- ===== FOOT LINE (Row 2) – Drawing Tracer 2D (ไม่จำกัดระยะ + เห็นทุกคน) =====
             if XR.feetEnabled and hasDrawing and cam and lhrp then
                 if not XR.tracers then XR.tracers = {} end
 
+                local viewport = cam.ViewportSize
+                local vw, vh = viewport.X, viewport.Y
+
                 local lFootWorld = lhrp.Position + Vector3.new(0,-3,0)
                 local lScreenPos = cam:WorldToViewportPoint(lFootWorld)
+
+                -- clamp/fix origin point ถ้าอยู่หลังกล้อง
+                if lScreenPos.Z < 0 then
+                    lScreenPos = Vector3.new(vw - lScreenPos.X, vh - lScreenPos.Y, 0)
+                end
+                local lX = math.clamp(lScreenPos.X, 0, vw)
+                local lY = math.clamp(lScreenPos.Y, 0, vh)
+
+                local seen = {}
 
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
@@ -2002,47 +2023,41 @@ registerRight("Player", function(scroll)
                         local line = XR.tracers[pl]
 
                         if char and hrp then
+                            seen[pl] = true
+
                             local footWorld = hrp.Position + Vector3.new(0,-3,0)
-                            local vec       = footWorld - lFootWorld
-                            local dist      = vec.Magnitude
-                            local heightDiff= math.abs(vec.Y)
+                            local tScreenPos = cam:WorldToViewportPoint(footWorld)
 
-                            -- เงื่อนไข: มีผู้เล่นจริง + อยู่ในระยะ 300 + สูงต่ำไม่เกิน 60
-                            if dist > 0 and dist <= MAX_TRACER_DIST and heightDiff <= MAX_HEIGHT_DIFF then
-                                aliveMap[pl] = true
+                            -- ถ้าอยู่หลังกล้อง ให้ flip มาด้านหน้าแล้ว clamp ขอบจอ
+                            if tScreenPos.Z < 0 then
+                                tScreenPos = Vector3.new(vw - tScreenPos.X, vh - tScreenPos.Y, 0)
+                            end
+                            local tX = math.clamp(tScreenPos.X, 0, vw)
+                            local tY = math.clamp(tScreenPos.Y, 0, vh)
 
-                                local tScreenPos = cam:WorldToViewportPoint(footWorld)
-
-                                if not line then
-                                    local ok, obj = pcall(function()
-                                        return Drawing.new("Line")
-                                    end)
-                                    if ok and obj then
-                                        line = obj
-                                        line.Color = THEME.GREEN
-                                        line.Thickness = 2
-                                        line.Transparency = 1
-                                        XR.tracers[pl] = line
-                                    end
-                                end
-
-                                if line then
-                                    line.From    = Vector2.new(lScreenPos.X, lScreenPos.Y)
-                                    line.To      = Vector2.new(tScreenPos.X, tScreenPos.Y)
-                                    line.Visible = true
-                                end
-                            else
-                                -- อยู่นอกระยะ / สูงเกิน ซ่อนเส้น
-                                if line then
-                                    line.Visible = false
+                            if not line then
+                                local ok, obj = pcall(function()
+                                    return Drawing.new("Line")
+                                end)
+                                if ok and obj then
+                                    line = obj
+                                    line.Color = THEME.GREEN
+                                    line.Thickness = 2
+                                    line.Transparency = 1
+                                    XR.tracers[pl] = line
                                 end
                             end
+
+                            if line then
+                                line.From    = Vector2.new(lX, lY)
+                                line.To      = Vector2.new(tX, tY)
+                                line.Visible = true
+                            end
                         else
-                            -- ไม่มีตัวละครจริง ลบเส้นทิ้ง
                             if line then
                                 pcall(function()
                                     line.Visible = false
-                                    line:Remove()
+                                    if line.Remove then line:Remove() end
                                 end)
                             end
                             XR.tracers[pl] = nil
@@ -2050,20 +2065,16 @@ registerRight("Player", function(scroll)
                     end
                 end
 
-                -- ล้าง tracer ของผู้เล่นที่ออกเกมไปแล้ว
-                for pl,line in pairs(XR.tracers) do
-                    if not aliveMap[pl] then
-                        local inGame = false
-                        for _,p in ipairs(Players:GetPlayers()) do
-                            if p == pl then inGame = true break end
-                        end
-                        if (not inGame) and line then
+                -- ล้างเส้นของผู้เล่นที่ออกเกมไปแล้ว (กันเส้นเกินจำนวนผู้เล่น)
+                for pl, line in pairs(XR.tracers) do
+                    if (typeof(pl) ~= "Instance") or (pl.Parent ~= Players) or not seen[pl] then
+                        if line then
                             pcall(function()
                                 line.Visible = false
-                                line:Remove()
+                                if line.Remove then line:Remove() end
                             end)
-                            XR.tracers[pl] = nil
                         end
+                        XR.tracers[pl] = nil
                     end
                 end
             else
