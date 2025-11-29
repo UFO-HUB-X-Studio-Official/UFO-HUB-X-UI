@@ -5216,19 +5216,20 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
--- รายการที่ 1: "ทดลองภาษาอังกฤษ"
+-- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options แบบดรอปดาวน์
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- THEME + HELPERS (Model A V1)
     ------------------------------------------------------------------------
     local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
+        GREEN       = Color3.fromRGB(25,255,125),
+        GREEN_DARK  = Color3.fromRGB(0,120,60),
+        WHITE       = Color3.fromRGB(255,255,255),
+        BLACK       = Color3.fromRGB(0,0,0),
     }
 
     local function corner(ui, r)
@@ -5243,6 +5244,7 @@ registerRight("Shop", function(scroll)
         s.Color = col or THEME.GREEN
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         s.Parent = ui
+        return s
     end
 
     ------------------------------------------------------------------------
@@ -5274,7 +5276,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- HEADER: "V A2 Test 🧪" (สูง 36, GothamBold 16, ซ้าย, สีขาว)
+    -- HEADER: "V A2 Test 🧪"
     ------------------------------------------------------------------------
     local header = Instance.new("TextLabel")
     header.Name = "VA2_Header"
@@ -5289,9 +5291,9 @@ registerRight("Shop", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- ฟังก์ชันสร้างแถวแบบ Model A V1 (ปุ่ม ▶ ด้านขวา)
+    -- ฟังก์ชันสร้างแถวพื้นฐาน (แบบ Model A V1)
     ------------------------------------------------------------------------
-    local function makeRow(name, order, labelText, onClick)
+    local function makeRow(name, order, labelText)
         local row = Instance.new("Frame")
         row.Name = name
         row.Parent = scroll
@@ -5305,7 +5307,7 @@ registerRight("Shop", function(scroll)
         local lab = Instance.new("TextLabel")
         lab.Parent = row
         lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(1, -80, 1, 0)
+        lab.Size = UDim2.new(0.45, -16, 1, 0) -- เว้นที่ด้านขวาให้กล่อง Select
         lab.Position = UDim2.new(0, 16, 0, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
@@ -5313,31 +5315,61 @@ registerRight("Shop", function(scroll)
         lab.TextXAlignment = Enum.TextXAlignment.Left
         lab.Text = labelText
 
-        -- ปุ่ม ▶ ขวา (ไม่มีกรอบ/พื้นหลัง ตามกติกา A V1)
-        local btn = Instance.new("TextButton")
-        btn.Parent = row
-        btn.BackgroundTransparency = 1
-        btn.AnchorPoint = Vector2.new(1, 0.5)
-        btn.Position = UDim2.new(1, -12, 0.5, 0)
-        btn.Size = UDim2.new(0, 24, 0, 24)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 18
-        btn.TextColor3 = THEME.WHITE
-        btn.Text = "▶"
-        btn.AutoButtonColor = false
-
-        if onClick then
-            btn.MouseButton1Click:Connect(onClick)
-        end
-
-        return row
+        return row, lab
     end
 
     ------------------------------------------------------------------------
-    -- รายการที่ 1: "ทดลองภาษาอังกฤษ"
+    -- สร้างแถว + ปุ่ม Select Options แบบกล่องดำมีเส้นเขียว
     ------------------------------------------------------------------------
-    makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ", function()
-        print("[V A2] ทดลองภาษาอังกฤษ ถูกกด")
+    local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
+
+    -- ปุ่ม Select Options (กล่องดำ, เส้นเขียวเข้ม, ตอนกดเขียวนีออน)
+    local selectBtn = Instance.new("TextButton")
+    selectBtn.Name = "VA2_Select"
+    selectBtn.Parent = row
+    selectBtn.AnchorPoint = Vector2.new(1, 0.5)
+    selectBtn.Position = UDim2.new(1, -16, 0.5, 0)
+    selectBtn.Size = UDim2.new(0, 220, 0, 28)
+    selectBtn.BackgroundColor3 = THEME.BLACK
+    selectBtn.AutoButtonColor = false
+    selectBtn.Text = "Select Options"
+    selectBtn.Font = Enum.Font.GothamBold
+    selectBtn.TextSize = 13
+    selectBtn.TextColor3 = THEME.WHITE
+    selectBtn.TextXAlignment = Enum.TextXAlignment.Left
+    selectBtn.TextYAlignment = Enum.TextYAlignment.Center
+    corner(selectBtn, 8)
+
+    local selectStroke = stroke(selectBtn, 1.8, THEME.GREEN_DARK)
+
+    -- Padding ด้านซ้ายให้ตัวหนังสือไม่ชิดขอบเกินไป
+    local padding = Instance.new("UIPadding")
+    padding.Parent = selectBtn
+    padding.PaddingLeft = UDim.new(0, 12)
+    padding.PaddingRight = UDim.new(0, 24)
+
+    -- ลูกศร ▼ อยู่ขวาสุดในกล่อง
+    local arrow = Instance.new("TextLabel")
+    arrow.Parent = selectBtn
+    arrow.AnchorPoint = Vector2.new(1,0.5)
+    arrow.Position = UDim2.new(1, -6, 0.5, 0)
+    arrow.Size = UDim2.new(0, 18, 0, 18)
+    arrow.BackgroundTransparency = 1
+    arrow.Font = Enum.Font.GothamBold
+    arrow.TextSize = 18
+    arrow.TextColor3 = THEME.WHITE
+    arrow.Text = "▼"
+
+    -- เอฟเฟกต์ตอนกด: toggle เส้นจากเขียวเข้ม -> เขียวนีออน
+    local selected = false
+    selectBtn.MouseButton1Click:Connect(function()
+        selected = not selected
+        if selected then
+            selectStroke.Color = THEME.GREEN      -- เขียวนีออนสว่าง
+        else
+            selectStroke.Color = THEME.GREEN_DARK -- เขียวเข้มปกติ
+        end
+        print("[V A2] Select Options clicked, selected =", selected)
     end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
