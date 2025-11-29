@@ -5216,15 +5216,49 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Model A V1 – Base Template (100%) =====
--- ใช้เป็นเทมเพลตหน้าตา Model A V1 ฝั่ง Right
+--===== UFO HUB X • Model A V1 – Base Template + Switch + AA1 =====
+-- ใช้เป็นเทมเพลตหน้าตา Model A V1 ฝั่ง Right (มีทั้ง ▶ / สวิตช์ + AA1)
 
 registerRight("Player", function(scroll)
+    local TweenService = game:GetService("TweenService")
+
+    ------------------------------------------------------------------------
+    -- AA1 SAVE (Runner Style: getgenv().UFOX_SAVE)
+    ------------------------------------------------------------------------
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get = function(_, _, d) return d end,
+        set = function() end
+    }
+
+    -- scope แยกต่อเกม/แมพ เหมือนระบบอื่น ๆ ใน UFO HUB X
+    local SCOPE = ("A1Template/%d/%d"):format(
+        tonumber(game.GameId) or 0,
+        tonumber(game.PlaceId) or 0
+    )
+
+    local function K(k)
+        return SCOPE .. "/" .. k
+    end
+
+    local function SaveGet(key, default)
+        local ok, v = pcall(function()
+            return SAVE.get(K(key), default)
+        end)
+        if ok then return v else return default end
+    end
+
+    local function SaveSet(key, value)
+        pcall(function()
+            SAVE.set(K(key), value)
+        end)
+    end
+
     ------------------------------------------------------------------------
     -- THEME + HELPERS
     ------------------------------------------------------------------------
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
     }
@@ -5241,6 +5275,14 @@ registerRight("Player", function(scroll)
         s.Color = col or THEME.GREEN
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         s.Parent = ui
+    end
+
+    local function tween(o, p, d)
+        TweenService:Create(
+            o,
+            TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            p
+        ):Play()
     end
 
     ------------------------------------------------------------------------
@@ -5283,14 +5325,34 @@ registerRight("Player", function(scroll)
     header.TextSize = 16
     header.TextColor3 = THEME.WHITE
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "Model A V1 • Demo Header"
+    header.Text = "Model A V1 • Demo Header (AA1)"
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- ฟังก์ชันสร้างแถว Model A V1 มาตรฐาน (สูง 46, ดำ + เส้นเขียว)
-    -- ปุ่มขวา = สัญลักษณ์ ▶ เดี่ยว ๆ (ไม่มีกรอบ)
+    -- STATE + AA1 (อ่านจาก SAVE ทันทีที่โหลด)
     ------------------------------------------------------------------------
-    local function makeRow(name, order, labelText, onClick)
+    -- ค่าเริ่มต้นอ่านมาจาก Save (AA1 = auto-run)
+    local feature1On = SaveGet("feature1On", false)
+    local feature2On = SaveGet("feature2On", false)
+
+    -- ตรงนี้ในระบบจริง นายเอาไปแทนด้วยลอจิกของฟีเจอร์
+    local function applyFeature1()
+        -- ตัวอย่าง: print / ใส่ระบบจริงของนายตรงนี้
+        print("[AA1] Apply Feature1, state =", feature1On)
+    end
+
+    local function applyFeature2()
+        print("[AA1] Apply Feature2, state =", feature2On)
+    end
+
+    -- AA1: เรียกใช้ทันทีตอนโหลด โดยไม่ต้องกดสวิตช์
+    applyFeature1()
+    applyFeature2()
+
+    ------------------------------------------------------------------------
+    -- แถวแบบปุ่ม ▶ (กดครั้งเดียว ทำ action)
+    ------------------------------------------------------------------------
+    local function makeRowButton(name, order, labelText, onClick)
         local row = Instance.new("Frame")
         row.Name = name
         row.Parent = scroll
@@ -5333,22 +5395,104 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
+    -- แถวแบบสวิตช์เปิด–ปิด (ใช้ดีไซน์เดียวกับ X-Ray / Player tab)
+    ------------------------------------------------------------------------
+    local function makeRowSwitch(name, order, labelText, getState, setState)
+        local row = Instance.new("Frame")
+        row.Name = name
+        row.Parent = scroll
+        row.Size = UDim2.new(1, -6, 0, 46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row, 12)
+        stroke(row, 2.2, THEME.GREEN)
+        row.LayoutOrder = order
+
+        -- Label ซ้าย
+        local lab = Instance.new("TextLabel")
+        lab.Parent = row
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1, -160, 1, 0)
+        lab.Position = UDim2.new(0, 16, 0, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
+
+        -- กล่องสวิตช์ขวา
+        local sw = Instance.new("Frame")
+        sw.Parent = row
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1, -12, 0.5, 0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw, 13)
+
+        local swStroke = Instance.new("UIStroke")
+        swStroke.Parent = sw
+        swStroke.Thickness = 1.8
+
+        local knob = Instance.new("Frame")
+        knob.Parent = sw
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
+
+        local function update(on)
+            swStroke.Color = on and THEME.GREEN or THEME.RED
+            tween(knob, {
+                Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
+            }, 0.08)
+        end
+
+        local btn = Instance.new("TextButton")
+        btn.Parent = sw
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+
+        btn.MouseButton1Click:Connect(function()
+            local new = not getState()
+            setState(new)
+            update(new)
+        end)
+
+        update(getState())
+
+        return row
+    end
+
+    ------------------------------------------------------------------------
     -- ตัวอย่างแถว (นายเปลี่ยนชื่อ/ลอจิกเองได้)
     ------------------------------------------------------------------------
-    makeRow("A_Row1", base + 2, "Example Row 1", function()
-        print("Clicked Row 1")
+    -- Row1: ปุ่ม ▶ ปกติ
+    makeRowButton("A_Row1", base + 2, "Example Button Row", function()
+        print("Clicked Button Row")
     end)
 
-    makeRow("A_Row2", base + 3, "Example Row 2", function()
-        print("Clicked Row 2")
+    -- Row2: สวิตช์เปิดปิด (ผูกกับ feature1On + AA1 Save)
+    makeRowSwitch("A_Row2", base + 3, "Example Switch 1", function()
+        return feature1On
+    end, function(v)
+        feature1On = v
+        SaveSet("feature1On", v)   -- เซฟสถานะ
+        applyFeature1()            -- apply ใหม่ทุกครั้งที่เปลี่ยน
     end)
 
-    makeRow("A_Row3", base + 4, "Example Row 3", function()
-        print("Clicked Row 3")
+    -- Row3: สวิตช์เปิดปิดอีกอัน (feature2On + AA1 Save)
+    makeRowSwitch("A_Row3", base + 4, "Example Switch 2", function()
+        return feature2On
+    end, function(v)
+        feature2On = v
+        SaveSet("feature2On", v)
+        applyFeature2()
     end)
 
-    makeRow("A_Row4", base + 5, "Example Row 4", function()
-        print("Clicked Row 4")
+    -- Row4: ปุ่ม ▶ อีกอัน
+    makeRowButton("A_Row4", base + 5, "Example Button Row 2", function()
+        print("Clicked Button Row 2")
     end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
