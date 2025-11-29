@@ -2849,19 +2849,18 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
---===== UFO HUB X • Player — Warp to Player (Model A V1) =====
--- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
--- ระบบ: เลือกเป้าหมาย + โหมดวาร์ป/บิน + ปุ่มเริ่ม
+--===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 style) =====
+-- ใช้ในแท็บ Player ฝั่งขวา
 
 registerRight("Player", function(scroll)
-    local Players   = game:GetService("Players")
+    local Players      = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local RunService   = game:GetService("RunService")
     local CoreGui      = game:GetService("CoreGui")
-    local lp        = Players.LocalPlayer
+    local lp           = Players.LocalPlayer
 
     ------------------------------------------------------------------------
-    -- THEME + HELPERS (Model A V1)
+    -- THEME + HELPERS
     ------------------------------------------------------------------------
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
@@ -2869,6 +2868,7 @@ registerRight("Player", function(scroll)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
+        DARK  = Color3.fromRGB(20,20,20),
     }
 
     local function corner(ui,r)
@@ -2894,7 +2894,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- GLOBAL STATE สำหรับ Warp
+    -- GLOBAL STATE
     ------------------------------------------------------------------------
     _G.UFOX_WARP = _G.UFOX_WARP or {
         targetUserId = nil,    -- เป้าหมายที่เลือก (UserId)
@@ -2921,15 +2921,13 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- PLAYER PICKER (Popup เลือกชื่อผู้เล่น)
+    -- PLAYER PICKER POPUP (ใช้ตอน Row1 ▶)
     ------------------------------------------------------------------------
     local PICKER_GUI_NAME = "UFOX_WarpPlayerPicker"
 
     local function destroyPicker()
         local exist = CoreGui:FindFirstChild(PICKER_GUI_NAME)
-        if exist then
-            exist:Destroy()
-        end
+        if exist then exist:Destroy() end
     end
 
     local function openPicker(onChosen)
@@ -3100,7 +3098,6 @@ registerRight("Player", function(scroll)
     local function startAction()
         local targetPl = getTargetPlayer()
         if not targetPl then
-            -- ไม่มีเป้าหมาย -> ไม่ทำอะไร (ลดข้อความกวน)
             return
         end
 
@@ -3112,15 +3109,13 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UI BUILD (Model A V1)
+    -- UI BUILD (Model A V1 + Row1 = A V2)
     ------------------------------------------------------------------------
-    -- ลบของเดิม (ถ้ามี)
     for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
     end
 
-    -- UIListLayout เดิม
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
         vlist = Instance.new("UIListLayout", scroll)
@@ -3129,7 +3124,6 @@ registerRight("Player", function(scroll)
     end
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- หาค่า base order ปัจจุบัน (ต่อท้าย)
     local base = 0
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -3137,7 +3131,7 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Header
+    -- Header = ชื่อระบบ (ภาษาอังกฤษ + emoji)
     local header = Instance.new("TextLabel", scroll)
     header.Name = "WARP_Header"
     header.BackgroundTransparency = 1
@@ -3146,13 +3140,13 @@ registerRight("Player", function(scroll)
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "Warp to Player 🌀"
+    header.Text = "Warp to Player 🛸"
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- สร้างแถวแบบสวิตช์ (Row2 + Row3)
+    -- สวิตช์แถว (Row2 + Row3) - A V1
     ------------------------------------------------------------------------
-    local row2Switch, row3Switch -- reference ไปอัปเดตสีตอนเปลี่ยนโหมด
+    local row2Switch, row3Switch
 
     local function makeSwitchRow(name, order, labelText, getOn, setOn)
         local row = Instance.new("Frame", scroll)
@@ -3205,21 +3199,22 @@ registerRight("Player", function(scroll)
         btn.MouseButton1Click:Connect(function()
             local new = not getOn()
             setOn(new)
+            updateVisual(new)   -- แก้บัค: ให้สวิตช์ขยับตามจริง
         end)
 
         updateVisual(getOn())
 
         return {
-            row = row,
-            sw  = sw,
+            row    = row,
+            sw     = sw,
             stroke = swStroke,
-            knob = knob,
+            knob   = knob,
             update = updateVisual,
         }
     end
 
     ------------------------------------------------------------------------
-    -- Row 1: เลือกผู้เล่น (ใช้ concept A V2: มี action ▶ เปิด popup)
+    -- Row 1: เลือกผู้เล่น (Model A V2 style)
     ------------------------------------------------------------------------
     local row1 = Instance.new("Frame", scroll)
     row1.Name = "WARP_Row1"
@@ -3229,10 +3224,17 @@ registerRight("Player", function(scroll)
     stroke(row1,2.2,THEME.GREEN)
     row1.LayoutOrder = base + 2
 
+    -- LEFT GREEN BAR (A V2 effect)
+    local leftBar = Instance.new("Frame", row1)
+    leftBar.BackgroundColor3 = THEME.GREEN
+    leftBar.Size = UDim2.new(0,3,1,0)
+    leftBar.Position = UDim2.new(0,0,0,0)
+    leftBar.BorderSizePixel = 0
+
     local lab1 = Instance.new("TextLabel", row1)
     lab1.BackgroundTransparency = 1
-    lab1.Size = UDim2.new(1,-160,1,0)
-    lab1.Position = UDim2.new(0,16,0,0)
+    lab1.Size = UDim2.new(1,-180,1,0)
+    lab1.Position = UDim2.new(0,12,0,0)
     lab1.Font = Enum.Font.GothamBold
     lab1.TextSize = 13
     lab1.TextColor3 = THEME.WHITE
@@ -3242,7 +3244,7 @@ registerRight("Player", function(scroll)
     local selectedLabel = Instance.new("TextLabel", row1)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.AnchorPoint = Vector2.new(1,0.5)
-    selectedLabel.Position = UDim2.new(1,-44,0.5,0)
+    selectedLabel.Position = UDim2.new(1,-40,0.5,0)
     selectedLabel.Size = UDim2.new(0,120,0,20)
     selectedLabel.Font = Enum.Font.Gotham
     selectedLabel.TextSize = 12
@@ -3252,9 +3254,14 @@ registerRight("Player", function(scroll)
 
     local arrowBtn = Instance.new("TextButton", row1)
     arrowBtn.AnchorPoint = Vector2.new(1,0.5)
-    arrowBtn.Position = UDim2.new(1,-12,0.5,0)
+    arrowBtn.Position = UDim2.new(1,-10,0.5,0)
     arrowBtn.Size = UDim2.new(0,24,0,24)
-    arrowBtn.BackgroundTransparency = 1
+    arrowBtn.BackgroundColor3 = THEME.BLACK
+    arrowBtn.AutoButtonColor = false
+    corner(arrowBtn,12)
+    local arrowStroke = Instance.new("UIStroke", arrowBtn)
+    arrowStroke.Thickness = 1.4
+    arrowStroke.Color = THEME.GREEN
     arrowBtn.Font = Enum.Font.GothamBold
     arrowBtn.TextSize = 18
     arrowBtn.TextColor3 = THEME.WHITE
@@ -3272,6 +3279,11 @@ registerRight("Player", function(scroll)
     refreshSelectedLabel()
 
     arrowBtn.MouseButton1Click:Connect(function()
+        tween(arrowBtn,{BackgroundColor3 = THEME.DARK},0.06)
+        task.delay(0.08, function()
+            tween(arrowBtn,{BackgroundColor3 = THEME.BLACK},0.08)
+        end)
+
         openPicker(function(pl)
             WARP.targetUserId = pl.UserId
             refreshSelectedLabel()
@@ -3279,7 +3291,7 @@ registerRight("Player", function(scroll)
     end)
 
     ------------------------------------------------------------------------
-    -- Row 2: โหมดวาร์ปทันที (warp)
+    -- Row 2: Warp to Player (Instant) - โหมด 1
     ------------------------------------------------------------------------
     row2Switch = makeSwitchRow(
         "WARP_Row2",
@@ -3289,23 +3301,23 @@ registerRight("Player", function(scroll)
         function(on)
             if on then
                 WARP.mode = "warp"
+                -- ปิดโหมดบิน
+                if row3Switch then
+                    row3Switch.update(false)
+                end
             else
                 if WARP.mode == "warp" then
                     WARP.mode = "none"
                 end
             end
-            -- ปิดอีกโหมด
-            if WARP.mode == "warp" and row3Switch then
-                row3Switch.update(false)
-            end
-            if not on and WARP.mode == "none" then
+            if WARP.mode == "none" then
                 stopFly()
             end
         end
     )
 
     ------------------------------------------------------------------------
-    -- Row 3: โหมดบินไปหา (fly)
+    -- Row 3: Fly to Player (Smooth) - โหมด 2
     ------------------------------------------------------------------------
     row3Switch = makeSwitchRow(
         "WARP_Row3",
@@ -3315,14 +3327,14 @@ registerRight("Player", function(scroll)
         function(on)
             if on then
                 WARP.mode = "fly"
+                -- ปิดโหมดวาร์ปทันที
+                if row2Switch then
+                    row2Switch.update(false)
+                end
             else
                 if WARP.mode == "fly" then
                     WARP.mode = "none"
                 end
-            end
-            -- ปิดอีกโหมด
-            if WARP.mode == "fly" and row2Switch then
-                row2Switch.update(false)
             end
             if not on then
                 stopFly()
@@ -3331,7 +3343,7 @@ registerRight("Player", function(scroll)
     )
 
     ------------------------------------------------------------------------
-    -- Row 4: ปุ่ม Start (Go)
+    -- Row 4: ปุ่ม Start (ให้ดูเป็นปุ่มจริง ๆ)
     ------------------------------------------------------------------------
     local row4 = Instance.new("Frame", scroll)
     row4.Name = "WARP_Row4"
@@ -3341,25 +3353,34 @@ registerRight("Player", function(scroll)
     stroke(row4,2.2,THEME.GREEN)
     row4.LayoutOrder = base + 5
 
-    local lab4 = Instance.new("TextLabel", row4)
-    lab4.BackgroundTransparency = 1
-    lab4.Size = UDim2.new(1,-40,1,0)
-    lab4.Position = UDim2.new(0,16,0,0)
-    lab4.Font = Enum.Font.GothamBold
-    lab4.TextSize = 13
-    lab4.TextColor3 = THEME.WHITE
-    lab4.TextXAlignment = Enum.TextXAlignment.Left
-    lab4.Text = "Start"
+    -- ปุ่มอยู่ตรงกลาง
+    local btnFrame = Instance.new("Frame", row4)
+    btnFrame.AnchorPoint = Vector2.new(0.5,0.5)
+    btnFrame.Position = UDim2.new(0.5,0,0.5,0)
+    btnFrame.Size = UDim2.new(0.5,0,0,30)
+    btnFrame.BackgroundColor3 = THEME.DARK
+    corner(btnFrame,10)
+    stroke(btnFrame,2,THEME.GREEN)
 
-    local goArrow = Instance.new("TextLabel", row4)
-    goArrow.AnchorPoint = Vector2.new(1,0.5)
-    goArrow.Position = UDim2.new(1,-16,0.5,0)
-    goArrow.Size = UDim2.new(0,24,0,24)
-    goArrow.BackgroundTransparency = 1
-    goArrow.Font = Enum.Font.GothamBold
-    goArrow.TextSize = 18
-    goArrow.TextColor3 = THEME.GREEN
-    goArrow.Text = "▶"
+    local btnText = Instance.new("TextLabel", btnFrame)
+    btnText.BackgroundTransparency = 1
+    btnText.Size = UDim2.new(1,-24,1,0)
+    btnText.Position = UDim2.new(0,10,0,0)
+    btnText.Font = Enum.Font.GothamBold
+    btnText.TextSize = 14
+    btnText.TextColor3 = THEME.WHITE
+    btnText.TextXAlignment = Enum.TextXAlignment.Left
+    btnText.Text = "Start"
+
+    local btnArrow = Instance.new("TextLabel", btnFrame)
+    btnArrow.AnchorPoint = Vector2.new(1,0.5)
+    btnArrow.Position = UDim2.new(1,-6,0.5,0)
+    btnArrow.Size = UDim2.new(0,18,0,18)
+    btnArrow.BackgroundTransparency = 1
+    btnArrow.Font = Enum.Font.GothamBold
+    btnArrow.TextSize = 18
+    btnArrow.TextColor3 = THEME.GREEN
+    btnArrow.Text = "▶"
 
     local btn4 = Instance.new("TextButton", row4)
     btn4.BackgroundTransparency = 1
@@ -3368,6 +3389,10 @@ registerRight("Player", function(scroll)
     btn4.AutoButtonColor = false
 
     btn4.MouseButton1Click:Connect(function()
+        tween(btnFrame,{BackgroundColor3 = THEME.BLACK},0.06)
+        task.delay(0.08,function()
+            tween(btnFrame,{BackgroundColor3 = THEME.DARK},0.08)
+        end)
         startAction()
     end)
 end)
