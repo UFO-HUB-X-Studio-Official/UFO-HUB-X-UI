@@ -1867,16 +1867,40 @@ registerRight("Player", function(scroll)
     local ESP_NAME             = "UFO_XRAY_HL"
     local FOOT_BEAM_PREFIX     = "UFO_FootBeam_"
     local FOOT_LINES_FOLDER    = "UFO_FootLines"
+    local FOOT_HANDLE_NAME     = "UFO_FootHandle"
     local NAME_TAG_NAME        = "UFO_NameTag"
+    local DISABLED_ATTR        = "UFOX_OrigEnabled"
 
     --------------------------------------------------------------------
-    -- AA1 RESTORE: โหลดสถานะจาก SaveState → ตั้งค่า XR.* ตั้งแต่ต้น
+    -- AA1 RESTORE
     --------------------------------------------------------------------
     XR.xrayEnabled  = (getSave("Player.XRay.Enabled",  XR.xrayEnabled)  and true or false)
     XR.feetEnabled  = (getSave("Player.XRay.Feet",     XR.feetEnabled)  and true or false)
     XR.namesEnabled = (getSave("Player.XRay.Names",    XR.namesEnabled) and true or false)
 
-    -- ===== CLEAR HELPERS =====
+    -- ===== HELPERS =====
+    local function getFootFolderAndHandle()
+        local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
+        if not folder then
+            folder = Instance.new("Folder")
+            folder.Name = FOOT_LINES_FOLDER
+            folder.Parent = workspace
+        end
+        local handle = folder:FindFirstChild(FOOT_HANDLE_NAME)
+        if not handle then
+            handle = Instance.new("Part")
+            handle.Name = FOOT_HANDLE_NAME
+            handle.Anchored = true
+            handle.CanCollide = false
+            handle.CanTouch = false
+            handle.CanQuery = false
+            handle.Transparency = 1
+            handle.Size = Vector3.new(1,1,1)
+            handle.Parent = folder
+        end
+        return folder, handle
+    end
+
     local function clearHighlights()
         for _,pl in ipairs(Players:GetPlayers()) do
             if pl ~= lp then
@@ -1903,10 +1927,17 @@ registerRight("Player", function(scroll)
                 if char then
                     local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
                     if head then
-                        -- ลบทุก BillboardGui ที่เป็น NameTag ของเรา
                         for _,child in ipairs(head:GetChildren()) do
-                            if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
-                                child:Destroy()
+                            if child:IsA("BillboardGui") then
+                                if child.Name == NAME_TAG_NAME then
+                                    child:Destroy()
+                                else
+                                    local orig = child:GetAttribute(DISABLED_ATTR)
+                                    if orig ~= nil then
+                                        child.Enabled = orig
+                                        child:SetAttribute(DISABLED_ATTR, nil)
+                                    end
+                                end
                             end
                         end
                     end
@@ -1948,7 +1979,7 @@ registerRight("Player", function(scroll)
                                     hl = Instance.new("Highlight")
                                     hl.Name = ESP_NAME
                                     hl.FillColor    = THEME.GREEN
-                                    hl.OutlineColor = THEME.WHITE      -- ขอบขาว
+                                    hl.OutlineColor = THEME.WHITE
                                     hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
                                     hl.Parent = char
                                 end
@@ -1960,16 +1991,11 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) – ใช้ LineHandleAdornment ให้เห็นทะลุกำแพง =====
+            -- ===== FOOT LINE (Row 2) – LineHandleAdornment + Handle Part =====
             if XR.feetEnabled and lhrp then
-                local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
-                if not folder then
-                    folder = Instance.new("Folder")
-                    folder.Name = FOOT_LINES_FOLDER
-                    folder.Parent = workspace
-                end
+                local folder, handle = getFootFolderAndHandle()
 
-                -- เคลียร์เส้นเก่าทั้งหมดทุกเฟรม แล้ววาดใหม่
+                -- ลบเส้นเก่าทั้งหมด
                 for _,child in ipairs(folder:GetChildren()) do
                     if child:IsA("LineHandleAdornment") then
                         child:Destroy()
@@ -1977,6 +2003,7 @@ registerRight("Player", function(scroll)
                 end
 
                 local origin = lhrp.Position + Vector3.new(0,-3,0)
+                handle.CFrame = CFrame.new(origin)
 
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
@@ -1992,10 +2019,13 @@ registerRight("Player", function(scroll)
                                 line.Color3      = THEME.GREEN
                                 line.Thickness   = 0.08
                                 line.Length      = dist
-                                line.AlwaysOnTop = true -- เห็นทะลุกำแพง/สิ่งของ
+                                line.AlwaysOnTop = true
                                 line.ZIndex      = 1
-                                line.Adornee     = workspace.Terrain
-                                line.CFrame      = CFrame.new(origin, targetPos) * CFrame.new(0,0,-dist/2)
+                                line.Adornee     = handle
+
+                                local worldCF = CFrame.new(origin, targetPos)
+                                line.CFrame = handle.CFrame:ToObjectSpace(worldCF) * CFrame.new(0,0,-dist/2)
+
                                 line.Parent      = folder
                             end
                         end
@@ -2012,7 +2042,17 @@ registerRight("Player", function(scroll)
                         local char = pl.Character
                         local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
                         if head then
-                            -- กันชื่อซ้อน: ให้เหลือ BillboardGui ชื่อ UFO_NameTag แค่ 1 อัน
+                            -- ปิด BillboardGui อื่น ๆ ที่เป็นชื่อจากเกมเดิม
+                            for _,child in ipairs(head:GetChildren()) do
+                                if child:IsA("BillboardGui") and child.Name ~= NAME_TAG_NAME then
+                                    if child:GetAttribute(DISABLED_ATTR) == nil then
+                                        child:SetAttribute(DISABLED_ATTR, child.Enabled)
+                                    end
+                                    child.Enabled = false
+                                end
+                            end
+
+                            -- กัน UFO_NameTag ซ้อน: ให้เหลือแค่ 1
                             local primaryTag = nil
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
@@ -2030,8 +2070,8 @@ registerRight("Player", function(scroll)
                                 tag.Name = NAME_TAG_NAME
                                 tag.Size = UDim2.new(0,120,0,30)
                                 tag.StudsOffset = Vector3.new(0, 3, 0)
-                                tag.AlwaysOnTop = true        -- เห็นทะลุทุกอย่าง
-                                tag.MaxDistance = 10000       -- เห็นไกล
+                                tag.AlwaysOnTop = true
+                                tag.MaxDistance = 10000
                                 tag.Adornee     = head
                                 tag.Parent      = head
 
@@ -2040,8 +2080,8 @@ registerRight("Player", function(scroll)
                                 lbl.Size = UDim2.new(1,0,1,0)
                                 lbl.Font = Enum.Font.GothamBold
                                 lbl.TextScaled = true
-                                lbl.TextColor3 = THEME.WHITE        -- ตัวอักษรขาว
-                                lbl.TextStrokeColor3 = THEME.GREEN -- ขอบเขียว
+                                lbl.TextColor3 = THEME.WHITE
+                                lbl.TextStrokeColor3 = THEME.GREEN
                                 lbl.TextStrokeTransparency = 0
                                 lbl.Text = ""
                             end
@@ -2209,7 +2249,7 @@ registerRight("Player", function(scroll)
         setNamesEnabled
     )
 
-    -- AA1: ถ้ามี state เปิดไว้จาก Save → ให้ระบบทำงานต่อทันที
+    -- AA1 auto-run
     if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
         ensureLoop()
     end
