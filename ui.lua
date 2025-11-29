@@ -2849,6 +2849,528 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
+--===== UFO HUB X • Player — Warp to Player (Model A V1) =====
+-- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
+-- ระบบ: เลือกเป้าหมาย + โหมดวาร์ป/บิน + ปุ่มเริ่ม
+
+registerRight("Player", function(scroll)
+    local Players   = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local RunService   = game:GetService("RunService")
+    local CoreGui      = game:GetService("CoreGui")
+    local lp        = Players.LocalPlayer
+
+    ------------------------------------------------------------------------
+    -- THEME + HELPERS (Model A V1)
+    ------------------------------------------------------------------------
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+        TEXT  = Color3.fromRGB(255,255,255),
+    }
+
+    local function corner(ui,r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0,r or 12)
+        c.Parent = ui
+    end
+
+    local function stroke(ui,th,col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2.2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+    end
+
+    local function tween(o,p,d)
+        TweenService:Create(
+            o,
+            TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            p
+        ):Play()
+    end
+
+    ------------------------------------------------------------------------
+    -- GLOBAL STATE สำหรับ Warp
+    ------------------------------------------------------------------------
+    _G.UFOX_WARP = _G.UFOX_WARP or {
+        targetUserId = nil,    -- เป้าหมายที่เลือก (UserId)
+        mode         = "none", -- "none" | "warp" | "fly"
+        flyConn      = nil,
+    }
+    local WARP = _G.UFOX_WARP
+
+    local function getTargetPlayer()
+        if not WARP.targetUserId then return nil end
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl.UserId == WARP.targetUserId then
+                return pl
+            end
+        end
+        return nil
+    end
+
+    local function stopFly()
+        if WARP.flyConn then
+            pcall(function() WARP.flyConn:Disconnect() end)
+            WARP.flyConn = nil
+        end
+    end
+
+    ------------------------------------------------------------------------
+    -- PLAYER PICKER (Popup เลือกชื่อผู้เล่น)
+    ------------------------------------------------------------------------
+    local PICKER_GUI_NAME = "UFOX_WarpPlayerPicker"
+
+    local function destroyPicker()
+        local exist = CoreGui:FindFirstChild(PICKER_GUI_NAME)
+        if exist then
+            exist:Destroy()
+        end
+    end
+
+    local function openPicker(onChosen)
+        destroyPicker()
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name = PICKER_GUI_NAME
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        gui.Parent = CoreGui
+
+        local root = Instance.new("Frame", gui)
+        root.AnchorPoint = Vector2.new(0.5,0.5)
+        root.Position = UDim2.new(0.5,0,0.5,0)
+        root.Size = UDim2.new(0,260,0,260)
+        root.BackgroundColor3 = THEME.BLACK
+        root.BackgroundTransparency = 0.1
+        corner(root,12)
+        stroke(root,2.2,THEME.GREEN)
+
+        local title = Instance.new("TextLabel", root)
+        title.BackgroundTransparency = 1
+        title.Size = UDim2.new(1,-24,0,30)
+        title.Position = UDim2.new(0,12,0,8)
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 16
+        title.TextColor3 = THEME.TEXT
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Text = "Select Target Player"
+
+        local closeBtn = Instance.new("TextButton", root)
+        closeBtn.AnchorPoint = Vector2.new(1,0.5)
+        closeBtn.Position = UDim2.new(1,-8,0,23)
+        closeBtn.Size = UDim2.new(0,24,0,24)
+        closeBtn.BackgroundTransparency = 1
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 18
+        closeBtn.TextColor3 = THEME.RED
+        closeBtn.Text = "X"
+
+        local listHolder = Instance.new("Frame", root)
+        listHolder.Position = UDim2.new(0,12,0,44)
+        listHolder.Size = UDim2.new(1,-24,1,-56)
+        listHolder.BackgroundTransparency = 1
+
+        local scroll = Instance.new("ScrollingFrame", listHolder)
+        scroll.Size = UDim2.new(1,0,1,0)
+        scroll.CanvasSize = UDim2.new(0,0,0,0)
+        scroll.ScrollBarThickness = 4
+        scroll.ScrollBarImageTransparency = 0.3
+        scroll.BackgroundTransparency = 1
+
+        local layout = Instance.new("UIListLayout", scroll)
+        layout.Padding = UDim.new(0,6)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        local function refreshPlayers()
+            for _,ch in ipairs(scroll:GetChildren()) do
+                if ch:IsA("TextButton") then ch:Destroy() end
+            end
+
+            for _,pl in ipairs(Players:GetPlayers()) do
+                if pl ~= lp then
+                    local btn = Instance.new("TextButton", scroll)
+                    btn.Size = UDim2.new(1,0,0,28)
+                    btn.BackgroundColor3 = THEME.BLACK
+                    btn.AutoButtonColor = false
+                    corner(btn,8)
+                    stroke(btn,1.4,THEME.GREEN)
+                    btn.Font = Enum.Font.Gotham
+                    btn.TextSize = 13
+                    btn.TextColor3 = THEME.WHITE
+                    local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+                    btn.Text = display
+
+                    btn.MouseButton1Click:Connect(function()
+                        if onChosen then
+                            onChosen(pl)
+                        end
+                        destroyPicker()
+                    end)
+                end
+            end
+
+            task.defer(function()
+                scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 4)
+            end)
+        end
+
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 4)
+        end)
+
+        closeBtn.MouseButton1Click:Connect(destroyPicker)
+        Players.PlayerAdded:Connect(refreshPlayers)
+        Players.PlayerRemoving:Connect(refreshPlayers)
+
+        refreshPlayers()
+    end
+
+    ------------------------------------------------------------------------
+    -- ACTIONS: WARP / FLY
+    ------------------------------------------------------------------------
+    local function getHumanoidRoot(player)
+        player = player or lp
+        if not player then return nil end
+        local ch = player.Character
+        if not ch then return nil end
+        return ch:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function doInstantWarp()
+        stopFly()
+        local targetPl = getTargetPlayer()
+        local hrpSelf  = getHumanoidRoot(lp)
+        local hrpTarget= getHumanoidRoot(targetPl)
+        if not hrpSelf or not hrpTarget then return end
+
+        local targetPos = hrpTarget.Position + Vector3.new(0,3,0)
+        pcall(function()
+            hrpSelf.CFrame = CFrame.new(targetPos, targetPos + hrpTarget.CFrame.LookVector)
+        end)
+    end
+
+    local function doFlyWarp()
+        stopFly()
+
+        local targetPl = getTargetPlayer()
+        local hrpSelf  = getHumanoidRoot(lp)
+        local hrpTarget= getHumanoidRoot(targetPl)
+        if not hrpSelf or not hrpTarget then return end
+
+        local speed = 60 -- studs/sec
+
+        WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
+            local selfHRP  = getHumanoidRoot(lp)
+            local tgtHRP   = getHumanoidRoot(getTargetPlayer())
+            if not selfHRP or not tgtHRP then
+                stopFly()
+                return
+            end
+
+            if WARP.mode ~= "fly" then
+                stopFly()
+                return
+            end
+
+            local pos       = selfHRP.Position
+            local targetPos = tgtHRP.Position + Vector3.new(0,3,0)
+            local diff      = targetPos - pos
+            local dist      = diff.Magnitude
+
+            if dist < 2 then
+                stopFly()
+                return
+            end
+
+            local step = math.min(dist, speed * dt)
+            local dir  = diff.Unit
+
+            pcall(function()
+                selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
+            end)
+        end)
+    end
+
+    local function startAction()
+        local targetPl = getTargetPlayer()
+        if not targetPl then
+            -- ไม่มีเป้าหมาย -> ไม่ทำอะไร (ลดข้อความกวน)
+            return
+        end
+
+        if WARP.mode == "warp" then
+            doInstantWarp()
+        elseif WARP.mode == "fly" then
+            doFlyWarp()
+        end
+    end
+
+    ------------------------------------------------------------------------
+    -- UI BUILD (Model A V1)
+    ------------------------------------------------------------------------
+    -- ลบของเดิม (ถ้ามี)
+    for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4"}) do
+        local o = scroll:FindFirstChild(n)
+        if o then o:Destroy() end
+    end
+
+    -- UIListLayout เดิม
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout", scroll)
+        vlist.Padding   = UDim.new(0,12)
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    -- หาค่า base order ปัจจุบัน (ต่อท้าย)
+    local base = 0
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= vlist then
+            base = math.max(base, ch.LayoutOrder or 0)
+        end
+    end
+
+    -- Header
+    local header = Instance.new("TextLabel", scroll)
+    header.Name = "WARP_Header"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1,0,0,36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.TEXT
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Warp to Player 🌀"
+    header.LayoutOrder = base + 1
+
+    ------------------------------------------------------------------------
+    -- สร้างแถวแบบสวิตช์ (Row2 + Row3)
+    ------------------------------------------------------------------------
+    local row2Switch, row3Switch -- reference ไปอัปเดตสีตอนเปลี่ยนโหมด
+
+    local function makeSwitchRow(name, order, labelText, getOn, setOn)
+        local row = Instance.new("Frame", scroll)
+        row.Name = name
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row,12)
+        stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder = order
+
+        local lab = Instance.new("TextLabel", row)
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1,-160,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
+
+        local sw = Instance.new("Frame", row)
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1,-12,0.5,0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw,13)
+
+        local swStroke = Instance.new("UIStroke", sw)
+        swStroke.Thickness = 1.8
+
+        local knob = Instance.new("Frame", sw)
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
+
+        local function updateVisual(on)
+            swStroke.Color = on and THEME.GREEN or THEME.RED
+            tween(knob,{
+                Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5,-11)
+            },0.08)
+        end
+
+        local btn = Instance.new("TextButton", sw)
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+
+        btn.MouseButton1Click:Connect(function()
+            local new = not getOn()
+            setOn(new)
+        end)
+
+        updateVisual(getOn())
+
+        return {
+            row = row,
+            sw  = sw,
+            stroke = swStroke,
+            knob = knob,
+            update = updateVisual,
+        }
+    end
+
+    ------------------------------------------------------------------------
+    -- Row 1: เลือกผู้เล่น (ใช้ concept A V2: มี action ▶ เปิด popup)
+    ------------------------------------------------------------------------
+    local row1 = Instance.new("Frame", scroll)
+    row1.Name = "WARP_Row1"
+    row1.Size = UDim2.new(1,-6,0,46)
+    row1.BackgroundColor3 = THEME.BLACK
+    corner(row1,12)
+    stroke(row1,2.2,THEME.GREEN)
+    row1.LayoutOrder = base + 2
+
+    local lab1 = Instance.new("TextLabel", row1)
+    lab1.BackgroundTransparency = 1
+    lab1.Size = UDim2.new(1,-160,1,0)
+    lab1.Position = UDim2.new(0,16,0,0)
+    lab1.Font = Enum.Font.GothamBold
+    lab1.TextSize = 13
+    lab1.TextColor3 = THEME.WHITE
+    lab1.TextXAlignment = Enum.TextXAlignment.Left
+    lab1.Text = "Select Target Player"
+
+    local selectedLabel = Instance.new("TextLabel", row1)
+    selectedLabel.BackgroundTransparency = 1
+    selectedLabel.AnchorPoint = Vector2.new(1,0.5)
+    selectedLabel.Position = UDim2.new(1,-44,0.5,0)
+    selectedLabel.Size = UDim2.new(0,120,0,20)
+    selectedLabel.Font = Enum.Font.Gotham
+    selectedLabel.TextSize = 12
+    selectedLabel.TextColor3 = THEME.GREEN
+    selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
+    selectedLabel.Text = ""
+
+    local arrowBtn = Instance.new("TextButton", row1)
+    arrowBtn.AnchorPoint = Vector2.new(1,0.5)
+    arrowBtn.Position = UDim2.new(1,-12,0.5,0)
+    arrowBtn.Size = UDim2.new(0,24,0,24)
+    arrowBtn.BackgroundTransparency = 1
+    arrowBtn.Font = Enum.Font.GothamBold
+    arrowBtn.TextSize = 18
+    arrowBtn.TextColor3 = THEME.WHITE
+    arrowBtn.Text = "▶"
+
+    local function refreshSelectedLabel()
+        local pl = getTargetPlayer()
+        if pl then
+            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+            selectedLabel.Text = display
+        else
+            selectedLabel.Text = ""
+        end
+    end
+    refreshSelectedLabel()
+
+    arrowBtn.MouseButton1Click:Connect(function()
+        openPicker(function(pl)
+            WARP.targetUserId = pl.UserId
+            refreshSelectedLabel()
+        end)
+    end)
+
+    ------------------------------------------------------------------------
+    -- Row 2: โหมดวาร์ปทันที (warp)
+    ------------------------------------------------------------------------
+    row2Switch = makeSwitchRow(
+        "WARP_Row2",
+        base + 3,
+        "Warp to Player (Instant)",
+        function() return WARP.mode == "warp" end,
+        function(on)
+            if on then
+                WARP.mode = "warp"
+            else
+                if WARP.mode == "warp" then
+                    WARP.mode = "none"
+                end
+            end
+            -- ปิดอีกโหมด
+            if WARP.mode == "warp" and row3Switch then
+                row3Switch.update(false)
+            end
+            if not on and WARP.mode == "none" then
+                stopFly()
+            end
+        end
+    )
+
+    ------------------------------------------------------------------------
+    -- Row 3: โหมดบินไปหา (fly)
+    ------------------------------------------------------------------------
+    row3Switch = makeSwitchRow(
+        "WARP_Row3",
+        base + 4,
+        "Fly to Player (Smooth)",
+        function() return WARP.mode == "fly" end,
+        function(on)
+            if on then
+                WARP.mode = "fly"
+            else
+                if WARP.mode == "fly" then
+                    WARP.mode = "none"
+                end
+            end
+            -- ปิดอีกโหมด
+            if WARP.mode == "fly" and row2Switch then
+                row2Switch.update(false)
+            end
+            if not on then
+                stopFly()
+            end
+        end
+    )
+
+    ------------------------------------------------------------------------
+    -- Row 4: ปุ่ม Start (Go)
+    ------------------------------------------------------------------------
+    local row4 = Instance.new("Frame", scroll)
+    row4.Name = "WARP_Row4"
+    row4.Size = UDim2.new(1,-6,0,46)
+    row4.BackgroundColor3 = THEME.BLACK
+    corner(row4,12)
+    stroke(row4,2.2,THEME.GREEN)
+    row4.LayoutOrder = base + 5
+
+    local lab4 = Instance.new("TextLabel", row4)
+    lab4.BackgroundTransparency = 1
+    lab4.Size = UDim2.new(1,-40,1,0)
+    lab4.Position = UDim2.new(0,16,0,0)
+    lab4.Font = Enum.Font.GothamBold
+    lab4.TextSize = 13
+    lab4.TextColor3 = THEME.WHITE
+    lab4.TextXAlignment = Enum.TextXAlignment.Left
+    lab4.Text = "Start"
+
+    local goArrow = Instance.new("TextLabel", row4)
+    goArrow.AnchorPoint = Vector2.new(1,0.5)
+    goArrow.Position = UDim2.new(1,-16,0.5,0)
+    goArrow.Size = UDim2.new(0,24,0,24)
+    goArrow.BackgroundTransparency = 1
+    goArrow.Font = Enum.Font.GothamBold
+    goArrow.TextSize = 18
+    goArrow.TextColor3 = THEME.GREEN
+    goArrow.Text = "▶"
+
+    local btn4 = Instance.new("TextButton", row4)
+    btn4.BackgroundTransparency = 1
+    btn4.Size = UDim2.fromScale(1,1)
+    btn4.Text = ""
+    btn4.AutoButtonColor = false
+
+    btn4.MouseButton1Click:Connect(function()
+        startAction()
+    end)
+end)
 -- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
