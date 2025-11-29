@@ -5216,10 +5216,10 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
--- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options แบบดรอปดาวน์
+-- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5250,8 +5250,8 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งของระบบอื่น)
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1"}) do
-        local o = scroll:FindFirstChild(name)
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
+        local o = scroll:FindFirstChild(name) or scroll.Parent:FindFirstChild(name)
         if o then o:Destroy() end
     end
 
@@ -5307,7 +5307,7 @@ registerRight("Shop", function(scroll)
         local lab = Instance.new("TextLabel")
         lab.Parent = row
         lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(0.45, -16, 1, 0) -- เว้นที่ด้านขวาให้กล่อง Select
+        lab.Size = UDim2.new(0.45, -16, 1, 0) -- เว้นด้านขวาไว้ให้กล่อง Select
         lab.Position = UDim2.new(0, 16, 0, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
@@ -5319,11 +5319,14 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- สร้างแถว + ปุ่ม Select Options แบบกล่องดำมีเส้นเขียว
+    -- แถวหลัก + ปุ่ม Select Options
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
-    -- ปุ่ม Select Options (กล่องดำ, เส้นเขียวเข้ม, ตอนกดเขียวนีออน)
+    -- parent สำหรับ popup (ใช้กรอบขวามือของแท็บ Shop)
+    local panelParent = scroll.Parent
+
+    -- ปุ่ม Select Options (ดำ, เส้นเขียวเข้ม, ข้อความกลาง, ลูกศรขวา)
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "VA2_Select"
     selectBtn.Parent = row
@@ -5336,17 +5339,17 @@ registerRight("Shop", function(scroll)
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
-    selectBtn.TextXAlignment = Enum.TextXAlignment.Left
+    selectBtn.TextXAlignment = Enum.TextXAlignment.Center
     selectBtn.TextYAlignment = Enum.TextYAlignment.Center
     corner(selectBtn, 8)
 
     local selectStroke = stroke(selectBtn, 1.8, THEME.GREEN_DARK)
 
-    -- Padding ด้านซ้ายให้ตัวหนังสือไม่ชิดขอบเกินไป
+    -- เว้นที่ด้านขวาให้ลูกศรแต่ให้ text ยังกลางสวย ๆ
     local padding = Instance.new("UIPadding")
     padding.Parent = selectBtn
-    padding.PaddingLeft = UDim.new(0, 12)
-    padding.PaddingRight = UDim.new(0, 24)
+    padding.PaddingLeft  = UDim.new(0, 8)
+    padding.PaddingRight = UDim.new(0, 26)
 
     -- ลูกศร ▼ อยู่ขวาสุดในกล่อง
     local arrow = Instance.new("TextLabel")
@@ -5360,16 +5363,79 @@ registerRight("Shop", function(scroll)
     arrow.TextColor3 = THEME.WHITE
     arrow.Text = "▼"
 
-    -- เอฟเฟกต์ตอนกด: toggle เส้นจากเขียวเข้ม -> เขียวนีออน
-    local selected = false
-    selectBtn.MouseButton1Click:Connect(function()
-        selected = not selected
-        if selected then
-            selectStroke.Color = THEME.GREEN      -- เขียวนีออนสว่าง
-        else
-            selectStroke.Color = THEME.GREEN_DARK -- เขียวเข้มปกติ
+    ------------------------------------------------------------------------
+    -- Popup Panel: 🔍 Search (ดำ + เส้นเขียวนีออน)
+    ------------------------------------------------------------------------
+    local optionsPanel -- จะสร้างตอนกดปุ่ม
+
+    local function openPanel()
+        if optionsPanel then optionsPanel:Destroy() end
+
+        optionsPanel = Instance.new("Frame")
+        optionsPanel.Name = "VA2_OptionsPanel"
+        optionsPanel.Parent = panelParent
+        optionsPanel.BackgroundColor3 = THEME.BLACK
+        optionsPanel.AnchorPoint = Vector2.new(1, 0)
+        -- ติดด้านขวาของกรอบ Shop (ปรับค่าได้ถ้าอยากเลื่อน)
+        optionsPanel.Position = UDim2.new(1, -10, 0, 60)
+        optionsPanel.Size = UDim2.new(0, 280, 0, 260)
+        corner(optionsPanel, 12)
+        stroke(optionsPanel, 2.4, THEME.GREEN)
+
+        -- Header ด้านบน: 🔍 Search (ดำ, เส้นเขียวนีออน)
+        local headerBar = Instance.new("Frame")
+        headerBar.Name = "Header"
+        headerBar.Parent = optionsPanel
+        headerBar.BackgroundColor3 = THEME.BLACK
+        headerBar.Size = UDim2.new(1, 0, 0, 44)
+        headerBar.BorderSizePixel = 0
+        corner(headerBar, 12)
+        stroke(headerBar, 2, THEME.GREEN)
+
+        local headerText = Instance.new("TextLabel")
+        headerText.Parent = headerBar
+        headerText.BackgroundTransparency = 1
+        headerText.Size = UDim2.new(1, -16, 1, 0)
+        headerText.Position = UDim2.new(0, 8, 0, 0)
+        headerText.Font = Enum.Font.GothamBold
+        headerText.TextSize = 16
+        headerText.TextColor3 = THEME.WHITE
+        headerText.TextXAlignment = Enum.TextXAlignment.Left
+        headerText.Text = "🔍 Search"
+
+        -- พื้นที่ข้างล่าง (ไว้ใส่ options ทีหลัง)
+        local body = Instance.new("Frame")
+        body.Name = "Body"
+        body.Parent = optionsPanel
+        body.BackgroundColor3 = THEME.BLACK
+        body.BorderSizePixel = 0
+        body.Position = UDim2.new(0, 0, 0, 44)
+        body.Size = UDim2.new(1, 0, 1, -44)
+        corner(body, 10)
+        -- ไม่ใส่ stroke ซ้ำ จะได้ไม่หนาเกินไป
+    end
+
+    local function closePanel()
+        if optionsPanel then
+            optionsPanel:Destroy()
+            optionsPanel = nil
         end
-        print("[V A2] Select Options clicked, selected =", selected)
+    end
+
+    ------------------------------------------------------------------------
+    -- คลิกปุ่ม: toggle เส้น + เปิด/ปิด Search Panel
+    ------------------------------------------------------------------------
+    local opened = false
+    selectBtn.MouseButton1Click:Connect(function()
+        opened = not opened
+        if opened then
+            selectStroke.Color = THEME.GREEN      -- เขียวนีออน
+            openPanel()
+        else
+            selectStroke.Color = THEME.GREEN_DARK -- เขียวเข้ม
+            closePanel()
+        end
+        print("[V A2] Select Options clicked, opened =", opened)
     end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
