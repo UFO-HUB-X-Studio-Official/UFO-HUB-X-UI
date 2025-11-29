@@ -2868,7 +2868,7 @@ registerRight("Player", function(scroll)
         WHITE = Color3.fromRGB(255,255,255),
         BLACK = Color3.fromRGB(0,0,0),
         TEXT  = Color3.fromRGB(255,255,255),
-        DARK  = Color3.fromRGB(20,20,20),
+        DARK  = Color3.fromRGB(10,10,10),
     }
 
     local function corner(ui,r)
@@ -2913,11 +2913,24 @@ registerRight("Player", function(scroll)
         return nil
     end
 
+    -- ===== NoClip helper สำหรับโหมดบิน =====
+    local function setNoClip(enable)
+        local ch = lp.Character
+        if not ch then return end
+        for _,part in ipairs(ch:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not enable
+            end
+        end
+    end
+
     local function stopFly()
         if WARP.flyConn then
             pcall(function() WARP.flyConn:Disconnect() end)
             WARP.flyConn = nil
         end
+        -- เลิกบิน → กลับมาชนทุกอย่างตามปกติ
+        setNoClip(false)
     end
 
     ------------------------------------------------------------------------
@@ -3053,6 +3066,7 @@ registerRight("Player", function(scroll)
         end)
     end
 
+    -- ปรับตรงนี้ให้ "บินสูงขึ้น + เร็วขึ้น + ทะลุทุกอย่างตอนบิน"
     local function doFlyWarp()
         stopFly()
 
@@ -3061,7 +3075,11 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local speed = 60 -- studs/sec
+        local speed          = 150            -- เร็วกว่าของเดิมเยอะ
+        local HEIGHT_OFFSET  = 10             -- บินสูงจากหัวเป้าหมาย ~10 studs
+
+        -- ตอนเริ่มบิน → NoClip
+        setNoClip(true)
 
         WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
             local selfHRP  = getHumanoidRoot(lp)
@@ -3077,7 +3095,7 @@ registerRight("Player", function(scroll)
             end
 
             local pos       = selfHRP.Position
-            local targetPos = tgtHRP.Position + Vector3.new(0,3,0)
+            local targetPos = tgtHRP.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
             local diff      = targetPos - pos
             local dist      = diff.Magnitude
 
@@ -3199,7 +3217,7 @@ registerRight("Player", function(scroll)
         btn.MouseButton1Click:Connect(function()
             local new = not getOn()
             setOn(new)
-            updateVisual(new)   -- แก้บัค: ให้สวิตช์ขยับตามจริง
+            updateVisual(new)
         end)
 
         updateVisual(getOn())
@@ -3214,26 +3232,30 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- Row 1: เลือกผู้เล่น (Model A V2 style)
+    -- Row 1: เลือกผู้เล่น (Model A V2 style ตาม baseline Shop)
     ------------------------------------------------------------------------
     local row1 = Instance.new("Frame", scroll)
     row1.Name = "WARP_Row1"
-    row1.Size = UDim2.new(1,-6,0,46)
-    row1.BackgroundColor3 = THEME.BLACK
-    corner(row1,12)
-    stroke(row1,2.2,THEME.GREEN)
+    row1.Size = UDim2.new(1,-12,0,46)
+    row1.BackgroundColor3 = Color3.fromRGB(10,10,10)
     row1.LayoutOrder = base + 2
+    corner(row1,12)
+    local rowStroke = Instance.new("UIStroke", row1)
+    rowStroke.Color = THEME.GREEN
+    rowStroke.Thickness = 1
 
-    -- LEFT GREEN BAR (A V2 effect)
-    local leftBar = Instance.new("Frame", row1)
-    leftBar.BackgroundColor3 = THEME.GREEN
-    leftBar.Size = UDim2.new(0,3,1,0)
-    leftBar.Position = UDim2.new(0,0,0,0)
-    leftBar.BorderSizePixel = 0
+    -- Left bar highlight (เหมือนตัวอย่าง Shop A V2)
+    local bar = Instance.new("Frame", row1)
+    bar.BackgroundColor3 = THEME.GREEN
+    bar.Size = UDim2.new(0,4,1,0)
+    bar.Position = UDim2.new(0,0,0,0)
+    bar.BackgroundTransparency = 0.4
+    bar.BorderSizePixel = 0
 
+    -- Title (ชื่อระบบย่อย: เลือกชื่อผู้เล่น)
     local lab1 = Instance.new("TextLabel", row1)
     lab1.BackgroundTransparency = 1
-    lab1.Size = UDim2.new(1,-180,1,0)
+    lab1.Size = UDim2.new(1,-100,1,0)
     lab1.Position = UDim2.new(0,12,0,0)
     lab1.Font = Enum.Font.GothamBold
     lab1.TextSize = 13
@@ -3241,6 +3263,7 @@ registerRight("Player", function(scroll)
     lab1.TextXAlignment = Enum.TextXAlignment.Left
     lab1.Text = "Select Target Player"
 
+    -- Selected name (โชว์ชื่อเป้าหมายด้านขวา)
     local selectedLabel = Instance.new("TextLabel", row1)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.AnchorPoint = Vector2.new(1,0.5)
@@ -3252,20 +3275,26 @@ registerRight("Player", function(scroll)
     selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
     selectedLabel.Text = ""
 
+    -- ปุ่ม ▶ แบบ A V2 (TextButton โปร่งใส)
     local arrowBtn = Instance.new("TextButton", row1)
-    arrowBtn.AnchorPoint = Vector2.new(1,0.5)
-    arrowBtn.Position = UDim2.new(1,-10,0.5,0)
-    arrowBtn.Size = UDim2.new(0,24,0,24)
-    arrowBtn.BackgroundColor3 = THEME.BLACK
+    arrowBtn.Size = UDim2.new(0,32,0,46)
+    arrowBtn.Position = UDim2.new(1,-40,0,0)
+    arrowBtn.BackgroundTransparency = 1
     arrowBtn.AutoButtonColor = false
-    corner(arrowBtn,12)
-    local arrowStroke = Instance.new("UIStroke", arrowBtn)
-    arrowStroke.Thickness = 1.4
-    arrowStroke.Color = THEME.GREEN
     arrowBtn.Font = Enum.Font.GothamBold
     arrowBtn.TextSize = 18
     arrowBtn.TextColor3 = THEME.WHITE
     arrowBtn.Text = "▶"
+
+    -- Hover FX แบบ A V2
+    row1.MouseEnter:Connect(function()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Thickness = 2 }):Play()
+        TweenService:Create(bar, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play()
+    end)
+    row1.MouseLeave:Connect(function()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Thickness = 1 }):Play()
+        TweenService:Create(bar, TweenInfo.new(0.15), { BackgroundTransparency = 0.4 }):Play()
+    end)
 
     local function refreshSelectedLabel()
         local pl = getTargetPlayer()
@@ -3279,11 +3308,6 @@ registerRight("Player", function(scroll)
     refreshSelectedLabel()
 
     arrowBtn.MouseButton1Click:Connect(function()
-        tween(arrowBtn,{BackgroundColor3 = THEME.DARK},0.06)
-        task.delay(0.08, function()
-            tween(arrowBtn,{BackgroundColor3 = THEME.BLACK},0.08)
-        end)
-
         openPicker(function(pl)
             WARP.targetUserId = pl.UserId
             refreshSelectedLabel()
@@ -3305,19 +3329,17 @@ registerRight("Player", function(scroll)
                 if row3Switch then
                     row3Switch.update(false)
                 end
+                stopFly()
             else
                 if WARP.mode == "warp" then
                     WARP.mode = "none"
                 end
             end
-            if WARP.mode == "none" then
-                stopFly()
-            end
         end
     )
 
     ------------------------------------------------------------------------
-    -- Row 3: Fly to Player (Smooth) - โหมด 2
+    -- Row 3: Fly to Player (Smooth) - โหมด 2 (บินสูง + ไว + ทะลุ)
     ------------------------------------------------------------------------
     row3Switch = makeSwitchRow(
         "WARP_Row3",
@@ -3335,8 +3357,6 @@ registerRight("Player", function(scroll)
                 if WARP.mode == "fly" then
                     WARP.mode = "none"
                 end
-            end
-            if not on then
                 stopFly()
             end
         end
