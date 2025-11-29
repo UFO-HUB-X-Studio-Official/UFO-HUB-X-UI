@@ -1858,16 +1858,18 @@ registerRight("Player", function(scroll)
 
     --================= GLOBAL XRAY STATE =================
     _G.UFOX_XRAY = _G.UFOX_XRAY or {
-        xrayEnabled   = false,   -- Row1
-        feetEnabled   = false,   -- Row2
-        namesEnabled  = false,   -- Row3
-        loop          = nil,
-        tracers       = {},      -- Player -> Drawing.Line
-        boxes         = {},      -- Player -> BoxHandleAdornment
+        xrayEnabled    = false,   -- Row1
+        feetEnabled    = false,   -- Row2 (เส้นที่เท้า + กล่อง 2D)
+        namesEnabled   = false,   -- Row3 (ชื่อผู้เล่น)
+        distanceEnabled= false,   -- Row4 (ระยะผู้เล่น)
+        loop           = nil,
+
+        tracers        = {},      -- Player -> Drawing.Line (เท้าเรา -> เท้าเขา)
+        boxes          = {},      -- Player -> {t,b,l,r} (เส้นกล่อง 2D)
     }
     local XR = _G.UFOX_XRAY
 
-    -- เคลียร์เส้น/กล่องค้างจากการรันรอบเก่า
+    -- เคลียร์ของเก่า (กันซ้อนจากการรันก่อนหน้า)
     if XR.tracers then
         for _, line in pairs(XR.tracers) do
             pcall(function()
@@ -1881,17 +1883,27 @@ registerRight("Player", function(scroll)
     XR.tracers = {}
 
     if XR.boxes then
-        for _, box in pairs(XR.boxes) do
-            pcall(function() if box then box:Destroy() end end)
+        for _, boxSet in pairs(XR.boxes) do
+            if type(boxSet) == "table" then
+                for _, ln in pairs(boxSet) do
+                    pcall(function()
+                        if ln then
+                            ln.Visible = false
+                            if ln.Remove then ln:Remove() end
+                        end
+                    end)
+                end
+            end
         end
     end
     XR.boxes = {}
 
-    local ESP_NAME      = "UFO_XRAY_HL"
-    local NAME_TAG_NAME = "UFO_NameTag"
-    local DISABLED_ATTR = "UFOX_OrigEnabled"
+    local ESP_NAME        = "UFO_XRAY_HL"
+    local NAME_TAG_NAME   = "UFO_NameTag"
+    local DIST_TAG_NAME   = "UFO_DistTag"
+    local DISABLED_ATTR   = "UFOX_OrigEnabled"
 
-    -- Drawing API check (เส้นเท้า 2D)
+    -- Drawing API check (เส้น 2D ทั้งหมด)
     local hasDrawing = false
     pcall(function()
         if Drawing and Drawing.new then
@@ -1902,9 +1914,10 @@ registerRight("Player", function(scroll)
     --------------------------------------------------------------------
     -- AA1 RESTORE
     --------------------------------------------------------------------
-    XR.xrayEnabled  = (getSave("Player.XRay.Enabled",  XR.xrayEnabled)  and true or false)
-    XR.feetEnabled  = (getSave("Player.XRay.Feet",     XR.feetEnabled)  and true or false)
-    XR.namesEnabled = (getSave("Player.XRay.Names",    XR.namesEnabled) and true or false)
+    XR.xrayEnabled     = (getSave("Player.XRay.Enabled",   XR.xrayEnabled)     and true or false)
+    XR.feetEnabled     = (getSave("Player.XRay.Feet",      XR.feetEnabled)     and true or false)
+    XR.namesEnabled    = (getSave("Player.XRay.Names",     XR.namesEnabled)    and true or false)
+    XR.distanceEnabled = (getSave("Player.XRay.Distance",  XR.distanceEnabled) and true or false)
 
     -- ===== HELPERS =====
     local function clearHighlights()
@@ -1933,8 +1946,17 @@ registerRight("Player", function(scroll)
         XR.tracers = {}
 
         if XR.boxes then
-            for _, box in pairs(XR.boxes) do
-                pcall(function() if box then box:Destroy() end end)
+            for _, boxSet in pairs(XR.boxes) do
+                if type(boxSet)=="table" then
+                    for _,ln in pairs(boxSet) do
+                        pcall(function()
+                            if ln then
+                                ln.Visible = false
+                                if ln.Remove then ln:Remove() end
+                            end
+                        end)
+                    end
+                end
             end
         end
         XR.boxes = {}
@@ -1966,6 +1988,19 @@ registerRight("Player", function(scroll)
         end
     end
 
+    local function clearDistances()
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local char = pl.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local tag = hrp:FindFirstChild(DIST_TAG_NAME)
+                    if tag then tag:Destroy() end
+                end
+            end
+        end
+    end
+
     local function stopLoop()
         if XR.loop then
             pcall(function() XR.loop:Disconnect() end)
@@ -1974,12 +2009,16 @@ registerRight("Player", function(scroll)
         clearHighlights()
         clearFeet()
         clearNames()
+        clearDistances()
     end
 
     local function ensureLoop()
         if XR.loop then return end
         XR.loop = RunService.Heartbeat:Connect(function()
-            if not XR.xrayEnabled and not XR.feetEnabled and not XR.namesEnabled then
+            if not XR.xrayEnabled and
+               not XR.feetEnabled and
+               not XR.namesEnabled and
+               not XR.distanceEnabled then
                 stopLoop()
                 return
             end
@@ -2015,16 +2054,16 @@ registerRight("Player", function(scroll)
             end)
 
             ----------------------------------------------------------------
-            -- Row 2: FOOT LINE + 3D BOX รอบตัวผู้เล่น
+            -- Row 2: FOOT LINE + 2D BOX รอบตัวผู้เล่น (เหมือนในรูป)
             ----------------------------------------------------------------
-            if XR.feetEnabled and lhrp then
-                local viewport = cam and cam.ViewportSize or Vector2.new(1920,1080)
+            if XR.feetEnabled and hasDrawing and lhrp and cam then
+                local viewport = cam.ViewportSize
                 local vw, vh = viewport.X, viewport.Y
 
+                -- ตำแหน่งเท้าเรา (จุดเริ่มเส้น)
                 local lFootWorld = lhrp.Position + Vector3.new(0,-3,0)
-                local lScreenPos = cam and cam:WorldToViewportPoint(lFootWorld) or Vector3.new(vw/2,vh/2,1)
-
-                if cam and lScreenPos.Z < 0 then
+                local lScreenPos = cam:WorldToViewportPoint(lFootWorld)
+                if lScreenPos.Z < 0 then
                     lScreenPos = Vector3.new(vw - lScreenPos.X, vh - lScreenPos.Y, 0)
                 end
                 local lX = math.clamp(lScreenPos.X, 0, vw)
@@ -2038,70 +2077,97 @@ registerRight("Player", function(scroll)
                         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
                         local line = XR.tracers[pl]
-                        local box  = XR.boxes[pl]
+                        local boxSet = XR.boxes[pl]
 
                         if char and hrp then
                             seenPlayers[pl] = true
 
-                            -- 3D BOX รอบตัว (BoxHandleAdornment)
-                            if not box then
-                                box = Instance.new("BoxHandleAdornment")
-                                box.Name = "UFO_XRay_Box"
-                                box.Color3 = THEME.GREEN
-                                box.Transparency = 0
-                                box.ZIndex = 5
-                                box.AlwaysOnTop = true -- เห็นทะลุกำแพง
-                                box.Adornee = hrp
-                                box.Parent  = hrp
-                                XR.boxes[pl] = box
-                            else
-                                box.Adornee = hrp
+                            -- 1) เส้นจากเท้าเรา → เท้าเขา (2D)
+                            local footWorld = hrp.Position + Vector3.new(0,-3,0)
+                            local tScreenPos = cam:WorldToViewportPoint(footWorld)
+                            if tScreenPos.Z < 0 then
+                                tScreenPos = Vector3.new(vw - tScreenPos.X, vh - tScreenPos.Y, 0)
                             end
-                            -- ปรับขนาดให้ครอบตัวละครทั้งตัว
-                            pcall(function()
-                                local size = char:GetExtentsSize()
-                                if size and size.Magnitude > 0 then
-                                    box.Size = size + Vector3.new(0.5,0.5,0.5)
-                                else
-                                    box.Size = Vector3.new(4,7,4)
+                            local tX = math.clamp(tScreenPos.X, 0, vw)
+                            local tY = math.clamp(tScreenPos.Y, 0, vh)
+
+                            if not line then
+                                local ok, obj = pcall(function()
+                                    return Drawing.new("Line")
+                                end)
+                                if ok and obj then
+                                    line = obj
+                                    line.Color = THEME.GREEN
+                                    line.Thickness = 2
+                                    line.Transparency = 1
+                                    XR.tracers[pl] = line
                                 end
-                            end)
+                            end
+                            if line then
+                                line.From    = Vector2.new(lX, lY)
+                                line.To      = Vector2.new(tX, tY)
+                                line.Visible = true
+                            end
 
-                            -- เส้นจากเท้าเรา → เท้าเขา (Drawing Line 2D)
-                            if hasDrawing and cam then
-                                local footWorld = hrp.Position + Vector3.new(0,-3,0)
-                                local tScreenPos = cam:WorldToViewportPoint(footWorld)
+                            -- 2) กล่องสี่เหลี่ยม 2D รอบตัว (center = HRP)
+                            local centerWorld = hrp.Position
+                            local cScreenPos  = cam:WorldToViewportPoint(centerWorld)
+                            if cScreenPos.Z < 0 then
+                                cScreenPos = Vector3.new(vw - cScreenPos.X, vh - cScreenPos.Y, 0)
+                            end
 
-                                if tScreenPos.Z < 0 then
-                                    tScreenPos = Vector3.new(vw - tScreenPos.X, vh - tScreenPos.Y, 0)
-                                end
-                                local tX = math.clamp(tScreenPos.X, 0, vw)
-                                local tY = math.clamp(tScreenPos.Y, 0, vh)
+                            local cx = math.clamp(cScreenPos.X, 0, vw)
+                            local cy = math.clamp(cScreenPos.Y, 0, vh)
 
-                                if not line then
+                            -- ขนาดกล่องบนหน้าจอ (ปรับได้ให้ฟีลเหมือนรูป)
+                            local halfW = 35
+                            local halfH = 55
+
+                            local tl = Vector2.new(cx - halfW, cy - halfH) -- top-left
+                            local tr = Vector2.new(cx + halfW, cy - halfH) -- top-right
+                            local bl = Vector2.new(cx - halfW, cy + halfH) -- bottom-left
+                            local br = Vector2.new(cx + halfW, cy + halfH) -- bottom-right
+
+                            if not boxSet then
+                                boxSet = {}
+                                local function newLine()
                                     local ok, obj = pcall(function()
                                         return Drawing.new("Line")
                                     end)
                                     if ok and obj then
-                                        line = obj
-                                        line.Color = THEME.GREEN
-                                        line.Thickness = 2
-                                        line.Transparency = 1
-                                        XR.tracers[pl] = line
+                                        obj.Color = THEME.GREEN
+                                        obj.Thickness = 2
+                                        obj.Transparency = 1
+                                        obj.Visible = true
+                                        return obj
                                     end
                                 end
+                                boxSet.top    = newLine()
+                                boxSet.bottom = newLine()
+                                boxSet.left   = newLine()
+                                boxSet.right  = newLine()
+                                XR.boxes[pl] = boxSet
+                            end
 
-                                if line then
-                                    line.From    = Vector2.new(lX, lY)
-                                    line.To      = Vector2.new(tX, tY)
-                                    line.Visible = true
-                                end
-                            elseif line then
-                                -- ไม่มี Drawing → ซ่อนเส้น แต่อย่าลบกล่อง
-                                line.Visible = false
+                            local top    = boxSet.top
+                            local bottom = boxSet.bottom
+                            local left   = boxSet.left
+                            local right  = boxSet.right
+
+                            if top then
+                                top.From, top.To, top.Visible = tl, tr, true
+                            end
+                            if bottom then
+                                bottom.From, bottom.To, bottom.Visible = bl, br, true
+                            end
+                            if left then
+                                left.From, left.To, left.Visible = tl, bl, true
+                            end
+                            if right then
+                                right.From, right.To, right.Visible = tr, br, true
                             end
                         else
-                            -- ไม่มีตัวจริง → ลบเส้น + กล่อง
+                            -- ผู้เล่นไม่มีตัว = ลบออก
                             if line then
                                 pcall(function()
                                     line.Visible = false
@@ -2110,15 +2176,22 @@ registerRight("Player", function(scroll)
                             end
                             XR.tracers[pl] = nil
 
-                            if box then
-                                pcall(function() box:Destroy() end)
+                            if boxSet then
+                                for _,ln in pairs(boxSet) do
+                                    pcall(function()
+                                        if ln then
+                                            ln.Visible = false
+                                            if ln.Remove then ln:Remove() end
+                                        end
+                                    end)
+                                end
                             end
                             XR.boxes[pl] = nil
                         end
                     end
                 end
 
-                -- ล้างของคนที่ออกจากเกม
+                -- ล้าง player ที่ไม่อยู่แล้ว
                 for pl, line in pairs(XR.tracers) do
                     if typeof(pl) ~= "Instance" or pl.Parent ~= Players or not seenPlayers[pl] then
                         pcall(function()
@@ -2130,9 +2203,18 @@ registerRight("Player", function(scroll)
                         XR.tracers[pl] = nil
                     end
                 end
-                for pl, box in pairs(XR.boxes) do
+                for pl, boxSet in pairs(XR.boxes) do
                     if typeof(pl) ~= "Instance" or pl.Parent ~= Players or not seenPlayers[pl] then
-                        pcall(function() if box then box:Destroy() end end)
+                        if type(boxSet)=="table" then
+                            for _,ln in pairs(boxSet) do
+                                pcall(function()
+                                    if ln then
+                                        ln.Visible = false
+                                        if ln.Remove then ln:Remove() end
+                                    end
+                                end)
+                            end
+                        end
                         XR.boxes[pl] = nil
                     end
                 end
@@ -2213,6 +2295,54 @@ registerRight("Player", function(scroll)
             else
                 clearNames()
             end
+
+            ----------------------------------------------------------------
+            -- Row 4: PLAYER DISTANCE (ตัวเลขกลางตัว สีขาวขอบดำ)
+            ----------------------------------------------------------------
+            if XR.distanceEnabled then
+                for _,pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        local char = pl.Character
+                        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local tag = hrp:FindFirstChild(DIST_TAG_NAME)
+                            if not tag then
+                                tag = Instance.new("BillboardGui")
+                                tag.Name = DIST_TAG_NAME
+                                tag.Size = UDim2.new(0,80,0,24)
+                                tag.StudsOffset = Vector3.new(0,0,0)  -- กลางตัว
+                                tag.Adornee     = hrp
+                                tag.Parent      = hrp
+                            end
+
+                            tag.AlwaysOnTop = true
+                            tag.MaxDistance = 0
+
+                            local label = tag:FindFirstChildOfClass("TextLabel")
+                            if not label then
+                                label = Instance.new("TextLabel", tag)
+                            end
+
+                            label.BackgroundTransparency = 1
+                            label.Size = UDim2.new(1,0,1,0)
+                            label.Font = Enum.Font.GothamBold
+                            label.TextScaled = true
+                            label.TextColor3 = THEME.WHITE
+                            label.TextStrokeColor3 = Color3.new(0,0,0)
+                            label.TextStrokeTransparency = 0
+
+                            local distText = "?"
+                            if lhrp then
+                                local dist = (lhrp.Position - hrp.Position).Magnitude
+                                distText = tostring(math.floor(dist + 0.5))
+                            end
+                            label.Text = distText
+                        end
+                    end
+                end
+            else
+                clearDistances()
+            end
         end)
     end
 
@@ -2220,7 +2350,7 @@ registerRight("Player", function(scroll)
     local function setXrayEnabled(v)
         XR.xrayEnabled = v and true or false
         setSave("Player.XRay.Enabled", XR.xrayEnabled)
-        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled or XR.distanceEnabled then
             ensureLoop()
         else
             stopLoop()
@@ -2230,7 +2360,7 @@ registerRight("Player", function(scroll)
     local function setFeetEnabled(v)
         XR.feetEnabled = v and true or false
         setSave("Player.XRay.Feet", XR.feetEnabled)
-        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled or XR.distanceEnabled then
             ensureLoop()
         else
             stopLoop()
@@ -2240,7 +2370,17 @@ registerRight("Player", function(scroll)
     local function setNamesEnabled(v)
         XR.namesEnabled = v and true or false
         setSave("Player.XRay.Names", XR.namesEnabled)
-        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled or XR.distanceEnabled then
+            ensureLoop()
+        else
+            stopLoop()
+        end
+    end
+
+    local function setDistanceEnabled(v)
+        XR.distanceEnabled = v and true or false
+        setSave("Player.XRay.Distance", XR.distanceEnabled)
+        if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled or XR.distanceEnabled then
             ensureLoop()
         else
             stopLoop()
@@ -2248,7 +2388,7 @@ registerRight("Player", function(scroll)
     end
 
     --================= MODEL A V1 LAYOUT =================
-    for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2","XRAY_Row3"}) do
+    for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2","XRAY_Row3","XRAY_Row4"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
     end
@@ -2360,7 +2500,15 @@ registerRight("Player", function(scroll)
         setNamesEnabled
     )
 
-    if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
+    makeRow(
+        "XRAY_Row4",
+        base + 5,
+        "Player Distance (Studs)",
+        function() return XR.distanceEnabled end,
+        setDistanceEnabled
+    )
+
+    if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled or XR.distanceEnabled then
         ensureLoop()
     end
 end)
