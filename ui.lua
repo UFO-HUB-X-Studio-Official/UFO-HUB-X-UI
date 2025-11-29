@@ -1277,9 +1277,9 @@ registerRight("Player", function(scroll)
     end)
 end)
 -- ===== UFO HUB X • Player — SPEED, JUMP & SWIM • Model A V1 + Runner Save (per-map) + AA1 =====
--- Order: Run → Jump → Swim
+-- Order: Run → Jump → Swim → No-Clip → Infinite Jump
 -- Saves per GAME_ID/PLACE_ID into runner (getgenv().UFOX_SAVE). Keys:
---   RJ/<gameId>/<placeId>/{enabled,infJump,runRel,jumpRel,swimRel}
+--   RJ/<gameId>/<placeId>/{enabled,infJump,runRel,jumpRel,swimRel,noclip}
 
 ----------------------------------------------------------------------
 -- AA1 BLOCK — Auto-run from SaveState (ไม่ต้องแตะ UI)
@@ -1324,6 +1324,8 @@ do
     RJ.remember.runRel  = SaveGet("runRel",  (RJ.remember.runRel  == nil) and 0 or RJ.remember.runRel)
     RJ.remember.jumpRel = SaveGet("jumpRel", (RJ.remember.jumpRel == nil) and 0 or RJ.remember.jumpRel)
     RJ.remember.swimRel = SaveGet("swimRel", (RJ.remember.swimRel == nil) and 0 or RJ.remember.swimRel)
+    -- noclip save สำหรับ AA1 (แค่จำค่าไว้ เผื่ออยากใช้ในอนาคต)
+    RJ.remember.noclip  = SaveGet("noclip",  (RJ.remember.noclip  == nil) and false or RJ.remember.noclip)
 
     local RUN_MIN,RUN_MAX   = 16,500
     local JUMP_MIN,JUMP_MAX = 50,500
@@ -1371,13 +1373,11 @@ do
                 if h.UseJumpPower then
                     h.JumpPower = jp
                 else
-                    -- ใกล้เคียงเดิม: map เป็น JumpHeight โดยคร่าว ๆ
                     h.JumpHeight = 7 + (jp - 50)*0.25
                 end
                 h.WalkSpeed = ws
             end)
         else
-            -- ถ้าเคยมี default -> restore กลับ
             pcall(function()
                 if RJ.defaults.WalkSpeed then h.WalkSpeed = RJ.defaults.WalkSpeed end
                 if RJ.defaults.UseJumpPower ~= nil then
@@ -1432,6 +1432,17 @@ do
         end)
     end
 
+    -- Force loop กดทับสคริปต์เกม → ให้ทำงานได้ทุกแมพขึ้น
+    local forceLoop
+    local function ensureForceLoop()
+        if forceLoop then return end
+        forceLoop = RS.Heartbeat:Connect(function()
+            if RJ.remember.enabled then
+                applyStatsAA1()
+            end
+        end)
+    end
+
     -- เมื่อ Character เปลี่ยน/เกิดใหม่ → apply AA1 ซ้ำ
     lp.CharacterAdded:Connect(function()
         RJ.defaults = { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
@@ -1439,6 +1450,7 @@ do
             hookHumanoidState()
             applyStatsAA1()
             bindInfJumpAA1()
+            ensureForceLoop()
         end)
     end)
 
@@ -1447,11 +1459,12 @@ do
         hookHumanoidState()
         applyStatsAA1()
         bindInfJumpAA1()
+        ensureForceLoop()
     end)
 end
 
 ----------------------------------------------------------------------
--- ด้านล่าง = โค้ดเดิมของนาย (UI + Runtime ปกติ) ไม่ได้แก้แม้แต่ตัวเดียว
+-- ด้านล่าง = UI + Runtime ปกติ (Model A V1)
 ----------------------------------------------------------------------
 
 registerRight("Player", function(scroll)
@@ -1472,8 +1485,14 @@ registerRight("Player", function(scroll)
     local function SaveSet(k, v) pcall(function() SAVE.set(K(k), v) end) end
 
     -- ---------- STATE ----------
-    _G.UFOX_RJ = _G.UFOX_RJ or { uiConns={}, tempConns={}, remember={}, defaults={} }
+    _G.UFOX_RJ = _G.UFOX_RJ or { uiConns={}, tempConns={}, remember={}, defaults={}, noclipData={} }
     local RJ=_G.UFOX_RJ
+    RJ.uiConns   = RJ.uiConns   or {}
+    RJ.tempConns = RJ.tempConns or {}
+    RJ.remember  = RJ.remember  or {}
+    RJ.defaults  = RJ.defaults  or {}
+    RJ.noclipData= RJ.noclipData or {}
+
     local function keepUI(c) table.insert(RJ.uiConns,c) return c end
     local function keepTmp(c) table.insert(RJ.tempConns,c) return c end
     local function disconnectAll(t) for i=#t,1,-1 do local c=t[i]; pcall(function() c:Disconnect() end); t[i]=nil end end
@@ -1486,12 +1505,14 @@ registerRight("Player", function(scroll)
     RJ.remember.runRel  = SaveGet("runRel",  (RJ.remember.runRel==nil)  and 0 or RJ.remember.runRel)
     RJ.remember.jumpRel = SaveGet("jumpRel", (RJ.remember.jumpRel==nil) and 0 or RJ.remember.jumpRel)
     RJ.remember.swimRel = SaveGet("swimRel", (RJ.remember.swimRel==nil) and 0 or RJ.remember.swimRel)
+    RJ.remember.noclip  = SaveGet("noclip",  (RJ.remember.noclip==nil)  and false or RJ.remember.noclip)
 
     local RUN_MIN,RUN_MAX   = 16,500
     local JUMP_MIN,JUMP_MAX = 50,500
     local SWIM_MIN,SWIM_MAX = 16,500
     local runRel, jumpRel, swimRel = RJ.remember.runRel, RJ.remember.jumpRel, RJ.remember.swimRel
     local masterOn, infJumpOn = RJ.remember.enabled, RJ.remember.infJump
+    local noclipOn = RJ.remember.noclip
 
     RJ.defaults = RJ.defaults or { WalkSpeed=nil, JumpPower=nil, UseJumpPower=nil, JumpHeight=nil }
 
@@ -1499,6 +1520,55 @@ registerRight("Player", function(scroll)
     local function lerp(a,b,t) return a+(b-a)*t end
     local function mapRel(r,mn,mx) r=math.clamp(r,0,1) return lerp(mn,mx,r) end
 
+    ----------------------------------------------------------------
+    -- No-Clip helpers (ทะลุกำแพง ยกเว้นพื้นจากขา/เท้า)
+    ----------------------------------------------------------------
+    RJ.noclipData = RJ.noclipData or {}
+
+    local function isFootPart(part)
+        local n = part.Name:lower()
+        if n:find("foot") then return true end
+        if n:find("lowerleg") then return true end
+        if n:find("left leg") or n:find("right leg") then return true end
+        if n:find("leftleg") or n:find("rightleg") then return true end
+        return false
+    end
+
+    local function restoreNoClip()
+        if RJ.noclipData then
+            for part,orig in pairs(RJ.noclipData) do
+                if typeof(part)=="Instance" and part.Parent then
+                    pcall(function()
+                        part.CanCollide = orig
+                    end)
+                end
+            end
+        end
+        RJ.noclipData = {}
+    end
+
+    local function applyNoClip()
+        if not noclipOn then return end
+        local char = lp.Character
+        if not char then return end
+        RJ.noclipData = RJ.noclipData or {}
+        for _,part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if not isFootPart(part) then
+                    if RJ.noclipData[part] == nil then
+                        RJ.noclipData[part] = part.CanCollide
+                    end
+                    if part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end
+
+    ----------------------------------------------------------------
+    -- Speed / Jump / Swim apply
+    ----------------------------------------------------------------
     local humStateConn
     local function snapshotDefaults()
         local h=getHum(); if not h then return end
@@ -1557,9 +1627,11 @@ registerRight("Player", function(scroll)
             local h=getHum(); if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Jumping) end) end
         end))
     end
+
     keepUI(lp.CharacterAdded:Connect(function()
         RJ.defaults={WalkSpeed=nil,JumpPower=nil,UseJumpPower=nil,JumpHeight=nil}
-        task.defer(function() rehookHumanoid(); applyStats(); bindInfJump() end)
+        restoreNoClip()
+        task.defer(function() rehookHumanoid(); applyStats(); bindInfJump(); if noclipOn then applyNoClip() end end)
     end))
     task.defer(function() rehookHumanoid() end)
 
@@ -1572,7 +1644,9 @@ registerRight("Player", function(scroll)
     local function tween(o,p,d) TweenService:Create(o,TweenInfo.new(d or 0.08,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),p):Play() end
 
     -- rebuild
-    for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Jump","RJ_Swim","RJ_Inf"}) do local o=scroll:FindFirstChild(n); if o then o:Destroy() end end
+    for _,n in ipairs({"RJ_Header","RJ_Master","RJ_Run","RJ_Jump","RJ_Swim","RJ_NoClip","RJ_Inf"}) do
+        local o=scroll:FindFirstChild(n); if o then o:Destroy() end
+    end
     local vlist=scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout",scroll)
     vlist.Padding=UDim.new(0,12); vlist.SortOrder=Enum.SortOrder.LayoutOrder
     scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
@@ -1628,8 +1702,16 @@ registerRight("Player", function(scroll)
             ColorSequenceKeypoint.new(1.00,Color3.fromRGB(216,216,222))
         }; grad.Rotation=90
 
-        local centerVal=Instance.new("TextLabel",bar); centerVal.BackgroundTransparency=1; centerVal.Size=UDim2.fromScale(1,1)
-        centerVal.Font=Enum.Font.GothamBlack; centerVal.TextSize=16; centerVal.TextColor3=THEME.WHITE; centerVal.TextXAlignment=Enum.TextXAlignment.Center; centerVal.ZIndex=1
+        local centerVal=Instance.new("TextLabel",bar)
+        centerVal.BackgroundTransparency=1
+        centerVal.Size=UDim2.fromScale(1,1)
+        centerVal.Font=Enum.Font.GothamBlack
+        centerVal.TextSize=16
+        centerVal.TextColor3=THEME.WHITE
+        centerVal.TextStrokeColor3 = Color3.new(0,0,0)
+        centerVal.TextStrokeTransparency = 0
+        centerVal.TextXAlignment=Enum.TextXAlignment.Center
+        centerVal.ZIndex=1
 
         local hit=Instance.new("TextButton",bar); hit.BackgroundTransparency=1; hit.Size=UDim2.fromScale(1,1); hit.Text=""; hit.ZIndex=4
 
@@ -1697,7 +1779,7 @@ registerRight("Player", function(scroll)
         end))
         local function pressFrom(io) onPress(io.Position.X) end
         keepUI(bar.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
-        keepUI(knob.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
+        keepUI(knob.InputBegan:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
         keepUI(hit.InputBegan:Connect(function(io)  if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then pressFrom(io) end end))
 
         instantVisual()
@@ -1720,8 +1802,38 @@ registerRight("Player", function(scroll)
         function(r) swimRel=math.clamp(r,0,1); RJ.remember.swimRel=swimRel; applyStats() end,
         "swimRel")
 
-    -- Infinite Jump
-    local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+5
+    ----------------------------------------------------------------
+    -- Row 5: NO-CLIP (ทะลุกำแพง/บ้าน แต่ให้พื้นยังรับจากขา/เท้า)
+    ----------------------------------------------------------------
+    local noc=Instance.new("Frame",scroll); noc.Name="RJ_NoClip"; noc.LayoutOrder=baseOrder+5
+    noc.Size=UDim2.new(1,-6,0,46); noc.BackgroundColor3=THEME.BLACK; corner(noc,12); stroke(noc,2.2,THEME.GREEN)
+    local nLab=Instance.new("TextLabel",noc); nLab.BackgroundTransparency=1; nLab.Size=UDim2.new(1,-140,1,0); nLab.Position=UDim2.new(0,16,0,0)
+    nLab.Font=Enum.Font.GothamBold; nLab.TextSize=13; nLab.TextColor3=THEME.WHITE; nLab.TextXAlignment=Enum.TextXAlignment.Left
+    nLab.Text="Thalu / No-Clip (Through walls)"
+    local nSw=Instance.new("Frame",noc); nSw.AnchorPoint=Vector2.new(1,0.5); nSw.Position=UDim2.new(1,-12,0.5,0)
+    nSw.Size=UDim2.fromOffset(52,26); nSw.BackgroundColor3=THEME.BLACK; corner(nSw,13); stroke(nSw,1.8, noclipOn and THEME.GREEN or THEME.RED)
+    local nKnob=Instance.new("Frame",nSw); nKnob.Size=UDim2.fromOffset(22,22); nKnob.Position=UDim2.new(noclipOn and 1 or 0, noclipOn and -24 or 2, 0.5,-11)
+    nKnob.BackgroundColor3=THEME.WHITE; corner(nKnob,11)
+    local nBtn=Instance.new("TextButton",nSw); nBtn.BackgroundTransparency=1; nBtn.Size=UDim2.fromScale(1,1); nBtn.Text=""
+
+    local function setNoClip(v)
+        noclipOn = v
+        RJ.remember.noclip = v
+        SaveSet("noclip", v)
+        local st=nSw:FindFirstChildOfClass("UIStroke"); if st then st.Color = v and THEME.GREEN or THEME.RED end
+        tween(nKnob,{Position=UDim2.new(v and 1 or 0, v and -24 or 2, 0.5,-11)},0.08)
+        if not v then
+            restoreNoClip()
+        else
+            applyNoClip()
+        end
+    end
+    keepUI(nBtn.MouseButton1Click:Connect(function() setNoClip(not noclipOn) end))
+
+    ----------------------------------------------------------------
+    -- Row 6: Infinite Jump
+    ----------------------------------------------------------------
+    local inf=Instance.new("Frame",scroll); inf.Name="RJ_Inf"; inf.LayoutOrder=baseOrder+6
     inf.Size=UDim2.new(1,-6,0,46); inf.BackgroundColor3=THEME.BLACK; corner(inf,12); stroke(inf,2.2,THEME.GREEN)
     local iLab=Instance.new("TextLabel",inf); iLab.BackgroundTransparency=1; iLab.Size=UDim2.new(1,-140,1,0); iLab.Position=UDim2.new(0,16,0,0)
     iLab.Font=Enum.Font.GothamBold; iLab.TextSize=13; iLab.TextColor3=THEME.WHITE; iLab.TextXAlignment=Enum.TextXAlignment.Left; iLab.Text="Infinite Jump"
@@ -1738,8 +1850,27 @@ registerRight("Player", function(scroll)
     end
     keepUI(iBtn.MouseButton1Click:Connect(function() setInf(not infJumpOn) end))
 
+    ----------------------------------------------------------------
+    -- Force loop (ช่วยบังคับค่าบูสต์ + noclip ทุกแมพ)
+    ----------------------------------------------------------------
+    if RJ.forceLoop then
+        pcall(function() RJ.forceLoop:Disconnect() end)
+        RJ.forceLoop = nil
+    end
+    RJ.forceLoop = RS.Heartbeat:Connect(function()
+        if masterOn then
+            applyStats()
+        end
+        if noclipOn then
+            applyNoClip()
+        end
+    end)
+    keepUI(RJ.forceLoop)
+
     -- apply current settings after build
-    applyStats(); bindInfJump()
+    applyStats()
+    bindInfJump()
+    if noclipOn then applyNoClip() end
 end)
 --===== UFO HUB X • Player — มองทะลุ / X-Ray Vision (Model A V1 + AA1) =====
 -- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
