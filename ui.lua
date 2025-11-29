@@ -1867,7 +1867,6 @@ registerRight("Player", function(scroll)
     local XR = _G.UFOX_XRAY
 
     local ESP_NAME      = "UFO_XRAY_HL"
-    local FOOT_LINE_KEY = "Tracer"
     local NAME_TAG_NAME = "UFO_NameTag"
     local DISABLED_ATTR = "UFOX_OrigEnabled"
 
@@ -1982,12 +1981,12 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) – ใช้ Drawing Tracer 2D =====
+            -- ===== FOOT LINE (Row 2) – Drawing Tracer 2D (real-time ตลอด) =====
             if XR.feetEnabled and hasDrawing and cam and lhrp then
                 if not XR.tracers then XR.tracers = {} end
 
                 local lFootWorld = lhrp.Position + Vector3.new(0,-3,0)
-                local lScreenPos, lOnScreen = cam:WorldToViewportPoint(lFootWorld)
+                local lScreenPos = cam:WorldToViewportPoint(lFootWorld)
 
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
@@ -1997,7 +1996,7 @@ registerRight("Player", function(scroll)
 
                         if char and hrp then
                             local footWorld = hrp.Position + Vector3.new(0,-3,0)
-                            local tScreenPos, tOnScreen = cam:WorldToViewportPoint(footWorld)
+                            local tScreenPos = cam:WorldToViewportPoint(footWorld)
 
                             if not line then
                                 local ok, obj = pcall(function()
@@ -2013,13 +2012,10 @@ registerRight("Player", function(scroll)
                             end
 
                             if line then
-                                if lOnScreen and tOnScreen then
-                                    line.From = Vector2.new(lScreenPos.X, lScreenPos.Y)
-                                    line.To   = Vector2.new(tScreenPos.X, tScreenPos.Y)
-                                    line.Visible = true
-                                else
-                                    line.Visible = false
-                                end
+                                -- อัปเดตตำแหน่งทุกเฟรม (real time)
+                                line.From = Vector2.new(lScreenPos.X, lScreenPos.Y)
+                                line.To   = Vector2.new(tScreenPos.X, tScreenPos.Y)
+                                line.Visible = true
                             end
                         else
                             if line then
@@ -2043,7 +2039,6 @@ registerRight("Player", function(scroll)
                         local char = pl.Character
                         local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
                         if head then
-                            -- ปิด BillboardGui อื่น ๆ ที่เป็นชื่อจากเกมเดิม
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name ~= NAME_TAG_NAME then
                                     if child:GetAttribute(DISABLED_ATTR) == nil then
@@ -2053,7 +2048,6 @@ registerRight("Player", function(scroll)
                                 end
                             end
 
-                            -- กัน UFO_NameTag ซ้อน: ให้เหลือ BillboardGui เดียว
                             local tag = nil
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
@@ -2076,7 +2070,6 @@ registerRight("Player", function(scroll)
                                 tag.Parent      = head
                             end
 
-                            -- กัน TextLabel ซ้อน: ให้เหลือ 1 label
                             local label = nil
                             for _,child in ipairs(tag:GetChildren()) do
                                 if child:IsA("TextLabel") then
@@ -2091,7 +2084,6 @@ registerRight("Player", function(scroll)
                                 label = Instance.new("TextLabel", tag)
                             end
 
-                            -- ตั้งค่ารูปแบบ label ทุกเฟรม (กันสคริปต์อื่นแก้)
                             label.BackgroundTransparency = 1
                             label.Size = UDim2.new(1,0,1,0)
                             label.Font = Enum.Font.GothamBold
@@ -2163,7 +2155,6 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Header
     local header = Instance.new("TextLabel", scroll)
     header.Name = "XRAY_Header"
     header.BackgroundTransparency = 1
@@ -2175,7 +2166,6 @@ registerRight("Player", function(scroll)
     header.Text = "Mong Thalu 👁 (X-Ray Vision)"
     header.LayoutOrder = base + 1
 
-    --======== Helper: สร้างแถวสวิตช์แบบ Model A V1 =========
     local function makeRow(name, order, labelText, getState, setState)
         local row = Instance.new("Frame", scroll)
         row.Name = name
@@ -2233,7 +2223,6 @@ registerRight("Player", function(scroll)
         update(getState())
     end
 
-    -- Row 1: มองทะลุ / X-Ray
     makeRow(
         "XRAY_Row1",
         base + 2,
@@ -2242,7 +2231,6 @@ registerRight("Player", function(scroll)
         setXrayEnabled
     )
 
-    -- Row 2: เส้นที่เท้า / Foot Line
     makeRow(
         "XRAY_Row2",
         base + 3,
@@ -2251,7 +2239,6 @@ registerRight("Player", function(scroll)
         setFeetEnabled
     )
 
-    -- Row 3: ดูชื่อผู้เล่น / Player Name ESP
     makeRow(
         "XRAY_Row3",
         base + 4,
@@ -2260,7 +2247,6 @@ registerRight("Player", function(scroll)
         setNamesEnabled
     )
 
-    -- AA1 auto-run
     if XR.xrayEnabled or XR.feetEnabled or XR.namesEnabled then
         ensureLoop()
     end
