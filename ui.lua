@@ -5216,10 +5216,10 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel v2) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Fixed Size/Position) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
--- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel (ตาม template)
+-- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5248,7 +5248,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งระบบอื่น)
+    -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งของระบบอื่น)
     ------------------------------------------------------------------------
     for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
         local o = scroll:FindFirstChild(name) or scroll.Parent:FindFirstChild(name)
@@ -5291,7 +5291,7 @@ registerRight("Shop", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- แถวพื้นฐาน (ซ้ายสั้นลง)
+    -- แถวพื้นฐาน (ซ้ายสั้นลงให้เหมือนรูป)
     ------------------------------------------------------------------------
     local function makeRow(name, order, labelText)
         local row = Instance.new("Frame")
@@ -5303,11 +5303,11 @@ registerRight("Shop", function(scroll)
         stroke(row, 2.2, THEME.GREEN)
         row.LayoutOrder = order
 
-        -- ซ้ายให้สั้นลง (0.35 แทน 0.45)
+        -- ให้ label ซ้ายสั้นแบบชัด ๆ (กว้าง fix)
         local lab = Instance.new("TextLabel")
         lab.Parent = row
         lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(0.35, -16, 1, 0)
+        lab.Size = UDim2.new(0, 180, 1, 0) -- ประมาณความยาวในรูป
         lab.Position = UDim2.new(0, 16, 0, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
@@ -5360,7 +5360,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: ใช้ขนาด/ตำแหน่งจาก VA2_TemplatePanel ถ้ามี
+    -- Popup Panel: 🔍 Search (ขนาด/ตำแหน่ง fix ให้ใกล้รูปที่ 3)
     ------------------------------------------------------------------------
     local optionsPanel
 
@@ -5371,25 +5371,21 @@ registerRight("Shop", function(scroll)
         optionsPanel.Name = "VA2_OptionsPanel"
         optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
-        optionsPanel.ClipsDescendants = true
+        optionsPanel.ClipsDescendants = false
 
-        -- ถ้ามี template ใช้ค่ามันตรง ๆ
-        local template = panelParent:FindFirstChild("VA2_TemplatePanel")
-        if template and template:IsA("Frame") then
-            optionsPanel.AnchorPoint = template.AnchorPoint
-            optionsPanel.Position    = template.Position
-            optionsPanel.Size        = template.Size
-        else
-            -- fallback: อยู่ขวาบน ขนาดใกล้ ๆ ของเดิม และ inset จากขอบให้เส้นไม่หาย
-            optionsPanel.AnchorPoint = Vector2.new(1, 0)
-            optionsPanel.Position    = UDim2.new(1, -6, 0, 6)
-            optionsPanel.Size        = UDim2.new(0, 330, 1, -12)
-        end
+        -- วัดจากภาพ: ให้ชิดขวาของกรอบ Shop, สูงประมาณ 70% ของกรอบ, อยู่กลาง ๆ ด้านบน
+        optionsPanel.AnchorPoint = Vector2.new(1, 0)
+        -- ขยับออกจากขอบขวา 8px และจากขอบบน ~70px
+        optionsPanel.Position    = UDim2.new(1, -8, 0, 70)
+        -- กว้าง 320px สูง 260px (ใกล้เคียงสี่เหลี่ยมขาว/แดง)
+        optionsPanel.Size        = UDim2.new(0, 320, 0, 260)
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
+        --------------------------------------------------------------------
         -- HEADER: 🔍 Search
+        --------------------------------------------------------------------
         local headerBar = Instance.new("Frame")
         headerBar.Name = "Header"
         headerBar.Parent = optionsPanel
@@ -5397,6 +5393,7 @@ registerRight("Shop", function(scroll)
         headerBar.BorderSizePixel = 0
         headerBar.Position = UDim2.new(0, 0, 0, 0)
         headerBar.Size = UDim2.new(1, 0, 0, 44)
+        corner(headerBar, 12)
 
         local headerText = Instance.new("TextLabel")
         headerText.Parent = headerBar
@@ -5409,7 +5406,9 @@ registerRight("Shop", function(scroll)
         headerText.TextXAlignment = Enum.TextXAlignment.Left
         headerText.Text = "🔍 Search"
 
-        -- BODY + ช่อง Search จริง
+        --------------------------------------------------------------------
+        -- BODY + ช่อง Search ใช้งานได้จริง
+        --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
@@ -5417,6 +5416,7 @@ registerRight("Shop", function(scroll)
         body.BorderSizePixel = 0
         body.Position = UDim2.new(0, 0, 0, 44)
         body.Size = UDim2.new(1, 0, 1, -44)
+        corner(body, 10)
 
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
@@ -5425,6 +5425,7 @@ registerRight("Shop", function(scroll)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
+        -- TextBox ค้นหา
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
