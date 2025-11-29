@@ -1752,6 +1752,7 @@ registerRight("Player", function(scroll)
     local HttpService     = game:GetService("HttpService")
     local MarketplaceServ = game:GetService("MarketplaceService")
     local lp              = Players.LocalPlayer
+    local Workspace       = game:GetService("Workspace")
 
     --================ PER-MAP SAVE (Runner FS + RAM) ================
     local function safePlaceName()
@@ -1861,15 +1862,22 @@ registerRight("Player", function(scroll)
         feetEnabled   = false,   -- Row2
         namesEnabled  = false,   -- Row3
         loop          = nil,
+        tracers       = {},      -- สำหรับเส้นเท้า (Drawing)
     }
     local XR = _G.UFOX_XRAY
 
-    local ESP_NAME             = "UFO_XRAY_HL"
-    local FOOT_BEAM_PREFIX     = "UFO_FootBeam_"
-    local FOOT_LINES_FOLDER    = "UFO_FootLines"
-    local FOOT_HANDLE_NAME     = "UFO_FootHandle"
-    local NAME_TAG_NAME        = "UFO_NameTag"
-    local DISABLED_ATTR        = "UFOX_OrigEnabled"
+    local ESP_NAME      = "UFO_XRAY_HL"
+    local FOOT_LINE_KEY = "Tracer"
+    local NAME_TAG_NAME = "UFO_NameTag"
+    local DISABLED_ATTR = "UFOX_OrigEnabled"
+
+    -- Drawing API check (สำหรับเส้นเท้า)
+    local hasDrawing = false
+    pcall(function()
+        if Drawing and Drawing.new then
+            hasDrawing = true
+        end
+    end)
 
     --------------------------------------------------------------------
     -- AA1 RESTORE
@@ -1879,28 +1887,6 @@ registerRight("Player", function(scroll)
     XR.namesEnabled = (getSave("Player.XRay.Names",    XR.namesEnabled) and true or false)
 
     -- ===== HELPERS =====
-    local function getFootFolderAndHandle()
-        local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
-        if not folder then
-            folder = Instance.new("Folder")
-            folder.Name = FOOT_LINES_FOLDER
-            folder.Parent = workspace
-        end
-        local handle = folder:FindFirstChild(FOOT_HANDLE_NAME)
-        if not handle then
-            handle = Instance.new("Part")
-            handle.Name = FOOT_HANDLE_NAME
-            handle.Anchored = true
-            handle.CanCollide = false
-            handle.CanTouch = false
-            handle.CanQuery = false
-            handle.Transparency = 1
-            handle.Size = Vector3.new(1,1,1)
-            handle.Parent = folder
-        end
-        return folder, handle
-    end
-
     local function clearHighlights()
         for _,pl in ipairs(Players:GetPlayers()) do
             if pl ~= lp then
@@ -1914,10 +1900,14 @@ registerRight("Player", function(scroll)
     end
 
     local function clearFeet()
-        local folder = workspace:FindFirstChild(FOOT_LINES_FOLDER)
-        if folder then
-            folder:Destroy()
+        if XR.tracers then
+            for pl, line in pairs(XR.tracers) do
+                if line then
+                    pcall(function() line.Visible = false line:Remove() end)
+                end
+            end
         end
+        XR.tracers = {}
     end
 
     local function clearNames()
@@ -1966,6 +1956,7 @@ registerRight("Player", function(scroll)
 
             local lchar = lp.Character
             local lhrp  = lchar and lchar:FindFirstChild("HumanoidRootPart")
+            local cam   = Workspace.CurrentCamera
 
             -- ===== X-RAY HIGHLIGHT (Row 1) =====
             pcall(function()
@@ -1991,43 +1982,53 @@ registerRight("Player", function(scroll)
                 end
             end)
 
-            -- ===== FOOT LINE (Row 2) – LineHandleAdornment + Handle Part =====
-            if XR.feetEnabled and lhrp then
-                local folder, handle = getFootFolderAndHandle()
+            -- ===== FOOT LINE (Row 2) – ใช้ Drawing Tracer 2D =====
+            if XR.feetEnabled and hasDrawing and cam and lhrp then
+                if not XR.tracers then XR.tracers = {} end
 
-                -- ลบเส้นเก่าทั้งหมด
-                for _,child in ipairs(folder:GetChildren()) do
-                    if child:IsA("LineHandleAdornment") then
-                        child:Destroy()
-                    end
-                end
-
-                local origin = lhrp.Position + Vector3.new(0,-3,0)
-                handle.CFrame = CFrame.new(origin)
+                local lFootWorld = lhrp.Position + Vector3.new(0,-3,0)
+                local lScreenPos, lOnScreen = cam:WorldToViewportPoint(lFootWorld)
 
                 for _,pl in ipairs(Players:GetPlayers()) do
                     if pl ~= lp then
                         local char = pl.Character
                         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            local targetPos = hrp.Position + Vector3.new(0,-3,0)
-                            local dir       = targetPos - origin
-                            local dist      = dir.Magnitude
-                            if dist > 0 then
-                                local line = Instance.new("LineHandleAdornment")
-                                line.Name        = FOOT_BEAM_PREFIX..pl.UserId
-                                line.Color3      = THEME.GREEN
-                                line.Thickness   = 0.08
-                                line.Length      = dist
-                                line.AlwaysOnTop = true
-                                line.ZIndex      = 1
-                                line.Adornee     = handle
+                        local line = XR.tracers[pl]
 
-                                local worldCF = CFrame.new(origin, targetPos)
-                                line.CFrame = handle.CFrame:ToObjectSpace(worldCF) * CFrame.new(0,0,-dist/2)
+                        if char and hrp then
+                            local footWorld = hrp.Position + Vector3.new(0,-3,0)
+                            local tScreenPos, tOnScreen = cam:WorldToViewportPoint(footWorld)
 
-                                line.Parent      = folder
+                            if not line then
+                                local ok, obj = pcall(function()
+                                    return Drawing.new("Line")
+                                end)
+                                if ok and obj then
+                                    line = obj
+                                    line.Color = THEME.GREEN
+                                    line.Thickness = 2
+                                    line.Transparency = 1
+                                    XR.tracers[pl] = line
+                                end
                             end
+
+                            if line then
+                                if lOnScreen and tOnScreen then
+                                    line.From = Vector2.new(lScreenPos.X, lScreenPos.Y)
+                                    line.To   = Vector2.new(tScreenPos.X, tScreenPos.Y)
+                                    line.Visible = true
+                                else
+                                    line.Visible = false
+                                end
+                            end
+                        else
+                            if line then
+                                pcall(function()
+                                    line.Visible = false
+                                    line:Remove()
+                                end)
+                            end
+                            XR.tracers[pl] = nil
                         end
                     end
                 end
@@ -2052,19 +2053,18 @@ registerRight("Player", function(scroll)
                                 end
                             end
 
-                            -- กัน UFO_NameTag ซ้อน: ให้เหลือแค่ 1
-                            local primaryTag = nil
+                            -- กัน UFO_NameTag ซ้อน: ให้เหลือ BillboardGui เดียว
+                            local tag = nil
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
-                                    if not primaryTag then
-                                        primaryTag = child
+                                    if not tag then
+                                        tag = child
                                     else
                                         child:Destroy()
                                     end
                                 end
                             end
 
-                            local tag = primaryTag
                             if not tag then
                                 tag = Instance.new("BillboardGui")
                                 tag.Name = NAME_TAG_NAME
@@ -2074,23 +2074,34 @@ registerRight("Player", function(scroll)
                                 tag.MaxDistance = 10000
                                 tag.Adornee     = head
                                 tag.Parent      = head
-
-                                local lbl = Instance.new("TextLabel", tag)
-                                lbl.BackgroundTransparency = 1
-                                lbl.Size = UDim2.new(1,0,1,0)
-                                lbl.Font = Enum.Font.GothamBold
-                                lbl.TextScaled = true
-                                lbl.TextColor3 = THEME.WHITE
-                                lbl.TextStrokeColor3 = THEME.GREEN
-                                lbl.TextStrokeTransparency = 0
-                                lbl.Text = ""
                             end
 
-                            local label = tag:FindFirstChildOfClass("TextLabel")
-                            if label then
-                                local display = (pl.DisplayName and pl.DisplayName ~= "") and pl.DisplayName or pl.Name
-                                label.Text = display
+                            -- กัน TextLabel ซ้อน: ให้เหลือ 1 label
+                            local label = nil
+                            for _,child in ipairs(tag:GetChildren()) do
+                                if child:IsA("TextLabel") then
+                                    if not label then
+                                        label = child
+                                    else
+                                        child:Destroy()
+                                    end
+                                end
                             end
+                            if not label then
+                                label = Instance.new("TextLabel", tag)
+                            end
+
+                            -- ตั้งค่ารูปแบบ label ทุกเฟรม (กันสคริปต์อื่นแก้)
+                            label.BackgroundTransparency = 1
+                            label.Size = UDim2.new(1,0,1,0)
+                            label.Font = Enum.Font.GothamBold
+                            label.TextScaled = true
+                            label.TextColor3 = THEME.WHITE
+                            label.TextStrokeColor3 = THEME.GREEN
+                            label.TextStrokeTransparency = 0
+
+                            local display = (pl.DisplayName and pl.DisplayName ~= "") and pl.DisplayName or pl.Name
+                            label.Text = display
                         end
                     end
                 end
