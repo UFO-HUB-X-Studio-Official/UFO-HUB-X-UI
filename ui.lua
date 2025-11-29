@@ -5345,13 +5345,11 @@ registerRight("Shop", function(scroll)
 
     local selectStroke = stroke(selectBtn, 1.8, THEME.GREEN_DARK)
 
-    -- เว้นที่ด้านขวาให้ลูกศรแต่ให้ text ยังกลางสวย ๆ
     local padding = Instance.new("UIPadding")
     padding.Parent = selectBtn
     padding.PaddingLeft  = UDim.new(0, 8)
     padding.PaddingRight = UDim.new(0, 26)
 
-    -- ลูกศร ▼ อยู่ขวาสุดในกล่อง
     local arrow = Instance.new("TextLabel")
     arrow.Parent = selectBtn
     arrow.AnchorPoint = Vector2.new(1,0.5)
@@ -5364,9 +5362,9 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search (ดำ + เส้นเขียวนีออน)
+    -- Popup Panel: 🔍 Search (ดำ + เส้นเขียวนีออน ขนาด/ตำแหน่งแบบรูปที่ 3)
     ------------------------------------------------------------------------
-    local optionsPanel -- จะสร้างตอนกดปุ่ม
+    local optionsPanel
 
     local function openPanel()
         if optionsPanel then optionsPanel:Destroy() end
@@ -5376,21 +5374,21 @@ registerRight("Shop", function(scroll)
         optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.AnchorPoint = Vector2.new(1, 0)
-        -- ติดด้านขวาของกรอบ Shop (ปรับค่าได้ถ้าอยากเลื่อน)
-        optionsPanel.Position = UDim2.new(1, -10, 0, 60)
-        optionsPanel.Size = UDim2.new(0, 280, 0, 260)
+        -- ชิดขวา สูงเต็มกรอบ เหมือนตอนกล่องขาว/แดงเดิม
+        optionsPanel.Position = UDim2.new(1, -6, 0, 0)
+        optionsPanel.Size     = UDim2.new(0, 330, 1, -10)
+        optionsPanel.ClipsDescendants = true
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
-        -- Header ด้านบน: 🔍 Search (ดำ, เส้นเขียวนีออน)
+        -- Header ด้านบน: 🔍 Search (ให้ใช้แค่พื้นดำด้านใน ไม่ยุ่งเส้นนอก)
         local headerBar = Instance.new("Frame")
         headerBar.Name = "Header"
         headerBar.Parent = optionsPanel
         headerBar.BackgroundColor3 = THEME.BLACK
-        headerBar.Size = UDim2.new(1, 0, 0, 44)
         headerBar.BorderSizePixel = 0
-        corner(headerBar, 12)
-        stroke(headerBar, 2, THEME.GREEN)
+        headerBar.Position = UDim2.new(0, 0, 0, 0)
+        headerBar.Size = UDim2.new(1, 0, 0, 44)
 
         local headerText = Instance.new("TextLabel")
         headerText.Parent = headerBar
@@ -5403,7 +5401,7 @@ registerRight("Shop", function(scroll)
         headerText.TextXAlignment = Enum.TextXAlignment.Left
         headerText.Text = "🔍 Search"
 
-        -- พื้นที่ข้างล่าง (ไว้ใส่ options ทีหลัง)
+        -- BODY ข้างล่าง + ช่อง Search จริง
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
@@ -5411,8 +5409,44 @@ registerRight("Shop", function(scroll)
         body.BorderSizePixel = 0
         body.Position = UDim2.new(0, 0, 0, 44)
         body.Size = UDim2.new(1, 0, 1, -44)
-        corner(body, 10)
-        -- ไม่ใส่ stroke ซ้ำ จะได้ไม่หนาเกินไป
+
+        local bodyPad = Instance.new("UIPadding")
+        bodyPad.Parent = body
+        bodyPad.PaddingTop    = UDim.new(0, 10)
+        bodyPad.PaddingBottom = UDim.new(0, 10)
+        bodyPad.PaddingLeft   = UDim.new(0, 10)
+        bodyPad.PaddingRight  = UDim.new(0, 10)
+
+        -- ช่องค้นหา TextBox ใช้งานได้จริง
+        local searchBox = Instance.new("TextBox")
+        searchBox.Name = "SearchBox"
+        searchBox.Parent = body
+        searchBox.Size = UDim2.new(1, 0, 0, 32)
+        searchBox.Position = UDim2.new(0, 0, 0, 0)
+        searchBox.BackgroundColor3 = THEME.BLACK
+        searchBox.ClearTextOnFocus = false
+        searchBox.Font = Enum.Font.Gotham
+        searchBox.TextSize = 14
+        searchBox.TextColor3 = THEME.WHITE
+        searchBox.PlaceholderText = "Search..."
+        searchBox.TextXAlignment = Enum.TextXAlignment.Left
+        searchBox.Text = ""
+        corner(searchBox, 8)
+
+        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN_DARK)
+
+        -- เอฟเฟกต์เส้นตอนโฟกัส
+        searchBox.Focused:Connect(function()
+            sbStroke.Color = THEME.GREEN
+        end)
+        searchBox.FocusLost:Connect(function()
+            sbStroke.Color = THEME.GREEN_DARK
+        end)
+
+        -- ตัวอย่าง event ค้นหา (ตอนนี้ยังแค่ print ไว้ก่อน)
+        searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+            print("[V A2] Search query =", searchBox.Text)
+        end)
     end
 
     local function closePanel()
