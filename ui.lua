@@ -2111,7 +2111,7 @@ registerRight("Player", function(scroll)
             end)
 
             ----------------------------------------------------------------
-            -- Row 2: FOOT LINE + BOX 2D (กล่องพอดีตัวละคร)
+            -- Row 2: FOOT LINE + BOX 2D (กล่องพอดีตัวละคร, ใหญ่+หนาขึ้นนิดนึง)
             ----------------------------------------------------------------
             if XR.feetEnabled and hasDrawing and lhrp then
                 local viewport = cam.ViewportSize
@@ -2187,12 +2187,11 @@ registerRight("Player", function(scroll)
                                 end
                                 XR.boxes[pl] = nil
                             else
-                                -- ใช้ตำแหน่งหัว + เท้า เพื่อให้กล่องพอดีตัวละครทุกระยะ
+                                -- ใช้ตำแหน่งหัว + เท้า → กล่องพอดีตัว (scale ใหญ่ขึ้น ~10%)
                                 local headScreen  = cam:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
                                 local footScreen2 = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
 
                                 if headScreen.Z < 0 or footScreen2.Z < 0 then
-                                    -- ถ้าหลังกล้อง ไม่ต้องวาดกล่อง
                                     if boxSet then
                                         for _,ln in pairs(boxSet) do
                                             pcall(function()
@@ -2212,8 +2211,11 @@ registerRight("Player", function(scroll)
 
                                     local cy   = (hy + fy) / 2
                                     local cx   = (hx + fx) / 2
-                                    local hPix = math.abs(hy - fy) / 2  -- ความสูงครึ่งหนึ่ง
-                                    local wPix = hPix * 0.45            -- กว้างประมาณ 45% ของสูง
+
+                                    local heightHalf = math.abs(hy - fy) / 2
+                                    local scale      = 1.1           -- ขยายขึ้นนิดนึง
+                                    local hPix       = heightHalf * scale
+                                    local wPix       = hPix * 0.5    -- กว้าง ~50% ของสูง
 
                                     local tl = Vector2.new(cx - wPix, cy - hPix)
                                     local tr = Vector2.new(cx + wPix, cy - hPix)
@@ -2228,7 +2230,7 @@ registerRight("Player", function(scroll)
                                             end)
                                             if ok and obj then
                                                 obj.Color = THEME.GREEN
-                                                obj.Thickness = 2
+                                                obj.Thickness = 3   -- หนาขึ้น
                                                 obj.Transparency = 1
                                                 obj.Visible = true
                                                 return obj
@@ -2246,10 +2248,22 @@ registerRight("Player", function(scroll)
                                     local left   = boxSet.left
                                     local right  = boxSet.right
 
-                                    if top    then top.From,    top.To,    top.Visible    = tl, tr, true end
-                                    if bottom then bottom.From, bottom.To, bottom.Visible = bl, br, true end
-                                    if left   then left.From,   left.To,   left.Visible   = tl, bl, true end
-                                    if right  then right.From,  right.To,  right.Visible  = tr, br, true end
+                                    if top then
+                                        top.From, top.To, top.Visible = tl, tr, true
+                                        top.Thickness = 3
+                                    end
+                                    if bottom then
+                                        bottom.From, bottom.To, bottom.Visible = bl, br, true
+                                        bottom.Thickness = 3
+                                    end
+                                    if left then
+                                        left.From, left.To, left.Visible = tl, bl, true
+                                        left.Thickness = 3
+                                    end
+                                    if right then
+                                        right.From, right.To, right.Visible = tr, br, true
+                                        right.Thickness = 3
+                                    end
                                 end
                             end
                         else
@@ -2362,7 +2376,7 @@ registerRight("Player", function(scroll)
             end
 
             ----------------------------------------------------------------
-            -- Row 4: PLAYER HEALTH (หลอดเลือดที่ตีน)
+            -- Row 4: PLAYER HEALTH (หลอดเลือดที่ตีน, realtime)
             ----------------------------------------------------------------
             if XR.healthEnabled then
                 for _,pl in ipairs(Players:GetPlayers()) do
@@ -2416,7 +2430,8 @@ registerRight("Player", function(scroll)
                                     fill.Size = UDim2.new(1,-2,1,-2)
                                     corner(fill,4)
                                 else
-                                    fill = bar:FindChild("Fill") or bar:FindFirstChild("Fill")
+                                    -- แก้บั๊ก: ใช้ FindFirstChild อย่างเดียว → ไม่มี error, อัปเดตได้ทุก tick
+                                    fill = bar:FindFirstChild("Fill")
                                     if not fill then
                                         fill = Instance.new("Frame")
                                         fill.Name = "Fill"
@@ -2442,6 +2457,7 @@ registerRight("Player", function(scroll)
                                     label.TextStrokeTransparency = 0
                                 end
 
+                                -- realtime health update
                                 local hp  = hum.Health
                                 local max = hum.MaxHealth
                                 local frac = math.clamp(hp / max, 0, 1)
@@ -2536,6 +2552,7 @@ registerRight("Player", function(scroll)
         end
     end
 
+    private_setNamesEnabled = nil
     local function setNamesEnabled(v)
         XR.namesEnabled = v and true or false
         setSave("Player.XRay.Names", XR.namesEnabled)
