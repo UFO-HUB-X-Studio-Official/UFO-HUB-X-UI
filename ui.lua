@@ -1743,7 +1743,6 @@ registerRight("Player", function(scroll)
 end)
 --===== UFO HUB X • Player — มองทะลุ / X-Ray Vision (Model A V1 + AA1) =====
 -- ใช้ในแท็บ Player ฝั่งขวา • รูปแบบ Model A V1
--- AA1: ถ้าเคยเซฟสถานะสวิตช์ไว้ จะเปิดระบบให้อัตโนมัติเมื่อโหลดสคริปต์
 
 registerRight("Player", function(scroll)
     local Players         = game:GetService("Players")
@@ -1754,7 +1753,9 @@ registerRight("Player", function(scroll)
     local Workspace       = game:GetService("Workspace")
     local lp              = Players.LocalPlayer
 
-    --================ PER-MAP SAVE (Runner FS + RAM) ================
+    ------------------------------------------------------------------------
+    -- SAVE SYSTEM (AA1)
+    ------------------------------------------------------------------------
     local function safePlaceName()
         local ok,info = pcall(function()
             return MarketplaceServ:GetProductInfo(game.PlaceId)
@@ -1825,7 +1826,9 @@ registerRight("Player", function(scroll)
         writeSave(data)
     end
 
-    --================ THEME A V1 ================
+    ------------------------------------------------------------------------
+    -- THEME
+    ------------------------------------------------------------------------
     local THEME = {
         GREEN = Color3.fromRGB(25,255,125),
         RED   = Color3.fromRGB(255,40,40),
@@ -1865,7 +1868,9 @@ registerRight("Player", function(scroll)
         )
     end
 
-    --================= GLOBAL XRAY STATE =================
+    ------------------------------------------------------------------------
+    -- GLOBAL XR STATE
+    ------------------------------------------------------------------------
     _G.UFOX_XRAY = _G.UFOX_XRAY or {
         xrayEnabled      = false,   -- Row1
         feetEnabled      = false,   -- Row2
@@ -1879,7 +1884,7 @@ registerRight("Player", function(scroll)
     }
     local XR = _G.UFOX_XRAY
 
-    -- ล้างของเก่าจากรอบก่อน
+    -- เคลียร์ของเก่าก่อน
     if XR.tracers then
         for _, line in pairs(XR.tracers) do
             pcall(function()
@@ -1922,20 +1927,22 @@ registerRight("Player", function(scroll)
         end
     end)
 
-    -- จำกัดระยะกล่อง / หลอดเลือด (ประมาณ 65%)
+    -- ระยะตัดกล่อง / หลอดเลือด (ประมาณ 65%)
     local BOX_MAX_DIST    = 650 -- studs
     local HEALTH_MAX_DIST = 650 -- studs
 
-    --------------------------------------------------------------------
-    -- AA1 RESTORE
-    --------------------------------------------------------------------
+    ------------------------------------------------------------------------
+    -- LOAD SAVE (AA1)
+    ------------------------------------------------------------------------
     XR.xrayEnabled      = (getSave("Player.XRay.Enabled",   XR.xrayEnabled)      and true or false)
     XR.feetEnabled      = (getSave("Player.XRay.Feet",      XR.feetEnabled)      and true or false)
     XR.namesEnabled     = (getSave("Player.XRay.Names",     XR.namesEnabled)     and true or false)
     XR.healthEnabled    = (getSave("Player.XRay.Health",    XR.healthEnabled)    and true or false)
     XR.distanceEnabled  = (getSave("Player.XRay.Distance",  XR.distanceEnabled)  and true or false)
 
-    -- ===== HELPERS =====
+    ------------------------------------------------------------------------
+    -- CLEAR HELPERS (เบากว่าเดิม, ไม่ scan ทั้ง Workspace)
+    ------------------------------------------------------------------------
     local function clearHighlights()
         for _,pl in ipairs(Players:GetPlayers()) do
             if pl ~= lp then
@@ -1979,17 +1986,16 @@ registerRight("Player", function(scroll)
     end
 
     local function clearNameBillboards()
-        -- ลบแท็กชื่อของเราให้หมดจากทั้งแมพ กันหลุด
-        for _,inst in ipairs(Workspace:GetDescendants()) do
-            if inst:IsA("BillboardGui") and inst.Name == NAME_TAG_NAME then
-                inst:Destroy()
-            end
-        end
-        -- restore ป้ายชื่อเดิมถ้ามี attribute
         for _,pl in ipairs(Players:GetPlayers()) do
             if pl ~= lp then
                 local char = pl.Character
                 if char then
+                    for _,bb in ipairs(char:GetDescendants()) do
+                        if bb:IsA("BillboardGui") and bb.Name == NAME_TAG_NAME then
+                            bb:Destroy()
+                        end
+                    end
+                    -- restore ชื่อเดิม
                     local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
                     if head then
                         for _,child in ipairs(head:GetChildren()) do
@@ -2008,17 +2014,31 @@ registerRight("Player", function(scroll)
     end
 
     local function clearDistanceBillboards()
-        for _,inst in ipairs(Workspace:GetDescendants()) do
-            if inst:IsA("BillboardGui") and inst.Name == DIST_TAG_NAME then
-                inst:Destroy()
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local char = pl.Character
+                if char then
+                    for _,bb in ipairs(char:GetDescendants()) do
+                        if bb:IsA("BillboardGui") and bb.Name == DIST_TAG_NAME then
+                            bb:Destroy()
+                        end
+                    end
+                end
             end
         end
     end
 
     local function clearHealthBillboards()
-        for _,inst in ipairs(Workspace:GetDescendants()) do
-            if inst:IsA("BillboardGui") and inst.Name == HEALTH_TAG_NAME then
-                inst:Destroy()
+        for _,pl in ipairs(Players:GetPlayers()) do
+            if pl ~= lp then
+                local char = pl.Character
+                if char then
+                    for _,bb in ipairs(char:GetDescendants()) do
+                        if bb:IsA("BillboardGui") and bb.Name == HEALTH_TAG_NAME then
+                            bb:Destroy()
+                        end
+                    end
+                end
             end
         end
     end
@@ -2035,9 +2055,21 @@ registerRight("Player", function(scroll)
         clearHealthBillboards()
     end
 
+    ------------------------------------------------------------------------
+    -- MAIN LOOP (ลดภาระด้วย UPDATE_RATE)
+    ------------------------------------------------------------------------
+    local UPDATE_RATE = 1/15 -- อัปเดตหนัก ๆ ~15 ครั้ง/วินาที
+    local acc = 0
+
     local function ensureLoop()
         if XR.loop then return end
-        XR.loop = RunService.Heartbeat:Connect(function()
+        XR.loop = RunService.Heartbeat:Connect(function(dt)
+            acc = acc + dt
+            if acc < UPDATE_RATE then
+                return
+            end
+            acc = 0
+
             if not XR.xrayEnabled and
                not XR.feetEnabled and
                not XR.namesEnabled and
@@ -2050,17 +2082,18 @@ registerRight("Player", function(scroll)
             local lchar = lp.Character
             local lhrp  = lchar and lchar:FindFirstChild("HumanoidRootPart")
             local cam   = Workspace.CurrentCamera
+            if not cam then return end
 
             ----------------------------------------------------------------
             -- Row 1: X-RAY HIGHLIGHT
             ----------------------------------------------------------------
             pcall(function()
-                for _,pl in ipairs(Players:GetPlayers()) do
-                    if pl ~= lp then
-                        local char = pl.Character
-                        if char then
-                            local hl = char:FindFirstChild(ESP_NAME)
-                            if XR.xrayEnabled then
+                if XR.xrayEnabled then
+                    for _,pl in ipairs(Players:GetPlayers()) do
+                        if pl ~= lp then
+                            local char = pl.Character
+                            if char then
+                                local hl = char:FindFirstChild(ESP_NAME)
                                 if not hl then
                                     hl = Instance.new("Highlight")
                                     hl.Name = ESP_NAME
@@ -2069,18 +2102,18 @@ registerRight("Player", function(scroll)
                                     hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
                                     hl.Parent = char
                                 end
-                            elseif hl then
-                                hl:Destroy()
                             end
                         end
                     end
+                else
+                    clearHighlights()
                 end
             end)
 
             ----------------------------------------------------------------
-            -- Row 2: FOOT LINE (ไม่จำกัดระยะ) + BOX 2D (จำกัดระยะ 65%)
+            -- Row 2: FOOT LINE + BOX 2D (กล่องพอดีตัวละคร)
             ----------------------------------------------------------------
-            if XR.feetEnabled and hasDrawing and lhrp and cam then
+            if XR.feetEnabled and hasDrawing and lhrp then
                 local viewport = cam.ViewportSize
                 local vw, vh   = viewport.X, viewport.Y
 
@@ -2099,14 +2132,15 @@ registerRight("Player", function(scroll)
                     if pl ~= lp then
                         local char = pl.Character
                         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                        local head = char and (char:FindFirstChild("Head") or hrp)
 
                         local line   = XR.tracers[pl]
                         local boxSet = XR.boxes[pl]
 
-                        if char and hrp then
+                        if char and hrp and head then
                             seenPlayers[pl] = true
 
-                            -- ===== เส้นเท้าเรา -> เท้าเขา (ไม่จำกัดระยะ) =====
+                            -- เส้นเท้าเรา -> เท้าเขา (ไม่จำกัดระยะ)
                             local footWorld  = hrp.Position + Vector3.new(0,-3,0)
                             local tScreenPos = cam:WorldToViewportPoint(footWorld)
                             if tScreenPos.Z < 0 then
@@ -2133,7 +2167,7 @@ registerRight("Player", function(scroll)
                                 line.Visible = true
                             end
 
-                            -- ===== กล่อง 2D รอบตัว (จำกัดระยะ BOX_MAX_DIST) =====
+                            -- กล่อง 2D จำกัดระยะ BOX_MAX_DIST + ขนาดตามตัวจริง
                             local inRange = true
                             if lhrp then
                                 local dist = (lhrp.Position - hrp.Position).Magnitude
@@ -2153,53 +2187,70 @@ registerRight("Player", function(scroll)
                                 end
                                 XR.boxes[pl] = nil
                             else
-                                local centerWorld = hrp.Position
-                                local cScreenPos  = cam:WorldToViewportPoint(centerWorld)
-                                if cScreenPos.Z < 0 then
-                                    cScreenPos = Vector3.new(vw - cScreenPos.X, vh - cScreenPos.Y, 0)
-                                end
+                                -- ใช้ตำแหน่งหัว + เท้า เพื่อให้กล่องพอดีตัวละครทุกระยะ
+                                local headScreen  = cam:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+                                local footScreen2 = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0,-3,0))
 
-                                local cx = math.clamp(cScreenPos.X, 0, vw)
-                                local cy = math.clamp(cScreenPos.Y, 0, vh)
-
-                                local halfW = 35
-                                local halfH = 55
-
-                                local tl = Vector2.new(cx - halfW, cy - halfH)
-                                local tr = Vector2.new(cx + halfW, cy - halfH)
-                                local bl = Vector2.new(cx - halfW, cy + halfH)
-                                local br = Vector2.new(cx + halfW, cy + halfH)
-
-                                if not boxSet then
-                                    boxSet = {}
-                                    local function newLine()
-                                        local ok, obj = pcall(function()
-                                            return Drawing.new("Line")
-                                        end)
-                                        if ok and obj then
-                                            obj.Color = THEME.GREEN
-                                            obj.Thickness = 2
-                                            obj.Transparency = 1
-                                            obj.Visible = true
-                                            return obj
+                                if headScreen.Z < 0 or footScreen2.Z < 0 then
+                                    -- ถ้าหลังกล้อง ไม่ต้องวาดกล่อง
+                                    if boxSet then
+                                        for _,ln in pairs(boxSet) do
+                                            pcall(function()
+                                                if ln then
+                                                    ln.Visible = false
+                                                    if ln.Remove then ln:Remove() end
+                                                end
+                                            end)
                                         end
                                     end
-                                    boxSet.top    = newLine()
-                                    boxSet.bottom = newLine()
-                                    boxSet.left   = newLine()
-                                    boxSet.right  = newLine()
-                                    XR.boxes[pl] = boxSet
+                                    XR.boxes[pl] = nil
+                                else
+                                    local hx = math.clamp(headScreen.X, 0, vw)
+                                    local hy = math.clamp(headScreen.Y, 0, vh)
+                                    local fx = math.clamp(footScreen2.X, 0, vw)
+                                    local fy = math.clamp(footScreen2.Y, 0, vh)
+
+                                    local cy   = (hy + fy) / 2
+                                    local cx   = (hx + fx) / 2
+                                    local hPix = math.abs(hy - fy) / 2  -- ความสูงครึ่งหนึ่ง
+                                    local wPix = hPix * 0.45            -- กว้างประมาณ 45% ของสูง
+
+                                    local tl = Vector2.new(cx - wPix, cy - hPix)
+                                    local tr = Vector2.new(cx + wPix, cy - hPix)
+                                    local bl = Vector2.new(cx - wPix, cy + hPix)
+                                    local br = Vector2.new(cx + wPix, cy + hPix)
+
+                                    if not boxSet then
+                                        boxSet = {}
+                                        local function newLine()
+                                            local ok, obj = pcall(function()
+                                                return Drawing.new("Line")
+                                            end)
+                                            if ok and obj then
+                                                obj.Color = THEME.GREEN
+                                                obj.Thickness = 2
+                                                obj.Transparency = 1
+                                                obj.Visible = true
+                                                return obj
+                                            end
+                                        end
+                                        boxSet.top    = newLine()
+                                        boxSet.bottom = newLine()
+                                        boxSet.left   = newLine()
+                                        boxSet.right  = newLine()
+                                        XR.boxes[pl] = boxSet
+                                    end
+
+                                    local top    = boxSet.top
+                                    local bottom = boxSet.bottom
+                                    local left   = boxSet.left
+                                    local right  = boxSet.right
+
+                                    if top    then top.From,    top.To,    top.Visible    = tl, tr, true end
+                                    if bottom then bottom.From, bottom.To, bottom.Visible = bl, br, true end
+                                    if left   then left.From,   left.To,   left.Visible   = tl, bl, true end
+                                    if right  then right.From,  right.To,  right.Visible  = tr, br, true end
                                 end
-
-                                local top    = boxSet.top
-                                local bottom = boxSet.bottom
-                                local left   = boxSet.left
-                                local right  = boxSet.right
-
-                                if top    then top.From,    top.To,    top.Visible    = tl, tr, true end
-                                if bottom then bottom.From, bottom.To, bottom.Visible = bl, br, true end
-                                if left   then left.From,   left.To,   left.Visible   = tl, bl, true end
-                                if right  then right.From,  right.To,  right.Visible  = tr, br, true end
                             end
                         else
                             if line then
@@ -2264,7 +2315,7 @@ registerRight("Player", function(scroll)
                     if pl ~= lp then
                         local char = pl.Character
                         local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
-                        if head then
+                        if char and head then
                             -- ปิดป้ายชื่อเดิม
                             for _,child in ipairs(head:GetChildren()) do
                                 if child:IsA("BillboardGui") and child.Name ~= NAME_TAG_NAME then
@@ -2275,18 +2326,7 @@ registerRight("Player", function(scroll)
                                 end
                             end
 
-                            -- หา / สร้าง our tag
-                            local tag = nil
-                            for _,child in ipairs(head:GetChildren()) do
-                                if child:IsA("BillboardGui") and child.Name == NAME_TAG_NAME then
-                                    if not tag then
-                                        tag = child
-                                    else
-                                        child:Destroy()
-                                    end
-                                end
-                            end
-
+                            local tag = head:FindFirstChild(NAME_TAG_NAME)
                             if not tag then
                                 tag = Instance.new("BillboardGui")
                                 tag.Name = NAME_TAG_NAME
@@ -2299,16 +2339,7 @@ registerRight("Player", function(scroll)
                             tag.AlwaysOnTop = true
                             tag.MaxDistance = 0
 
-                            local label = nil
-                            for _,child in ipairs(tag:GetChildren()) do
-                                if child:IsA("TextLabel") then
-                                    if not label then
-                                        label = child
-                                    else
-                                        child:Destroy()
-                                    end
-                                end
-                            end
+                            local label = tag:FindFirstChildOfClass("TextLabel")
                             if not label then
                                 label = Instance.new("TextLabel", tag)
                             end
@@ -2354,7 +2385,7 @@ registerRight("Player", function(scroll)
                                     tag = Instance.new("BillboardGui")
                                     tag.Name = HEALTH_TAG_NAME
                                     tag.Size = UDim2.new(0,60,0,10)
-                                    tag.StudsOffset = Vector3.new(0,-3,0) -- แถวเท้า
+                                    tag.StudsOffset = Vector3.new(0,-3,0)
                                     tag.Adornee     = hrp
                                     tag.Parent      = hrp
                                 end
@@ -2385,7 +2416,7 @@ registerRight("Player", function(scroll)
                                     fill.Size = UDim2.new(1,-2,1,-2)
                                     corner(fill,4)
                                 else
-                                    fill = bar:FindFirstChild("Fill")
+                                    fill = bar:FindChild("Fill") or bar:FindFirstChild("Fill")
                                     if not fill then
                                         fill = Instance.new("Frame")
                                         fill.Name = "Fill"
@@ -2417,7 +2448,6 @@ registerRight("Player", function(scroll)
 
                                 fill.Size = UDim2.new(frac, -2, 1, -2)
                                 fill.BackgroundColor3 = lerpColor(THEME.RED, THEME.GREEN, frac)
-
                                 label.Text = tostring(math.floor(hp + 0.5))
                             end
                         else
@@ -2447,7 +2477,7 @@ registerRight("Player", function(scroll)
                                 tag = Instance.new("BillboardGui")
                                 tag.Name = DIST_TAG_NAME
                                 tag.Size = UDim2.new(0,80,0,22)
-                                tag.StudsOffset = Vector3.new(0,0,0) -- กลางตัว
+                                tag.StudsOffset = Vector3.new(0,0,0)
                                 tag.Adornee     = hrp
                                 tag.Parent      = hrp
                             end
@@ -2483,7 +2513,9 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    --========== SETTERS + SAVE (AA1) ==========
+    ------------------------------------------------------------------------
+    -- SETTERS + SAVE
+    ------------------------------------------------------------------------
     local function setXrayEnabled(v)
         XR.xrayEnabled = v and true or false
         setSave("Player.XRay.Enabled", XR.xrayEnabled)
@@ -2504,7 +2536,6 @@ registerRight("Player", function(scroll)
         end
     end
 
-    private_setNamesEnabled = nil
     local function setNamesEnabled(v)
         XR.namesEnabled = v and true or false
         setSave("Player.XRay.Names", XR.namesEnabled)
@@ -2535,7 +2566,9 @@ registerRight("Player", function(scroll)
         end
     end
 
-    --================= MODEL A V1 LAYOUT =================
+    ------------------------------------------------------------------------
+    -- MODEL A V1 LAYOUT
+    ------------------------------------------------------------------------
     for _,n in ipairs({"XRAY_Header","XRAY_Row1","XRAY_Row2","XRAY_Row3","XRAY_Row4","XRAY_Row5"}) do
         local o = scroll:FindFirstChild(n)
         if o then o:Destroy() end
