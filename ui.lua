@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Fixed Size/Position) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – 90% Width) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
 -- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
@@ -5253,7 +5253,8 @@ registerRight("Shop", function(scroll)
     for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
-            or (scroll:FindFirstAncestorOfClass("ScreenGui") and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
+            or (scroll:FindFirstAncestorOfClass("ScreenGui")
+                and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
         if o then o:Destroy() end
     end
 
@@ -5361,7 +5362,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: ช่อง 🔍 Search อยู่บนสุด / กว้าง 70%
+    -- Popup Panel: 🔍 Search – กว้าง ~90% และขอบเขียวครบ 4 มุม
     ------------------------------------------------------------------------
     local optionsPanel
     local clickBlocker
@@ -5395,7 +5396,7 @@ registerRight("Shop", function(scroll)
             closePanel()
         end)
 
-        -- panel ผูกกับกรอบขวาของ Shop (ตำแหน่งเดิม)
+        -- panel ผูกกับกรอบขวาของ Shop (ความกว้าง ~90% ของเดิม: 252px)
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
         optionsPanel.Parent = panelParent
@@ -5403,23 +5404,23 @@ registerRight("Shop", function(scroll)
         optionsPanel.ClipsDescendants = false
         optionsPanel.AnchorPoint = Vector2.new(1, 0)
         optionsPanel.Position    = UDim2.new(1, -8, 0, 8)
-        optionsPanel.Size        = UDim2.new(0, 196, 1, -16)
+        optionsPanel.Size        = UDim2.new(0, 252, 1, -16)
         optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY + ช่อง Search (บนสุด / 🔍 Search / เขียวนีออน)
+        -- BODY + ช่อง Search (ดันเข้าไป ไม่ทับ stroke ขอบ)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundColor3 = THEME.BLACK
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 0, 0, 0)
-        body.Size = UDim2.new(1, 0, 1, 0)
-        body.ZIndex = optionsPanel.ZIndex + 1
+        body.Position = UDim2.new(0, 2, 0, 2)     -- ดันเข้า 2 px รอบด้าน
+        body.Size     = UDim2.new(1, -4, 1, -4)   -- เหลือที่ให้ขอบเขียวเห็นครบ 4 มุม
+        body.ZIndex   = optionsPanel.ZIndex + 1
 
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
@@ -5428,6 +5429,7 @@ registerRight("Shop", function(scroll)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
+        -- ช่อง Search บนสุด / กลาง / ใช้ 🔍 Search
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
