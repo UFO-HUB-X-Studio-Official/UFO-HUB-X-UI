@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Working Search – Align Search With Green UI Frame) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search Align & Clickable) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5245,9 +5245,9 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งของระบบอื่น)
+    -- CLEANUP เฉพาะของ V A2 เดิม
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
             or (scroll:FindFirstAncestorOfClass("ScreenGui")
@@ -5358,35 +5358,24 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel
+    -- Popup Panel (ไม่มี clickBlocker แล้ว)
     ------------------------------------------------------------------------
     local optionsPanel
-    local clickBlocker
 
     local function closePanel()
-        if optionsPanel then optionsPanel:Destroy(); optionsPanel = nil end
-        if clickBlocker then clickBlocker:Destroy(); clickBlocker = nil end
+        if optionsPanel then
+            optionsPanel:Destroy()
+            optionsPanel = nil
+        end
     end
 
     local function openPanel()
         closePanel()
 
-        local rootGui = panelParent:FindFirstAncestorOfClass("ScreenGui") or panelParent
-
-        clickBlocker = Instance.new("TextButton")
-        clickBlocker.Name = "VA2_ClickBlocker"
-        clickBlocker.Parent = rootGui
-        clickBlocker.BackgroundTransparency = 1
-        clickBlocker.Text = ""
-        clickBlocker.Size = UDim2.fromScale(1, 1)
-        clickBlocker.ZIndex = 1000
-        clickBlocker.AutoButtonColor = false
-        clickBlocker.MouseButton1Click:Connect(closePanel)
-
-        -- สัดส่วน overlay ตามเส้นแดง/ฟ้า/ขาว เดิม
+        -- ขนาด panel ตามเส้นแดง/ฟ้า/ขาว + ดันขึ้นอีกนิด (topRatio 0.02)
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
         local leftRatio   = 0.645
-        local topRatio    = 0.03
+        local topRatio    = 0.02  -- ยกขึ้นจาก 0.03 → 0.02
         local bottomRatio = 0.02
         local rightMargin = 8
 
@@ -5405,13 +5394,13 @@ registerRight("Shop", function(scroll)
         optionsPanel.AnchorPoint = Vector2.new(0, 0)
         optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
         optionsPanel.Size        = UDim2.new(0, w, 0, h)
-        optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
+        optionsPanel.ZIndex      = 50  -- สูงกว่า UI อื่นแน่นอน
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ด้านใน (เต็มกรอบเขียว)
+        -- BODY ด้านใน
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
@@ -5422,7 +5411,6 @@ registerRight("Shop", function(scroll)
         body.Size     = UDim2.new(1, -4, 1, -4)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
-        -- **ไม่มี padding ซ้าย-ขวา/บน-ล่าง เพื่อให้ Search ยาวเท่ากรอบเขียว**
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
         bodyPad.PaddingTop    = UDim.new(0, 0)
@@ -5431,7 +5419,7 @@ registerRight("Shop", function(scroll)
         bodyPad.PaddingRight  = UDim.new(0, 0)
 
         --------------------------------------------------------------------
-        -- Search Box (ซ้าย-ขวาพอดีกรอบเขียว + อยู่สูงสุด)
+        -- Search Box (ยาวเท่ากรอบเขียว + อยู่สูงขึ้น)
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5445,8 +5433,8 @@ registerRight("Shop", function(scroll)
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
         searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, 0, 0, 32)          -- กว้างเต็ม panel
-        searchBox.Position = UDim2.new(0, 0, 0, 0)       -- ชิดขอบบน
+        searchBox.Size = UDim2.new(1, 0, 0, 32)
+        searchBox.Position = UDim2.new(0, 0, 0, 0)
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
@@ -5469,7 +5457,7 @@ registerRight("Shop", function(scroll)
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim(0, 4)
+        listLayout.Padding = UDim.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
         local function makeItem(text)
