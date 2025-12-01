@@ -5216,10 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Overlay + Working Search) =====
--- แท็บ: Shop
--- ชื่อระบบ: "V A2 Test 🧪"
--- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
+--===== UFO HUB X • Shop – V A2 (Overlay + Working Search – Align Search With Green UI Frame) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5270,7 +5267,6 @@ registerRight("Shop", function(scroll)
     end
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- base LayoutOrder
     local base = 0
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
@@ -5325,7 +5321,7 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
-    local panelParent = scroll.Parent  -- กรอบขวาของ Shop
+    local panelParent = scroll.Parent -- กรอบขวาของ Shop
 
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "VA2_Select"
@@ -5362,20 +5358,14 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: OVERLAY ด้านขวา + Search ใช้งานจริง
+    -- Popup Panel
     ------------------------------------------------------------------------
     local optionsPanel
     local clickBlocker
 
     local function closePanel()
-        if optionsPanel then
-            optionsPanel:Destroy()
-            optionsPanel = nil
-        end
-        if clickBlocker then
-            clickBlocker:Destroy()
-            clickBlocker = nil
-        end
+        if optionsPanel then optionsPanel:Destroy(); optionsPanel = nil end
+        if clickBlocker then clickBlocker:Destroy(); clickBlocker = nil end
     end
 
     local function openPanel()
@@ -5383,7 +5373,6 @@ registerRight("Shop", function(scroll)
 
         local rootGui = panelParent:FindFirstAncestorOfClass("ScreenGui") or panelParent
 
-        -- blocker ทั้งจอ (อยู่ข้างหลัง panel)
         clickBlocker = Instance.new("TextButton")
         clickBlocker.Name = "VA2_ClickBlocker"
         clickBlocker.Parent = rootGui
@@ -5392,14 +5381,10 @@ registerRight("Shop", function(scroll)
         clickBlocker.Size = UDim2.fromScale(1, 1)
         clickBlocker.ZIndex = 1000
         clickBlocker.AutoButtonColor = false
-        clickBlocker.MouseButton1Click:Connect(function()
-            closePanel()
-        end)
+        clickBlocker.MouseButton1Click:Connect(closePanel)
 
-        -- วัดขนาดกรอบขวา
+        -- สัดส่วน overlay ตามเส้นแดง/ฟ้า/ขาว เดิม
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
-
-        -- ใช้สัดส่วนเดิม (ซ้าย = เส้นแดง, บน/ล่าง ≈ เส้นฟ้า/ขาว)
         local leftRatio   = 0.645
         local topRatio    = 0.03
         local bottomRatio = 0.02
@@ -5426,7 +5411,7 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ข้างใน + Padding (ให้เห็นขอบเขียวครบ ไม่มีจุดดำ)
+        -- BODY ด้านใน (เต็มกรอบเขียว)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
@@ -5437,15 +5422,16 @@ registerRight("Shop", function(scroll)
         body.Size     = UDim2.new(1, -4, 1, -4)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
+        -- **ไม่มี padding ซ้าย-ขวา/บน-ล่าง เพื่อให้ Search ยาวเท่ากรอบเขียว**
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
-        bodyPad.PaddingTop    = UDim.new(0, 10)
-        bodyPad.PaddingBottom = UDim.new(0, 12)
-        bodyPad.PaddingLeft   = UDim.new(0, 10)
-        bodyPad.PaddingRight  = UDim.new(0, 10)
+        bodyPad.PaddingTop    = UDim.new(0, 0)
+        bodyPad.PaddingBottom = UDim.new(0, 0)
+        bodyPad.PaddingLeft   = UDim.new(0, 0)
+        bodyPad.PaddingRight  = UDim.new(0, 0)
 
         --------------------------------------------------------------------
-        -- Search Box
+        -- Search Box (ซ้าย-ขวาพอดีกรอบเขียว + อยู่สูงสุด)
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5459,15 +5445,15 @@ registerRight("Shop", function(scroll)
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
         searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, 0, 0, 32)
-        searchBox.Position = UDim2.new(0, 0, 0, 0)
+        searchBox.Size = UDim2.new(1, 0, 0, 32)          -- กว้างเต็ม panel
+        searchBox.Position = UDim2.new(0, 0, 0, 0)       -- ชิดขอบบน
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- List + ตัวอย่าง item + ระบบค้นหา
+        -- List + ระบบค้นหา
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "List"
@@ -5478,12 +5464,12 @@ registerRight("Shop", function(scroll)
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
-        listHolder.Position = UDim2.new(0, 0, 0, 32 + 8)
-        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 8))
+        listHolder.Position = UDim2.new(0, 0, 0, 32 + 6)
+        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 6))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 4)
+        listLayout.Padding = UDim(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
         local function makeItem(text)
