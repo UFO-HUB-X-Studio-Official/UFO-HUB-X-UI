@@ -5253,7 +5253,7 @@ registerRight("Shop", function(scroll)
     for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
-            or scroll:FindFirstAncestorOfClass("ScreenGui") and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name)
+            or (scroll:FindFirstAncestorOfClass("ScreenGui") and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
         if o then o:Destroy() end
     end
 
@@ -5324,7 +5324,7 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
-    local panelParent = scroll.Parent
+    local panelParent = scroll.Parent  -- กรอบขวาของ Shop
 
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "VA2_Select"
@@ -5378,12 +5378,11 @@ registerRight("Shop", function(scroll)
     end
 
     local function openPanel()
-        closePanel() -- เคลียร์ของเก่าก่อน
+        closePanel()
 
-        -- หา ScreenGui บนสุด เพื่อเอาไว้ใส่ clickBlocker
         local rootGui = panelParent:FindFirstAncestorOfClass("ScreenGui") or panelParent
 
-        -- ClickBlocker ทั้งจอ — แตะตรงไหนก็ปิด ยกเว้นบน panel (เพราะ panel ZIndex สูงกว่า)
+        -- blocker ทั้งจอ
         clickBlocker = Instance.new("TextButton")
         clickBlocker.Name = "VA2_ClickBlocker"
         clickBlocker.Parent = rootGui
@@ -5396,10 +5395,10 @@ registerRight("Shop", function(scroll)
             closePanel()
         end)
 
-        -- Panel ตัวจริง (กว้าง ~70% ของเดิม → 196px)
+        -- panel ผูกกับกรอบขวาของ Shop (ตำแหน่งเดิม)
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
-        optionsPanel.Parent = rootGui
+        optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = false
         optionsPanel.AnchorPoint = Vector2.new(1, 0)
@@ -5411,7 +5410,7 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY + ช่อง Search (บนสุด / เป็นคำว่า 🔍 Search)
+        -- BODY + ช่อง Search (บนสุด / 🔍 Search / เขียวนีออน)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
@@ -5429,7 +5428,6 @@ registerRight("Shop", function(scroll)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
-        -- TextBox ค้นหา อยู่บนสุด / กลาง / ใช้ Placeholder "🔍 Search"
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
@@ -5446,10 +5444,9 @@ registerRight("Shop", function(scroll)
         searchBox.ZIndex = body.ZIndex + 1
         corner(searchBox, 8)
 
-        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN) -- ขอบเขียวนีออนตลอด
+        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
-        -- placeholder ของ Roblox จะหายเองตอนพิมพ์ / กลับมาเมื่อ Text ว่าง
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
         end)
