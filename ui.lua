@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Full Match & Working Search) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Overlay + Working Search) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
 -- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
@@ -5362,7 +5362,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: กินเต็มกรอบเขียวขวา + Search ใช้งานจริง
+    -- Popup Panel: OVERLAY ด้านขวา + Search ใช้งานจริง
     ------------------------------------------------------------------------
     local optionsPanel
     local clickBlocker
@@ -5396,34 +5396,60 @@ registerRight("Shop", function(scroll)
             closePanel()
         end)
 
-        -- กรอบหลัก: ขนาดเท่ากับกรอบขวาของ Shop พอดี (ไม่มี ratio แล้ว)
+        -- วัดขนาดกรอบขวา
+        local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
+
+        -- ใช้สัดส่วนเดิม (ซ้าย = เส้นแดง, บน/ล่าง ≈ เส้นฟ้า/ขาว)
+        local leftRatio   = 0.645
+        local topRatio    = 0.03
+        local bottomRatio = 0.02
+        local rightMargin = 8
+
+        local leftX   = math.floor(pw * leftRatio)
+        local topY    = math.floor(ph * topRatio)
+        local bottomM = math.floor(ph * bottomRatio)
+
+        local w = pw - leftX - rightMargin
+        local h = ph - topY - bottomM
+
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
         optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = true
         optionsPanel.AnchorPoint = Vector2.new(0, 0)
-        optionsPanel.Position    = UDim2.new(0, 0, 0, 0)
-        optionsPanel.Size        = UDim2.new(1, 0, 1, 0)
+        optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
+        optionsPanel.Size        = UDim2.new(0, w, 0, h)
         optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
-        -- Padding ด้านใน (ให้เห็นขอบเขียวครบเนียน ๆ ไม่มีจุดดำ)
-        local pad = Instance.new("UIPadding")
-        pad.Parent = optionsPanel
-        pad.PaddingTop    = UDim.new(0, 10)
-        pad.PaddingBottom = UDim.new(0, 12)
-        pad.PaddingLeft   = UDim.new(0, 10)
-        pad.PaddingRight  = UDim.new(0, 10)
+        --------------------------------------------------------------------
+        -- BODY ข้างใน + Padding (ให้เห็นขอบเขียวครบ ไม่มีจุดดำ)
+        --------------------------------------------------------------------
+        local body = Instance.new("Frame")
+        body.Name = "Body"
+        body.Parent = optionsPanel
+        body.BackgroundTransparency = 1
+        body.BorderSizePixel = 0
+        body.Position = UDim2.new(0, 2, 0, 2)
+        body.Size     = UDim2.new(1, -4, 1, -4)
+        body.ZIndex   = optionsPanel.ZIndex + 1
+
+        local bodyPad = Instance.new("UIPadding")
+        bodyPad.Parent = body
+        bodyPad.PaddingTop    = UDim.new(0, 10)
+        bodyPad.PaddingBottom = UDim.new(0, 12)
+        bodyPad.PaddingLeft   = UDim.new(0, 10)
+        bodyPad.PaddingRight  = UDim.new(0, 10)
 
         --------------------------------------------------------------------
         -- Search Box
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
-        searchBox.Parent = optionsPanel
+        searchBox.Parent = body
         searchBox.BackgroundColor3 = THEME.BLACK
         searchBox.ClearTextOnFocus = false
         searchBox.Font = Enum.Font.GothamBold
@@ -5432,9 +5458,9 @@ registerRight("Shop", function(scroll)
         searchBox.PlaceholderText = "🔍 Search"
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
-        searchBox.ZIndex = optionsPanel.ZIndex + 1
-        searchBox.Size = UDim2.new(1, -20, 0, 32) -- ซ้ายขวาพอดีกับ ui หลังใส่ padding
-        searchBox.Position = UDim2.new(0, 10, 0, 10)
+        searchBox.ZIndex = body.ZIndex + 1
+        searchBox.Size = UDim2.new(1, 0, 0, 32)
+        searchBox.Position = UDim2.new(0, 0, 0, 0)
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
@@ -5445,15 +5471,15 @@ registerRight("Shop", function(scroll)
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "List"
-        listHolder.Parent = optionsPanel
+        listHolder.Parent = body
         listHolder.BackgroundColor3 = THEME.BLACK
         listHolder.BorderSizePixel = 0
         listHolder.ScrollBarThickness = 4
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
-        listHolder.ZIndex = optionsPanel.ZIndex + 1
-        listHolder.Position = UDim2.new(0, 10, 0, 10 + 32 + 8)
-        listHolder.Size = UDim2.new(1, -20, 1, -(10 + 32 + 8 + 12)) -- เว้น top+search+spacing+bottom
+        listHolder.ZIndex = body.ZIndex + 1
+        listHolder.Position = UDim2.new(0, 0, 0, 32 + 8)
+        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 8))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
@@ -5478,7 +5504,6 @@ registerRight("Shop", function(scroll)
             return btn
         end
 
-        -- ตัวอย่าง item เหมือนเมนูแดง
         local allItems = {
             "None","Daffodil","Coconut","Tomato","Zebrazinkberry",
             "Apple","Giant Pinecone","Blueberry","Elder Strawberry"
@@ -5491,7 +5516,6 @@ registerRight("Shop", function(scroll)
             itemButtons[#itemButtons+1] = b
         end
 
-        -- ทำให้ Search ใช้งานได้จริง (ฟิลเตอร์รายการ)
         local function applyFilter()
             local q = string.lower(searchBox.Text)
             for _, b in ipairs(itemButtons) do
