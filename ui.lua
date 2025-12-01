@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – 90% Width) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Match Red Dropdown Style) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
 -- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
@@ -5362,7 +5362,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search – กว้าง ~90% และขอบเขียวครบ 4 มุม
+    -- Popup Panel: 🔍 Search – ใช้สัดส่วนใกล้เมนูแดง
     ------------------------------------------------------------------------
     local optionsPanel
     local clickBlocker
@@ -5383,7 +5383,7 @@ registerRight("Shop", function(scroll)
 
         local rootGui = panelParent:FindFirstAncestorOfClass("ScreenGui") or panelParent
 
-        -- blocker ทั้งจอ
+        -- blocker ทั้งจอ (แตะตรงไหนก็ปิด ยกเว้นบน panel)
         clickBlocker = Instance.new("TextButton")
         clickBlocker.Name = "VA2_ClickBlocker"
         clickBlocker.Parent = rootGui
@@ -5396,30 +5396,42 @@ registerRight("Shop", function(scroll)
             closePanel()
         end)
 
-        -- panel ผูกกับกรอบขวาของ Shop (ความกว้าง ~90% ของเดิม: 252px)
+        -- วัดขนาดกรอบขวา แล้วคำนวณให้ใกล้เมนูแดง
+        local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
+
+        -- ***** จุดที่ปรับได้ง่าย ถ้าอยากจูนเอง *****
+        local widthRatio  = 0.42   -- กว้างประมาณ 42% ของกรอบขวา (ใกล้แดง)
+        local heightRatio = 0.78   -- สูงประมาณ 78% ของกรอบขวา
+        local topMargin   = 30     -- ห่างจากขอบบนของกรอบขวา
+        local rightMargin = 10     -- ห่างจากขอบขวาของกรอบขวา
+        -- ********************************************
+
+        local w = math.floor(pw * widthRatio)
+        local h = math.floor(ph * heightRatio)
+
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
         optionsPanel.Parent = panelParent
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = false
-        optionsPanel.AnchorPoint = Vector2.new(1, 0)
-        optionsPanel.Position    = UDim2.new(1, -8, 0, 8)
-        optionsPanel.Size        = UDim2.new(0, 252, 1, -16)
+        optionsPanel.AnchorPoint = Vector2.new(0, 0)
+        optionsPanel.Position    = UDim2.new(0, pw - w - rightMargin, 0, topMargin)
+        optionsPanel.Size        = UDim2.new(0, w, 0, h)
         optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY + ช่อง Search (ดันเข้าไป ไม่ทับ stroke ขอบ)
+        -- BODY + ช่อง Search (ดันเข้า 2 px เหลือขอบเขียวครบ)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundColor3 = THEME.BLACK
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 2, 0, 2)     -- ดันเข้า 2 px รอบด้าน
-        body.Size     = UDim2.new(1, -4, 1, -4)   -- เหลือที่ให้ขอบเขียวเห็นครบ 4 มุม
+        body.Position = UDim2.new(0, 2, 0, 2)
+        body.Size     = UDim2.new(1, -4, 1, -4)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         local bodyPad = Instance.new("UIPadding")
