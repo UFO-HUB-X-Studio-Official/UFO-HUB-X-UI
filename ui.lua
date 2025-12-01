@@ -5291,7 +5291,7 @@ registerRight("Shop", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- แถวพื้นฐาน (ซ้ายสั้นลงให้เหมือนรูป)
+    -- แถวพื้นฐาน
     ------------------------------------------------------------------------
     local function makeRow(name, order, labelText)
         local row = Instance.new("Frame")
@@ -5303,11 +5303,10 @@ registerRight("Shop", function(scroll)
         stroke(row, 2.2, THEME.GREEN)
         row.LayoutOrder = order
 
-        -- label ซ้ายสั้นลงหน่อย
         local lab = Instance.new("TextLabel")
         lab.Parent = row
         lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(0, 180, 1, 0) -- ประมาณความยาวในรูป
+        lab.Size = UDim2.new(0, 180, 1, 0)
         lab.Position = UDim2.new(0, 16, 0, 0)
         lab.Font = Enum.Font.GothamBold
         lab.TextSize = 13
@@ -5360,7 +5359,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search (ตำแหน่ง/ขนาด fix ใกล้แบบที่นายออกแบบ)
+    -- Popup Panel: 🔍 Search (ปรับความกว้าง + search ขึ้นไปชิดด้านบน)
     ------------------------------------------------------------------------
     local optionsPanel
 
@@ -5373,10 +5372,10 @@ registerRight("Shop", function(scroll)
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = false
 
-        -- ชิดขวา เว้นขอบบน–ล่างเล็กน้อย กว้างประมาณ panel แดง/ขาวเดิม
+        -- ลดความยาวด้านซ้าย (กว้าง 220 แทน 280)
         optionsPanel.AnchorPoint = Vector2.new(1, 0)
-        optionsPanel.Position    = UDim2.new(1, -8, 0, 8)     -- ขอบบน 8px ขอบขวา 8px
-        optionsPanel.Size        = UDim2.new(0, 280, 1, -16)  -- กว้าง 280px สูงเต็มกรอบ - ขอบบนล่างรวม 16px
+        optionsPanel.Position    = UDim2.new(1, -8, 0, 8)
+        optionsPanel.Size        = UDim2.new(0, 220, 1, -16)
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
@@ -5405,7 +5404,7 @@ registerRight("Shop", function(scroll)
         headerText.Text = "🔍 Search"
 
         --------------------------------------------------------------------
-        -- BODY + ช่อง Search ใช้งานได้จริง
+        -- BODY + ช่อง Search
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
@@ -5418,12 +5417,12 @@ registerRight("Shop", function(scroll)
 
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
-        bodyPad.PaddingTop    = UDim.new(0, 10)
+        bodyPad.PaddingTop    = UDim.new(0, 0)   -- ดันขึ้นไปชิดหัวข้อมากขึ้น
         bodyPad.PaddingBottom = UDim.new(0, 10)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
-        -- TextBox ค้นหา
+        -- TextBox ค้นหา (ขอบเส้นเขียวนีออนตลอด)
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
@@ -5439,13 +5438,13 @@ registerRight("Shop", function(scroll)
         searchBox.Text = ""
         corner(searchBox, 8)
 
-        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN_DARK)
+        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN) -- เขียวนีออนตลอด
 
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
         end)
         searchBox.FocusLost:Connect(function()
-            sbStroke.Color = THEME.GREEN_DARK
+            sbStroke.Color = THEME.GREEN
         end)
 
         searchBox:GetPropertyChangedSignal("Text"):Connect(function()
