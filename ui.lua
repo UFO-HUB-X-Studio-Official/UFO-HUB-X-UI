@@ -5250,8 +5250,10 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- CLEANUP เฉพาะของ V A2 เดิม (ไม่ยุ่งของระบบอื่น)
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
-        local o = scroll:FindFirstChild(name) or scroll.Parent:FindFirstChild(name)
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
+        local o = scroll:FindFirstChild(name)
+            or scroll.Parent:FindFirstChild(name)
+            or scroll:FindFirstAncestorOfClass("ScreenGui") and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name)
         if o then o:Destroy() end
     end
 
@@ -5359,70 +5361,75 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search (ปรับความกว้าง + search ขึ้นไปชิดด้านบน)
+    -- Popup Panel: ช่อง 🔍 Search อยู่บนสุด / กว้าง 70%
     ------------------------------------------------------------------------
     local optionsPanel
+    local clickBlocker
+
+    local function closePanel()
+        if optionsPanel then
+            optionsPanel:Destroy()
+            optionsPanel = nil
+        end
+        if clickBlocker then
+            clickBlocker:Destroy()
+            clickBlocker = nil
+        end
+    end
 
     local function openPanel()
-        if optionsPanel then optionsPanel:Destroy() end
+        closePanel() -- เคลียร์ของเก่าก่อน
 
+        -- หา ScreenGui บนสุด เพื่อเอาไว้ใส่ clickBlocker
+        local rootGui = panelParent:FindFirstAncestorOfClass("ScreenGui") or panelParent
+
+        -- ClickBlocker ทั้งจอ — แตะตรงไหนก็ปิด ยกเว้นบน panel (เพราะ panel ZIndex สูงกว่า)
+        clickBlocker = Instance.new("TextButton")
+        clickBlocker.Name = "VA2_ClickBlocker"
+        clickBlocker.Parent = rootGui
+        clickBlocker.BackgroundTransparency = 1
+        clickBlocker.Text = ""
+        clickBlocker.Size = UDim2.fromScale(1, 1)
+        clickBlocker.ZIndex = 1000
+        clickBlocker.AutoButtonColor = false
+        clickBlocker.MouseButton1Click:Connect(function()
+            closePanel()
+        end)
+
+        -- Panel ตัวจริง (กว้าง ~70% ของเดิม → 196px)
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
-        optionsPanel.Parent = panelParent
+        optionsPanel.Parent = rootGui
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = false
-
-        -- ลดความยาวด้านซ้าย (กว้าง 220 แทน 280)
         optionsPanel.AnchorPoint = Vector2.new(1, 0)
         optionsPanel.Position    = UDim2.new(1, -8, 0, 8)
-        optionsPanel.Size        = UDim2.new(0, 220, 1, -16)
+        optionsPanel.Size        = UDim2.new(0, 196, 1, -16)
+        optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- HEADER: 🔍 Search
-        --------------------------------------------------------------------
-        local headerBar = Instance.new("Frame")
-        headerBar.Name = "Header"
-        headerBar.Parent = optionsPanel
-        headerBar.BackgroundColor3 = THEME.BLACK
-        headerBar.BorderSizePixel = 0
-        headerBar.Position = UDim2.new(0, 0, 0, 0)
-        headerBar.Size = UDim2.new(1, 0, 0, 44)
-        corner(headerBar, 12)
-
-        local headerText = Instance.new("TextLabel")
-        headerText.Parent = headerBar
-        headerText.BackgroundTransparency = 1
-        headerText.Size = UDim2.new(1, -16, 1, 0)
-        headerText.Position = UDim2.new(0, 8, 0, 0)
-        headerText.Font = Enum.Font.GothamBold
-        headerText.TextSize = 16
-        headerText.TextColor3 = THEME.WHITE
-        headerText.TextXAlignment = Enum.TextXAlignment.Left
-        headerText.Text = "🔍 Search"
-
-        --------------------------------------------------------------------
-        -- BODY + ช่อง Search
+        -- BODY + ช่อง Search (บนสุด / เป็นคำว่า 🔍 Search)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundColor3 = THEME.BLACK
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 0, 0, 44)
-        body.Size = UDim2.new(1, 0, 1, -44)
-        corner(body, 10)
+        body.Position = UDim2.new(0, 0, 0, 0)
+        body.Size = UDim2.new(1, 0, 1, 0)
+        body.ZIndex = optionsPanel.ZIndex + 1
 
         local bodyPad = Instance.new("UIPadding")
         bodyPad.Parent = body
-        bodyPad.PaddingTop    = UDim.new(0, 0)   -- ดันขึ้นไปชิดหัวข้อมากขึ้น
+        bodyPad.PaddingTop    = UDim.new(0, 8)
         bodyPad.PaddingBottom = UDim.new(0, 10)
         bodyPad.PaddingLeft   = UDim.new(0, 10)
         bodyPad.PaddingRight  = UDim.new(0, 10)
 
-        -- TextBox ค้นหา (ขอบเส้นเขียวนีออนตลอด)
+        -- TextBox ค้นหา อยู่บนสุด / กลาง / ใช้ Placeholder "🔍 Search"
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
@@ -5430,16 +5437,19 @@ registerRight("Shop", function(scroll)
         searchBox.Position = UDim2.new(0, 0, 0, 0)
         searchBox.BackgroundColor3 = THEME.BLACK
         searchBox.ClearTextOnFocus = false
-        searchBox.Font = Enum.Font.Gotham
+        searchBox.Font = Enum.Font.GothamBold
         searchBox.TextSize = 14
         searchBox.TextColor3 = THEME.WHITE
-        searchBox.PlaceholderText = "Search..."
-        searchBox.TextXAlignment = Enum.TextXAlignment.Left
+        searchBox.PlaceholderText = "🔍 Search"
+        searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
+        searchBox.ZIndex = body.ZIndex + 1
         corner(searchBox, 8)
 
-        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN) -- เขียวนีออนตลอด
+        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN) -- ขอบเขียวนีออนตลอด
+        sbStroke.ZIndex = searchBox.ZIndex + 1
 
+        -- placeholder ของ Roblox จะหายเองตอนพิมพ์ / กลับมาเมื่อ Text ว่าง
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
         end)
@@ -5450,13 +5460,6 @@ registerRight("Shop", function(scroll)
         searchBox:GetPropertyChangedSignal("Text"):Connect(function()
             print("[V A2] Search query =", searchBox.Text)
         end)
-    end
-
-    local function closePanel()
-        if optionsPanel then
-            optionsPanel:Destroy()
-            optionsPanel = nil
-        end
     end
 
     ------------------------------------------------------------------------
