@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Match Red Dropdown Style) =====
+--===== UFO HUB X • Shop – V A2 (Model A V1 Base + Select Options Panel – Match Guide Lines) =====
 -- แท็บ: Shop
 -- ชื่อระบบ: "V A2 Test 🧪"
 -- รายการที่ 1: "ทดลองภาษาอังกฤษ" + ปุ่ม Select Options + Search Panel
@@ -5362,7 +5362,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel: 🔍 Search – ใช้สัดส่วนใกล้เมนูแดง
+    -- Popup Panel: 🔍 Search – lock ตามเส้นแดง/ฟ้า/ขาว
     ------------------------------------------------------------------------
     local optionsPanel
     local clickBlocker
@@ -5396,18 +5396,23 @@ registerRight("Shop", function(scroll)
             closePanel()
         end)
 
-        -- วัดขนาดกรอบขวา แล้วคำนวณให้ใกล้เมนูแดง
+        -- วัดขนาดกรอบขวา
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
 
-        -- ***** จุดที่ปรับได้ง่าย ถ้าอยากจูนเอง *****
-        local widthRatio  = 0.42   -- กว้างประมาณ 42% ของกรอบขวา (ใกล้แดง)
-        local heightRatio = 0.78   -- สูงประมาณ 78% ของกรอบขวา
-        local topMargin   = 30     -- ห่างจากขอบบนของกรอบขวา
-        local rightMargin = 10     -- ห่างจากขอบขวาของกรอบขวา
-        -- ********************************************
+        --------------------------------------------------------------------
+        -- สัดส่วนจากรูป (เส้นแดง/ฟ้า/ขาว)
+        --------------------------------------------------------------------
+        local leftRatio   = 0.62  -- ตำแหน่งซ้าย ≈ เส้นแดง
+        local topRatio    = 0.10  -- ระยะจากบน ≈ เส้นฟ้า
+        local bottomRatio = 0.08  -- ระยะจากล่าง ≈ เส้นขาว
+        local rightMargin = 8     -- เว้นจากขอบขวาอีกนิด
 
-        local w = math.floor(pw * widthRatio)
-        local h = math.floor(ph * heightRatio)
+        local leftX   = math.floor(pw * leftRatio)
+        local topY    = math.floor(ph * topRatio)
+        local bottomM = math.floor(ph * bottomRatio)
+
+        local w = pw - leftX - rightMargin
+        local h = ph - topY - bottomM
 
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
@@ -5415,7 +5420,7 @@ registerRight("Shop", function(scroll)
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = false
         optionsPanel.AnchorPoint = Vector2.new(0, 0)
-        optionsPanel.Position    = UDim2.new(0, pw - w - rightMargin, 0, topMargin)
+        optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
         optionsPanel.Size        = UDim2.new(0, w, 0, h)
         optionsPanel.ZIndex      = clickBlocker.ZIndex + 1
 
@@ -5423,7 +5428,7 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY + ช่อง Search (ดันเข้า 2 px เหลือขอบเขียวครบ)
+        -- BODY + ช่อง Search ดันเข้า 2 px เหลือ stroke ครบ 4 มุม
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
