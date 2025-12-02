@@ -5317,7 +5317,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- แถวหลัก + ปุ่ม Select Options
+    -- แถวหลัก + ปุ่ม Select Options (ขนาดเดิม)
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
@@ -5328,13 +5328,12 @@ registerRight("Shop", function(scroll)
     selectBtn.Parent = row
     selectBtn.AnchorPoint = Vector2.new(1, 0.5)
     selectBtn.Position = UDim2.new(1, -16, 0.5, 0)
-    -- ลดความกว้างลง ~50% และเพิ่มความสูงให้ตัวหนังสืออยู่กลางสวย ๆ
-    selectBtn.Size = UDim2.new(0, 110, 0, 30)
+    selectBtn.Size = UDim2.new(0, 220, 0, 28) -- ขนาดเดิม
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
-    selectBtn.Text = "Select"
+    selectBtn.Text = "Select Options"
     selectBtn.Font = Enum.Font.GothamBold
-    selectBtn.TextSize = 14
+    selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
     selectBtn.TextXAlignment = Enum.TextXAlignment.Center
     selectBtn.TextYAlignment = Enum.TextYAlignment.Center
@@ -5344,8 +5343,19 @@ registerRight("Shop", function(scroll)
 
     local padding = Instance.new("UIPadding")
     padding.Parent = selectBtn
-    padding.PaddingLeft  = UDim.new(0, 6)
-    padding.PaddingRight = UDim.new(0, 6)
+    padding.PaddingLeft  = UDim.new(0, 8)
+    padding.PaddingRight = UDim.new(0, 26)
+
+    local arrow = Instance.new("TextLabel")
+    arrow.Parent = selectBtn
+    arrow.AnchorPoint = Vector2.new(1,0.5)
+    arrow.Position = UDim2.new(1, -6, 0.5, 0)
+    arrow.Size = UDim2.new(0, 18, 0, 18)
+    arrow.BackgroundTransparency = 1
+    arrow.Font = Enum.Font.GothamBold
+    arrow.TextSize = 18
+    arrow.TextColor3 = THEME.WHITE
+    arrow.Text = "▼"
 
     ------------------------------------------------------------------------
     -- Popup Panel (ไม่มี clickBlocker แล้ว)
@@ -5424,24 +5434,31 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- Mode Button (เส้นเขียวเรืองแสงเวลาเปิด)
+        -- ปุ่มแบบที่ออกแบบ (Mode Style)
         --------------------------------------------------------------------
-        local modeBtn = Instance.new("TextButton")
-        modeBtn.Name = "ModeButton"
-        modeBtn.Parent = body
-        modeBtn.BackgroundColor3 = THEME.BLACK
-        modeBtn.AutoButtonColor = false
-        modeBtn.Font = Enum.Font.GothamBold
-        modeBtn.TextSize = 14
-        modeBtn.TextColor3 = THEME.WHITE
-        modeBtn.Text = "Mode Button"
-        modeBtn.ZIndex = body.ZIndex + 1
-        modeBtn.Size = UDim2.new(1, -8, 0, 28)
-        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 10)
+        local function makeModeStyleButton(parent, text)
+            local btn = Instance.new("TextButton")
+            btn.Name = "ModeStyle_" .. text
+            btn.Parent = parent
+            btn.BackgroundColor3 = THEME.BLACK
+            btn.AutoButtonColor = false
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 14
+            btn.TextColor3 = THEME.WHITE
+            btn.Text = text
+            btn.ZIndex = parent.ZIndex + 1
+            btn.Size = UDim2.new(1, -8, 0, 28)
+            btn.TextXAlignment = Enum.TextXAlignment.Center
+            btn.TextYAlignment = Enum.TextYAlignment.Center
+            corner(btn, 6)
+            local st = stroke(btn, 1.6, THEME.GREEN_DARK)
+            st.Transparency = 0.4
+            return btn, st
+        end
 
-        corner(modeBtn, 6)
-        local modeStroke = stroke(modeBtn, 1.6, THEME.GREEN_DARK)
-        modeStroke.Transparency = 0.4
+        -- ปุ่ม Mode Button ตัวแรก (มี glow toggle)
+        local modeBtn, modeStroke = makeModeStyleButton(body, "Mode Button")
+        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 10)
 
         local modeOn = false
         local function updateModeButton()
@@ -5463,7 +5480,7 @@ registerRight("Shop", function(scroll)
         end)
 
         --------------------------------------------------------------------
-        -- List A1 – A10 (อยู่ใต้ Mode Button + มี Scroll)
+        -- List A1 – A10 ใช้สไตล์เดียวกับ Mode Button + Scroll
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5475,8 +5492,7 @@ registerRight("Shop", function(scroll)
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
-        -- y = Search(32) + gap10 + Mode(28) + gap8 = 78
-        local listTopOffset = 32 + 10 + 28 + 8
+        local listTopOffset = 32 + 10 + 28 + 8  -- Search + gap + Mode + gap
         listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
@@ -5485,38 +5501,18 @@ registerRight("Shop", function(scroll)
         listLayout.Padding = UDim.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-        local function makeAButton(label)
-            local btn = Instance.new("TextButton")
-            btn.Name = "Btn_" .. label
-            btn.Parent = listHolder
-            btn.Size = UDim2.new(1, -8, 0, 28)
-            btn.BackgroundColor3 = THEME.BLACK
-            btn.AutoButtonColor = true
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 13
-            btn.TextColor3 = THEME.WHITE
-            btn.Text = label
-            btn.ZIndex = listHolder.ZIndex + 1
-            btn.TextXAlignment = Enum.TextXAlignment.Center
-            btn.TextYAlignment = Enum.TextYAlignment.Center
-            corner(btn, 6)
-            local st = stroke(btn, 1.4, THEME.GREEN_DARK)
-            st.Transparency = 0.2
-            return btn
-        end
-
         for i = 1, 10 do
             local label = "A " .. tostring(i)
-            local b = makeAButton(label)
-            b.LayoutOrder = i
-            -- ตอนนี้ยังไม่ใส่ระบบอะไร แค่ print ไว้เฉย ๆ
-            b.MouseButton1Click:Connect(function()
+            local btn, st = makeModeStyleButton(listHolder, label)
+            btn.LayoutOrder = i
+            -- ปุ่ม A1-A10 ใช้สไตล์เดียวกัน แต่ไม่มี toggle glow แค่กดแล้ว print
+            btn.MouseButton1Click:Connect(function()
                 print("[V A2] Click", label)
             end)
         end
 
         --------------------------------------------------------------------
-        -- (Search ยังไม่ฟิลเตอร์ปุ่ม A1-A10 ไว้ก่อน ถ้าจะให้ค้นหาเดี๋ยวเพิ่มต่อได้)
+        -- Focus effect ของ Search
         --------------------------------------------------------------------
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
