@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search Align & Clickable) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search Align & Mode Button) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5372,10 +5372,10 @@ registerRight("Shop", function(scroll)
     local function openPanel()
         closePanel()
 
-        -- ขนาด panel ตามเส้นแดง/ฟ้า/ขาว + ดันขึ้นอีกนิด (topRatio 0.02)
+        -- ขนาด panel ตามเส้นแดง/ฟ้า/ขาว + ดันขึ้น (topRatio 0.02)
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
         local leftRatio   = 0.645
-        local topRatio    = 0.02  -- ยกขึ้นจาก 0.03 → 0.02
+        local topRatio    = 0.02
         local bottomRatio = 0.02
         local rightMargin = 8
 
@@ -5394,32 +5394,25 @@ registerRight("Shop", function(scroll)
         optionsPanel.AnchorPoint = Vector2.new(0, 0)
         optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
         optionsPanel.Size        = UDim2.new(0, w, 0, h)
-        optionsPanel.ZIndex      = 50  -- สูงกว่า UI อื่นแน่นอน
+        optionsPanel.ZIndex      = 50
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ด้านใน
+        -- BODY ด้านใน (ขยายให้ Search ยาวขึ้นซ้าย-ขวา)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundTransparency = 1
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 2, 0, 2)
-        body.Size     = UDim2.new(1, -4, 1, -4)
+        body.Position = UDim2.new(0, 1, 0, 1)      -- ชิดกรอบเขียวมากขึ้น
+        body.Size     = UDim2.new(1, -2, 1, -2)    -- ลดช่องว่างเหลือขอบบาง ๆ
         body.ZIndex   = optionsPanel.ZIndex + 1
 
-        local bodyPad = Instance.new("UIPadding")
-        bodyPad.Parent = body
-        bodyPad.PaddingTop    = UDim.new(0, 0)
-        bodyPad.PaddingBottom = UDim.new(0, 0)
-        bodyPad.PaddingLeft   = UDim.new(0, 0)
-        bodyPad.PaddingRight  = UDim.new(0, 0)
-
         --------------------------------------------------------------------
-        -- Search Box (ยาวเท่ากรอบเขียว + อยู่สูงขึ้น)
+        -- Search Box (ยาวขึ้นอีกซ้าย-ขวา)
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5441,7 +5434,48 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- List + ระบบค้นหา
+        -- ปุ่มใหม่ใต้ Search (ขนาดเท่าช่องสี่เหลี่ยมขาว)
+        --------------------------------------------------------------------
+        local modeBtn = Instance.new("TextButton")
+        modeBtn.Name = "ModeButton"
+        modeBtn.Parent = body
+        modeBtn.BackgroundColor3 = THEME.BLACK
+        modeBtn.AutoButtonColor = false
+        modeBtn.Font = Enum.Font.GothamBold
+        modeBtn.TextSize = 14
+        modeBtn.TextColor3 = THEME.WHITE
+        modeBtn.Text = "Mode Button"
+        modeBtn.ZIndex = body.ZIndex + 1
+        modeBtn.Size = UDim2.new(1, -8, 0, 28)      -- แคบกว่ากรอบนิดเดียวเหมือนช่องขาว
+        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 4) -- อยู่ใต้ Search ชิดตำแหน่งช่องขาว
+
+        corner(modeBtn, 6)
+        local modeStroke = stroke(modeBtn, 1.6, THEME.GREEN_DARK)
+        modeStroke.Transparency = 0.1
+
+        local modeOn = false
+        local function updateModeButton()
+            if modeOn then
+                modeBtn.BackgroundColor3 = THEME.GREEN_DARK
+                modeBtn.TextColor3       = THEME.BLACK
+                modeStroke.Color         = THEME.GREEN
+                modeStroke.Thickness     = 2.0
+            else
+                modeBtn.BackgroundColor3 = THEME.BLACK
+                modeBtn.TextColor3       = THEME.WHITE
+                modeStroke.Color         = THEME.GREEN_DARK
+                modeStroke.Thickness     = 1.6
+            end
+        end
+        updateModeButton()
+
+        modeBtn.MouseButton1Click:Connect(function()
+            modeOn = not modeOn
+            updateModeButton()
+        end)
+
+        --------------------------------------------------------------------
+        -- List + ระบบค้นหา (เลื่อนลงไปหลังปุ่มใหม่)
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "List"
@@ -5452,8 +5486,8 @@ registerRight("Shop", function(scroll)
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
-        listHolder.Position = UDim2.new(0, 0, 0, 32 + 6)
-        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 6))
+        listHolder.Position = UDim2.new(0, 0, 0, 32 + 4 + 28 + 6) -- Search(32) + ช่องว่าง + ปุ่มใหม่ + เว้นนิดหน่อย
+        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 4 + 28 + 6))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
