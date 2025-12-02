@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search Align & Mode Button) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + Single Glow Button) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5400,19 +5400,19 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ด้านใน (ขยายให้ Search ยาวขึ้นซ้าย-ขวา)
+        -- BODY ด้านใน (ขยายให้ Search ยาวเต็มซ้าย-ขวา)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundTransparency = 1
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 1, 0, 1)      -- ชิดกรอบเขียวมากขึ้น
-        body.Size     = UDim2.new(1, -2, 1, -2)    -- ลดช่องว่างเหลือขอบบาง ๆ
+        body.Position = UDim2.new(0, 1, 0, 1)
+        body.Size     = UDim2.new(1, -2, 1, -2)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- Search Box (ยาวขึ้นอีกซ้าย-ขวา)
+        -- Search Box
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5434,37 +5434,39 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่มใหม่ใต้ Search (ขนาดเท่าช่องสี่เหลี่ยมขาว)
+        -- ปุ่มใหม่ใต้ Search (เหลือแค่ปุ่มเดียว) 
+        -- เลื่อนลงมาข้างล่างอีกนิดจากของเดิม
         --------------------------------------------------------------------
         local modeBtn = Instance.new("TextButton")
         modeBtn.Name = "ModeButton"
         modeBtn.Parent = body
-        modeBtn.BackgroundColor3 = THEME.BLACK
+        modeBtn.BackgroundColor3 = THEME.BLACK      -- พื้นดำตลอด
         modeBtn.AutoButtonColor = false
         modeBtn.Font = Enum.Font.GothamBold
         modeBtn.TextSize = 14
-        modeBtn.TextColor3 = THEME.WHITE
+        modeBtn.TextColor3 = THEME.WHITE            -- ตัวอักษรขาวตลอด
         modeBtn.Text = "Mode Button"
         modeBtn.ZIndex = body.ZIndex + 1
-        modeBtn.Size = UDim2.new(1, -8, 0, 28)      -- แคบกว่ากรอบนิดเดียวเหมือนช่องขาว
-        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 4) -- อยู่ใต้ Search ชิดตำแหน่งช่องขาว
+        modeBtn.Size = UDim2.new(1, -8, 0, 28)      
+        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 10) -- ต่ำลงจากเดิมอีกหน่อย
 
         corner(modeBtn, 6)
         local modeStroke = stroke(modeBtn, 1.6, THEME.GREEN_DARK)
-        modeStroke.Transparency = 0.1
+        modeStroke.Transparency = 0.4   -- ขอบเขียวมืดจาง ๆ (ยังไม่เปิด)
 
+        -- toggle แค่ "เส้นขอบ" ให้เรืองแสง
         local modeOn = false
         local function updateModeButton()
             if modeOn then
-                modeBtn.BackgroundColor3 = THEME.GREEN_DARK
-                modeBtn.TextColor3       = THEME.BLACK
+                -- เปิด: เส้นขอบเขียวสว่างหนาขึ้น เหมือนเรืองแสง
                 modeStroke.Color         = THEME.GREEN
-                modeStroke.Thickness     = 2.0
+                modeStroke.Thickness     = 2.4
+                modeStroke.Transparency  = 0
             else
-                modeBtn.BackgroundColor3 = THEME.BLACK
-                modeBtn.TextColor3       = THEME.WHITE
+                -- ปิด: เส้นเขียวมืด บาง และโปร่งใส
                 modeStroke.Color         = THEME.GREEN_DARK
                 modeStroke.Thickness     = 1.6
+                modeStroke.Transparency  = 0.4
             end
         end
         updateModeButton()
@@ -5475,68 +5477,8 @@ registerRight("Shop", function(scroll)
         end)
 
         --------------------------------------------------------------------
-        -- List + ระบบค้นหา (เลื่อนลงไปหลังปุ่มใหม่)
+        -- (ตอนนี้ยังไม่สร้าง list รายการอื่นใด จะมีแค่ Search + ปุ่มนี้เท่านั้น)
         --------------------------------------------------------------------
-        local listHolder = Instance.new("ScrollingFrame")
-        listHolder.Name = "List"
-        listHolder.Parent = body
-        listHolder.BackgroundColor3 = THEME.BLACK
-        listHolder.BorderSizePixel = 0
-        listHolder.ScrollBarThickness = 4
-        listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        listHolder.CanvasSize = UDim2.new(0,0,0,0)
-        listHolder.ZIndex = body.ZIndex + 1
-        listHolder.Position = UDim2.new(0, 0, 0, 32 + 4 + 28 + 6) -- Search(32) + ช่องว่าง + ปุ่มใหม่ + เว้นนิดหน่อย
-        listHolder.Size = UDim2.new(1, 0, 1, -(32 + 4 + 28 + 6))
-
-        local listLayout = Instance.new("UIListLayout")
-        listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 4)
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        local function makeItem(text)
-            local btn = Instance.new("TextButton")
-            btn.Name = "Item_" .. text
-            btn.Parent = listHolder
-            btn.Size = UDim2.new(1, 0, 0, 28)
-            btn.BackgroundColor3 = THEME.BLACK
-            btn.AutoButtonColor = true
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 14
-            btn.TextColor3 = THEME.WHITE
-            btn.Text = text
-            btn.ZIndex = listHolder.ZIndex + 1
-            corner(btn, 6)
-            local st = stroke(btn, 1.4, THEME.GREEN_DARK)
-            st.Transparency = 0.2
-            return btn
-        end
-
-        local allItems = {
-            "None","Daffodil","Coconut","Tomato","Zebrazinkberry",
-            "Apple","Giant Pinecone","Blueberry","Elder Strawberry"
-        }
-        local itemButtons = {}
-
-        for i, name in ipairs(allItems) do
-            local b = makeItem(name)
-            b.LayoutOrder = i
-            itemButtons[#itemButtons+1] = b
-        end
-
-        local function applyFilter()
-            local q = string.lower(searchBox.Text)
-            for _, b in ipairs(itemButtons) do
-                if q == "" then
-                    b.Visible = true
-                else
-                    local t = string.lower(b.Text)
-                    b.Visible = string.find(t, q, 1, true) ~= nil
-                end
-            end
-        end
-
-        searchBox:GetPropertyChangedSignal("Text"):Connect(applyFilter)
 
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
