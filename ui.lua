@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + Mode Button + A1-A10 List) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5256,7 +5256,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UIListLayout
+    -- UIListLayout ฝั่งขวา (Model A V1)
     ------------------------------------------------------------------------
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
@@ -5358,7 +5358,7 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel (ไม่มี clickBlocker แล้ว)
+    -- Popup Panel
     ------------------------------------------------------------------------
     local optionsPanel
 
@@ -5372,7 +5372,7 @@ registerRight("Shop", function(scroll)
     local function openPanel()
         closePanel()
 
-        -- ขนาด panel ตามเส้นแดง/ฟ้า/ขาว + ดันขึ้น (topRatio 0.02)
+        -- วัดตำแหน่ง/ขนาด panel ด้านขวา
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
         local leftRatio   = 0.645
         local topRatio    = 0.02
@@ -5400,7 +5400,7 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ด้านใน (Search เต็มซ้าย-ขวา)
+        -- BODY ด้านใน
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
@@ -5434,53 +5434,7 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่มแบบที่ออกแบบ (Mode Style)
-        --------------------------------------------------------------------
-        local function makeModeStyleButton(parent, text)
-            local btn = Instance.new("TextButton")
-            btn.Name = "ModeStyle_" .. text
-            btn.Parent = parent
-            btn.BackgroundColor3 = THEME.BLACK
-            btn.AutoButtonColor = false
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 14
-            btn.TextColor3 = THEME.WHITE
-            btn.Text = text
-            btn.ZIndex = parent.ZIndex + 1
-            btn.Size = UDim2.new(1, -8, 0, 28)
-            btn.TextXAlignment = Enum.TextXAlignment.Center
-            btn.TextYAlignment = Enum.TextYAlignment.Center
-            corner(btn, 6)
-            local st = stroke(btn, 1.6, THEME.GREEN_DARK)
-            st.Transparency = 0.4
-            return btn, st
-        end
-
-        -- ปุ่ม Mode Button ตัวแรก (มี glow toggle)
-        local modeBtn, modeStroke = makeModeStyleButton(body, "Mode Button")
-        modeBtn.Position = UDim2.new(0, 4, 0, 32 + 10)
-
-        local modeOn = false
-        local function updateModeButton()
-            if modeOn then
-                modeStroke.Color        = THEME.GREEN
-                modeStroke.Thickness    = 2.4
-                modeStroke.Transparency = 0
-            else
-                modeStroke.Color        = THEME.GREEN_DARK
-                modeStroke.Thickness    = 1.6
-                modeStroke.Transparency = 0.4
-            end
-        end
-        updateModeButton()
-
-        modeBtn.MouseButton1Click:Connect(function()
-            modeOn = not modeOn
-            updateModeButton()
-        end)
-
-        --------------------------------------------------------------------
-        -- List A1 – A10 ใช้สไตล์เดียวกับ Mode Button + Scroll
+        -- ปุ่ม A1-A10 แบบเดียวกับปุ่มเรืองแสง (แต่ละอัน toggle glow เอง) + Scroll
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5492,7 +5446,7 @@ registerRight("Shop", function(scroll)
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
-        local listTopOffset = 32 + 10 + 28 + 8  -- Search + gap + Mode + gap
+        local listTopOffset = 32 + 10 -- Search(32) + gap10
         listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
@@ -5501,14 +5455,55 @@ registerRight("Shop", function(scroll)
         listLayout.Padding = UDim.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
+        local function makeGlowButton(label)
+            local btn = Instance.new("TextButton")
+            btn.Name = "Btn_" .. label
+            btn.Parent = listHolder
+            btn.Size = UDim2.new(1, -8, 0, 28)
+            btn.Position = UDim2.new(0, 4, 0, 0)
+            btn.BackgroundColor3 = THEME.BLACK
+            btn.AutoButtonColor = false
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 14
+            btn.TextColor3 = THEME.WHITE
+            btn.Text = label
+            btn.ZIndex = listHolder.ZIndex + 1
+            btn.TextXAlignment = Enum.TextXAlignment.Center
+            btn.TextYAlignment = Enum.TextYAlignment.Center
+            corner(btn, 6)
+
+            local st = stroke(btn, 1.6, THEME.GREEN_DARK)
+            st.Transparency = 0.4
+
+            local on = false
+            local function update()
+                if on then
+                    -- ขอบเขียวสว่าง เรืองแสง
+                    st.Color        = THEME.GREEN
+                    st.Thickness    = 2.4
+                    st.Transparency = 0
+                else
+                    -- ขอบเขียวมืด จาง
+                    st.Color        = THEME.GREEN_DARK
+                    st.Thickness    = 1.6
+                    st.Transparency = 0.4
+                end
+            end
+            update()
+
+            btn.MouseButton1Click:Connect(function()
+                on = not on
+                update()
+                print("[V A2] Toggle", label, "=", on)
+            end)
+
+            return btn
+        end
+
         for i = 1, 10 do
             local label = "A " .. tostring(i)
-            local btn, st = makeModeStyleButton(listHolder, label)
-            btn.LayoutOrder = i
-            -- ปุ่ม A1-A10 ใช้สไตล์เดียวกัน แต่ไม่มี toggle glow แค่กดแล้ว print
-            btn.MouseButton1Click:Connect(function()
-                print("[V A2] Click", label)
-            end)
+            local b = makeGlowButton(label)
+            b.LayoutOrder = i
         end
 
         --------------------------------------------------------------------
