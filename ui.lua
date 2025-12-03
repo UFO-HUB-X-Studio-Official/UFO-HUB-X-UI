@@ -5217,7 +5217,7 @@ registerRight("Settings", function(scroll)
     startWatcher()
 end)
 --===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
---      Full-Width Buttons + Search & ClickOutside + LeftGlow) =====
+--      Nice-Fit Buttons + Search & ClickOutside + LeftGlow) =====
 
 registerRight("Shop", function(scroll)
     local UserInputService = game:GetService("UserInputService")
@@ -5467,14 +5467,12 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
         local listTopOffset = 32 + 10 -- Search(32) + gap10
-
-        -- ให้ listHolder เต็มกรอบด้านใน (เหมือน Search)
         listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 8)                -- ระยะห่างปุ่มแนวตั้ง
+        listLayout.Padding = UDim.new(0, 8)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -5484,7 +5482,7 @@ registerRight("Shop", function(scroll)
         listPadding.PaddingBottom = UDim.new(0, 6)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (FULL WIDTH)
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH พอดีกรอบ ไม่ยาวเกิน)
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5493,8 +5491,8 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- เต็มกรอบด้านใน เหมือน Search (ชิดขอบซ้ายขวา)
-            btn.Size = UDim2.new(1, 0, 0, 28)
+            -- ลดความกว้างลง 8px (ซ้าย-ขวาข้างละ 4px)
+            btn.Size = UDim2.new(1, -8, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
@@ -5510,7 +5508,6 @@ registerRight("Shop", function(scroll)
             local st = stroke(btn, 1.6, THEME.GREEN_DARK)
             st.Transparency = 0.4
 
-            -- แถบเขียวแนวตั้งด้านซ้าย
             local glowBar = Instance.new("Frame")
             glowBar.Name = "GlowBar"
             glowBar.Parent = btn
@@ -5554,7 +5551,7 @@ registerRight("Shop", function(scroll)
         end
 
         --------------------------------------------------------------------
-        -- Search ทำงานจริง (ค้นจากชื่อปุ่ม)
+        -- Search ทำงานจริง
         --------------------------------------------------------------------
         local function trim(s)
             return (s:gsub("^%s*(.-)%s*$", "%1"))
