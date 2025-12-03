@@ -5463,7 +5463,11 @@ registerRight("Shop", function(scroll)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
-            btn.Size = UDim2.new(1, 0, 0, 28)       -- เต็มความกว้าง list แต่ไม่ล้ำขอบ
+
+            -- ✅ ขนาด & ระยะ เหมือนปุ่มที่นายออกแบบ
+            btn.Size = UDim2.new(1, -8, 0, 28)       -- เล็กกว่ากรอบนิดนึง
+            btn.Position = UDim2.new(0, 4, 0, 0)     -- ขยับเข้ามา 4 px ซ้ายขวาเท่ากัน
+
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
             btn.Font = Enum.Font.GothamBold
@@ -5500,13 +5504,7 @@ registerRight("Shop", function(scroll)
 
             return btn
         end
-
-        for i = 1, 10 do
-            local label = "A " .. tostring(i)
-            local b = makeGlowButton(label)
-            b.LayoutOrder = i
-        end
-
+        
         --------------------------------------------------------------------
         -- Focus effect ของ Search
         --------------------------------------------------------------------
