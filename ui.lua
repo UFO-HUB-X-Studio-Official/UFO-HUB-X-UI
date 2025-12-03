@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar v2) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar + Search & ClickClose) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5247,7 +5247,7 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- CLEANUP เฉพาะของ V A2 เดิม
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
             or (scroll:FindFirstAncestorOfClass("ScreenGui")
@@ -5358,21 +5358,50 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel
+    -- Popup Panel + ClickBlocker
     ------------------------------------------------------------------------
     local optionsPanel
+    local clickBlocker  -- ปุ่มโปร่งใสเต็มจอ ใช้ปิด UI เมื่อแตะข้างนอก
 
     local function closePanel()
         if optionsPanel then
             optionsPanel:Destroy()
             optionsPanel = nil
         end
+        if clickBlocker then
+            clickBlocker:Destroy()
+            clickBlocker = nil
+        end
     end
 
     local function openPanel()
         closePanel()
 
+        local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
+        if not screenGui then return end
+
+        --------------------------------------------------------------------
+        -- ClickBlocker: แตะตรงไหนก็ได้บนหน้าจอแล้วปิด ยกเว้นสิ่งที่บังอยู่ด้านบน
+        --------------------------------------------------------------------
+        clickBlocker = Instance.new("TextButton")
+        clickBlocker.Name = "VA2_ClickBlocker"
+        clickBlocker.Parent = screenGui
+        clickBlocker.BackgroundTransparency = 1
+        clickBlocker.BorderSizePixel = 0
+        clickBlocker.Text = ""
+        clickBlocker.AutoButtonColor = false
+        clickBlocker.Size = UDim2.new(1,0,1,0)
+        clickBlocker.Position = UDim2.new(0,0,0,0)
+        clickBlocker.ZIndex = 40   -- ต่ำกว่า panel (50) เพื่อให้ปุ่ม/สกอลล์ด้านบนทำงานได้ปกติ
+
+        clickBlocker.MouseButton1Click:Connect(function()
+            -- แตะพื้นจอที่ไม่ได้โดน UI อื่นบัง => ปิด panel
+            closePanel()
+        end)
+
+        --------------------------------------------------------------------
         -- วัดตำแหน่ง/ขนาด panel ด้านขวา
+        --------------------------------------------------------------------
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
         local leftRatio   = 0.645
         local topRatio    = 0.02
@@ -5407,8 +5436,8 @@ registerRight("Shop", function(scroll)
         body.Parent = optionsPanel
         body.BackgroundTransparency = 1
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 4, 0, 4)   -- เว้นจากกรอบเขียว 4 px
-        body.Size     = UDim2.new(1, -8, 1, -8) -- ลดขนาดเข้าไปทุกด้าน
+        body.Position = UDim2.new(0, 4, 0, 4)
+        body.Size     = UDim2.new(1, -8, 1, -8)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         --------------------------------------------------------------------
@@ -5446,7 +5475,7 @@ registerRight("Shop", function(scroll)
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
-        -- ซ่อนเส้นสกอลล์สีขาว แต่ยังเลื่อนได้
+        -- ซ่อนเส้นสกอลล์สีขาว แต่ยังเลื่อนได้ (แตะแท่งเลื่อนได้ตามปกติ)
         listHolder.ScrollBarImageTransparency = 1
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
@@ -5460,7 +5489,6 @@ registerRight("Shop", function(scroll)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-        -- padding ด้านบน/ล่าง กันเส้นเขียว "กิน" ปุ่ม A1 / A10
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
         listPadding.PaddingTop = UDim.new(0, 4)
@@ -5469,12 +5497,13 @@ registerRight("Shop", function(scroll)
         --------------------------------------------------------------------
         -- ปุ่มเรืองแสง (ขนาดเดียวกับปุ่มตัวอย่าง + ให้ ListLayout จัดกลาง)
         --------------------------------------------------------------------
+        local allButtons = {}
+
         local function makeGlowButton(label)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- ไม่ต้องตั้ง Position เลย ให้ UIListLayout จัดให้
             btn.Size = UDim2.new(1, -16, 0, 28) -- ซ้ายขวาข้างละ 8px
 
             btn.BackgroundColor3 = THEME.BLACK
@@ -5511,6 +5540,7 @@ registerRight("Shop", function(scroll)
                 print("[V A2] Toggle", label, "=", on)
             end)
 
+            table.insert(allButtons, btn)
             return btn
         end
 
@@ -5519,6 +5549,35 @@ registerRight("Shop", function(scroll)
             local b = makeGlowButton(label)
             b.LayoutOrder = i
         end
+
+        --------------------------------------------------------------------
+        -- Search ทำงานจริง (ค้นจากชื่อปุ่ม)
+        --------------------------------------------------------------------
+        local function trim(s)
+            return (s:gsub("^%s*(.-)%s*$", "%1"))
+        end
+
+        local function applySearch()
+            local q = trim(searchBox.Text or "")
+            q = string.lower(q)
+
+            if q == "" then
+                -- เคลียร์ค้นหา แสดงทุกปุ่ม
+                for _, btn in ipairs(allButtons) do
+                    btn.Visible = true
+                end
+            else
+                for _, btn in ipairs(allButtons) do
+                    local text = string.lower(btn.Text or "")
+                    btn.Visible = string.find(text, q, 1, true) ~= nil
+                end
+            end
+
+            -- รีเซ็ตสกอลล์กลับบนสุดเวลาเปลี่ยนคำค้น
+            listHolder.CanvasPosition = Vector2.new(0, 0)
+        end
+
+        searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
 
         --------------------------------------------------------------------
         -- Focus effect ของ Search
