@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – No Scrollbar Line) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5400,15 +5400,15 @@ registerRight("Shop", function(scroll)
         stroke(optionsPanel, 2.4, THEME.GREEN)
 
         --------------------------------------------------------------------
-        -- BODY ด้านใน
+        -- BODY ด้านใน (ขยับเข้ามา ไม่ให้ชนกรอบเขียว)
         --------------------------------------------------------------------
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
         body.BackgroundTransparency = 1
         body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 1, 0, 1)
-        body.Size     = UDim2.new(1, -2, 1, -2)
+        body.Position = UDim2.new(0, 4, 0, 4)   -- เว้นจากกรอบเขียว 4 px
+        body.Size     = UDim2.new(1, -8, 1, -8) -- ลดขนาดเข้าไปทุกด้าน
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         --------------------------------------------------------------------
@@ -5434,7 +5434,7 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 แบบเดียวกับปุ่มเรืองแสง (แต่ละอัน toggle glow เอง) + Scroll
+        -- ปุ่ม A1-A10 แบบ glow + Scroll (ซ่อนเส้นสกอลล์ขาว)
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5446,13 +5446,17 @@ registerRight("Shop", function(scroll)
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
+        -- ซ่อนเส้นสกอลล์สีขาว แต่ยังเลื่อนได้
+        listHolder.ScrollBarImageTransparency = 1
+        listHolder.ScrollBarImageColor3 = THEME.BLACK
+
         local listTopOffset = 32 + 10 -- Search(32) + gap10
         listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 4)
+        listLayout.Padding = UDim2.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
         local function makeGlowButton(label)
