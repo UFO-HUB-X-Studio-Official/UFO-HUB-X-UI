@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – No Scrollbar Line) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – No Scrollbar Line / Fixed) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5456,15 +5456,14 @@ registerRight("Shop", function(scroll)
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim2.new(0, 4)
+        listLayout.Padding = UDim.new(0, 4)  -- <<== แก้จาก UDim2.new เป็น UDim.new
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
         local function makeGlowButton(label)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
-            btn.Size = UDim2.new(1, -8, 0, 28)
-            btn.Position = UDim2.new(0, 4, 0, 0)
+            btn.Size = UDim2.new(1, 0, 0, 28)       -- เต็มความกว้าง list แต่ไม่ล้ำขอบ
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
             btn.Font = Enum.Font.GothamBold
@@ -5482,12 +5481,10 @@ registerRight("Shop", function(scroll)
             local on = false
             local function update()
                 if on then
-                    -- ขอบเขียวสว่าง เรืองแสง
                     st.Color        = THEME.GREEN
                     st.Thickness    = 2.4
                     st.Transparency = 0
                 else
-                    -- ขอบเขียวมืด จาง
                     st.Color        = THEME.GREEN_DARK
                     st.Thickness    = 1.6
                     st.Transparency = 0.4
