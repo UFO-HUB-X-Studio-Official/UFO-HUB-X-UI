@@ -5216,7 +5216,8 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar + Search & ClickOutside) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
+--      Centered + No Scrollbar + Search & ClickOutside + LeftGlow) =====
 
 registerRight("Shop", function(scroll)
     local UserInputService = game:GetService("UserInputService")
@@ -5364,6 +5365,7 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     local optionsPanel
     local inputConn
+    local opened = false
 
     local function disconnectInput()
         if inputConn then
@@ -5378,6 +5380,8 @@ registerRight("Shop", function(scroll)
             optionsPanel = nil
         end
         disconnectInput()
+        opened = false
+        selectStroke.Color = THEME.GREEN_DARK
     end
 
     local function openPanel()
@@ -5463,22 +5467,23 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
         local listTopOffset = 32 + 10 -- Search(32) + gap10
-        listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
-        listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
+        -- ขยับให้มี margin ซ้ายขวาเท่ากันมากขึ้น (ปุ่มดูอยู่กลางจริง ๆ)
+        listHolder.Position = UDim2.new(0, 4, 0, listTopOffset)
+        listHolder.Size     = UDim2.new(1, -8, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 4)
+        listLayout.Padding = UDim.new(0, 8)                -- ระยะห่างปุ่มแนวตั้งเพิ่ม
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
-        listPadding.PaddingTop = UDim.new(0, 4)
-        listPadding.PaddingBottom = UDim.new(0, 4)
+        listPadding.PaddingTop = UDim.new(0, 6)
+        listPadding.PaddingBottom = UDim.new(0, 6)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5487,7 +5492,8 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            btn.Size = UDim2.new(1, -16, 0, 28)
+            -- ให้แคบลงนิด และ UIListLayout จัดกลาง
+            btn.Size = UDim2.new(1, -24, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
@@ -5503,16 +5509,29 @@ registerRight("Shop", function(scroll)
             local st = stroke(btn, 1.6, THEME.GREEN_DARK)
             st.Transparency = 0.4
 
+            -- แถบเขียวแนวตั้งด้านซ้าย
+            local glowBar = Instance.new("Frame")
+            glowBar.Name = "GlowBar"
+            glowBar.Parent = btn
+            glowBar.BackgroundColor3 = THEME.GREEN
+            glowBar.BorderSizePixel = 0
+            glowBar.Size = UDim2.new(0, 3, 1, 0)
+            glowBar.Position = UDim2.new(0, 0, 0, 0)
+            glowBar.ZIndex = btn.ZIndex + 1
+            glowBar.Visible = false
+
             local on = false
             local function update()
                 if on then
                     st.Color        = THEME.GREEN
                     st.Thickness    = 2.4
                     st.Transparency = 0
+                    glowBar.Visible = true
                 else
                     st.Color        = THEME.GREEN_DARK
                     st.Thickness    = 1.6
                     st.Transparency = 0.4
+                    glowBar.Visible = false
                 end
             end
             update()
@@ -5599,15 +5618,13 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- Toggle ปุ่ม Select Options
     ------------------------------------------------------------------------
-    local opened = false
     selectBtn.MouseButton1Click:Connect(function()
-        opened = not opened
         if opened then
+            closePanel()
+        else
+            opened = true
             selectStroke.Color = THEME.GREEN
             openPanel()
-        else
-            selectStroke.Color = THEME.GREEN_DARK
-            closePanel()
         end
         print("[V A2] Select Options clicked, opened =", opened)
     end)
