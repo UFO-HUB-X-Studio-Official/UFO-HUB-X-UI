@@ -5216,7 +5216,7 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar v2) =====
 
 registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
@@ -5458,6 +5458,7 @@ registerRight("Shop", function(scroll)
         listLayout.Parent = listHolder
         listLayout.Padding = UDim.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
         -- padding ด้านบน/ล่าง กันเส้นเขียว "กิน" ปุ่ม A1 / A10
         local listPadding = Instance.new("UIPadding")
@@ -5466,16 +5467,15 @@ registerRight("Shop", function(scroll)
         listPadding.PaddingBottom = UDim.new(0, 4)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง (ขนาดเดียวกับปุ่มตัวอย่าง + จัดกลางจริง ๆ)
+        -- ปุ่มเรืองแสง (ขนาดเดียวกับปุ่มตัวอย่าง + ให้ ListLayout จัดกลาง)
         --------------------------------------------------------------------
         local function makeGlowButton(label)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            btn.AnchorPoint = Vector2.new(0.5, 0)
-            btn.Position    = UDim2.new(0.5, 0, 0, 0)
-            btn.Size        = UDim2.new(1, -16, 0, 28) -- เว้นซ้ายขวาข้างละ 8px
+            -- ไม่ต้องตั้ง Position เลย ให้ UIListLayout จัดให้
+            btn.Size = UDim2.new(1, -16, 0, 28) -- ซ้ายขวาข้างละ 8px
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
