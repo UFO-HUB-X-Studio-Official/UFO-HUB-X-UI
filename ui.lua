@@ -5217,7 +5217,7 @@ registerRight("Settings", function(scroll)
     startWatcher()
 end)
 --===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
---      Centered + No Scrollbar + Search & ClickOutside + LeftGlow) =====
+--      Full-Width Buttons + Search & ClickOutside + LeftGlow) =====
 
 registerRight("Shop", function(scroll)
     local UserInputService = game:GetService("UserInputService")
@@ -5320,7 +5320,7 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- แถวหลัก + ปุ่ม Select Options (ขนาดเดิม)
+    -- แถวหลัก + ปุ่ม Select Options
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
@@ -5467,13 +5467,14 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
         local listTopOffset = 32 + 10 -- Search(32) + gap10
-        -- ขยับให้มี margin ซ้ายขวาเท่ากันมากขึ้น (ปุ่มดูอยู่กลางจริง ๆ)
-        listHolder.Position = UDim2.new(0, 4, 0, listTopOffset)
-        listHolder.Size     = UDim2.new(1, -8, 1, -(listTopOffset + 4))
+
+        -- ให้ listHolder เต็มกรอบด้านใน (เหมือน Search)
+        listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
+        listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 8)                -- ระยะห่างปุ่มแนวตั้งเพิ่ม
+        listLayout.Padding = UDim.new(0, 8)                -- ระยะห่างปุ่มแนวตั้ง
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -5483,7 +5484,7 @@ registerRight("Shop", function(scroll)
         listPadding.PaddingBottom = UDim.new(0, 6)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (FULL WIDTH)
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5492,8 +5493,8 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- ให้แคบลงนิด และ UIListLayout จัดกลาง
-            btn.Size = UDim2.new(1, -24, 0, 28)
+            -- เต็มกรอบด้านใน เหมือน Search (ชิดขอบซ้ายขวา)
+            btn.Size = UDim2.new(1, 0, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
@@ -5590,7 +5591,7 @@ registerRight("Shop", function(scroll)
         end)
 
         --------------------------------------------------------------------
-        -- ปิด panel เมื่อแตะ "นอกกรอบ" (แต่ไม่ปิดถ้าแตะใน Search / ลิสต์ / ปุ่ม)
+        -- ปิด panel เมื่อแตะ "นอกกรอบ"
         --------------------------------------------------------------------
         inputConn = UserInputService.InputBegan:Connect(function(input, gp)
             if not optionsPanel then return end
