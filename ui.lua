@@ -5248,13 +5248,23 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- CLEANUP เฉพาะของ V A2 เดิม
+    -- หา ScreenGui + RightPanel ให้ชัด
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
-        local o = scroll:FindFirstChild(name)
-            or scroll.Parent:FindFirstChild(name)
-            or (scroll:FindFirstAncestorOfClass("ScreenGui")
-                and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
+    local gui = scroll:FindFirstAncestorOfClass("ScreenGui")
+    local rightPanel = scroll.Parent              -- ปกติคือกรอบฝั่งขวา
+    if not gui then
+        warn("[V A2] ไม่เจอ ScreenGui จาก scroll – ยกเลิกสร้าง Shop V A2")
+        return
+    end
+
+    ------------------------------------------------------------------------
+    -- CLEANUP ของ V A2 เดิม
+    ------------------------------------------------------------------------
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_Overlay"}) do
+        local o =
+            scroll:FindFirstChild(name)
+            or (rightPanel and rightPanel:FindFirstChild(name))
+            or gui:FindFirstChild(name)
         if o then o:Destroy() end
     end
 
@@ -5272,7 +5282,7 @@ registerRight("Shop", function(scroll)
 
     local base = 0
     for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch ~= vlist then
+        if ch:IsA("GuiObject") then
             base = math.max(base, ch.LayoutOrder or 0)
         end
     end
@@ -5324,8 +5334,6 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
 
-    local panelParent = scroll.Parent -- กรอบขวาของ Shop
-
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "VA2_Select"
     selectBtn.Parent = row
@@ -5361,8 +5369,9 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel + close-on-outside-click
+    -- Popup Panel + Overlay + close-on-outside-click
     ------------------------------------------------------------------------
+    local overlay   -- Frame คลุมทั้งจอ
     local optionsPanel
     local inputConn
     local opened = false
@@ -5379,6 +5388,10 @@ registerRight("Shop", function(scroll)
             optionsPanel:Destroy()
             optionsPanel = nil
         end
+        if overlay then
+            overlay:Destroy()
+            overlay = nil
+        end
         disconnectInput()
         opened = false
         selectStroke.Color = THEME.GREEN_DARK
@@ -5388,9 +5401,28 @@ registerRight("Shop", function(scroll)
         closePanel()
 
         --------------------------------------------------------------------
-        -- วัดตำแหน่ง/ขนาด panel ด้านขวา
+        -- Overlay เต็มจอ
         --------------------------------------------------------------------
-        local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
+        overlay = Instance.new("Frame")
+        overlay.Name = "VA2_Overlay"
+        overlay.Parent = gui
+        overlay.BackgroundColor3 = Color3.new(0,0,0)
+        overlay.BackgroundTransparency = 0.45
+        overlay.BorderSizePixel = 0
+        overlay.Size = UDim2.new(1,0,1,0)
+        overlay.ZIndex = 40
+        overlay.Active = true
+
+        --------------------------------------------------------------------
+        -- ใช้ขนาดของ RightPanel ในการคำนวณกรอบ Options
+        --------------------------------------------------------------------
+        if not rightPanel then
+            rightPanel = scroll.Parent
+        end
+
+        local pw, ph = rightPanel.AbsoluteSize.X, rightPanel.AbsoluteSize.Y
+        local pp = rightPanel.AbsolutePosition
+
         local leftRatio   = 0.645
         local topRatio    = 0.02
         local bottomRatio = 0.02
@@ -5405,13 +5437,13 @@ registerRight("Shop", function(scroll)
 
         optionsPanel = Instance.new("Frame")
         optionsPanel.Name = "VA2_OptionsPanel"
-        optionsPanel.Parent = panelParent
+        optionsPanel.Parent = overlay
         optionsPanel.BackgroundColor3 = THEME.BLACK
         optionsPanel.ClipsDescendants = true
         optionsPanel.AnchorPoint = Vector2.new(0, 0)
-        optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
+        optionsPanel.Position    = UDim2.new(0, pp.X + leftX, 0, pp.Y + topY)
         optionsPanel.Size        = UDim2.new(0, w, 0, h)
-        optionsPanel.ZIndex      = 50
+        optionsPanel.ZIndex      = 41
 
         corner(optionsPanel, 12)
         stroke(optionsPanel, 2.4, THEME.GREEN)
@@ -5426,10 +5458,10 @@ registerRight("Shop", function(scroll)
         body.BorderSizePixel = 0
         body.Position = UDim2.new(0, 4, 0, 4)
         body.Size     = UDim2.new(1, -8, 1, -8)
-        body.ZIndex   = optionsPanel.ZIndex + 1
+        body.ZIndex   = 42
 
         --------------------------------------------------------------------
-        -- Search Box (มี margin ซ้ายขวาอย่างละ 4px)
+        -- Search Box
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5442,16 +5474,16 @@ registerRight("Shop", function(scroll)
         searchBox.PlaceholderText = "🔍 Search"
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
-        searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, -8, 0, 32)   -- กว้างน้อยกว่ากรอบ 8px
-        searchBox.Position = UDim2.new(0, 4, 0, 0) -- ขยับเข้า 4px ซ้าย
+        searchBox.ZIndex = 43
+        searchBox.Size = UDim2.new(1, -8, 0, 32)
+        searchBox.Position = UDim2.new(0, 4, 0, 0)
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
-        sbStroke.ZIndex = searchBox.ZIndex + 1
+        sbStroke.ZIndex = 44
 
         --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 + Scroll (margin ตรงกับ Search)
+        -- ปุ่ม A1-A10 + Scroll
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5461,18 +5493,18 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarThickness = 4
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
-        listHolder.ZIndex = body.ZIndex + 1
+        listHolder.ZIndex = 43
 
         listHolder.ScrollBarImageTransparency = 1
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
-        local listTopOffset = 32 + 10 -- Search(32) + gap10
+        local listTopOffset = 32 + 10
         listHolder.Position = UDim2.new(0, 4, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, -8, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim2.new(0, 8)
+        listLayout.Padding = UDim.new(0, 8)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -5482,7 +5514,7 @@ registerRight("Shop", function(scroll)
         listPadding.PaddingBottom = UDim2.new(0, 6)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH ตรงกับ Search)
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5490,16 +5522,14 @@ registerRight("Shop", function(scroll)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
-
-            btn.Size = UDim2.new(1, 0, 0, 28)   -- เต็มความกว้าง listHolder (ซ้ายขวา 4px จากกรอบเขียว)
-
+            btn.Size = UDim2.new(1, 0, 0, 28)
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
             btn.Font = Enum.Font.GothamBold
             btn.TextSize = 14
             btn.TextColor3 = THEME.WHITE
             btn.Text = label
-            btn.ZIndex = listHolder.ZIndex + 1
+            btn.ZIndex = 45
             btn.TextXAlignment = Enum.TextXAlignment.Center
             btn.TextYAlignment = Enum.TextYAlignment.Center
             corner(btn, 6)
@@ -5514,7 +5544,7 @@ registerRight("Shop", function(scroll)
             glowBar.BorderSizePixel = 0
             glowBar.Size = UDim2.new(0, 3, 1, 0)
             glowBar.Position = UDim2.new(0, 0, 0, 0)
-            glowBar.ZIndex = btn.ZIndex + 1
+            glowBar.ZIndex = 46
             glowBar.Visible = false
 
             local on = false
@@ -5587,12 +5617,13 @@ registerRight("Shop", function(scroll)
         end)
 
         --------------------------------------------------------------------
-        -- ปิด panel เมื่อแตะ "นอกกรอบ"
+        -- ปิด panel เมื่อแตะ "นอกกรอบ" (บน overlay ทั้งจอ)
         --------------------------------------------------------------------
         inputConn = UserInputService.InputBegan:Connect(function(input, gp)
-            if not optionsPanel then return end
+            if gp then return end
+            if not optionsPanel or not overlay then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then
+               and input.UserInputType ~= Enum.UserInputType.Touch then
                 return
             end
 
@@ -5624,6 +5655,15 @@ registerRight("Shop", function(scroll)
             openPanel()
         end
         print("[V A2] Select Options clicked, opened =", opened)
+    end)
+
+    ------------------------------------------------------------------------
+    -- ถ้า UI หลักโดน Destroy / ย้ายออกจากเกม ให้ปิด panel ทิ้ง
+    ------------------------------------------------------------------------
+    scroll.AncestryChanged:Connect(function()
+        if not scroll:IsDescendantOf(game) then
+            closePanel()
+        end
     end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
