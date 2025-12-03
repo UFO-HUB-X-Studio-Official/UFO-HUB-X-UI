@@ -5217,7 +5217,7 @@ registerRight("Settings", function(scroll)
     startWatcher()
 end)
 --===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
---      Nice-Fit Buttons + Search & ClickOutside + LeftGlow) =====
+--      Perfect-Fit Buttons + Search & ClickOutside + LeftGlow) =====
 
 registerRight("Shop", function(scroll)
     local UserInputService = game:GetService("UserInputService")
@@ -5429,7 +5429,7 @@ registerRight("Shop", function(scroll)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- Search Box
+        -- Search Box (มี margin ซ้ายขวาอย่างละ 4px)
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5443,15 +5443,15 @@ registerRight("Shop", function(scroll)
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
         searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, 0, 0, 32)
-        searchBox.Position = UDim2.new(0, 0, 0, 0)
+        searchBox.Size = UDim2.new(1, -8, 0, 32)   -- กว้างน้อยกว่ากรอบ 8px
+        searchBox.Position = UDim2.new(0, 4, 0, 0) -- ขยับเข้า 4px ซ้าย
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 แบบ glow + Scroll (ซ่อนเส้นสกอลล์ขาว)
+        -- ปุ่ม A1-A10 + Scroll (margin ตรงกับ Search)
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5467,22 +5467,22 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
         local listTopOffset = 32 + 10 -- Search(32) + gap10
-        listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
-        listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
+        listHolder.Position = UDim2.new(0, 4, 0, listTopOffset)
+        listHolder.Size     = UDim2.new(1, -8, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 8)
+        listLayout.Padding = UDim2.new(0, 8)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
-        listPadding.PaddingTop = UDim.new(0, 6)
-        listPadding.PaddingBottom = UDim.new(0, 6)
+        listPadding.PaddingTop = UDim2.new(0, 6)
+        listPadding.PaddingBottom = UDim2.new(0, 6)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH พอดีกรอบ ไม่ยาวเกิน)
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH ตรงกับ Search)
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5491,8 +5491,7 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- ลดความกว้างลง 8px (ซ้าย-ขวาข้างละ 4px)
-            btn.Size = UDim2.new(1, -8, 0, 28)
+            btn.Size = UDim2.new(1, 0, 0, 28)   -- เต็มความกว้าง listHolder (ซ้ายขวา 4px จากกรอบเขียว)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
