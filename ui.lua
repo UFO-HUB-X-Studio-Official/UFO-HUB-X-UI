@@ -5456,17 +5456,20 @@ registerRight("Shop", function(scroll)
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 4)  -- <<== แก้จาก UDim2.new เป็น UDim.new
+        listLayout.Padding = UDim.new(0, 4)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
+        --------------------------------------------------------------------
+        -- ปุ่มเรืองแสง (ขนาดเดียวกับปุ่มตัวอย่าง)
+        --------------------------------------------------------------------
         local function makeGlowButton(label)
             local btn = Instance.new("TextButton")
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- ✅ ขนาด & ระยะ เหมือนปุ่มที่นายออกแบบ
-            btn.Size = UDim2.new(1, -8, 0, 28)       -- เล็กกว่ากรอบนิดนึง
-            btn.Position = UDim2.new(0, 4, 0, 0)     -- ขยับเข้ามา 4 px ซ้ายขวาเท่ากัน
+            -- ขนาด & ระยะเท่าปุ่มที่ออกแบบไว้
+            btn.Size = UDim2.new(1, -8, 0, 28)
+            btn.Position = UDim2.new(0, 4, 0, 0)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
@@ -5504,7 +5507,13 @@ registerRight("Shop", function(scroll)
 
             return btn
         end
-        
+
+        for i = 1, 10 do
+            local label = "A " .. tostring(i)
+            local b = makeGlowButton(label)
+            b.LayoutOrder = i
+        end
+
         --------------------------------------------------------------------
         -- Focus effect ของ Search
         --------------------------------------------------------------------
