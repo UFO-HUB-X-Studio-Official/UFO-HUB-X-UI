@@ -5216,9 +5216,11 @@ registerRight("Settings", function(scroll)
     ensureInputHooks()
     startWatcher()
 end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar + Search & ClickClose) =====
+--===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons – Centered + No Scrollbar + Search & ClickOutside) =====
 
 registerRight("Shop", function(scroll)
+    local UserInputService = game:GetService("UserInputService")
+
     ------------------------------------------------------------------------
     -- THEME + HELPERS (Model A V1)
     ------------------------------------------------------------------------
@@ -5247,7 +5249,7 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     -- CLEANUP เฉพาะของ V A2 เดิม
     ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel","VA2_ClickBlocker"}) do
+    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
             or (scroll:FindFirstAncestorOfClass("ScreenGui")
@@ -5328,7 +5330,7 @@ registerRight("Shop", function(scroll)
     selectBtn.Parent = row
     selectBtn.AnchorPoint = Vector2.new(1, 0.5)
     selectBtn.Position = UDim2.new(1, -16, 0.5, 0)
-    selectBtn.Size = UDim2.new(0, 220, 0, 28) -- ขนาดเดิม
+    selectBtn.Size = UDim2.new(0, 220, 0, 28)
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
     selectBtn.Text = "Select Options"
@@ -5358,46 +5360,28 @@ registerRight("Shop", function(scroll)
     arrow.Text = "▼"
 
     ------------------------------------------------------------------------
-    -- Popup Panel + ClickBlocker
+    -- Popup Panel + close-on-outside-click
     ------------------------------------------------------------------------
     local optionsPanel
-    local clickBlocker  -- ปุ่มโปร่งใสเต็มจอ ใช้ปิด UI เมื่อแตะข้างนอก
+    local inputConn
+
+    local function disconnectInput()
+        if inputConn then
+            inputConn:Disconnect()
+            inputConn = nil
+        end
+    end
 
     local function closePanel()
         if optionsPanel then
             optionsPanel:Destroy()
             optionsPanel = nil
         end
-        if clickBlocker then
-            clickBlocker:Destroy()
-            clickBlocker = nil
-        end
+        disconnectInput()
     end
 
     local function openPanel()
         closePanel()
-
-        local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
-        if not screenGui then return end
-
-        --------------------------------------------------------------------
-        -- ClickBlocker: แตะตรงไหนก็ได้บนหน้าจอแล้วปิด ยกเว้นสิ่งที่บังอยู่ด้านบน
-        --------------------------------------------------------------------
-        clickBlocker = Instance.new("TextButton")
-        clickBlocker.Name = "VA2_ClickBlocker"
-        clickBlocker.Parent = screenGui
-        clickBlocker.BackgroundTransparency = 1
-        clickBlocker.BorderSizePixel = 0
-        clickBlocker.Text = ""
-        clickBlocker.AutoButtonColor = false
-        clickBlocker.Size = UDim2.new(1,0,1,0)
-        clickBlocker.Position = UDim2.new(0,0,0,0)
-        clickBlocker.ZIndex = 40   -- ต่ำกว่า panel (50) เพื่อให้ปุ่ม/สกอลล์ด้านบนทำงานได้ปกติ
-
-        clickBlocker.MouseButton1Click:Connect(function()
-            -- แตะพื้นจอที่ไม่ได้โดน UI อื่นบัง => ปิด panel
-            closePanel()
-        end)
 
         --------------------------------------------------------------------
         -- วัดตำแหน่ง/ขนาด panel ด้านขวา
@@ -5475,7 +5459,6 @@ registerRight("Shop", function(scroll)
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
-        -- ซ่อนเส้นสกอลล์สีขาว แต่ยังเลื่อนได้ (แตะแท่งเลื่อนได้ตามปกติ)
         listHolder.ScrollBarImageTransparency = 1
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
@@ -5495,7 +5478,7 @@ registerRight("Shop", function(scroll)
         listPadding.PaddingBottom = UDim.new(0, 4)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง (ขนาดเดียวกับปุ่มตัวอย่าง + ให้ ListLayout จัดกลาง)
+        -- ปุ่มเรืองแสง
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5504,7 +5487,7 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            btn.Size = UDim2.new(1, -16, 0, 28) -- ซ้ายขวาข้างละ 8px
+            btn.Size = UDim2.new(1, -16, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
             btn.AutoButtonColor = false
@@ -5562,7 +5545,6 @@ registerRight("Shop", function(scroll)
             q = string.lower(q)
 
             if q == "" then
-                -- เคลียร์ค้นหา แสดงทุกปุ่ม
                 for _, btn in ipairs(allButtons) do
                     btn.Visible = true
                 end
@@ -5573,7 +5555,6 @@ registerRight("Shop", function(scroll)
                 end
             end
 
-            -- รีเซ็ตสกอลล์กลับบนสุดเวลาเปลี่ยนคำค้น
             listHolder.CanvasPosition = Vector2.new(0, 0)
         end
 
@@ -5587,6 +5568,31 @@ registerRight("Shop", function(scroll)
         end)
         searchBox.FocusLost:Connect(function()
             sbStroke.Color = THEME.GREEN
+        end)
+
+        --------------------------------------------------------------------
+        -- ปิด panel เมื่อแตะ "นอกกรอบ" (แต่ไม่ปิดถ้าแตะใน Search / ลิสต์ / ปุ่ม)
+        --------------------------------------------------------------------
+        inputConn = UserInputService.InputBegan:Connect(function(input, gp)
+            if not optionsPanel then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+
+            local pos = input.Position
+            local px, py = pos.X, pos.Y
+
+            local op = optionsPanel.AbsolutePosition
+            local os = optionsPanel.AbsoluteSize
+
+            local inside =
+                px >= op.X and px <= op.X + os.X and
+                py >= op.Y and py <= op.Y + os.Y
+
+            if not inside then
+                closePanel()
+            end
         end)
     end
 
