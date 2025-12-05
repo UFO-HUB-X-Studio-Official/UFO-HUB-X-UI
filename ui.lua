@@ -2863,12 +2863,13 @@ registerRight("Player", function(scroll)
     -- THEME + HELPERS
     ------------------------------------------------------------------------
     local THEME = {
-        GREEN = Color3.fromRGB(25,255,125),
-        RED   = Color3.fromRGB(255,40,40),
-        WHITE = Color3.fromRGB(255,255,255),
-        BLACK = Color3.fromRGB(0,0,0),
-        TEXT  = Color3.fromRGB(255,255,255),
-        DARK  = Color3.fromRGB(10,10,10),
+        GREEN      = Color3.fromRGB(25,255,125),
+        GREEN_DARK = Color3.fromRGB(0,120,60),
+        RED        = Color3.fromRGB(255,40,40),
+        WHITE      = Color3.fromRGB(255,255,255),
+        BLACK      = Color3.fromRGB(0,0,0),
+        TEXT       = Color3.fromRGB(255,255,255),
+        DARK       = Color3.fromRGB(10,10,10),
     }
 
     local function corner(ui,r)
@@ -2883,6 +2884,7 @@ registerRight("Player", function(scroll)
         s.Color = col or THEME.GREEN
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         s.Parent = ui
+        return s
     end
 
     local function tween(o,p,d)
@@ -3162,6 +3164,115 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
+    -- Row 1: เลือกผู้เล่น (Model A V2 style + glow on selected)
+    ------------------------------------------------------------------------
+    local row1 = Instance.new("Frame", scroll)
+    row1.Name = "WARP_Row1"
+    row1.Size = UDim2.new(1,-6,0,46)
+    row1.BackgroundColor3 = THEME.BLACK
+    row1.LayoutOrder = base + 2
+    corner(row1,12)
+
+    local rowStroke = Instance.new("UIStroke", row1)
+    rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    rowStroke.Color = THEME.GREEN_DARK
+    rowStroke.Thickness = 1.8
+
+    -- Left bar glow (แบบ A V2)
+    local bar = Instance.new("Frame", row1)
+    bar.Name = "LeftBar"
+    bar.BackgroundColor3 = THEME.GREEN
+    bar.BorderSizePixel = 0
+    bar.Size = UDim2.new(0,3,1,0)
+    bar.Position = UDim2.new(0,0,0,0)
+    bar.BackgroundTransparency = 0.6
+
+    -- Title ซ้าย
+    local lab1 = Instance.new("TextLabel", row1)
+    lab1.BackgroundTransparency = 1
+    lab1.Size = UDim2.new(1,-140,1,0)
+    lab1.Position = UDim2.new(0,12,0,0)
+    lab1.Font = Enum.Font.GothamBold
+    lab1.TextSize = 13
+    lab1.TextColor3 = THEME.WHITE
+    lab1.TextXAlignment = Enum.TextXAlignment.Left
+    lab1.Text = "Select Target Player"
+
+    -- ชื่อเป้าหมายที่เลือก (ขวา)
+    local selectedLabel = Instance.new("TextLabel", row1)
+    selectedLabel.BackgroundTransparency = 1
+    selectedLabel.AnchorPoint = Vector2.new(1,0.5)
+    selectedLabel.Position = UDim2.new(1,-32,0.5,0)
+    selectedLabel.Size = UDim2.new(0,120,0,20)
+    selectedLabel.Font = Enum.Font.Gotham
+    selectedLabel.TextSize = 12
+    selectedLabel.TextColor3 = THEME.GREEN
+    selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
+    selectedLabel.Text = ""
+
+    -- ปุ่ม ▶ โปร่งใส (A V2 style)
+    local arrowBtn = Instance.new("TextButton", row1)
+    arrowBtn.Size = UDim2.new(0,32,1,0)
+    arrowBtn.Position = UDim2.new(1,-32,0,0)
+    arrowBtn.BackgroundTransparency = 1
+    arrowBtn.AutoButtonColor = false
+    arrowBtn.Font = Enum.Font.GothamBold
+    arrowBtn.TextSize = 18
+    arrowBtn.TextColor3 = THEME.WHITE
+    arrowBtn.Text = "▶"
+
+    -- Visual controller A V2 (dim → bright เมื่อเลือกเป้าหมาย)
+    local hover = false
+    local function updateRow1Visual()
+        local hasTarget = (getTargetPlayer() ~= nil)
+
+        local baseThickness = hasTarget and 2.4 or 1.8
+        local thickness     = hover and (baseThickness + 0.4) or baseThickness
+
+        local baseBarTr = hasTarget and 0.15 or 0.6
+        local barTr     = hover and math.max(baseBarTr - 0.2,0) or baseBarTr
+
+        local color = hasTarget and THEME.GREEN or THEME.GREEN_DARK
+
+        tween(rowStroke, {
+            Color     = color,
+            Thickness = thickness
+        }, 0.10)
+
+        tween(bar, {
+            BackgroundTransparency = barTr
+        }, 0.10)
+    end
+
+    local function refreshSelectedLabel()
+        local pl = getTargetPlayer()
+        if pl then
+            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+            selectedLabel.Text = display
+        else
+            selectedLabel.Text = ""
+        end
+        updateRow1Visual()
+    end
+    refreshSelectedLabel()
+
+    row1.MouseEnter:Connect(function()
+        hover = true
+        updateRow1Visual()
+    end)
+    row1.MouseLeave:Connect(function()
+        hover = false
+        updateRow1Visual()
+    end)
+
+    arrowBtn.MouseButton1Click:Connect(function()
+        openPicker(function(pl)
+            WARP.targetUserId = pl.UserId
+            refreshSelectedLabel()
+        end)
+    end)
+
+    ------------------------------------------------------------------------
     -- สวิตช์แถว (Row2 + Row3) - A V1
     ------------------------------------------------------------------------
     local row2Switch, row3Switch
@@ -3230,89 +3341,6 @@ registerRight("Player", function(scroll)
             update = updateVisual,
         }
     end
-
-    ------------------------------------------------------------------------
-    -- Row 1: เลือกผู้เล่น (Model A V2 style ตาม baseline Shop)
-    ------------------------------------------------------------------------
-    local row1 = Instance.new("Frame", scroll)
-    row1.Name = "WARP_Row1"
-    row1.Size = UDim2.new(1,-12,0,46)
-    row1.BackgroundColor3 = Color3.fromRGB(10,10,10)
-    row1.LayoutOrder = base + 2
-    corner(row1,12)
-    local rowStroke = Instance.new("UIStroke", row1)
-    rowStroke.Color = THEME.GREEN
-    rowStroke.Thickness = 1
-
-    -- Left bar highlight (เหมือนตัวอย่าง Shop A V2)
-    local bar = Instance.new("Frame", row1)
-    bar.BackgroundColor3 = THEME.GREEN
-    bar.Size = UDim2.new(0,4,1,0)
-    bar.Position = UDim2.new(0,0,0,0)
-    bar.BackgroundTransparency = 0.4
-    bar.BorderSizePixel = 0
-
-    -- Title (ชื่อระบบย่อย: เลือกชื่อผู้เล่น)
-    local lab1 = Instance.new("TextLabel", row1)
-    lab1.BackgroundTransparency = 1
-    lab1.Size = UDim2.new(1,-100,1,0)
-    lab1.Position = UDim2.new(0,12,0,0)
-    lab1.Font = Enum.Font.GothamBold
-    lab1.TextSize = 13
-    lab1.TextColor3 = THEME.WHITE
-    lab1.TextXAlignment = Enum.TextXAlignment.Left
-    lab1.Text = "Select Target Player"
-
-    -- Selected name (โชว์ชื่อเป้าหมายด้านขวา)
-    local selectedLabel = Instance.new("TextLabel", row1)
-    selectedLabel.BackgroundTransparency = 1
-    selectedLabel.AnchorPoint = Vector2.new(1,0.5)
-    selectedLabel.Position = UDim2.new(1,-40,0.5,0)
-    selectedLabel.Size = UDim2.new(0,120,0,20)
-    selectedLabel.Font = Enum.Font.Gotham
-    selectedLabel.TextSize = 12
-    selectedLabel.TextColor3 = THEME.GREEN
-    selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
-    selectedLabel.Text = ""
-
-    -- ปุ่ม ▶ แบบ A V2 (TextButton โปร่งใส)
-    local arrowBtn = Instance.new("TextButton", row1)
-    arrowBtn.Size = UDim2.new(0,32,0,46)
-    arrowBtn.Position = UDim2.new(1,-40,0,0)
-    arrowBtn.BackgroundTransparency = 1
-    arrowBtn.AutoButtonColor = false
-    arrowBtn.Font = Enum.Font.GothamBold
-    arrowBtn.TextSize = 18
-    arrowBtn.TextColor3 = THEME.WHITE
-    arrowBtn.Text = "▶"
-
-    -- Hover FX แบบ A V2
-    row1.MouseEnter:Connect(function()
-        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Thickness = 2 }):Play()
-        TweenService:Create(bar, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play()
-    end)
-    row1.MouseLeave:Connect(function()
-        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Thickness = 1 }):Play()
-        TweenService:Create(bar, TweenInfo.new(0.15), { BackgroundTransparency = 0.4 }):Play()
-    end)
-
-    local function refreshSelectedLabel()
-        local pl = getTargetPlayer()
-        if pl then
-            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            selectedLabel.Text = display
-        else
-            selectedLabel.Text = ""
-        end
-    end
-    refreshSelectedLabel()
-
-    arrowBtn.MouseButton1Click:Connect(function()
-        openPicker(function(pl)
-            WARP.targetUserId = pl.UserId
-            refreshSelectedLabel()
-        end)
-    end)
 
     ------------------------------------------------------------------------
     -- Row 2: Warp to Player (Instant) - โหมด 1
@@ -5215,450 +5243,6 @@ registerRight("Settings", function(scroll)
     end
     ensureInputHooks()
     startWatcher()
-end)
---===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
---      Nice-Fit Buttons + Search & ClickOutside + LeftGlow) =====
-
-registerRight("Shop", function(scroll)
-    local UserInputService = game:GetService("UserInputService")
-
-    ------------------------------------------------------------------------
-    -- THEME + HELPERS (Model A V1)
-    ------------------------------------------------------------------------
-    local THEME = {
-        GREEN       = Color3.fromRGB(25,255,125),
-        GREEN_DARK  = Color3.fromRGB(0,120,60),
-        WHITE       = Color3.fromRGB(255,255,255),
-        BLACK       = Color3.fromRGB(0,0,0),
-    }
-
-    local function corner(ui, r)
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or 12)
-        c.Parent = ui
-    end
-
-    local function stroke(ui, th, col)
-        local s = Instance.new("UIStroke")
-        s.Thickness = th or 2.2
-        s.Color = col or THEME.GREEN
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Parent = ui
-        return s
-    end
-
-    ------------------------------------------------------------------------
-    -- CLEANUP เฉพาะของ V A2 เดิม
-    ------------------------------------------------------------------------
-    for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
-        local o = scroll:FindFirstChild(name)
-            or scroll.Parent:FindFirstChild(name)
-            or (scroll:FindFirstAncestorOfClass("ScreenGui")
-                and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
-        if o then o:Destroy() end
-    end
-
-    ------------------------------------------------------------------------
-    -- UIListLayout ฝั่งขวา (Model A V1)
-    ------------------------------------------------------------------------
-    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
-    if not vlist then
-        vlist = Instance.new("UIListLayout")
-        vlist.Parent = scroll
-        vlist.Padding   = UDim.new(0, 12)
-        vlist.SortOrder = Enum.SortOrder.LayoutOrder
-    end
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local base = 0
-    for _, ch in ipairs(scroll:GetChildren()) do
-        if ch:IsA("GuiObject") and ch ~= vlist then
-            base = math.max(base, ch.LayoutOrder or 0)
-        end
-    end
-
-    ------------------------------------------------------------------------
-    -- HEADER
-    ------------------------------------------------------------------------
-    local header = Instance.new("TextLabel")
-    header.Name = "VA2_Header"
-    header.Parent = scroll
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1, 0, 0, 36)
-    header.Font = Enum.Font.GothamBold
-    header.TextSize = 16
-    header.TextColor3 = THEME.WHITE
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "V A2 Test 🧪"
-    header.LayoutOrder = base + 1
-
-    ------------------------------------------------------------------------
-    -- แถวพื้นฐาน
-    ------------------------------------------------------------------------
-    local function makeRow(name, order, labelText)
-        local row = Instance.new("Frame")
-        row.Name = name
-        row.Parent = scroll
-        row.Size = UDim2.new(1, -6, 0, 46)
-        row.BackgroundColor3 = THEME.BLACK
-        corner(row, 12)
-        stroke(row, 2.2, THEME.GREEN)
-        row.LayoutOrder = order
-
-        local lab = Instance.new("TextLabel")
-        lab.Parent = row
-        lab.BackgroundTransparency = 1
-        lab.Size = UDim2.new(0, 180, 1, 0)
-        lab.Position = UDim2.new(0, 16, 0, 0)
-        lab.Font = Enum.Font.GothamBold
-        lab.TextSize = 13
-        lab.TextColor3 = THEME.WHITE
-        lab.TextXAlignment = Enum.TextXAlignment.Left
-        lab.Text = labelText
-
-        return row, lab
-    end
-
-    ------------------------------------------------------------------------
-    -- แถวหลัก + ปุ่ม Select Options
-    ------------------------------------------------------------------------
-    local row, _ = makeRow("VA2_Row1", base + 2, "ทดลองภาษาอังกฤษ")
-
-    local panelParent = scroll.Parent -- กรอบขวาของ Shop
-
-    local selectBtn = Instance.new("TextButton")
-    selectBtn.Name = "VA2_Select"
-    selectBtn.Parent = row
-    selectBtn.AnchorPoint = Vector2.new(1, 0.5)
-    selectBtn.Position = UDim2.new(1, -16, 0.5, 0)
-    selectBtn.Size = UDim2.new(0, 220, 0, 28)
-    selectBtn.BackgroundColor3 = THEME.BLACK
-    selectBtn.AutoButtonColor = false
-    selectBtn.Text = "🔍 Select Options"
-    selectBtn.Font = Enum.Font.GothamBold
-    selectBtn.TextSize = 13
-    selectBtn.TextColor3 = THEME.WHITE
-    selectBtn.TextXAlignment = Enum.TextXAlignment.Center
-    selectBtn.TextYAlignment = Enum.TextYAlignment.Center
-    corner(selectBtn, 8)
-
-    local selectStroke = stroke(selectBtn, 1.8, THEME.GREEN_DARK)
-    selectStroke.Transparency = 0.4
-
-    -- ฟังก์ชันเปลี่ยนขอบปุ่มแบบปิด / เปิด (เรืองแสง)
-    local function updateSelectVisual(isOpen)
-        if isOpen then
-            selectStroke.Color        = THEME.GREEN
-            selectStroke.Thickness    = 2.4
-            selectStroke.Transparency = 0
-        else
-            selectStroke.Color        = THEME.GREEN_DARK
-            selectStroke.Thickness    = 1.8
-            selectStroke.Transparency = 0.4
-        end
-    end
-    updateSelectVisual(false)
-
-    local padding = Instance.new("UIPadding")
-    padding.Parent = selectBtn
-    padding.PaddingLeft  = UDim.new(0, 8)
-    padding.PaddingRight = UDim.new(0, 26)
-
-    local arrow = Instance.new("TextLabel")
-    arrow.Parent = selectBtn
-    arrow.AnchorPoint = Vector2.new(1,0.5)
-    arrow.Position = UDim2.new(1, -6, 0.5, 0)
-    arrow.Size = UDim2.new(0, 18, 0, 18)
-    arrow.BackgroundTransparency = 1
-    arrow.Font = Enum.Font.GothamBold
-    arrow.TextSize = 18
-    arrow.TextColor3 = THEME.WHITE
-    arrow.Text = "▼"
-
-    ------------------------------------------------------------------------
-    -- Popup Panel + close-on-outside-click
-    ------------------------------------------------------------------------
-    local optionsPanel
-    local inputConn
-    local opened = false
-
-    local function disconnectInput()
-        if inputConn then
-            inputConn:Disconnect()
-            inputConn = nil
-        end
-    end
-
-    local function closePanel()
-        if optionsPanel then
-            optionsPanel:Destroy()
-            optionsPanel = nil
-        end
-        disconnectInput()
-        opened = false
-        updateSelectVisual(false)
-    end
-
-    local function openPanel()
-        -- กันกรณีหลุดมี panel ค้าง
-        closePanel()
-
-        --------------------------------------------------------------------
-        -- วัดตำแหน่ง/ขนาด panel ด้านขวา
-        --------------------------------------------------------------------
-        local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
-        local leftRatio   = 0.645
-        local topRatio    = 0.02
-        local bottomRatio = 0.02
-        local rightMargin = 8
-
-        local leftX   = math.floor(pw * leftRatio)
-        local topY    = math.floor(ph * topRatio)
-        local bottomM = math.floor(ph * bottomRatio)
-
-        local w = pw - leftX - rightMargin
-        local h = ph - topY - bottomM
-
-        optionsPanel = Instance.new("Frame")
-        optionsPanel.Name = "VA2_OptionsPanel"
-        optionsPanel.Parent = panelParent
-        optionsPanel.BackgroundColor3 = THEME.BLACK
-        optionsPanel.ClipsDescendants = true
-        optionsPanel.AnchorPoint = Vector2.new(0, 0)
-        optionsPanel.Position    = UDim2.new(0, leftX, 0, topY)
-        optionsPanel.Size        = UDim2.new(0, w, 0, h)
-        optionsPanel.ZIndex      = 50
-
-        corner(optionsPanel, 12)
-        stroke(optionsPanel, 2.4, THEME.GREEN)
-
-        --------------------------------------------------------------------
-        -- BODY ด้านใน (ขยับเข้ามา ไม่ให้ชนกรอบเขียว)
-        --------------------------------------------------------------------
-        local body = Instance.new("Frame")
-        body.Name = "Body"
-        body.Parent = optionsPanel
-        body.BackgroundTransparency = 1
-        body.BorderSizePixel = 0
-        body.Position = UDim2.new(0, 4, 0, 4)
-        body.Size     = UDim2.new(1, -8, 1, -8)
-        body.ZIndex   = optionsPanel.ZIndex + 1
-
-        --------------------------------------------------------------------
-        -- Search Box
-        --------------------------------------------------------------------
-        local searchBox = Instance.new("TextBox")
-        searchBox.Name = "SearchBox"
-        searchBox.Parent = body
-        searchBox.BackgroundColor3 = THEME.BLACK
-        searchBox.ClearTextOnFocus = false
-        searchBox.Font = Enum.Font.GothamBold
-        searchBox.TextSize = 14
-        searchBox.TextColor3 = THEME.WHITE
-        searchBox.PlaceholderText = "🔍 Search"
-        searchBox.TextXAlignment = Enum.TextXAlignment.Center
-        searchBox.Text = ""
-        searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, 0, 0, 32)
-        searchBox.Position = UDim2.new(0, 0, 0, 0)
-        corner(searchBox, 8)
-
-        local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
-        sbStroke.ZIndex = searchBox.ZIndex + 1
-
-        --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 แบบ glow + Scroll
-        --------------------------------------------------------------------
-        local listHolder = Instance.new("ScrollingFrame")
-        listHolder.Name = "AList"
-        listHolder.Parent = body
-        listHolder.BackgroundColor3 = THEME.BLACK
-        listHolder.BorderSizePixel = 0
-        listHolder.ScrollBarThickness = 0
-        listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        listHolder.CanvasSize = UDim2.new(0,0,0,0)
-        listHolder.ZIndex = body.ZIndex + 1
-
-        listHolder.ScrollingDirection = Enum.ScrollingDirection.Y
-        listHolder.ClipsDescendants = true
-
-        local listTopOffset = 32 + 10 -- Search(32) + gap10
-        listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
-        listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
-
-        local listLayout = Instance.new("UIListLayout")
-        listLayout.Parent = listHolder
-        listLayout.Padding = UDim.new(0, 8)
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-        local listPadding = Instance.new("UIPadding")
-        listPadding.Parent = listHolder
-        listPadding.PaddingTop = UDim.new(0, 6)
-        listPadding.PaddingBottom = UDim.new(0, 6)
-        listPadding.PaddingLeft = UDim.new(0, 4)
-        listPadding.PaddingRight = UDim.new(0, 4)
-
-        --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย
-        --------------------------------------------------------------------
-        local allButtons = {}
-
-        local function makeGlowButton(label)
-            local btn = Instance.new("TextButton")
-            btn.Name = "Btn_" .. label
-            btn.Parent = listHolder
-
-            btn.Size = UDim2.new(1, 0, 0, 28)
-
-            btn.BackgroundColor3 = THEME.BLACK
-            btn.AutoButtonColor = false
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 14
-            btn.TextColor3 = THEME.WHITE
-            btn.Text = label
-            btn.ZIndex = listHolder.ZIndex + 1
-            btn.TextXAlignment = Enum.TextXAlignment.Center
-            btn.TextYAlignment = Enum.TextYAlignment.Center
-            corner(btn, 6)
-
-            local st = stroke(btn, 1.6, THEME.GREEN_DARK)
-            st.Transparency = 0.4
-
-            local glowBar = Instance.new("Frame")
-            glowBar.Name = "GlowBar"
-            glowBar.Parent = btn
-            glowBar.BackgroundColor3 = THEME.GREEN
-            glowBar.BorderSizePixel = 0
-            glowBar.Size = UDim2.new(0, 3, 1, 0)
-            glowBar.Position = UDim2.new(0, 0, 0, 0)
-            glowBar.ZIndex = btn.ZIndex + 1
-            glowBar.Visible = false
-
-            local on = false
-            local function update()
-                if on then
-                    st.Color        = THEME.GREEN
-                    st.Thickness    = 2.4
-                    st.Transparency = 0
-                    glowBar.Visible = true
-                else
-                    st.Color        = THEME.GREEN_DARK
-                    st.Thickness    = 1.6
-                    st.Transparency = 0.4
-                    glowBar.Visible = false
-                end
-            end
-            update()
-
-            btn.MouseButton1Click:Connect(function()
-                on = not on
-                update()
-                print("[V A2] Toggle", label, "=", on)
-            end)
-
-            table.insert(allButtons, btn)
-            return btn
-        end
-
-        for i = 1, 10 do
-            local label = "A " .. tostring(i)
-            local b = makeGlowButton(label)
-            b.LayoutOrder = i
-        end
-
-        --------------------------------------------------------------------
-        -- กันไม่ให้ CanvasPosition.X เลื่อนไปทางซ้าย/ขวา
-        --------------------------------------------------------------------
-        local locking = false
-        listHolder:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-            if locking then return end
-            locking = true
-            local pos = listHolder.CanvasPosition
-            if pos.X ~= 0 then
-                listHolder.CanvasPosition = Vector2.new(0, pos.Y)
-            end
-            locking = false
-        end)
-
-        --------------------------------------------------------------------
-        -- Search ทำงานจริง
-        --------------------------------------------------------------------
-        local function trim(s)
-            return (s:gsub("^%s*(.-)%s*$", "%1"))
-        end
-
-        local function applySearch()
-            local q = trim(searchBox.Text or "")
-            q = string.lower(q)
-
-            if q == "" then
-                for _, btn in ipairs(allButtons) do
-                    btn.Visible = true
-                end
-            else
-                for _, btn in ipairs(allButtons) do
-                    local text = string.lower(btn.Text or "")
-                    btn.Visible = string.find(text, q, 1, true) ~= nil
-                end
-            end
-
-            listHolder.CanvasPosition = Vector2.new(0, 0)
-        end
-
-        searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
-
-        --------------------------------------------------------------------
-        -- Focus effect ของ Search
-        --------------------------------------------------------------------
-        searchBox.Focused:Connect(function()
-            sbStroke.Color = THEME.GREEN
-        end)
-        searchBox.FocusLost:Connect(function()
-            sbStroke.Color = THEME.GREEN
-        end)
-
-        --------------------------------------------------------------------
-        -- ปิด panel เมื่อแตะ "นอกกรอบ"
-        --------------------------------------------------------------------
-        inputConn = UserInputService.InputBegan:Connect(function(input, gp)
-            if not optionsPanel then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
-            end
-
-            local pos = input.Position
-            local px, py = pos.X, pos.Y
-
-            local op = optionsPanel.AbsolutePosition
-            local os = optionsPanel.AbsoluteSize
-
-            local inside =
-                px >= op.X and px <= op.X + os.X and
-                py >= op.Y and py <= op.Y + os.Y
-
-            if not inside then
-                closePanel()
-            end
-        end)
-    end
-
-    ------------------------------------------------------------------------
-    -- Toggle ปุ่ม Select Options
-    ------------------------------------------------------------------------
-    selectBtn.MouseButton1Click:Connect(function()
-        if opened then
-            -- กดซ้ำตอนเปิดอยู่ = ปิด + ดับไฟเรืองแสง
-            closePanel()
-        else
-            -- เปิด panel ก่อน แล้วค่อยอัปเดตวิชวลให้เรืองแสง
-            openPanel()
-            opened = true
-            updateSelectVisual(true)
-        end
-        print("[V A2] Select Options clicked, opened =", opened)
-    end)
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
