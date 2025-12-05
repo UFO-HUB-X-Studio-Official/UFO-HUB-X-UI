@@ -5400,6 +5400,7 @@ registerRight("Shop", function(scroll)
     end
 
     local function openPanel()
+        -- กันกรณีหลุดมี panel ค้าง
         closePanel()
 
         --------------------------------------------------------------------
@@ -5648,11 +5649,13 @@ registerRight("Shop", function(scroll)
     ------------------------------------------------------------------------
     selectBtn.MouseButton1Click:Connect(function()
         if opened then
+            -- กดซ้ำตอนเปิดอยู่ = ปิด + ดับไฟเรืองแสง
             closePanel()
         else
+            -- เปิด panel ก่อน แล้วค่อยอัปเดตวิชวลให้เรืองแสง
+            openPanel()
             opened = true
             updateSelectVisual(true)
-            openPanel()
         end
         print("[V A2] Select Options clicked, opened =", opened)
     end)
