@@ -2906,6 +2906,11 @@ registerRight("Player", function(scroll)
     }
     local WARP = _G.UFOX_WARP
 
+    -- ค่าเริ่มต้น: เปิดโหมด warp ไว้ก่อน (Row2 = ON ตอนเริ่ม)
+    if WARP.mode ~= "warp" and WARP.mode ~= "fly" then
+        WARP.mode = "warp"
+    end
+
     local function getTargetPlayer()
         if not WARP.targetUserId then return nil end
         for _,pl in ipairs(Players:GetPlayers()) do
@@ -2932,7 +2937,6 @@ registerRight("Player", function(scroll)
             pcall(function() WARP.flyConn:Disconnect() end)
             WARP.flyConn = nil
         end
-        -- เลิกบิน → กลับมาชนทุกอย่างตามปกติ
         setNoClip(false)
     end
 
@@ -2960,7 +2964,6 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    -- ปรับตรงนี้ให้ "บินสูงขึ้น + เร็วขึ้น + ทะลุทุกอย่างตอนบิน"
     local function doFlyWarp()
         stopFly()
 
@@ -2969,15 +2972,14 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local speed          = 150            -- เร็ว
-        local HEIGHT_OFFSET  = 10             -- บินสูงจากหัวเป้าหมาย ~10 studs
+        local speed         = 150
+        local HEIGHT_OFFSET = 10
 
-        -- ตอนเริ่มบิน → NoClip
         setNoClip(true)
 
         WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
             local selfHRP  = getHumanoidRoot(lp)
-            local tgtHRP   = getHumanoidRoot(getTargetPlayer())
+            local tgtHRP   = getTargetPlayer() and getHumanoidRoot(getTargetPlayer())
             if not selfHRP or not tgtHRP then
                 stopFly()
                 return
@@ -3043,7 +3045,7 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Header = ชื่อระบบ (ภาษาอังกฤษ + emoji)
+    -- Header
     local header = Instance.new("TextLabel", scroll)
     header.Name = "WARP_Header"
     header.BackgroundTransparency = 1
@@ -3056,7 +3058,7 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- Row 1: เลือกผู้เล่น (Model A V2 style + RIGHT PANEL OVERLAY)
+    -- Row 1: A V2 style + RIGHT PANEL OVERLAY
     ------------------------------------------------------------------------
     local panelParent = scroll.Parent -- กรอบขวา Player
 
@@ -3072,7 +3074,6 @@ registerRight("Player", function(scroll)
     rowStroke.Color = THEME.GREEN_DARK
     rowStroke.Thickness = 1.6
 
-    -- Left bar glow (แบบ A V2)
     local bar = Instance.new("Frame", row1)
     bar.Name = "LeftBar"
     bar.BackgroundColor3 = THEME.GREEN
@@ -3081,7 +3082,6 @@ registerRight("Player", function(scroll)
     bar.Position = UDim2.new(0,0,0,0)
     bar.BackgroundTransparency = 0.6
 
-    -- Title ซ้าย
     local lab1 = Instance.new("TextLabel", row1)
     lab1.BackgroundTransparency = 1
     lab1.Size = UDim2.new(1,-140,1,0)
@@ -3092,7 +3092,6 @@ registerRight("Player", function(scroll)
     lab1.TextXAlignment = Enum.TextXAlignment.Left
     lab1.Text = "Select Target Player"
 
-    -- ชื่อเป้าหมายที่เลือก (ขวา)
     local selectedLabel = Instance.new("TextLabel", row1)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.AnchorPoint = Vector2.new(1,0.5)
@@ -3104,7 +3103,6 @@ registerRight("Player", function(scroll)
     selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
     selectedLabel.Text = ""
 
-    -- ปุ่ม ▶ โปร่งใส (A V2 style)
     local arrowBtn = Instance.new("TextButton", row1)
     arrowBtn.Size = UDim2.new(0,32,1,0)
     arrowBtn.Position = UDim2.new(1,-32,0,0)
@@ -3115,7 +3113,14 @@ registerRight("Player", function(scroll)
     arrowBtn.TextColor3 = THEME.WHITE
     arrowBtn.Text = "▶"
 
-    -- STATE overlay + visual
+    -- คลิกได้ทั้งแถว (A V2)
+    local row1Btn = Instance.new("TextButton", row1)
+    row1Btn.BackgroundTransparency = 1
+    row1Btn.Size = UDim2.fromScale(1,1)
+    row1Btn.Text = ""
+    row1Btn.AutoButtonColor = false
+    row1Btn.ZIndex = row1.ZIndex + 1
+
     local hover       = false
     local optionsOpen = false
     local optionsPanel
@@ -3202,7 +3207,6 @@ registerRight("Player", function(scroll)
         corner(optionsPanel,12)
         stroke(optionsPanel,2.4,THEME.GREEN)
 
-        -- BODY
         local body = Instance.new("Frame")
         body.Name = "Body"
         body.Parent = optionsPanel
@@ -3212,7 +3216,6 @@ registerRight("Player", function(scroll)
         body.Size     = UDim2.new(1,-8,1,-8)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
-        -- Search box
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
         searchBox.Parent = body
@@ -3232,7 +3235,6 @@ registerRight("Player", function(scroll)
         local sbStroke = stroke(searchBox,1.8,THEME.GREEN)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
-        -- List holder
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "PlayerList"
         listHolder.Parent = body
@@ -3267,7 +3269,6 @@ registerRight("Player", function(scroll)
         end
         listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(onLayoutChanged)
 
-        -- ปุ่มผู้เล่น
         local playerButtons = {}
 
         local function addPlayerButton(pl)
@@ -3337,7 +3338,6 @@ registerRight("Player", function(scroll)
         Players.PlayerAdded:Connect(rebuildList)
         Players.PlayerRemoving:Connect(rebuildList)
 
-        -- Search filter
         local function trim(s)
             return (s:gsub("^%s*(.-)%s*$","%1"))
         end
@@ -3357,7 +3357,6 @@ registerRight("Player", function(scroll)
 
         searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
 
-        -- focus effect
         searchBox.Focused:Connect(function()
             sbStroke.Color = THEME.GREEN
         end)
@@ -3365,7 +3364,6 @@ registerRight("Player", function(scroll)
             sbStroke.Color = THEME.GREEN
         end)
 
-        -- ปิดเมื่อกดนอก panel
         inputConn = UserInputService.InputBegan:Connect(function(input,gp)
             if not optionsPanel then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -3400,13 +3398,16 @@ registerRight("Player", function(scroll)
         updateRow1Visual()
     end)
 
-    arrowBtn.MouseButton1Click:Connect(function()
+    local function toggleOptions()
         if optionsOpen then
             closeOptions()
         else
             openOptions()
         end
-    end)
+    end
+
+    arrowBtn.MouseButton1Click:Connect(toggleOptions)
+    row1Btn.MouseButton1Click:Connect(toggleOptions)
 
     ------------------------------------------------------------------------
     -- สวิตช์แถว (Row2 + Row3) - A V1
@@ -3479,7 +3480,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- Row 2: Warp to Player (Instant) - โหมด 1
+    -- Row 2: Warp to Player (Instant) - โหมด 1 (เริ่มต้นเปิดอยู่)
     ------------------------------------------------------------------------
     row2Switch = makeSwitchRow(
         "WARP_Row2",
@@ -3489,7 +3490,6 @@ registerRight("Player", function(scroll)
         function(on)
             if on then
                 WARP.mode = "warp"
-                -- ปิดโหมดบิน
                 if row3Switch then
                     row3Switch.update(false)
                 end
@@ -3503,7 +3503,7 @@ registerRight("Player", function(scroll)
     )
 
     ------------------------------------------------------------------------
-    -- Row 3: Fly to Player (Smooth) - โหมด 2 (บินสูง + ไว + ทะลุ)
+    -- Row 3: Fly to Player (Smooth) - โหมด 2
     ------------------------------------------------------------------------
     row3Switch = makeSwitchRow(
         "WARP_Row3",
@@ -3513,7 +3513,6 @@ registerRight("Player", function(scroll)
         function(on)
             if on then
                 WARP.mode = "fly"
-                -- ปิดโหมดวาร์ปทันที
                 if row2Switch then
                     row2Switch.update(false)
                 end
@@ -3526,56 +3525,41 @@ registerRight("Player", function(scroll)
         end
     )
 
+    -- sync visual กับค่า mode เริ่มต้น
+    row2Switch.update(WARP.mode == "warp")
+    row3Switch.update(WARP.mode == "fly")
+
     ------------------------------------------------------------------------
-    -- Row 4: ปุ่ม Start (ให้ดูเป็นปุ่มจริง ๆ)
+    -- Row 4: ปุ่ม Start (ทั้งกรอบคือปุ่ม + เอฟเฟกต์เขียวตอนกด)
     ------------------------------------------------------------------------
     local row4 = Instance.new("Frame", scroll)
     row4.Name = "WARP_Row4"
     row4.Size = UDim2.new(1,-6,0,46)
-    row4.BackgroundColor3 = THEME.BLACK
+    row4.BackgroundColor3 = THEME.DARK
     corner(row4,12)
     stroke(row4,2.2,THEME.GREEN)
     row4.LayoutOrder = base + 5
 
-    -- ปุ่มอยู่ตรงกลาง
-    local btnFrame = Instance.new("Frame", row4)
-    btnFrame.AnchorPoint = Vector2.new(0.5,0.5)
-    btnFrame.Position = UDim2.new(0.5,0,0.5,0)
-    btnFrame.Size = UDim2.new(0.5,0,0,30)
-    btnFrame.BackgroundColor3 = THEME.DARK
-    corner(btnFrame,10)
-    stroke(btnFrame,2,THEME.GREEN)
+    local startLabel = Instance.new("TextLabel", row4)
+    startLabel.BackgroundTransparency = 1
+    startLabel.Size = UDim2.fromScale(1,1)
+    startLabel.Font = Enum.Font.GothamBold
+    startLabel.TextSize = 14
+    startLabel.TextColor3 = THEME.WHITE
+    startLabel.Text = "Start"
+    startLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-    local btnText = Instance.new("TextLabel", btnFrame)
-    btnText.BackgroundTransparency = 1
-    btnText.Size = UDim2.new(1,-24,1,0)
-    btnText.Position = UDim2.new(0,10,0,0)
-    btnText.Font = Enum.Font.GothamBold
-    btnText.TextSize = 14
-    btnText.TextColor3 = THEME.WHITE
-    btnText.TextXAlignment = Enum.TextXAlignment.Left
-    btnText.Text = "Start"
+    local startBtn = Instance.new("TextButton", row4)
+    startBtn.BackgroundTransparency = 1
+    startBtn.Size = UDim2.fromScale(1,1)
+    startBtn.Text = ""
+    startBtn.AutoButtonColor = false
 
-    local btnArrow = Instance.new("TextLabel", btnFrame)
-    btnArrow.AnchorPoint = Vector2.new(1,0.5)
-    btnArrow.Position = UDim2.new(1,-6,0.5,0)
-    btnArrow.Size = UDim2.new(0,18,0,18)
-    btnArrow.BackgroundTransparency = 1
-    btnArrow.Font = Enum.Font.GothamBold
-    btnArrow.TextSize = 18
-    btnArrow.TextColor3 = THEME.GREEN
-    btnArrow.Text = "▶"
-
-    local btn4 = Instance.new("TextButton", row4)
-    btn4.BackgroundTransparency = 1
-    btn4.Size = UDim2.fromScale(1,1)
-    btn4.Text = ""
-    btn4.AutoButtonColor = false
-
-    btn4.MouseButton1Click:Connect(function()
-        tween(btnFrame,{BackgroundColor3 = THEME.BLACK},0.06)
+    startBtn.MouseButton1Click:Connect(function()
+        -- เอฟเฟกต์: ดำ → เขียว → ดำ
+        tween(row4,{BackgroundColor3 = THEME.GREEN},0.06)
         task.delay(0.08,function()
-            tween(btnFrame,{BackgroundColor3 = THEME.DARK},0.08)
+            tween(row4,{BackgroundColor3 = THEME.DARK},0.08)
         end)
         startAction()
     end)
