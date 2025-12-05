@@ -2979,7 +2979,8 @@ registerRight("Player", function(scroll)
 
         WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
             local selfHRP  = getHumanoidRoot(lp)
-            local tgtHRP   = getTargetPlayer() and getHumanoidRoot(getTargetPlayer())
+            local tgtPl    = getTargetPlayer()
+            local tgtHRP   = tgtPl and getHumanoidRoot(tgtPl)
             if not selfHRP or not tgtHRP then
                 stopFly()
                 return
@@ -3023,7 +3024,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UI BUILD (Model A V1 + Row1 = A V2 Overlay)
+    -- UI BUILD
     ------------------------------------------------------------------------
     for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4"}) do
         local o = scroll:FindFirstChild(n)
@@ -3058,69 +3059,70 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- Row 1: A V2 style + RIGHT PANEL OVERLAY
+    -- Row 1: Model A V2 (แบบ Select Options) + Overlay ผู้เล่น
     ------------------------------------------------------------------------
     local panelParent = scroll.Parent -- กรอบขวา Player
 
     local row1 = Instance.new("Frame", scroll)
     row1.Name = "WARP_Row1"
     row1.Size = UDim2.new(1,-6,0,46)
-    row1.BackgroundColor3 = THEME.BLACK
+    row1.BackgroundTransparency = 1
     row1.LayoutOrder = base + 2
-    corner(row1,12)
 
-    local rowStroke = Instance.new("UIStroke", row1)
-    rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    rowStroke.Color = THEME.GREEN_DARK
-    rowStroke.Thickness = 1.6
+    -- กล่องด้านในเหมือน A V2
+    local box = Instance.new("Frame", row1)
+    box.Name = "Box"
+    box.AnchorPoint = Vector2.new(0.5,0.5)
+    box.Position = UDim2.new(0.5,0,0.5,0)
+    box.Size = UDim2.new(1,0,0,32)
+    box.BackgroundColor3 = THEME.BLACK
+    corner(box,12)
+    local boxStroke = stroke(box,2,THEME.GREEN_DARK)
 
-    local bar = Instance.new("Frame", row1)
-    bar.Name = "LeftBar"
-    bar.BackgroundColor3 = THEME.GREEN
-    bar.BorderSizePixel = 0
-    bar.Size = UDim2.new(0,3,1,0)
-    bar.Position = UDim2.new(0,0,0,0)
-    bar.BackgroundTransparency = 0.6
+    -- label ซ้าย
+    local leftLabel = Instance.new("TextLabel", box)
+    leftLabel.BackgroundTransparency = 1
+    leftLabel.Size = UDim2.new(1,-150,1,0)
+    leftLabel.Position = UDim2.new(0,16,0,0)
+    leftLabel.Font = Enum.Font.GothamBold
+    leftLabel.TextSize = 13
+    leftLabel.TextColor3 = THEME.WHITE
+    leftLabel.TextXAlignment = Enum.TextXAlignment.Left
+    leftLabel.Text = "Select Target Player"
 
-    local lab1 = Instance.new("TextLabel", row1)
-    lab1.BackgroundTransparency = 1
-    lab1.Size = UDim2.new(1,-140,1,0)
-    lab1.Position = UDim2.new(0,12,0,0)
-    lab1.Font = Enum.Font.GothamBold
-    lab1.TextSize = 13
-    lab1.TextColor3 = THEME.WHITE
-    lab1.TextXAlignment = Enum.TextXAlignment.Left
-    lab1.Text = "Select Target Player"
+    -- ปุ่มขวา (เหมือน Select Options)
+    local rightBtnFrame = Instance.new("Frame", box)
+    rightBtnFrame.AnchorPoint = Vector2.new(1,0.5)
+    rightBtnFrame.Position = UDim2.new(1,-6,0.5,0)
+    rightBtnFrame.Size = UDim2.new(0,130,0,24)
+    rightBtnFrame.BackgroundColor3 = THEME.BLACK
+    corner(rightBtnFrame,10)
+    local rightStroke = stroke(rightBtnFrame,1.8,THEME.GREEN_DARK)
 
-    local selectedLabel = Instance.new("TextLabel", row1)
-    selectedLabel.BackgroundTransparency = 1
-    selectedLabel.AnchorPoint = Vector2.new(1,0.5)
-    selectedLabel.Position = UDim2.new(1,-32,0.5,0)
-    selectedLabel.Size = UDim2.new(0,120,0,20)
-    selectedLabel.Font = Enum.Font.Gotham
-    selectedLabel.TextSize = 12
-    selectedLabel.TextColor3 = THEME.GREEN
-    selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
-    selectedLabel.Text = ""
+    local rightText = Instance.new("TextLabel", rightBtnFrame)
+    rightText.BackgroundTransparency = 1
+    rightText.Size = UDim2.fromScale(1,1)
+    rightText.Font = Enum.Font.GothamBold
+    rightText.TextSize = 12
+    rightText.TextColor3 = THEME.WHITE
+    rightText.TextXAlignment = Enum.TextXAlignment.Center
+    rightText.Text = "Select Player ▾"
 
-    local arrowBtn = Instance.new("TextButton", row1)
-    arrowBtn.Size = UDim2.new(0,32,1,0)
-    arrowBtn.Position = UDim2.new(1,-32,0,0)
-    arrowBtn.BackgroundTransparency = 1
-    arrowBtn.AutoButtonColor = false
-    arrowBtn.Font = Enum.Font.GothamBold
-    arrowBtn.TextSize = 18
-    arrowBtn.TextColor3 = THEME.WHITE
-    arrowBtn.Text = "▶"
+    local rightBtn = Instance.new("TextButton", rightBtnFrame)
+    rightBtn.BackgroundTransparency = 1
+    rightBtn.Size = UDim2.fromScale(1,1)
+    rightBtn.Text = ""
+    rightBtn.AutoButtonColor = false
 
-    -- คลิกได้ทั้งแถว (A V2)
-    local row1Btn = Instance.new("TextButton", row1)
-    row1Btn.BackgroundTransparency = 1
-    row1Btn.Size = UDim2.fromScale(1,1)
-    row1Btn.Text = ""
-    row1Btn.AutoButtonColor = false
-    row1Btn.ZIndex = row1.ZIndex + 1
+    -- คลิกได้ทั้งกล่อง
+    local boxBtn = Instance.new("TextButton", box)
+    boxBtn.BackgroundTransparency = 1
+    boxBtn.Size = UDim2.fromScale(1,1)
+    boxBtn.Text = ""
+    boxBtn.AutoButtonColor = false
+    boxBtn.ZIndex = box.ZIndex + 1
 
+    -- STATE overlay + visual
     local hover       = false
     local optionsOpen = false
     local optionsPanel
@@ -3137,21 +3139,17 @@ registerRight("Player", function(scroll)
         local hasTarget = (getTargetPlayer() ~= nil)
         local active    = hasTarget or optionsOpen
 
-        local baseThickness = active and 2.4 or 1.4
+        local baseThickness = active and 2.4 or 2
         local thickness     = hover and (baseThickness + 0.4) or baseThickness
+        local color         = active and THEME.GREEN or THEME.GREEN_DARK
 
-        local baseBarTr = active and 0.15 or 0.6
-        local barTr     = hover and math.max(baseBarTr - 0.2,0) or baseBarTr
-
-        local color = active and THEME.GREEN or THEME.GREEN_DARK
-
-        tween(rowStroke, {
+        tween(boxStroke, {
             Color     = color,
             Thickness = thickness
         }, 0.10)
 
-        tween(bar, {
-            BackgroundTransparency = barTr
+        tween(rightStroke, {
+            Color = color
         }, 0.10)
     end
 
@@ -3159,9 +3157,9 @@ registerRight("Player", function(scroll)
         local pl = getTargetPlayer()
         if pl then
             local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            selectedLabel.Text = display
+            rightText.Text = display .. " ▾"
         else
-            selectedLabel.Text = ""
+            rightText.Text = "Select Player ▾"
         end
         updateRow1Visual()
     end
@@ -3388,12 +3386,12 @@ registerRight("Player", function(scroll)
         updateRow1Visual()
     end
 
-    row1.MouseEnter:Connect(function()
+    -- hover FX ของกล่อง A V2
+    box.MouseEnter:Connect(function()
         hover = true
         updateRow1Visual()
     end)
-
-    row1.MouseLeave:Connect(function()
+    box.MouseLeave:Connect(function()
         hover = false
         updateRow1Visual()
     end)
@@ -3406,8 +3404,8 @@ registerRight("Player", function(scroll)
         end
     end
 
-    arrowBtn.MouseButton1Click:Connect(toggleOptions)
-    row1Btn.MouseButton1Click:Connect(toggleOptions)
+    rightBtn.MouseButton1Click:Connect(toggleOptions)
+    boxBtn.MouseButton1Click:Connect(toggleOptions)
 
     ------------------------------------------------------------------------
     -- สวิตช์แถว (Row2 + Row3) - A V1
@@ -3556,7 +3554,6 @@ registerRight("Player", function(scroll)
     startBtn.AutoButtonColor = false
 
     startBtn.MouseButton1Click:Connect(function()
-        -- เอฟเฟกต์: ดำ → เขียว → ดำ
         tween(row4,{BackgroundColor3 = THEME.GREEN},0.06)
         task.delay(0.08,function()
             tween(row4,{BackgroundColor3 = THEME.DARK},0.08)
