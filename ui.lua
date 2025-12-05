@@ -2985,7 +2985,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ถึงผู้เล่นที่สูงได้จริง
+    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ถึงผู้เล่นแบบเป๊ะ
     ------------------------------------------------------------------------
     local function doFlyWarp()
         stopFly()
@@ -2998,7 +2998,7 @@ registerRight("Player", function(scroll)
         local SPEED        = 350      -- ความเร็วบิน “กลาง ๆ”
         local lift         = 14       -- ยกตัวจากพื้นก่อนเริ่ม
         local heightOffset = 4        -- ลอยเหนือหัวเป้าหมาย
-        local stopDist     = 3        -- ระยะหยุด
+        local stopDist     = 1        -- ระยะหยุด (ลดลงให้เข้าใกล้มากขึ้น)
 
         -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
@@ -3046,6 +3046,10 @@ registerRight("Player", function(scroll)
             local dist      = diff.Magnitude
 
             if dist < stopDist then
+                -- จอดสุดท้ายให้ตรงผู้เล่นแบบเป๊ะ
+                pcall(function()
+                    selfHRP.CFrame = CFrame.new(targetPos, targetPos + tgtHRP.CFrame.LookVector)
+                end)
                 stopFly()
                 return
             end
