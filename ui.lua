@@ -2849,7 +2849,7 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
---===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 100%) =====
+--===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 เต็มระบบ) =====
 -- ใช้ในแท็บ Player ฝั่งขวา
 
 registerRight("Player", function(scroll)
@@ -2906,7 +2906,6 @@ registerRight("Player", function(scroll)
     }
     local WARP = _G.UFOX_WARP
 
-    -- เริ่มต้นเปิดโหมด warp
     if WARP.mode ~= "warp" and WARP.mode ~= "fly" then
         WARP.mode = "warp"
     end
@@ -2921,7 +2920,9 @@ registerRight("Player", function(scroll)
         return nil
     end
 
-    -- NoClip ตอนบิน
+    ------------------------------------------------------------------------
+    -- ACTIONS
+    ------------------------------------------------------------------------
     local function setNoClip(enable)
         local ch = lp.Character
         if not ch then return end
@@ -2940,9 +2941,6 @@ registerRight("Player", function(scroll)
         setNoClip(false)
     end
 
-    ------------------------------------------------------------------------
-    -- ACTIONS
-    ------------------------------------------------------------------------
     local function getHumanoidRoot(player)
         player = player or lp
         if not player then return nil end
@@ -3022,7 +3020,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UI BUILD
+    -- UI BUILD BASE
     ------------------------------------------------------------------------
     for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4","WARP_PlayerOverlay"}) do
         local o = scroll:FindFirstChild(n) or scroll.Parent:FindFirstChild(n)
@@ -3045,7 +3043,6 @@ registerRight("Player", function(scroll)
         end
     end
 
-    -- Header
     local header = Instance.new("TextLabel")
     header.Name = "WARP_Header"
     header.Parent = scroll
@@ -3058,9 +3055,6 @@ registerRight("Player", function(scroll)
     header.Text = "Warp to Player 🔭"
     header.LayoutOrder = base + 1
 
-    ------------------------------------------------------------------------
-    -- helper row แบบเดียวกับ Shop V A2
-    ------------------------------------------------------------------------
     local function makeRow(name, order, labelText)
         local row = Instance.new("Frame")
         row.Name = name
@@ -3086,11 +3080,10 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- Row 1: A V2 100% + overlay เลือกผู้เล่น
+    -- Row 1 : A V2 เต็มระบบ + Overlay เลือกผู้เล่น
     ------------------------------------------------------------------------
     local panelParent = scroll.Parent
-
-    local row1, _ = makeRow("WARP_Row1", base + 2, "Select Target Player")
+    local row1 = makeRow("WARP_Row1", base + 2, "Select Target Player")
 
     local selectBtn = Instance.new("TextButton")
     selectBtn.Name = "WARP_Select"
@@ -3100,7 +3093,7 @@ registerRight("Player", function(scroll)
     selectBtn.Size = UDim2.new(0,220,0,28)
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
-    selectBtn.Text = "🔍 Select Player ▾"
+    selectBtn.Text = "Select Player ▾"  -- เอา 🔍 ออกแล้ว
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
@@ -3143,14 +3136,16 @@ registerRight("Player", function(scroll)
         local pl = getTargetPlayer()
         if pl then
             local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            selectBtn.Text = "🔍 "..display.." ▾"
+            selectBtn.Text = display .. " ▾"
         else
-            selectBtn.Text = "🔍 Select Player ▾"
+            selectBtn.Text = "Select Player ▾"
         end
     end
     refreshSelectedLabel()
 
-    -- overlay panel
+    ------------------------------------------------------------------------
+    -- Overlay Panel (เหมือน Shop V A2 แต่เป็น Player List)
+    ------------------------------------------------------------------------
     local optionsPanel
     local inputConn
     local opened = false
@@ -3254,7 +3249,7 @@ registerRight("Player", function(scroll)
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
         listPadding.PaddingTop    = UDim.new(0,6)
-        listPadding.PaddingBottom = UDim2.new(0,6)
+        listPadding.PaddingBottom = UDim.new(0,6)
         listPadding.PaddingLeft   = UDim.new(0,4)
         listPadding.PaddingRight  = UDim.new(0,4)
 
@@ -3263,7 +3258,41 @@ registerRight("Player", function(scroll)
         end
         listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(onLayoutChanged)
 
-        local playerButtons = {}
+        -- ล็อกไม่ให้เลื่อนแกน X (เหมือน V A2)
+        local locking = false
+        listHolder:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            if locking then return end
+            locking = true
+            local pos = listHolder.CanvasPosition
+            if pos.X ~= 0 then
+                listHolder.CanvasPosition = Vector2.new(0,pos.Y)
+            end
+            locking = false
+        end)
+
+        --------------------------------------------------------------------
+        -- ปุ่มผู้เล่น = Glow Button แบบ A1-A10
+        --------------------------------------------------------------------
+        local playerButtons = {}  -- [Player] = {btn=..., glowBar=..., stroke=...}
+
+        local function updateButtonVisual(pl, info)
+            local on = (WARP.targetUserId == (pl and pl.UserId or nil))
+            if not info then return end
+            local st      = info.stroke
+            local glowBar = info.glow
+
+            if on then
+                st.Color        = THEME.GREEN
+                st.Thickness    = 2.4
+                st.Transparency = 0
+                glowBar.Visible = true
+            else
+                st.Color        = THEME.GREEN_DARK
+                st.Thickness    = 1.6
+                st.Transparency = 0.4
+                glowBar.Visible = false
+            end
+        end
 
         local function addPlayerButton(pl)
             if pl == lp then return end
@@ -3287,35 +3316,38 @@ registerRight("Player", function(scroll)
             local st = stroke(btn,1.6,THEME.GREEN_DARK)
             st.Transparency = 0.4
 
-            btn.MouseEnter:Connect(function()
-                TweenService:Create(st,TweenInfo.new(0.12),{
-                    Color        = THEME.GREEN,
-                    Thickness    = 2.2,
-                    Transparency = 0
-                }):Play()
-            end)
+            local glowBar = Instance.new("Frame")
+            glowBar.Name = "GlowBar"
+            glowBar.Parent = btn
+            glowBar.BackgroundColor3 = THEME.GREEN
+            glowBar.BorderSizePixel = 0
+            glowBar.Size = UDim2.new(0,3,1,0)
+            glowBar.Position = UDim2.new(0,0,0,0)
+            glowBar.ZIndex = btn.ZIndex + 1
+            glowBar.Visible = false
 
-            btn.MouseLeave:Connect(function()
-                local isSelected = (WARP.targetUserId == pl.UserId)
-                TweenService:Create(st,TweenInfo.new(0.12),{
-                    Color        = isSelected and THEME.GREEN or THEME.GREEN_DARK,
-                    Thickness    = isSelected and 2.2 or 1.6,
-                    Transparency = isSelected and 0 or 0.4
-                }):Play()
-            end)
+            playerButtons[pl] = {
+                btn   = btn,
+                glow  = glowBar,
+                stroke= st,
+            }
+
+            updateButtonVisual(pl, playerButtons[pl])
 
             btn.MouseButton1Click:Connect(function()
                 WARP.targetUserId = pl.UserId
                 refreshSelectedLabel()
+                -- อัปเดต Glow ทุกปุ่ม
+                for ppl,info in pairs(playerButtons) do
+                    updateButtonVisual(ppl, info)
+                end
                 closePanel()
             end)
-
-            playerButtons[pl] = btn
         end
 
         local function rebuildList()
-            for _,btn in pairs(playerButtons) do
-                btn:Destroy()
+            for _,info in pairs(playerButtons) do
+                if info.btn then info.btn:Destroy() end
             end
             table.clear(playerButtons)
 
@@ -3328,7 +3360,6 @@ registerRight("Player", function(scroll)
         end
 
         rebuildList()
-
         Players.PlayerAdded:Connect(rebuildList)
         Players.PlayerRemoving:Connect(rebuildList)
 
@@ -3339,8 +3370,9 @@ registerRight("Player", function(scroll)
         local function applySearch()
             local q = string.lower(trim(searchBox.Text or ""))
 
-            for pl,btn in pairs(playerButtons) do
-                local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+            for pl,info in pairs(playerButtons) do
+                local btn = info.btn
+                local display = btn.Text or ""
                 local txt = string.lower(display)
                 local match = (q == "" or string.find(txt,q,1,true) ~= nil)
                 btn.Visible = match
@@ -3392,7 +3424,7 @@ registerRight("Player", function(scroll)
     end)
 
     ------------------------------------------------------------------------
-    -- สวิตช์แถว Row2 / Row3 (เหมือนเดิม)
+    -- Row2 / Row3 : Switch (A V1)
     ------------------------------------------------------------------------
     local row2Switch, row3Switch
 
@@ -3467,7 +3499,6 @@ registerRight("Player", function(scroll)
         }
     end
 
-    -- Row2: Warp instant (เริ่มต้นเปิด)
     row2Switch = makeSwitchRow(
         "WARP_Row2",
         base + 3,
@@ -3488,7 +3519,6 @@ registerRight("Player", function(scroll)
         end
     )
 
-    -- Row3: Fly
     row3Switch = makeSwitchRow(
         "WARP_Row3",
         base + 4,
@@ -3513,7 +3543,7 @@ registerRight("Player", function(scroll)
     row3Switch.update(WARP.mode == "fly")
 
     ------------------------------------------------------------------------
-    -- Row4: ปุ่ม Start = กรอบใหญ่ + แฟลชเขียวตอนกด
+    -- Row4 : Start Button
     ------------------------------------------------------------------------
     local row4 = Instance.new("Frame")
     row4.Name = "WARP_Row4"
