@@ -5217,7 +5217,7 @@ registerRight("Settings", function(scroll)
     startWatcher()
 end)
 --===== UFO HUB X • Shop – V A2 (Overlay + Search + A1-A10 Glow Buttons
---      Perfect-Fit Buttons + Search & ClickOutside + LeftGlow) =====
+--      Nice-Fit Buttons + Search & ClickOutside + LeftGlow) =====
 
 registerRight("Shop", function(scroll)
     local UserInputService = game:GetService("UserInputService")
@@ -5248,17 +5248,13 @@ registerRight("Shop", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- หา ScreenGui ไว้ปิด panel ตอน UI ถูกปิด/ทำลาย (FIX)
-    ------------------------------------------------------------------------
-    local screenGui = scroll:FindFirstAncestorOfClass("ScreenGui")
-
-    ------------------------------------------------------------------------
     -- CLEANUP เฉพาะของ V A2 เดิม
     ------------------------------------------------------------------------
     for _, name in ipairs({"VA2_Header","VA2_Row1","VA2_OptionsPanel"}) do
         local o = scroll:FindFirstChild(name)
             or scroll.Parent:FindFirstChild(name)
-            or (screenGui and screenGui:FindFirstChild(name))
+            or (scroll:FindFirstAncestorOfClass("ScreenGui")
+                and scroll:FindFirstAncestorOfClass("ScreenGui"):FindFirstChild(name))
         if o then o:Destroy() end
     end
 
@@ -5392,22 +5388,9 @@ registerRight("Shop", function(scroll)
         closePanel()
 
         --------------------------------------------------------------------
-        -- FIX: กันเคส panelParent แปลก / ไม่มีขนาด
+        -- วัดตำแหน่ง/ขนาด panel ด้านขวา
         --------------------------------------------------------------------
-        if not panelParent or not panelParent:IsA("GuiObject") then
-            panelParent = scroll.Parent
-        end
-        if not panelParent or not panelParent:IsA("GuiObject") then
-            warn("[V A2] panelParent ไม่ใช่ GuiObject หรือเป็น nil")
-            return
-        end
-
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
-        if pw <= 0 or ph <= 0 then
-            warn("[V A2] panelParent AbsoluteSize เป็น 0 ทำให้ panel ไม่ขึ้น")
-            return
-        end
-
         local leftRatio   = 0.645
         local topRatio    = 0.02
         local bottomRatio = 0.02
@@ -5446,7 +5429,7 @@ registerRight("Shop", function(scroll)
         body.ZIndex   = optionsPanel.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- Search Box (มี margin ซ้ายขวาอย่างละ 4px)
+        -- Search Box
         --------------------------------------------------------------------
         local searchBox = Instance.new("TextBox")
         searchBox.Name = "SearchBox"
@@ -5460,15 +5443,15 @@ registerRight("Shop", function(scroll)
         searchBox.TextXAlignment = Enum.TextXAlignment.Center
         searchBox.Text = ""
         searchBox.ZIndex = body.ZIndex + 1
-        searchBox.Size = UDim2.new(1, -8, 0, 32)   -- กว้างน้อยกว่ากรอบ 8px
-        searchBox.Position = UDim2.new(0, 4, 0, 0) -- ขยับเข้า 4px ซ้าย
+        searchBox.Size = UDim2.new(1, 0, 0, 32)
+        searchBox.Position = UDim2.new(0, 0, 0, 0)
         corner(searchBox, 8)
 
         local sbStroke = stroke(searchBox, 1.8, THEME.GREEN)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 + Scroll (margin ตรงกับ Search)
+        -- ปุ่ม A1-A10 แบบ glow + Scroll (ซ่อนเส้นสกอลล์ขาว)
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
@@ -5484,22 +5467,24 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
         local listTopOffset = 32 + 10 -- Search(32) + gap10
-        listHolder.Position = UDim2.new(0, 4, 0, listTopOffset)
-        listHolder.Size     = UDim2.new(1, -8, 1, -(listTopOffset + 4))
+        listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
+        listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
 
         local listLayout = Instance.new("UIListLayout")
         listLayout.Parent = listHolder
-        listLayout.Padding = UDim2.new(0, 8)
+        listLayout.Padding = UDim.new(0, 8)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
         listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
-        listPadding.PaddingTop = UDim2.new(0, 6)
-        listPadding.PaddingBottom = UDim2.new(0, 6)
+        listPadding.PaddingTop = UDim.new(0, 6)
+        listPadding.PaddingBottom = UDim.new(0, 6)
+        listPadding.PaddingLeft = UDim.new(0, 4)   -- เพิ่ม margin ซ้าย
+        listPadding.PaddingRight = UDim.new(0, 4)  -- เพิ่ม margin ขวา
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH ตรงกับ Search)
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH พอดีกรอบ ไม่ยาวเกิน)
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5508,6 +5493,7 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
+            -- ใช้เต็มความกว้าง แล้วให้ UIPadding จัดขอบแทน
             btn.Size = UDim2.new(1, 0, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
@@ -5642,33 +5628,6 @@ registerRight("Shop", function(scroll)
         end
         print("[V A2] Select Options clicked, opened =", opened)
     end)
-
-    ------------------------------------------------------------------------
-    -- FIX: ถ้า UI หลักโดนปิด / ทำลาย ให้ปิด panel ทิ้ง
-    ------------------------------------------------------------------------
-    if screenGui then
-        screenGui.AncestryChanged:Connect(function()
-            if not screenGui:IsDescendantOf(game) then
-                closePanel()
-            end
-        end)
-
-        if screenGui:FindFirstChildWhichIsA("Frame") then
-            -- กันเคสบางเกมใช้ Enabled ปิด ScreenGui
-            if screenGui:FindFirstChild("Enabled") then
-                -- ปกติ ScreenGui.Enabled เป็น property แต่กันเผื่อโครงสร้างอื่น
-            end
-        end
-
-        -- ถ้า dev ของ M ใช้ screenGui.Enabled จริงๆ
-        pcall(function()
-            screenGui:GetPropertyChangedSignal("Enabled"):Connect(function()
-                if not screenGui.Enabled then
-                    closePanel()
-                end
-            end)
-        end)
-    end
 end)
 ---- ========== ผูกปุ่มแท็บ + เปิดแท็บแรก ==========
 local tabs = {
