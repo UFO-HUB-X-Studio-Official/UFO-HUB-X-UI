@@ -2957,6 +2957,7 @@ registerRight("Player", function(scroll)
         local hum = ch and ch:FindFirstChildOfClass("Humanoid")
         if hum then
             pcall(function()
+                hum.PlatformStand = false
                 hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
             end)
         end
@@ -2983,9 +2984,9 @@ registerRight("Player", function(scroll)
         end)
     end
 
-    --=========================
-    -- FLY TO PLAYER (3D จริง)
-    --=========================
+    ------------------------------------------------------------------------
+    -- FLY TO PLAYER แบบลอยค้าง + ถึงผู้เล่นที่สูงได้จริง
+    ------------------------------------------------------------------------
     local function doFlyWarp()
         stopFly()
 
@@ -2994,28 +2995,31 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local speed      = 180        -- ความเร็วบิน
-        local lift       = 12         -- ยกตัวก่อนเริ่มบิน
-        local followDist = 3          -- ระยะหยุด
+        local speed        = 220      -- ความเร็วบิน
+        local lift         = 12       -- ยกตัวจากพื้นก่อนเริ่ม
+        local heightOffset = 4        -- ลอยเหนือหัวเป้าหมาย
+        local stopDist     = 3        -- ระยะหยุด
 
-        -- ยกตัวขึ้นก่อน
-        local startPos = hrpSelf.Position
+        -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
-            hrpSelf.CFrame = CFrame.new(startPos + Vector3.new(0, lift, 0))
+            hrpSelf.CFrame = hrpSelf.CFrame + Vector3.new(0, lift, 0)
+            hrpSelf.AssemblyLinearVelocity = Vector3.new(0,0,0)
         end)
 
-        -- ปิดระบบเดินของ Humanoid ให้ลอยนิ่ง ๆ
+        -- ปิดระบบฟิสิกส์เดิน ให้ตัวละครอยู่นิ่งในอากาศ
         local ch  = lp.Character
         local hum = ch and ch:FindFirstChildOfClass("Humanoid")
         if hum then
             pcall(function()
+                hum.PlatformStand = true
                 hum:ChangeState(Enum.HumanoidStateType.Physics)
             end)
         end
 
         setNoClip(true)
 
-        WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
+        -- ใช้ Stepped เพื่ออัปเดตทุกเฟรมฟิสิกส์
+        WARP.flyConn = RunService.Stepped:Connect(function(_, dt)
             local selfHRP  = getHumanoidRoot(lp)
             local tgtPl    = getTargetPlayer()
             local tgtHRP   = tgtPl and getHumanoidRoot(tgtPl)
@@ -3029,22 +3033,25 @@ registerRight("Player", function(scroll)
                 return
             end
 
-            -- บังคับ NoClip ทุกเฟรม
+            -- บังคับ NoClip + ลบความเร็วตกทุกเฟรม
             enforceNoClip()
+            pcall(function()
+                selfHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end)
 
-            -- เป้าหมายจริงตามผู้เล่น (XYZ) + ลอยเหนือหัวนิดหน่อย
-            local targetPos = tgtHRP.Position + Vector3.new(0, 4, 0)
+            -- เป้าหมายจริง 3D ตามตำแหน่งผู้เล่น (อยู่สูงก็ไปถึง)
+            local targetPos = tgtHRP.Position + Vector3.new(0, heightOffset, 0)
             local pos       = selfHRP.Position
             local diff      = targetPos - pos
             local dist      = diff.Magnitude
 
-            if dist < followDist then
+            if dist < stopDist then
                 stopFly()
                 return
             end
 
-            local step = math.min(dist, speed * dt)
             local dir  = diff.Unit
+            local step = math.min(dist, speed * dt)
 
             pcall(function()
                 selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
