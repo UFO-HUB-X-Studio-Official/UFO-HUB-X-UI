@@ -5466,6 +5466,10 @@ registerRight("Shop", function(scroll)
         listHolder.ScrollBarImageTransparency = 1
         listHolder.ScrollBarImageColor3 = THEME.BLACK
 
+        -- ล็อกสกอลล์ให้เลื่อนเฉพาะแกน Y
+        listHolder.ScrollingDirection = Enum.ScrollingDirection.Y
+        listHolder.ClipsDescendants = true
+
         local listTopOffset = 32 + 10 -- Search(32) + gap10
         listHolder.Position = UDim2.new(0, 0, 0, listTopOffset)
         listHolder.Size     = UDim2.new(1, 0, 1, -(listTopOffset + 4))
@@ -5480,11 +5484,11 @@ registerRight("Shop", function(scroll)
         listPadding.Parent = listHolder
         listPadding.PaddingTop = UDim.new(0, 6)
         listPadding.PaddingBottom = UDim.new(0, 6)
-        listPadding.PaddingLeft = UDim.new(0, 4)   -- เพิ่ม margin ซ้าย
-        listPadding.PaddingRight = UDim.new(0, 4)  -- เพิ่ม margin ขวา
+        listPadding.PaddingLeft = UDim.new(0, 4)
+        listPadding.PaddingRight = UDim.new(0, 4)
 
         --------------------------------------------------------------------
-        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย (WIDTH พอดีกรอบ ไม่ยาวเกิน)
+        -- ปุ่มเรืองแสง + แถบเขียวด้านซ้าย
         --------------------------------------------------------------------
         local allButtons = {}
 
@@ -5493,7 +5497,6 @@ registerRight("Shop", function(scroll)
             btn.Name = "Btn_" .. label
             btn.Parent = listHolder
 
-            -- ใช้เต็มความกว้าง แล้วให้ UIPadding จัดขอบแทน
             btn.Size = UDim2.new(1, 0, 0, 28)
 
             btn.BackgroundColor3 = THEME.BLACK
@@ -5551,6 +5554,20 @@ registerRight("Shop", function(scroll)
             local b = makeGlowButton(label)
             b.LayoutOrder = i
         end
+
+        --------------------------------------------------------------------
+        -- กันไม่ให้ CanvasPosition.X เลื่อนไปทางซ้าย/ขวา
+        --------------------------------------------------------------------
+        local locking = false
+        listHolder:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+            if locking then return end
+            locking = true
+            local pos = listHolder.CanvasPosition
+            if pos.X ~= 0 then
+                listHolder.CanvasPosition = Vector2.new(0, pos.Y)
+            end
+            locking = false
+        end)
 
         --------------------------------------------------------------------
         -- Search ทำงานจริง
