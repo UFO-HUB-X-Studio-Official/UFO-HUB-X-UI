@@ -5451,22 +5451,18 @@ registerRight("Shop", function(scroll)
         sbStroke.ZIndex = searchBox.ZIndex + 1
 
         --------------------------------------------------------------------
-        -- ปุ่ม A1-A10 แบบ glow + Scroll (ซ่อนเส้นสกอลล์ขาว)
+        -- ปุ่ม A1-A10 แบบ glow + Scroll
         --------------------------------------------------------------------
         local listHolder = Instance.new("ScrollingFrame")
         listHolder.Name = "AList"
         listHolder.Parent = body
         listHolder.BackgroundColor3 = THEME.BLACK
         listHolder.BorderSizePixel = 0
-        listHolder.ScrollBarThickness = 4
+        listHolder.ScrollBarThickness = 0      -- ❗ ตัดแถบสกอลล์แนวตั้งทิ้งเลย
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
 
-        listHolder.ScrollBarImageTransparency = 1
-        listHolder.ScrollBarImageColor3 = THEME.BLACK
-
-        -- ล็อกสกอลล์ให้เลื่อนเฉพาะแกน Y
         listHolder.ScrollingDirection = Enum.ScrollingDirection.Y
         listHolder.ClipsDescendants = true
 
