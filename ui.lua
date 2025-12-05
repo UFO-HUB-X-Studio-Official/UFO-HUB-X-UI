@@ -2970,8 +2970,16 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local speed         = 150
-        local HEIGHT_OFFSET = 10
+        -- บินเร็วขึ้น + ลอยตัวก่อน
+        local speed         = 260       -- เดิม 150 → เพิ่มความเร็ว
+        local HEIGHT_OFFSET = 12        -- ความสูงจากหัวเป้าหมาย
+        local LIFT_BEFORE   = 10        -- ยกตัวขึ้นก่อนเริ่มบิน
+
+        -- ยกตัวขึ้นจากพื้นก่อน เพื่อให้ลอย
+        pcall(function()
+            local pos = hrpSelf.Position
+            hrpSelf.CFrame = CFrame.new(pos + Vector3.new(0, LIFT_BEFORE, 0), pos + hrpSelf.CFrame.LookVector)
+        end)
 
         setNoClip(true)
 
@@ -2995,6 +3003,7 @@ registerRight("Player", function(scroll)
             local dist      = diff.Magnitude
 
             if dist < 2 then
+                -- ถึงเป้าหมายแล้ว → ปิดบิน + ปิด NoClip ให้กลับมาปกติ
                 stopFly()
                 return
             end
@@ -3093,7 +3102,7 @@ registerRight("Player", function(scroll)
     selectBtn.Size = UDim2.new(0,220,0,28)
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
-    selectBtn.Text = "Select Player ▾"  -- เอา 🔍 ออกแล้ว
+    selectBtn.Text = "Select Player"  -- ไม่มี ▾ แล้ว
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
@@ -3136,15 +3145,15 @@ registerRight("Player", function(scroll)
         local pl = getTargetPlayer()
         if pl then
             local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            selectBtn.Text = display .. " ▾"
+            selectBtn.Text = display    -- แค่ชื่อ ไม่ต่อ ▾ เพราะมี arrow อยู่แล้ว
         else
-            selectBtn.Text = "Select Player ▾"
+            selectBtn.Text = "Select Player"
         end
     end
     refreshSelectedLabel()
 
     ------------------------------------------------------------------------
-    -- Overlay Panel (เหมือน Shop V A2 แต่เป็น Player List)
+    -- Overlay Panel (Player List แบบ A V2)
     ------------------------------------------------------------------------
     local optionsPanel
     local inputConn
@@ -3258,7 +3267,7 @@ registerRight("Player", function(scroll)
         end
         listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(onLayoutChanged)
 
-        -- ล็อกไม่ให้เลื่อนแกน X (เหมือน V A2)
+        -- ล็อกไม่ให้เลื่อนแกน X
         local locking = false
         listHolder:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
             if locking then return end
@@ -3271,9 +3280,9 @@ registerRight("Player", function(scroll)
         end)
 
         --------------------------------------------------------------------
-        -- ปุ่มผู้เล่น = Glow Button แบบ A1-A10
+        -- ปุ่มผู้เล่น = Glow Button A V2
         --------------------------------------------------------------------
-        local playerButtons = {}  -- [Player] = {btn=..., glowBar=..., stroke=...}
+        local playerButtons = {}
 
         local function updateButtonVisual(pl, info)
             local on = (WARP.targetUserId == (pl and pl.UserId or nil))
@@ -3337,7 +3346,6 @@ registerRight("Player", function(scroll)
             btn.MouseButton1Click:Connect(function()
                 WARP.targetUserId = pl.UserId
                 refreshSelectedLabel()
-                -- อัปเดต Glow ทุกปุ่ม
                 for ppl,info in pairs(playerButtons) do
                     updateButtonVisual(ppl, info)
                 end
