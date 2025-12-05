@@ -2952,6 +2952,14 @@ registerRight("Player", function(scroll)
             WARP.flyConn = nil
         end
         setNoClip(false)
+
+        local ch  = lp.Character
+        local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            pcall(function()
+                hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            end)
+        end
     end
 
     local function getHumanoidRoot(player)
@@ -2975,6 +2983,9 @@ registerRight("Player", function(scroll)
         end)
     end
 
+    --=========================
+    -- FLY TO PLAYER (3D จริง)
+    --=========================
     local function doFlyWarp()
         stopFly()
 
@@ -2983,19 +2994,24 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        -- บินเร็วขึ้น + ลอยตัวแล้วล็อกความสูง
-        local speed       = 260      -- ความเร็วบิน
-        local LIFT_UP     = 14       -- ยกตัวจากพื้นเท่าไหร่
-        local startPos    = hrpSelf.Position
-        local flightY     = startPos.Y + LIFT_UP  -- ความสูงที่ "ค้างไว้"
+        local speed      = 180        -- ความเร็วบิน
+        local lift       = 12         -- ยกตัวก่อนเริ่มบิน
+        local followDist = 3          -- ระยะหยุด
 
-        -- ยกตัวขึ้นจากพื้นก่อน
+        -- ยกตัวขึ้นก่อน
+        local startPos = hrpSelf.Position
         pcall(function()
-            hrpSelf.CFrame = CFrame.new(
-                Vector3.new(startPos.X, flightY, startPos.Z),
-                startPos + hrpSelf.CFrame.LookVector
-            )
+            hrpSelf.CFrame = CFrame.new(startPos + Vector3.new(0, lift, 0))
         end)
+
+        -- ปิดระบบเดินของ Humanoid ให้ลอยนิ่ง ๆ
+        local ch  = lp.Character
+        local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            pcall(function()
+                hum:ChangeState(Enum.HumanoidStateType.Physics)
+            end)
+        end
 
         setNoClip(true)
 
@@ -3013,22 +3029,16 @@ registerRight("Player", function(scroll)
                 return
             end
 
-            -- บังคับ NoClip ทุกเฟรม ให้ทะลุทุกอย่าง
+            -- บังคับ NoClip ทุกเฟรม
             enforceNoClip()
 
-            -- ล็อกแกน Y ให้ค้างที่ flightY
+            -- เป้าหมายจริงตามผู้เล่น (XYZ) + ลอยเหนือหัวนิดหน่อย
+            local targetPos = tgtHRP.Position + Vector3.new(0, 4, 0)
             local pos       = selfHRP.Position
-            local targetPos = Vector3.new(
-                tgtHRP.Position.X,
-                flightY,
-                tgtHRP.Position.Z
-            )
+            local diff      = targetPos - pos
+            local dist      = diff.Magnitude
 
-            local diff = targetPos - pos
-            local dist = diff.Magnitude
-
-            if dist < 2 then
-                -- ถึงเป้าหมายแล้ว → หยุดบิน + ปิด NoClip
+            if dist < followDist then
                 stopFly()
                 return
             end
