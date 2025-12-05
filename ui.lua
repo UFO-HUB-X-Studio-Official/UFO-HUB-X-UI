@@ -2903,6 +2903,7 @@ registerRight("Player", function(scroll)
         targetUserId = nil,
         mode         = "none", -- "none" | "warp" | "fly"
         flyConn      = nil,
+        noClip       = false,
     }
     local WARP = _G.UFOX_WARP
 
@@ -2924,11 +2925,23 @@ registerRight("Player", function(scroll)
     -- ACTIONS
     ------------------------------------------------------------------------
     local function setNoClip(enable)
+        WARP.noClip = enable
         local ch = lp.Character
         if not ch then return end
         for _,part in ipairs(ch:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = not enable
+            end
+        end
+    end
+
+    local function enforceNoClip()
+        if not WARP.noClip then return end
+        local ch = lp.Character
+        if not ch then return end
+        for _,part in ipairs(ch:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
         end
     end
@@ -2970,15 +2983,18 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        -- บินเร็วขึ้น + ลอยตัวก่อน
-        local speed         = 260       -- เดิม 150 → เพิ่มความเร็ว
-        local HEIGHT_OFFSET = 12        -- ความสูงจากหัวเป้าหมาย
-        local LIFT_BEFORE   = 10        -- ยกตัวขึ้นก่อนเริ่มบิน
+        -- บินเร็วขึ้น + ลอยตัวแล้วล็อกความสูง
+        local speed       = 260      -- ความเร็วบิน
+        local LIFT_UP     = 14       -- ยกตัวจากพื้นเท่าไหร่
+        local startPos    = hrpSelf.Position
+        local flightY     = startPos.Y + LIFT_UP  -- ความสูงที่ "ค้างไว้"
 
-        -- ยกตัวขึ้นจากพื้นก่อน เพื่อให้ลอย
+        -- ยกตัวขึ้นจากพื้นก่อน
         pcall(function()
-            local pos = hrpSelf.Position
-            hrpSelf.CFrame = CFrame.new(pos + Vector3.new(0, LIFT_BEFORE, 0), pos + hrpSelf.CFrame.LookVector)
+            hrpSelf.CFrame = CFrame.new(
+                Vector3.new(startPos.X, flightY, startPos.Z),
+                startPos + hrpSelf.CFrame.LookVector
+            )
         end)
 
         setNoClip(true)
@@ -2997,13 +3013,22 @@ registerRight("Player", function(scroll)
                 return
             end
 
+            -- บังคับ NoClip ทุกเฟรม ให้ทะลุทุกอย่าง
+            enforceNoClip()
+
+            -- ล็อกแกน Y ให้ค้างที่ flightY
             local pos       = selfHRP.Position
-            local targetPos = tgtHRP.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-            local diff      = targetPos - pos
-            local dist      = diff.Magnitude
+            local targetPos = Vector3.new(
+                tgtHRP.Position.X,
+                flightY,
+                tgtHRP.Position.Z
+            )
+
+            local diff = targetPos - pos
+            local dist = diff.Magnitude
 
             if dist < 2 then
-                -- ถึงเป้าหมายแล้ว → ปิดบิน + ปิด NoClip ให้กลับมาปกติ
+                -- ถึงเป้าหมายแล้ว → หยุดบิน + ปิด NoClip
                 stopFly()
                 return
             end
@@ -3102,7 +3127,7 @@ registerRight("Player", function(scroll)
     selectBtn.Size = UDim2.new(0,220,0,28)
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
-    selectBtn.Text = "Select Player"  -- ไม่มี ▾ แล้ว
+    selectBtn.Text = "Select Player"
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
@@ -3145,7 +3170,7 @@ registerRight("Player", function(scroll)
         local pl = getTargetPlayer()
         if pl then
             local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            selectBtn.Text = display    -- แค่ชื่อ ไม่ต่อ ▾ เพราะมี arrow อยู่แล้ว
+            selectBtn.Text = display
         else
             selectBtn.Text = "Select Player"
         end
