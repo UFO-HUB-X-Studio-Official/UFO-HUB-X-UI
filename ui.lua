@@ -2985,79 +2985,94 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- FLY TO PLAYER แบบลอยค้าง + ถึงผู้เล่นที่สูงได้จริง
+    -- FLY TO PLAYER แบบลอยค้าง + เร็วโคตรแรง + ถึงผู้เล่นที่สูงได้จริง
     ------------------------------------------------------------------------
     local function doFlyWarp()
-    stopFly()
+        stopFly()
 
-    local targetPl = getTargetPlayer()
-    local hrpSelf  = getHumanoidRoot(lp)
-    local hrpTarget= getHumanoidRoot(targetPl)
-    if not hrpSelf or not hrpTarget then return end
+        local targetPl = getTargetPlayer()
+        local hrpSelf  = getHumanoidRoot(lp)
+        local hrpTarget= getHumanoidRoot(targetPl)
+        if not hrpSelf or not hrpTarget then return end
 
-    local BASE_SPEED    = 650       -- 🚀 ความเร็วโคตรแรง
-    local BOOST_FACTOR  = 2.4       -- คูณเพิ่มตอนอยู่ไกล (พุ่งแบบจรวด)
-    local lift          = 14
-    local heightOffset  = 4
-    local stopDist      = 3
+        local BASE_SPEED    = 650      -- ความเร็วพื้นฐาน (โคตรเร็ว)
+        local BOOST_FACTOR  = 2.4      -- เร่งเพิ่มตามระยะ
+        local lift          = 14       -- ยกตัวจากพื้นก่อนเริ่ม
+        local heightOffset  = 4        -- ลอยเหนือหัวเป้าหมาย
+        local stopDist      = 3        -- ระยะหยุด
 
-    -- ยกตัวขึ้นอย่างลื่น
-    pcall(function()
-        hrpSelf.CFrame = hrpSelf.CFrame + Vector3.new(0, lift, 0)
-        hrpSelf.AssemblyLinearVelocity = Vector3.new(0,0,0)
-    end)
-
-    -- ปิดฟิสิกส์ให้ลอยเฉย ๆ แบบไม่ดิ้น
-    local ch  = lp.Character
-    local hum = ch and ch:FindFirstChildOfClass("Humanoid")
-    if hum then
+        -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
-            hum.PlatformStand = true
-            hum:ChangeState(Enum.HumanoidStateType.Physics)
+            hrpSelf.CFrame = hrpSelf.CFrame + Vector3.new(0, lift, 0)
+            hrpSelf.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        end)
+
+        -- ปิดระบบฟิสิกส์เดิน ให้ตัวละครอยู่นิ่งในอากาศ
+        local ch  = lp.Character
+        local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            pcall(function()
+                hum.PlatformStand = true
+                hum:ChangeState(Enum.HumanoidStateType.Physics)
+            end)
+        end
+
+        setNoClip(true)
+
+        -- ใช้ Heartbeat เพื่ออัปเดตทุกเฟรม (ลื่น + เร็ว)
+        WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
+            local selfHRP  = getHumanoidRoot(lp)
+            local tgtPl    = getTargetPlayer()
+            local tgtHRP   = tgtPl and getHumanoidRoot(tgtPl)
+            if not selfHRP or not tgtHRP then
+                stopFly()
+                return
+            end
+
+            if WARP.mode ~= "fly" then
+                stopFly()
+                return
+            end
+
+            -- บังคับ NoClip + ลบความเร็วตกทุกเฟรม
+            enforceNoClip()
+            pcall(function()
+                selfHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end)
+
+            -- เป้าหมายจริง 3D ตามตำแหน่งผู้เล่น (อยู่สูงก็ไปถึง)
+            local targetPos = tgtHRP.Position + Vector3.new(0, heightOffset, 0)
+            local pos       = selfHRP.Position
+            local diff      = targetPos - pos
+            local dist      = diff.Magnitude
+
+            if dist < stopDist then
+                stopFly()
+                return
+            end
+
+            -- ยิ่งไกลยิ่งเร่งแรง
+            local speed = BASE_SPEED + (dist * BOOST_FACTOR)
+            local step  = math.min(dist, speed * dt)
+            local dir   = diff.Unit
+
+            pcall(function()
+                selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
+            end)
         end)
     end
 
-    setNoClip(true)
+    local function startAction()
+        local targetPl = getTargetPlayer()
+        if not targetPl then return end
 
-    -- ใช้ Heartbeat (แม่นกว่า Stepped นิดหน่อย)
-    WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
-        local selfHRP  = getHumanoidRoot(lp)
-        local tgtPl    = getTargetPlayer()
-        local tgtHRP   = tgtPl and getHumanoidRoot(tgtPl)
-        if not selfHRP or not tgtHRP then
-            stopFly()
-            return
+        if WARP.mode == "warp" then
+            doInstantWarp()
+        elseif WARP.mode == "fly" then
+            doFlyWarp()
         end
+    end
 
-        if WARP.mode ~= "fly" then
-            stopFly()
-            return
-        end
-
-        enforceNoClip()
-
-        -- reset แรงตกทุกเฟรม
-        selfHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
-
-        -- ตำแหน่งเป้าหมายแบบสูงถึงจริง
-        local targetPos = tgtHRP.Position + Vector3.new(0, heightOffset, 0)
-        local pos       = selfHRP.Position
-        local diff      = targetPos - pos
-        local dist      = diff.Magnitude
-
-        if dist < stopDist then
-            stopFly()
-            return
-        end
-
-        -- เร่งสปีดขึ้นถ้าอยู่ไกล
-        local speed = BASE_SPEED + (dist * BOOST_FACTOR)
-        local step  = math.min(dist, speed * dt)
-
-        local dir = diff.Unit
-        selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
-    end)
-end
     ------------------------------------------------------------------------
     -- UI BUILD BASE
     ------------------------------------------------------------------------
