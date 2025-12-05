@@ -2985,7 +2985,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- FLY TO PLAYER แบบลอยค้าง + เร็วโคตรแรง + ถึงผู้เล่นที่สูงได้จริง
+    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ถึงผู้เล่นที่สูงได้จริง
     ------------------------------------------------------------------------
     local function doFlyWarp()
         stopFly()
@@ -2995,11 +2995,10 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local BASE_SPEED    = 400      -- ความเร็วพื้นฐาน (โคตรเร็ว)
-        local BOOST_FACTOR  = 2.4      -- เร่งเพิ่มตามระยะ
-        local lift          = 14       -- ยกตัวจากพื้นก่อนเริ่ม
-        local heightOffset  = 4        -- ลอยเหนือหัวเป้าหมาย
-        local stopDist      = 3        -- ระยะหยุด
+        local SPEED        = 350      -- ความเร็วบิน “กลาง ๆ”
+        local lift         = 14       -- ยกตัวจากพื้นก่อนเริ่ม
+        local heightOffset = 4        -- ลอยเหนือหัวเป้าหมาย
+        local stopDist     = 3        -- ระยะหยุด
 
         -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
@@ -3019,7 +3018,7 @@ registerRight("Player", function(scroll)
 
         setNoClip(true)
 
-        -- ใช้ Heartbeat เพื่ออัปเดตทุกเฟรม (ลื่น + เร็ว)
+        -- ใช้ Heartbeat เพื่ออัปเดตทุกเฟรม (ลื่น + ไม่กระชากเกิน)
         WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
             local selfHRP  = getHumanoidRoot(lp)
             local tgtPl    = getTargetPlayer()
@@ -3051,10 +3050,8 @@ registerRight("Player", function(scroll)
                 return
             end
 
-            -- ยิ่งไกลยิ่งเร่งแรง
-            local speed = BASE_SPEED + (dist * BOOST_FACTOR)
-            local step  = math.min(dist, speed * dt)
-            local dir   = diff.Unit
+            local step = math.min(dist, SPEED * dt)
+            local dir  = diff.Unit
 
             pcall(function()
                 selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
