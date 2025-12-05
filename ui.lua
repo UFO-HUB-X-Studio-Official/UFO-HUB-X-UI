@@ -2849,7 +2849,7 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
---===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 Overlay) =====
+--===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 100%) =====
 -- ใช้ในแท็บ Player ฝั่งขวา
 
 registerRight("Player", function(scroll)
@@ -2900,13 +2900,13 @@ registerRight("Player", function(scroll)
     -- GLOBAL STATE
     ------------------------------------------------------------------------
     _G.UFOX_WARP = _G.UFOX_WARP or {
-        targetUserId = nil,    -- เป้าหมายที่เลือก (UserId)
+        targetUserId = nil,
         mode         = "none", -- "none" | "warp" | "fly"
         flyConn      = nil,
     }
     local WARP = _G.UFOX_WARP
 
-    -- ค่าเริ่มต้น: เปิดโหมด warp ไว้ก่อน (Row2 = ON ตอนเริ่ม)
+    -- เริ่มต้นเปิดโหมด warp
     if WARP.mode ~= "warp" and WARP.mode ~= "fly" then
         WARP.mode = "warp"
     end
@@ -2921,7 +2921,7 @@ registerRight("Player", function(scroll)
         return nil
     end
 
-    -- ===== NoClip helper สำหรับโหมดบิน =====
+    -- NoClip ตอนบิน
     local function setNoClip(enable)
         local ch = lp.Character
         if not ch then return end
@@ -2941,7 +2941,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- ACTIONS: WARP / FLY
+    -- ACTIONS
     ------------------------------------------------------------------------
     local function getHumanoidRoot(player)
         player = player or lp
@@ -3012,9 +3012,7 @@ registerRight("Player", function(scroll)
 
     local function startAction()
         local targetPl = getTargetPlayer()
-        if not targetPl then
-            return
-        end
+        if not targetPl then return end
 
         if WARP.mode == "warp" then
             doInstantWarp()
@@ -3026,14 +3024,15 @@ registerRight("Player", function(scroll)
     ------------------------------------------------------------------------
     -- UI BUILD
     ------------------------------------------------------------------------
-    for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4"}) do
-        local o = scroll:FindFirstChild(n)
+    for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4","WARP_PlayerOverlay"}) do
+        local o = scroll:FindFirstChild(n) or scroll.Parent:FindFirstChild(n)
         if o then o:Destroy() end
     end
 
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
     if not vlist then
-        vlist = Instance.new("UIListLayout", scroll)
+        vlist = Instance.new("UIListLayout")
+        vlist.Parent = scroll
         vlist.Padding   = UDim.new(0,12)
         vlist.SortOrder = Enum.SortOrder.LayoutOrder
     end
@@ -3047,8 +3046,9 @@ registerRight("Player", function(scroll)
     end
 
     -- Header
-    local header = Instance.new("TextLabel", scroll)
+    local header = Instance.new("TextLabel")
     header.Name = "WARP_Header"
+    header.Parent = scroll
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1,0,0,36)
     header.Font = Enum.Font.GothamBold
@@ -3059,66 +3059,101 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- Row 1: **A V2 แท้ๆ** กรอบใหญ่ + ปุ่มเม็ดยาทางขวา + Overlay ผู้เล่น
+    -- helper row แบบเดียวกับ Shop V A2
+    ------------------------------------------------------------------------
+    local function makeRow(name, order, labelText)
+        local row = Instance.new("Frame")
+        row.Name = name
+        row.Parent = scroll
+        row.Size = UDim2.new(1,-6,0,46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row,12)
+        stroke(row,2.2,THEME.GREEN)
+        row.LayoutOrder = order
+
+        local lab = Instance.new("TextLabel")
+        lab.Parent = row
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(0,180,1,0)
+        lab.Position = UDim2.new(0,16,0,0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
+
+        return row, lab
+    end
+
+    ------------------------------------------------------------------------
+    -- Row 1: A V2 100% + overlay เลือกผู้เล่น
     ------------------------------------------------------------------------
     local panelParent = scroll.Parent
 
-    local row1 = Instance.new("Frame", scroll)
-    row1.Name = "WARP_Row1"
-    row1.Size = UDim2.new(1,-6,0,46)
-    row1.BackgroundColor3 = THEME.BLACK
-    corner(row1,12)
-    local rowStroke = stroke(row1,2.2,THEME.GREEN_DARK)
-    row1.LayoutOrder = base + 2
+    local row1, _ = makeRow("WARP_Row1", base + 2, "Select Target Player")
 
-    -- label ซ้าย (เหมือนข้อความ "ทดลองภาษาอังกฤษ")
-    local leftLabel = Instance.new("TextLabel", row1)
-    leftLabel.BackgroundTransparency = 1
-    leftLabel.Size = UDim2.new(1,-180,1,0)
-    leftLabel.Position = UDim2.new(0,16,0,0)
-    leftLabel.Font = Enum.Font.GothamBold
-    leftLabel.TextSize = 13
-    leftLabel.TextColor3 = THEME.WHITE
-    leftLabel.TextXAlignment = Enum.TextXAlignment.Left
-    leftLabel.Text = "Select Target Player"
+    local selectBtn = Instance.new("TextButton")
+    selectBtn.Name = "WARP_Select"
+    selectBtn.Parent = row1
+    selectBtn.AnchorPoint = Vector2.new(1,0.5)
+    selectBtn.Position = UDim2.new(1,-16,0.5,0)
+    selectBtn.Size = UDim2.new(0,220,0,28)
+    selectBtn.BackgroundColor3 = THEME.BLACK
+    selectBtn.AutoButtonColor = false
+    selectBtn.Text = "🔍 Select Player ▾"
+    selectBtn.Font = Enum.Font.GothamBold
+    selectBtn.TextSize = 13
+    selectBtn.TextColor3 = THEME.WHITE
+    selectBtn.TextXAlignment = Enum.TextXAlignment.Center
+    selectBtn.TextYAlignment = Enum.TextYAlignment.Center
+    corner(selectBtn,8)
 
-    -- ปุ่มขวาเม็ดยา (เหมือน 🔍 Select Options ▾)
-    local rightBtnFrame = Instance.new("Frame", row1)
-    rightBtnFrame.AnchorPoint = Vector2.new(1,0.5)
-    rightBtnFrame.Position = UDim2.new(1,-10,0.5,0)
-    rightBtnFrame.Size = UDim2.new(0,150,0,28)
-    rightBtnFrame.BackgroundColor3 = THEME.BLACK
-    corner(rightBtnFrame,10)
-    local rightStroke = stroke(rightBtnFrame,1.8,THEME.GREEN_DARK)
+    local selectStroke = stroke(selectBtn,1.8,THEME.GREEN_DARK)
+    selectStroke.Transparency = 0.4
 
-    local rightText = Instance.new("TextLabel", rightBtnFrame)
-    rightText.BackgroundTransparency = 1
-    rightText.Size = UDim2.fromScale(1,1)
-    rightText.Font = Enum.Font.GothamBold
-    rightText.TextSize = 12
-    rightText.TextColor3 = THEME.WHITE
-    rightText.TextXAlignment = Enum.TextXAlignment.Center
-    rightText.Text = "🔍 Select Player ▾"
+    local padding = Instance.new("UIPadding")
+    padding.Parent = selectBtn
+    padding.PaddingLeft  = UDim.new(0,8)
+    padding.PaddingRight = UDim.new(0,26)
 
-    local rightBtn = Instance.new("TextButton", rightBtnFrame)
-    rightBtn.BackgroundTransparency = 1
-    rightBtn.Size = UDim2.fromScale(1,1)
-    rightBtn.Text = ""
-    rightBtn.AutoButtonColor = false
+    local arrow = Instance.new("TextLabel")
+    arrow.Parent = selectBtn
+    arrow.AnchorPoint = Vector2.new(1,0.5)
+    arrow.Position = UDim2.new(1,-6,0.5,0)
+    arrow.Size = UDim2.new(0,18,0,18)
+    arrow.BackgroundTransparency = 1
+    arrow.Font = Enum.Font.GothamBold
+    arrow.TextSize = 18
+    arrow.TextColor3 = THEME.WHITE
+    arrow.Text = "▼"
 
-    -- คลิกได้ทั้งกรอบใหญ่เหมือน A V2
-    local row1Btn = Instance.new("TextButton", row1)
-    row1Btn.BackgroundTransparency = 1
-    row1Btn.Size = UDim2.fromScale(1,1)
-    row1Btn.Text = ""
-    row1Btn.AutoButtonColor = false
-    row1Btn.ZIndex = row1.ZIndex + 1
+    local function updateSelectVisual(isOpen)
+        if isOpen then
+            selectStroke.Color        = THEME.GREEN
+            selectStroke.Thickness    = 2.4
+            selectStroke.Transparency = 0
+        else
+            selectStroke.Color        = THEME.GREEN_DARK
+            selectStroke.Thickness    = 1.8
+            selectStroke.Transparency = 0.4
+        end
+    end
 
-    -- STATE overlay + visual
-    local hover       = false
-    local optionsOpen = false
+    local function refreshSelectedLabel()
+        local pl = getTargetPlayer()
+        if pl then
+            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+            selectBtn.Text = "🔍 "..display.." ▾"
+        else
+            selectBtn.Text = "🔍 Select Player ▾"
+        end
+    end
+    refreshSelectedLabel()
+
+    -- overlay panel
     local optionsPanel
     local inputConn
+    local opened = false
 
     local function disconnectInput()
         if inputConn then
@@ -3127,49 +3162,18 @@ registerRight("Player", function(scroll)
         end
     end
 
-    local function updateRow1Visual()
-        local hasTarget = (getTargetPlayer() ~= nil)
-        local active    = hasTarget or optionsOpen
-
-        local baseThickness = active and 2.6 or 2.0
-        local thickness     = hover and (baseThickness + 0.4) or baseThickness
-        local color         = active and THEME.GREEN or THEME.GREEN_DARK
-
-        tween(rowStroke, {
-            Color     = color,
-            Thickness = thickness
-        }, 0.10)
-
-        tween(rightStroke, {
-            Color = color
-        }, 0.10)
-    end
-
-    local function refreshSelectedLabel()
-        local pl = getTargetPlayer()
-        if pl then
-            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            rightText.Text = "🔍 " .. display .. " ▾"
-        else
-            rightText.Text = "🔍 Select Player ▾"
-        end
-        updateRow1Visual()
-    end
-    refreshSelectedLabel()
-
-    local function closeOptions()
+    local function closePanel()
         if optionsPanel then
             optionsPanel:Destroy()
             optionsPanel = nil
         end
         disconnectInput()
-        optionsOpen = false
-        updateRow1Visual()
+        opened = false
+        updateSelectVisual(false)
     end
 
-    local function openOptions()
-        closeOptions()
-        optionsOpen = true
+    local function openPanel()
+        closePanel()
 
         local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
         local leftRatio   = 0.645
@@ -3250,7 +3254,7 @@ registerRight("Player", function(scroll)
         local listPadding = Instance.new("UIPadding")
         listPadding.Parent = listHolder
         listPadding.PaddingTop    = UDim.new(0,6)
-        listPadding.PaddingBottom = UDim.new(0,6)
+        listPadding.PaddingBottom = UDim2.new(0,6)
         listPadding.PaddingLeft   = UDim.new(0,4)
         listPadding.PaddingRight  = UDim.new(0,4)
 
@@ -3303,7 +3307,7 @@ registerRight("Player", function(scroll)
             btn.MouseButton1Click:Connect(function()
                 WARP.targetUserId = pl.UserId
                 refreshSelectedLabel()
-                closeOptions()
+                closePanel()
             end)
 
             playerButtons[pl] = btn
@@ -3371,49 +3375,39 @@ registerRight("Player", function(scroll)
                 py >= op.Y and py <= op.Y + os.Y
 
             if not inside then
-                closeOptions()
+                closePanel()
             end
         end)
 
-        updateRow1Visual()
+        opened = true
+        updateSelectVisual(true)
     end
 
-    -- hover FX กรอบใหญ่ A V2
-    row1.MouseEnter:Connect(function()
-        hover = true
-        updateRow1Visual()
-    end)
-    row1.MouseLeave:Connect(function()
-        hover = false
-        updateRow1Visual()
-    end)
-
-    local function toggleOptions()
-        if optionsOpen then
-            closeOptions()
+    selectBtn.MouseButton1Click:Connect(function()
+        if opened then
+            closePanel()
         else
-            openOptions()
+            openPanel()
         end
-    end
-
-    rightBtn.MouseButton1Click:Connect(toggleOptions)
-    row1Btn.MouseButton1Click:Connect(toggleOptions)
+    end)
 
     ------------------------------------------------------------------------
-    -- สวิตช์แถว (Row2 + Row3) - A V1
+    -- สวิตช์แถว Row2 / Row3 (เหมือนเดิม)
     ------------------------------------------------------------------------
     local row2Switch, row3Switch
 
     local function makeSwitchRow(name, order, labelText, getOn, setOn)
-        local row = Instance.new("Frame", scroll)
+        local row = Instance.new("Frame")
         row.Name = name
+        row.Parent = scroll
         row.Size = UDim2.new(1,-6,0,46)
         row.BackgroundColor3 = THEME.BLACK
         corner(row,12)
         stroke(row,2.2,THEME.GREEN)
         row.LayoutOrder = order
 
-        local lab = Instance.new("TextLabel", row)
+        local lab = Instance.new("TextLabel")
+        lab.Parent = row
         lab.BackgroundTransparency = 1
         lab.Size = UDim2.new(1,-160,1,0)
         lab.Position = UDim2.new(0,16,0,0)
@@ -3423,17 +3417,20 @@ registerRight("Player", function(scroll)
         lab.TextXAlignment = Enum.TextXAlignment.Left
         lab.Text = labelText
 
-        local sw = Instance.new("Frame", row)
+        local sw = Instance.new("Frame")
+        sw.Parent = row
         sw.AnchorPoint = Vector2.new(1,0.5)
         sw.Position = UDim2.new(1,-12,0.5,0)
         sw.Size = UDim2.fromOffset(52,26)
         sw.BackgroundColor3 = THEME.BLACK
         corner(sw,13)
 
-        local swStroke = Instance.new("UIStroke", sw)
+        local swStroke = Instance.new("UIStroke")
+        swStroke.Parent = sw
         swStroke.Thickness = 1.8
 
-        local knob = Instance.new("Frame", sw)
+        local knob = Instance.new("Frame")
+        knob.Parent = sw
         knob.Size = UDim2.fromOffset(22,22)
         knob.BackgroundColor3 = THEME.WHITE
         knob.Position = UDim2.new(0,2,0.5,-11)
@@ -3446,7 +3443,8 @@ registerRight("Player", function(scroll)
             },0.08)
         end
 
-        local btn = Instance.new("TextButton", sw)
+        local btn = Instance.new("TextButton")
+        btn.Parent = sw
         btn.BackgroundTransparency = 1
         btn.Size = UDim2.fromScale(1,1)
         btn.Text = ""
@@ -3469,9 +3467,7 @@ registerRight("Player", function(scroll)
         }
     end
 
-    ------------------------------------------------------------------------
-    -- Row 2: Warp to Player (Instant) - โหมด 1 (เริ่มต้นเปิดอยู่)
-    ------------------------------------------------------------------------
+    -- Row2: Warp instant (เริ่มต้นเปิด)
     row2Switch = makeSwitchRow(
         "WARP_Row2",
         base + 3,
@@ -3492,9 +3488,7 @@ registerRight("Player", function(scroll)
         end
     )
 
-    ------------------------------------------------------------------------
-    -- Row 3: Fly to Player (Smooth) - โหมด 2
-    ------------------------------------------------------------------------
+    -- Row3: Fly
     row3Switch = makeSwitchRow(
         "WARP_Row3",
         base + 4,
@@ -3515,22 +3509,23 @@ registerRight("Player", function(scroll)
         end
     )
 
-    -- sync visual กับค่า mode เริ่มต้น
     row2Switch.update(WARP.mode == "warp")
     row3Switch.update(WARP.mode == "fly")
 
     ------------------------------------------------------------------------
-    -- Row 4: ปุ่ม Start (ทั้งกรอบคือปุ่ม + เอฟเฟกต์เขียวตอนกด)
+    -- Row4: ปุ่ม Start = กรอบใหญ่ + แฟลชเขียวตอนกด
     ------------------------------------------------------------------------
-    local row4 = Instance.new("Frame", scroll)
+    local row4 = Instance.new("Frame")
     row4.Name = "WARP_Row4"
+    row4.Parent = scroll
     row4.Size = UDim2.new(1,-6,0,46)
     row4.BackgroundColor3 = THEME.DARK
     corner(row4,12)
     stroke(row4,2.2,THEME.GREEN)
     row4.LayoutOrder = base + 5
 
-    local startLabel = Instance.new("TextLabel", row4)
+    local startLabel = Instance.new("TextLabel")
+    startLabel.Parent = row4
     startLabel.BackgroundTransparency = 1
     startLabel.Size = UDim2.fromScale(1,1)
     startLabel.Font = Enum.Font.GothamBold
@@ -3539,7 +3534,8 @@ registerRight("Player", function(scroll)
     startLabel.Text = "Start"
     startLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-    local startBtn = Instance.new("TextButton", row4)
+    local startBtn = Instance.new("TextButton")
+    startBtn.Parent = row4
     startBtn.BackgroundTransparency = 1
     startBtn.Size = UDim2.fromScale(1,1)
     startBtn.Text = ""
