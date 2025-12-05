@@ -2972,7 +2972,9 @@ registerRight("Player", function(scroll)
     end
 
     local function doInstantWarp()
+        -- ปิดโหมดบินก่อน แล้วเทเลพอร์ตจบ
         stopFly()
+
         local targetPl = getTargetPlayer()
         local hrpSelf  = getHumanoidRoot(lp)
         local hrpTarget= getHumanoidRoot(targetPl)
@@ -2981,11 +2983,13 @@ registerRight("Player", function(scroll)
         local targetPos = hrpTarget.Position + Vector3.new(0,3,0)
         pcall(function()
             hrpSelf.CFrame = CFrame.new(targetPos, targetPos + hrpTarget.CFrame.LookVector)
+            hrpSelf.AssemblyLinearVelocity  = Vector3.new(0,0,0)
+            hrpSelf.AssemblyAngularVelocity = Vector3.new(0,0,0)
         end)
     end
 
     ------------------------------------------------------------------------
-    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ถึงผู้เล่นแบบเป๊ะ
+    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ปิดท้ายด้วย Instant Warp
     ------------------------------------------------------------------------
     local function doFlyWarp()
         stopFly()
@@ -2998,12 +3002,13 @@ registerRight("Player", function(scroll)
         local SPEED        = 350      -- ความเร็วบิน “กลาง ๆ”
         local lift         = 14       -- ยกตัวจากพื้นก่อนเริ่ม
         local heightOffset = 4        -- ลอยเหนือหัวเป้าหมาย
-        local stopDist     = 1        -- ระยะหยุด (ลดลงให้เข้าใกล้มากขึ้น)
+        local stopDist     = 4        -- เข้าใกล้ระยะนี้แล้วสั่ง Instant Warp ปิดจบ
 
         -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
             hrpSelf.CFrame = hrpSelf.CFrame + Vector3.new(0, lift, 0)
-            hrpSelf.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            hrpSelf.AssemblyLinearVelocity  = Vector3.new(0,0,0)
+            hrpSelf.AssemblyAngularVelocity = Vector3.new(0,0,0)
         end)
 
         -- ปิดระบบฟิสิกส์เดิน ให้ตัวละครอยู่นิ่งในอากาศ
@@ -3018,7 +3023,7 @@ registerRight("Player", function(scroll)
 
         setNoClip(true)
 
-        -- ใช้ Heartbeat เพื่ออัปเดตทุกเฟรม (ลื่น + ไม่กระชากเกิน)
+        -- ใช้ Heartbeat เพื่ออัปเดตทุกเฟรม
         WARP.flyConn = RunService.Heartbeat:Connect(function(dt)
             local selfHRP  = getHumanoidRoot(lp)
             local tgtPl    = getTargetPlayer()
@@ -3036,7 +3041,8 @@ registerRight("Player", function(scroll)
             -- บังคับ NoClip + ลบความเร็วตกทุกเฟรม
             enforceNoClip()
             pcall(function()
-                selfHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                selfHRP.AssemblyLinearVelocity  = Vector3.new(0,0,0)
+                selfHRP.AssemblyAngularVelocity = Vector3.new(0,0,0)
             end)
 
             -- เป้าหมายจริง 3D ตามตำแหน่งผู้เล่น (อยู่สูงก็ไปถึง)
@@ -3045,12 +3051,9 @@ registerRight("Player", function(scroll)
             local diff      = targetPos - pos
             local dist      = diff.Magnitude
 
+            -- ถ้าเข้าใกล้พอแล้ว ใช้ instant warp ปิดจบเลย
             if dist < stopDist then
-                -- จอดสุดท้ายให้ตรงผู้เล่นแบบเป๊ะ
-                pcall(function()
-                    selfHRP.CFrame = CFrame.new(targetPos, targetPos + tgtHRP.CFrame.LookVector)
-                end)
-                stopFly()
+                doInstantWarp()
                 return
             end
 
