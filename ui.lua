@@ -3059,30 +3059,22 @@ registerRight("Player", function(scroll)
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- Row 1: Model A V2 (แบบ Select Options) + Overlay ผู้เล่น
+    -- Row 1: **A V2 แท้ๆ** กรอบใหญ่ + ปุ่มเม็ดยาทางขวา + Overlay ผู้เล่น
     ------------------------------------------------------------------------
-    local panelParent = scroll.Parent -- กรอบขวา Player
+    local panelParent = scroll.Parent
 
     local row1 = Instance.new("Frame", scroll)
     row1.Name = "WARP_Row1"
     row1.Size = UDim2.new(1,-6,0,46)
-    row1.BackgroundTransparency = 1
+    row1.BackgroundColor3 = THEME.BLACK
+    corner(row1,12)
+    local rowStroke = stroke(row1,2.2,THEME.GREEN_DARK)
     row1.LayoutOrder = base + 2
 
-    -- กล่องด้านในเหมือน A V2
-    local box = Instance.new("Frame", row1)
-    box.Name = "Box"
-    box.AnchorPoint = Vector2.new(0.5,0.5)
-    box.Position = UDim2.new(0.5,0,0.5,0)
-    box.Size = UDim2.new(1,0,0,32)
-    box.BackgroundColor3 = THEME.BLACK
-    corner(box,12)
-    local boxStroke = stroke(box,2,THEME.GREEN_DARK)
-
-    -- label ซ้าย
-    local leftLabel = Instance.new("TextLabel", box)
+    -- label ซ้าย (เหมือนข้อความ "ทดลองภาษาอังกฤษ")
+    local leftLabel = Instance.new("TextLabel", row1)
     leftLabel.BackgroundTransparency = 1
-    leftLabel.Size = UDim2.new(1,-150,1,0)
+    leftLabel.Size = UDim2.new(1,-180,1,0)
     leftLabel.Position = UDim2.new(0,16,0,0)
     leftLabel.Font = Enum.Font.GothamBold
     leftLabel.TextSize = 13
@@ -3090,11 +3082,11 @@ registerRight("Player", function(scroll)
     leftLabel.TextXAlignment = Enum.TextXAlignment.Left
     leftLabel.Text = "Select Target Player"
 
-    -- ปุ่มขวา (เหมือน Select Options)
-    local rightBtnFrame = Instance.new("Frame", box)
+    -- ปุ่มขวาเม็ดยา (เหมือน 🔍 Select Options ▾)
+    local rightBtnFrame = Instance.new("Frame", row1)
     rightBtnFrame.AnchorPoint = Vector2.new(1,0.5)
-    rightBtnFrame.Position = UDim2.new(1,-6,0.5,0)
-    rightBtnFrame.Size = UDim2.new(0,130,0,24)
+    rightBtnFrame.Position = UDim2.new(1,-10,0.5,0)
+    rightBtnFrame.Size = UDim2.new(0,150,0,28)
     rightBtnFrame.BackgroundColor3 = THEME.BLACK
     corner(rightBtnFrame,10)
     local rightStroke = stroke(rightBtnFrame,1.8,THEME.GREEN_DARK)
@@ -3106,7 +3098,7 @@ registerRight("Player", function(scroll)
     rightText.TextSize = 12
     rightText.TextColor3 = THEME.WHITE
     rightText.TextXAlignment = Enum.TextXAlignment.Center
-    rightText.Text = "Select Player ▾"
+    rightText.Text = "🔍 Select Player ▾"
 
     local rightBtn = Instance.new("TextButton", rightBtnFrame)
     rightBtn.BackgroundTransparency = 1
@@ -3114,13 +3106,13 @@ registerRight("Player", function(scroll)
     rightBtn.Text = ""
     rightBtn.AutoButtonColor = false
 
-    -- คลิกได้ทั้งกล่อง
-    local boxBtn = Instance.new("TextButton", box)
-    boxBtn.BackgroundTransparency = 1
-    boxBtn.Size = UDim2.fromScale(1,1)
-    boxBtn.Text = ""
-    boxBtn.AutoButtonColor = false
-    boxBtn.ZIndex = box.ZIndex + 1
+    -- คลิกได้ทั้งกรอบใหญ่เหมือน A V2
+    local row1Btn = Instance.new("TextButton", row1)
+    row1Btn.BackgroundTransparency = 1
+    row1Btn.Size = UDim2.fromScale(1,1)
+    row1Btn.Text = ""
+    row1Btn.AutoButtonColor = false
+    row1Btn.ZIndex = row1.ZIndex + 1
 
     -- STATE overlay + visual
     local hover       = false
@@ -3139,11 +3131,11 @@ registerRight("Player", function(scroll)
         local hasTarget = (getTargetPlayer() ~= nil)
         local active    = hasTarget or optionsOpen
 
-        local baseThickness = active and 2.4 or 2
+        local baseThickness = active and 2.6 or 2.0
         local thickness     = hover and (baseThickness + 0.4) or baseThickness
         local color         = active and THEME.GREEN or THEME.GREEN_DARK
 
-        tween(boxStroke, {
+        tween(rowStroke, {
             Color     = color,
             Thickness = thickness
         }, 0.10)
@@ -3157,9 +3149,9 @@ registerRight("Player", function(scroll)
         local pl = getTargetPlayer()
         if pl then
             local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-            rightText.Text = display .. " ▾"
+            rightText.Text = "🔍 " .. display .. " ▾"
         else
-            rightText.Text = "Select Player ▾"
+            rightText.Text = "🔍 Select Player ▾"
         end
         updateRow1Visual()
     end
@@ -3386,12 +3378,12 @@ registerRight("Player", function(scroll)
         updateRow1Visual()
     end
 
-    -- hover FX ของกล่อง A V2
-    box.MouseEnter:Connect(function()
+    -- hover FX กรอบใหญ่ A V2
+    row1.MouseEnter:Connect(function()
         hover = true
         updateRow1Visual()
     end)
-    box.MouseLeave:Connect(function()
+    row1.MouseLeave:Connect(function()
         hover = false
         updateRow1Visual()
     end)
@@ -3405,7 +3397,7 @@ registerRight("Player", function(scroll)
     end
 
     rightBtn.MouseButton1Click:Connect(toggleOptions)
-    boxBtn.MouseButton1Click:Connect(toggleOptions)
+    row1Btn.MouseButton1Click:Connect(toggleOptions)
 
     ------------------------------------------------------------------------
     -- สวิตช์แถว (Row2 + Row3) - A V1
