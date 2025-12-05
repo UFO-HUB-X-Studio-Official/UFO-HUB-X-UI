@@ -2995,7 +2995,7 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local BASE_SPEED    = 650      -- ความเร็วพื้นฐาน (โคตรเร็ว)
+        local BASE_SPEED    = 400      -- ความเร็วพื้นฐาน (โคตรเร็ว)
         local BOOST_FACTOR  = 2.4      -- เร่งเพิ่มตามระยะ
         local lift          = 14       -- ยกตัวจากพื้นก่อนเริ่ม
         local heightOffset  = 4        -- ลอยเหนือหัวเป้าหมาย
