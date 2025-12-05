@@ -5334,7 +5334,7 @@ registerRight("Shop", function(scroll)
     selectBtn.Size = UDim2.new(0, 220, 0, 28)
     selectBtn.BackgroundColor3 = THEME.BLACK
     selectBtn.AutoButtonColor = false
-    selectBtn.Text = "Select Options"
+    selectBtn.Text = "🔍 Select Options"
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 13
     selectBtn.TextColor3 = THEME.WHITE
@@ -5343,6 +5343,21 @@ registerRight("Shop", function(scroll)
     corner(selectBtn, 8)
 
     local selectStroke = stroke(selectBtn, 1.8, THEME.GREEN_DARK)
+    selectStroke.Transparency = 0.4
+
+    -- ฟังก์ชันเปลี่ยนขอบปุ่มแบบปิด / เปิด (เรืองแสง)
+    local function updateSelectVisual(isOpen)
+        if isOpen then
+            selectStroke.Color        = THEME.GREEN
+            selectStroke.Thickness    = 2.4
+            selectStroke.Transparency = 0
+        else
+            selectStroke.Color        = THEME.GREEN_DARK
+            selectStroke.Thickness    = 1.8
+            selectStroke.Transparency = 0.4
+        end
+    end
+    updateSelectVisual(false)
 
     local padding = Instance.new("UIPadding")
     padding.Parent = selectBtn
@@ -5381,7 +5396,7 @@ registerRight("Shop", function(scroll)
         end
         disconnectInput()
         opened = false
-        selectStroke.Color = THEME.GREEN_DARK
+        updateSelectVisual(false)
     end
 
     local function openPanel()
@@ -5458,7 +5473,7 @@ registerRight("Shop", function(scroll)
         listHolder.Parent = body
         listHolder.BackgroundColor3 = THEME.BLACK
         listHolder.BorderSizePixel = 0
-        listHolder.ScrollBarThickness = 0      -- ❗ ตัดแถบสกอลล์แนวตั้งทิ้งเลย
+        listHolder.ScrollBarThickness = 0
         listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
         listHolder.CanvasSize = UDim2.new(0,0,0,0)
         listHolder.ZIndex = body.ZIndex + 1
@@ -5636,7 +5651,7 @@ registerRight("Shop", function(scroll)
             closePanel()
         else
             opened = true
-            selectStroke.Color = THEME.GREEN
+            updateSelectVisual(true)
             openPanel()
         end
         print("[V A2] Select Options clicked, opened =", opened)
