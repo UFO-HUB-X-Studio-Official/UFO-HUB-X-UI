@@ -2849,15 +2849,16 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
---===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 style) =====
+--===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 Overlay) =====
 -- ใช้ในแท็บ Player ฝั่งขวา
 
 registerRight("Player", function(scroll)
-    local Players      = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
-    local RunService   = game:GetService("RunService")
-    local CoreGui      = game:GetService("CoreGui")
-    local lp           = Players.LocalPlayer
+    local Players          = game:GetService("Players")
+    local TweenService     = game:GetService("TweenService")
+    local RunService       = game:GetService("RunService")
+    local CoreGui          = game:GetService("CoreGui")
+    local UserInputService = game:GetService("UserInputService")
+    local lp               = Players.LocalPlayer
 
     ------------------------------------------------------------------------
     -- THEME + HELPERS
@@ -2936,115 +2937,6 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- PLAYER PICKER POPUP (ใช้ตอน Row1 ▶)
-    ------------------------------------------------------------------------
-    local PICKER_GUI_NAME = "UFOX_WarpPlayerPicker"
-
-    local function destroyPicker()
-        local exist = CoreGui:FindFirstChild(PICKER_GUI_NAME)
-        if exist then exist:Destroy() end
-    end
-
-    local function openPicker(onChosen)
-        destroyPicker()
-
-        local gui = Instance.new("ScreenGui")
-        gui.Name = PICKER_GUI_NAME
-        gui.ResetOnSpawn = false
-        gui.IgnoreGuiInset = true
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-        gui.Parent = CoreGui
-
-        local root = Instance.new("Frame", gui)
-        root.AnchorPoint = Vector2.new(0.5,0.5)
-        root.Position = UDim2.new(0.5,0,0.5,0)
-        root.Size = UDim2.new(0,260,0,260)
-        root.BackgroundColor3 = THEME.BLACK
-        root.BackgroundTransparency = 0.1
-        corner(root,12)
-        stroke(root,2.2,THEME.GREEN)
-
-        local title = Instance.new("TextLabel", root)
-        title.BackgroundTransparency = 1
-        title.Size = UDim2.new(1,-24,0,30)
-        title.Position = UDim2.new(0,12,0,8)
-        title.Font = Enum.Font.GothamBold
-        title.TextSize = 16
-        title.TextColor3 = THEME.TEXT
-        title.TextXAlignment = Enum.TextXAlignment.Left
-        title.Text = "Select Target Player"
-
-        local closeBtn = Instance.new("TextButton", root)
-        closeBtn.AnchorPoint = Vector2.new(1,0.5)
-        closeBtn.Position = UDim2.new(1,-8,0,23)
-        closeBtn.Size = UDim2.new(0,24,0,24)
-        closeBtn.BackgroundTransparency = 1
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 18
-        closeBtn.TextColor3 = THEME.RED
-        closeBtn.Text = "X"
-
-        local listHolder = Instance.new("Frame", root)
-        listHolder.Position = UDim2.new(0,12,0,44)
-        listHolder.Size = UDim2.new(1,-24,1,-56)
-        listHolder.BackgroundTransparency = 1
-
-        local scroll = Instance.new("ScrollingFrame", listHolder)
-        scroll.Size = UDim2.new(1,0,1,0)
-        scroll.CanvasSize = UDim2.new(0,0,0,0)
-        scroll.ScrollBarThickness = 4
-        scroll.ScrollBarImageTransparency = 0.3
-        scroll.BackgroundTransparency = 1
-
-        local layout = Instance.new("UIListLayout", scroll)
-        layout.Padding = UDim.new(0,6)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        local function refreshPlayers()
-            for _,ch in ipairs(scroll:GetChildren()) do
-                if ch:IsA("TextButton") then ch:Destroy() end
-            end
-
-            for _,pl in ipairs(Players:GetPlayers()) do
-                if pl ~= lp then
-                    local btn = Instance.new("TextButton", scroll)
-                    btn.Size = UDim2.new(1,0,0,28)
-                    btn.BackgroundColor3 = THEME.BLACK
-                    btn.AutoButtonColor = false
-                    corner(btn,8)
-                    stroke(btn,1.4,THEME.GREEN)
-                    btn.Font = Enum.Font.Gotham
-                    btn.TextSize = 13
-                    btn.TextColor3 = THEME.WHITE
-                    local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
-                    btn.Text = display
-
-                    btn.MouseButton1Click:Connect(function()
-                        if onChosen then
-                            onChosen(pl)
-                        end
-                        destroyPicker()
-                    end)
-                end
-            end
-
-            task.defer(function()
-                scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 4)
-            end)
-        end
-
-        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 4)
-        end)
-
-        closeBtn.MouseButton1Click:Connect(destroyPicker)
-        Players.PlayerAdded:Connect(refreshPlayers)
-        Players.PlayerRemoving:Connect(refreshPlayers)
-
-        refreshPlayers()
-    end
-
-    ------------------------------------------------------------------------
     -- ACTIONS: WARP / FLY
     ------------------------------------------------------------------------
     local function getHumanoidRoot(player)
@@ -3077,7 +2969,7 @@ registerRight("Player", function(scroll)
         local hrpTarget= getHumanoidRoot(targetPl)
         if not hrpSelf or not hrpTarget then return end
 
-        local speed          = 150            -- เร็วกว่าของเดิมเยอะ
+        local speed          = 150            -- เร็ว
         local HEIGHT_OFFSET  = 10             -- บินสูงจากหัวเป้าหมาย ~10 studs
 
         -- ตอนเริ่มบิน → NoClip
@@ -3129,7 +3021,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- UI BUILD (Model A V1 + Row1 = A V2)
+    -- UI BUILD (Model A V1 + Row1 = A V2 Overlay)
     ------------------------------------------------------------------------
     for _,n in ipairs({"WARP_Header","WARP_Row1","WARP_Row2","WARP_Row3","WARP_Row4"}) do
         local o = scroll:FindFirstChild(n)
@@ -3160,12 +3052,14 @@ registerRight("Player", function(scroll)
     header.TextSize = 16
     header.TextColor3 = THEME.TEXT
     header.TextXAlignment = Enum.TextXAlignment.Left
-    header.Text = "Warp to Player 🛸"
+    header.Text = "Warp to Player 🔭"
     header.LayoutOrder = base + 1
 
     ------------------------------------------------------------------------
-    -- Row 1: เลือกผู้เล่น (Model A V2 style + glow on selected)
+    -- Row 1: เลือกผู้เล่น (Model A V2 style + RIGHT PANEL OVERLAY)
     ------------------------------------------------------------------------
+    local panelParent = scroll.Parent -- กรอบขวา Player
+
     local row1 = Instance.new("Frame", scroll)
     row1.Name = "WARP_Row1"
     row1.Size = UDim2.new(1,-6,0,46)
@@ -3176,7 +3070,7 @@ registerRight("Player", function(scroll)
     local rowStroke = Instance.new("UIStroke", row1)
     rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     rowStroke.Color = THEME.GREEN_DARK
-    rowStroke.Thickness = 1.8
+    rowStroke.Thickness = 1.6
 
     -- Left bar glow (แบบ A V2)
     local bar = Instance.new("Frame", row1)
@@ -3221,18 +3115,30 @@ registerRight("Player", function(scroll)
     arrowBtn.TextColor3 = THEME.WHITE
     arrowBtn.Text = "▶"
 
-    -- Visual controller A V2 (dim → bright เมื่อเลือกเป้าหมาย)
-    local hover = false
+    -- STATE overlay + visual
+    local hover       = false
+    local optionsOpen = false
+    local optionsPanel
+    local inputConn
+
+    local function disconnectInput()
+        if inputConn then
+            inputConn:Disconnect()
+            inputConn = nil
+        end
+    end
+
     local function updateRow1Visual()
         local hasTarget = (getTargetPlayer() ~= nil)
+        local active    = hasTarget or optionsOpen
 
-        local baseThickness = hasTarget and 2.4 or 1.8
+        local baseThickness = active and 2.4 or 1.4
         local thickness     = hover and (baseThickness + 0.4) or baseThickness
 
-        local baseBarTr = hasTarget and 0.15 or 0.6
+        local baseBarTr = active and 0.15 or 0.6
         local barTr     = hover and math.max(baseBarTr - 0.2,0) or baseBarTr
 
-        local color = hasTarget and THEME.GREEN or THEME.GREEN_DARK
+        local color = active and THEME.GREEN or THEME.GREEN_DARK
 
         tween(rowStroke, {
             Color     = color,
@@ -3256,20 +3162,250 @@ registerRight("Player", function(scroll)
     end
     refreshSelectedLabel()
 
+    local function closeOptions()
+        if optionsPanel then
+            optionsPanel:Destroy()
+            optionsPanel = nil
+        end
+        disconnectInput()
+        optionsOpen = false
+        updateRow1Visual()
+    end
+
+    local function openOptions()
+        closeOptions()
+        optionsOpen = true
+
+        local pw, ph = panelParent.AbsoluteSize.X, panelParent.AbsoluteSize.Y
+        local leftRatio   = 0.645
+        local topRatio    = 0.02
+        local bottomRatio = 0.02
+        local rightMargin = 8
+
+        local leftX   = math.floor(pw * leftRatio)
+        local topY    = math.floor(ph * topRatio)
+        local bottomM = math.floor(ph * bottomRatio)
+
+        local w = pw - leftX - rightMargin
+        local h = ph - topY - bottomM
+
+        optionsPanel = Instance.new("Frame")
+        optionsPanel.Name = "WARP_PlayerOverlay"
+        optionsPanel.Parent = panelParent
+        optionsPanel.BackgroundColor3 = THEME.BLACK
+        optionsPanel.ClipsDescendants = true
+        optionsPanel.AnchorPoint = Vector2.new(0,0)
+        optionsPanel.Position    = UDim2.new(0,leftX,0,topY)
+        optionsPanel.Size        = UDim2.new(0,w,0,h)
+        optionsPanel.ZIndex      = 50
+
+        corner(optionsPanel,12)
+        stroke(optionsPanel,2.4,THEME.GREEN)
+
+        -- BODY
+        local body = Instance.new("Frame")
+        body.Name = "Body"
+        body.Parent = optionsPanel
+        body.BackgroundTransparency = 1
+        body.BorderSizePixel = 0
+        body.Position = UDim2.new(0,4,0,4)
+        body.Size     = UDim2.new(1,-8,1,-8)
+        body.ZIndex   = optionsPanel.ZIndex + 1
+
+        -- Search box
+        local searchBox = Instance.new("TextBox")
+        searchBox.Name = "SearchBox"
+        searchBox.Parent = body
+        searchBox.BackgroundColor3 = THEME.BLACK
+        searchBox.ClearTextOnFocus = false
+        searchBox.Font = Enum.Font.GothamBold
+        searchBox.TextSize = 14
+        searchBox.TextColor3 = THEME.WHITE
+        searchBox.PlaceholderText = "🔍 Search Player"
+        searchBox.TextXAlignment = Enum.TextXAlignment.Center
+        searchBox.Text = ""
+        searchBox.ZIndex = body.ZIndex + 1
+        searchBox.Size = UDim2.new(1,0,0,32)
+        searchBox.Position = UDim2.new(0,0,0,0)
+        corner(searchBox,8)
+
+        local sbStroke = stroke(searchBox,1.8,THEME.GREEN)
+        sbStroke.ZIndex = searchBox.ZIndex + 1
+
+        -- List holder
+        local listHolder = Instance.new("ScrollingFrame")
+        listHolder.Name = "PlayerList"
+        listHolder.Parent = body
+        listHolder.BackgroundColor3 = THEME.BLACK
+        listHolder.BorderSizePixel = 0
+        listHolder.ScrollBarThickness = 0
+        listHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        listHolder.CanvasSize = UDim2.new(0,0,0,0)
+        listHolder.ZIndex = body.ZIndex + 1
+        listHolder.ScrollingDirection = Enum.ScrollingDirection.Y
+        listHolder.ClipsDescendants = true
+
+        local listTopOffset = 32 + 10
+        listHolder.Position = UDim2.new(0,0,0,listTopOffset)
+        listHolder.Size     = UDim2.new(1,0,1,-(listTopOffset + 4))
+
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.Parent = listHolder
+        listLayout.Padding = UDim.new(0,8)
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+        local listPadding = Instance.new("UIPadding")
+        listPadding.Parent = listHolder
+        listPadding.PaddingTop    = UDim.new(0,6)
+        listPadding.PaddingBottom = UDim.new(0,6)
+        listPadding.PaddingLeft   = UDim.new(0,4)
+        listPadding.PaddingRight  = UDim.new(0,4)
+
+        local function onLayoutChanged()
+            listHolder.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y + 4)
+        end
+        listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(onLayoutChanged)
+
+        -- ปุ่มผู้เล่น
+        local playerButtons = {}
+
+        local function addPlayerButton(pl)
+            if pl == lp then return end
+
+            local btn = Instance.new("TextButton")
+            btn.Name = "Btn_" .. pl.UserId
+            btn.Parent = listHolder
+            btn.Size = UDim2.new(1,0,0,28)
+            btn.BackgroundColor3 = THEME.BLACK
+            btn.AutoButtonColor = false
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 14
+            btn.TextColor3 = THEME.WHITE
+            local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+            btn.Text = display
+            btn.ZIndex = listHolder.ZIndex + 1
+            btn.TextXAlignment = Enum.TextXAlignment.Center
+            btn.TextYAlignment = Enum.TextYAlignment.Center
+            corner(btn,6)
+
+            local st = stroke(btn,1.6,THEME.GREEN_DARK)
+            st.Transparency = 0.4
+
+            btn.MouseEnter:Connect(function()
+                TweenService:Create(st,TweenInfo.new(0.12),{
+                    Color        = THEME.GREEN,
+                    Thickness    = 2.2,
+                    Transparency = 0
+                }):Play()
+            end)
+
+            btn.MouseLeave:Connect(function()
+                local isSelected = (WARP.targetUserId == pl.UserId)
+                TweenService:Create(st,TweenInfo.new(0.12),{
+                    Color        = isSelected and THEME.GREEN or THEME.GREEN_DARK,
+                    Thickness    = isSelected and 2.2 or 1.6,
+                    Transparency = isSelected and 0 or 0.4
+                }):Play()
+            end)
+
+            btn.MouseButton1Click:Connect(function()
+                WARP.targetUserId = pl.UserId
+                refreshSelectedLabel()
+                closeOptions()
+            end)
+
+            playerButtons[pl] = btn
+        end
+
+        local function rebuildList()
+            for _,btn in pairs(playerButtons) do
+                btn:Destroy()
+            end
+            table.clear(playerButtons)
+
+            for _,pl in ipairs(Players:GetPlayers()) do
+                if pl ~= lp then
+                    addPlayerButton(pl)
+                end
+            end
+            onLayoutChanged()
+        end
+
+        rebuildList()
+
+        Players.PlayerAdded:Connect(rebuildList)
+        Players.PlayerRemoving:Connect(rebuildList)
+
+        -- Search filter
+        local function trim(s)
+            return (s:gsub("^%s*(.-)%s*$","%1"))
+        end
+
+        local function applySearch()
+            local q = string.lower(trim(searchBox.Text or ""))
+
+            for pl,btn in pairs(playerButtons) do
+                local display = (pl.DisplayName ~= "" and pl.DisplayName) or pl.Name
+                local txt = string.lower(display)
+                local match = (q == "" or string.find(txt,q,1,true) ~= nil)
+                btn.Visible = match
+            end
+
+            listHolder.CanvasPosition = Vector2.new(0,0)
+        end
+
+        searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
+
+        -- focus effect
+        searchBox.Focused:Connect(function()
+            sbStroke.Color = THEME.GREEN
+        end)
+        searchBox.FocusLost:Connect(function()
+            sbStroke.Color = THEME.GREEN
+        end)
+
+        -- ปิดเมื่อกดนอก panel
+        inputConn = UserInputService.InputBegan:Connect(function(input,gp)
+            if not optionsPanel then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+
+            local pos = input.Position
+            local px,py = pos.X, pos.Y
+            local op = optionsPanel.AbsolutePosition
+            local os = optionsPanel.AbsoluteSize
+
+            local inside =
+                px >= op.X and px <= op.X + os.X and
+                py >= op.Y and py <= op.Y + os.Y
+
+            if not inside then
+                closeOptions()
+            end
+        end)
+
+        updateRow1Visual()
+    end
+
     row1.MouseEnter:Connect(function()
         hover = true
         updateRow1Visual()
     end)
+
     row1.MouseLeave:Connect(function()
         hover = false
         updateRow1Visual()
     end)
 
     arrowBtn.MouseButton1Click:Connect(function()
-        openPicker(function(pl)
-            WARP.targetUserId = pl.UserId
-            refreshSelectedLabel()
-        end)
+        if optionsOpen then
+            closeOptions()
+        else
+            openOptions()
+        end
     end)
 
     ------------------------------------------------------------------------
