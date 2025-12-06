@@ -2849,7 +2849,7 @@ registerRight("Player", function(scroll)
         ensureLoop()
     end
 end)
---===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 เต็มระบบ) =====
+--===== UFO HUB X • Player — Warp to Player (Model A V1 + Row1 = A V2 เต็มระบบ + Water Clamp) =====
 -- ใช้ในแท็บ Player ฝั่งขวา
 
 registerRight("Player", function(scroll)
@@ -2858,6 +2858,7 @@ registerRight("Player", function(scroll)
     local RunService       = game:GetService("RunService")
     local CoreGui          = game:GetService("CoreGui")
     local UserInputService = game:GetService("UserInputService")
+    local Workspace        = game:GetService("Workspace")
     local lp               = Players.LocalPlayer
 
     ------------------------------------------------------------------------
@@ -2894,6 +2895,46 @@ registerRight("Player", function(scroll)
             TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             p
         ):Play()
+    end
+
+    ------------------------------------------------------------------------
+    -- WATER DETECT (กันไม่ให้ต่ำกว่าผิวน้ำ)
+    ------------------------------------------------------------------------
+    local RAY_PARAMS = RaycastParams.new()
+    RAY_PARAMS.FilterType = Enum.RaycastFilterType.Blacklist
+    RAY_PARAMS.FilterDescendantsInstances = {}
+
+    local function updateRaycastIgnore()
+        local ignore = {}
+        if lp.Character then
+            table.insert(ignore, lp.Character)
+        end
+        RAY_PARAMS.FilterDescendantsInstances = ignore
+    end
+
+    local function isWaterHit(result)
+        if not result then return false end
+        if result.Material == Enum.Material.Water then
+            return true
+        end
+        local inst = result.Instance
+        if not inst then return false end
+        local n = string.lower(inst.Name or "")
+        if n:find("water") or n:find("sea") or n:find("ocean") then
+            return true
+        end
+        return false
+    end
+
+    local function getWaterLevelAt(pos)
+        -- ยิง ray ลงด้านล่าง หาน้ำทุกแบบ (Terrain Water + Part ที่ชื่อมี water/sea/ocean)
+        local origin = pos + Vector3.new(0, 500, 0)
+        local dir    = Vector3.new(0, -1000, 0)
+        local result = Workspace:Raycast(origin, dir, RAY_PARAMS)
+        if result and isWaterHit(result) then
+            return result.Position.Y
+        end
+        return nil
     end
 
     ------------------------------------------------------------------------
@@ -2989,7 +3030,7 @@ registerRight("Player", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- FLY TO PLAYER แบบลอยค้าง + เร็วปานกลาง + ปิดท้ายด้วย Instant Warp
+    -- FLY TO PLAYER + กันจม / จอดด้วย Instant Warp
     ------------------------------------------------------------------------
     local function doFlyWarp()
         stopFly()
@@ -3003,6 +3044,9 @@ registerRight("Player", function(scroll)
         local lift         = 14       -- ยกตัวจากพื้นก่อนเริ่ม
         local heightOffset = 4        -- ลอยเหนือหัวเป้าหมาย
         local stopDist     = 4        -- เข้าใกล้ระยะนี้แล้วสั่ง Instant Warp ปิดจบ
+        local WATER_MARGIN = 3        -- ลอยเหนือระดับน้ำอย่างน้อยกี่ stud
+
+        updateRaycastIgnore()
 
         -- ยกตัวขึ้นจากพื้นแบบนิ่ง ๆ
         pcall(function()
@@ -3059,9 +3103,19 @@ registerRight("Player", function(scroll)
 
             local step = math.min(dist, SPEED * dt)
             local dir  = diff.Unit
+            local nextPos = pos + dir * step
+
+            -- กันไม่ให้ต่ำกว่าผิวน้ำ
+            local waterY = getWaterLevelAt(nextPos)
+            if waterY then
+                local minY = waterY + WATER_MARGIN
+                if nextPos.Y < minY then
+                    nextPos = Vector3.new(nextPos.X, minY, nextPos.Z)
+                end
+            end
 
             pcall(function()
-                selfHRP.CFrame = CFrame.new(pos + dir * step, targetPos)
+                selfHRP.CFrame = CFrame.new(nextPos, targetPos)
             end)
         end)
     end
