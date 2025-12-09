@@ -4042,6 +4042,327 @@ registerRight("Home", function(scroll)
         end
     end)
 end)
+--===== UFO HUB X • Shop – Auto Sell (Model A V1 + AA1) =====
+-- Tab: Shop
+-- Header: Auto Sell 💰
+-- Row1: Auto Sell Ores (สวิตช์เปิด/ปิด)
+-- ใช้ Remote:
+--   local args = { "Sell All Ores" }
+--   __remotefunction:InvokeServer(unpack(args))
+-- มีระบบเซฟ AA1 + Auto-Run จาก SaveState
+
+---------------------------------------------------------------------
+-- 1) AA1 • ShopAutoSell (Global Auto-Run)
+---------------------------------------------------------------------
+do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    -----------------------------------------------------------------
+    -- SAVE (UFOX_SAVE)
+    -----------------------------------------------------------------
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get = function(_, _, d) return d end,
+        set = function() end,
+    }
+
+    local GAME_ID  = tonumber(game.GameId)  or 0
+    local PLACE_ID = tonumber(game.PlaceId) or 0
+
+    -- AA1/ShopAutoSell/<GAME>/<PLACE>/Enabled
+    local SYSTEM_NAME = "ShopAutoSell"
+    local BASE_SCOPE  = ("AA1/%s/%d/%d"):format(SYSTEM_NAME, GAME_ID, PLACE_ID)
+
+    local function K(field)
+        return BASE_SCOPE .. "/" .. field
+    end
+
+    local function SaveGet(field, default)
+        local ok, v = pcall(function()
+            return SAVE.get(K(field), default)
+        end)
+        return ok and v or default
+    end
+
+    local function SaveSet(field, value)
+        pcall(function()
+            SAVE.set(K(field), value)
+        end)
+    end
+
+    -----------------------------------------------------------------
+    -- STATE + CONFIG
+    -----------------------------------------------------------------
+    local STATE = {
+        Enabled = SaveGet("Enabled", false),
+    }
+
+    -- ระยะเวลาขายออโต้ (วินาทีต่อครั้ง)
+    local SELL_INTERVAL = 5
+
+    -----------------------------------------------------------------
+    -- ฟังก์ชันขาย 1 ครั้ง
+    -----------------------------------------------------------------
+    local function sellOnce()
+        local ok, err = pcall(function()
+            local paper   = ReplicatedStorage:WaitForChild("Paper")
+            local remotes = paper:WaitForChild("Remotes")
+            local rf      = remotes:WaitForChild("__remotefunction")
+
+            local args = { "Sell All Ores" }
+            rf:InvokeServer(unpack(args))
+        end)
+
+        if not ok then
+            warn("[UFO HUB X • ShopAutoSell] sellOnce error:", err)
+        end
+    end
+
+    -----------------------------------------------------------------
+    -- applyFromState + loop
+    -----------------------------------------------------------------
+    local running = false
+
+    local function applyFromState()
+        if not STATE.Enabled then
+            -- ปิดระบบ → ปล่อยให้ loop จบเอง
+            return
+        end
+
+        -- ถ้ามี loop อยู่แล้ว ไม่ต้องสร้างซ้ำ
+        if running then return end
+        running = true
+
+        task.spawn(function()
+            while STATE.Enabled do
+                sellOnce()
+                task.wait(SELL_INTERVAL)
+            end
+            running = false
+        end)
+    end
+
+    local function SetEnabled(v)
+        STATE.Enabled = v and true or false
+        SaveSet("Enabled", STATE.Enabled)
+        task.defer(applyFromState)
+    end
+
+    -----------------------------------------------------------------
+    -- AA1 Auto-Run ตอนโหลดสคริปต์
+    -----------------------------------------------------------------
+    task.defer(function()
+        applyFromState()
+    end)
+
+    -----------------------------------------------------------------
+    -- export ให้ UI เรียกใช้
+    -----------------------------------------------------------------
+    _G.UFOX_AA1 = _G.UFOX_AA1 or {}
+    _G.UFOX_AA1[SYSTEM_NAME] = {
+        state      = STATE,
+        apply      = applyFromState,
+        setEnabled = SetEnabled,
+        saveGet    = SaveGet,
+        saveSet    = SaveSet,
+    }
+end
+
+---------------------------------------------------------------------
+-- 2) UI ฝั่งขวา • Shop (Model A V1)
+---------------------------------------------------------------------
+registerRight("Shop", function(scroll)
+    local TweenService      = game:GetService("TweenService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    -----------------------------------------------------------------
+    -- THEME + HELPERS (Model A V1)
+    -----------------------------------------------------------------
+    local THEME = {
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
+    }
+
+    local function corner(ui, r)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, r or 12)
+        c.Parent = ui
+    end
+
+    local function stroke(ui, th, col)
+        local s = Instance.new("UIStroke")
+        s.Thickness = th or 2.2
+        s.Color = col or THEME.GREEN
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = ui
+    end
+
+    local function tween(o, p, d)
+        TweenService:Create(
+            o,
+            TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            p
+        ):Play()
+    end
+
+    -----------------------------------------------------------------
+    -- ดึง AA1 ของ ShopAutoSell (ถ้ามี)
+    -----------------------------------------------------------------
+    local AA1 = _G.UFOX_AA1 and _G.UFOX_AA1["ShopAutoSell"]
+    local savedOn = false
+    if AA1 and AA1.state then
+        savedOn = AA1.state.Enabled and true or false
+    end
+
+    -----------------------------------------------------------------
+    -- UIListLayout (Model A V1 rule)
+    -----------------------------------------------------------------
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Parent = scroll
+        vlist.Padding   = UDim.new(0, 12)
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    local base = 0
+    for _, ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= vlist then
+            base = math.max(base, ch.LayoutOrder or 0)
+        end
+    end
+
+    -----------------------------------------------------------------
+    -- HEADER: Auto Sell 💰
+    -----------------------------------------------------------------
+    local header = Instance.new("TextLabel")
+    header.Name = "A1_Shop_AutoSell_Header"
+    header.Parent = scroll
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, 0, 0, 36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.WHITE
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Auto Sell 💰"
+    header.LayoutOrder = base + 1
+
+    -----------------------------------------------------------------
+    -- แถวสวิตช์ Model A V1
+    -----------------------------------------------------------------
+    local function makeRowSwitch(name, order, labelText, onToggle)
+        local row = Instance.new("Frame")
+        row.Name = name
+        row.Parent = scroll
+        row.Size = UDim2.new(1, -6, 0, 46)
+        row.BackgroundColor3 = THEME.BLACK
+        corner(row, 12)
+        stroke(row, 2.2, THEME.GREEN)
+        row.LayoutOrder = order
+
+        local lab = Instance.new("TextLabel")
+        lab.Parent = row
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1, -160, 1, 0)
+        lab.Position = UDim2.new(0, 16, 0, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
+
+        local sw = Instance.new("Frame")
+        sw.Parent = row
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1, -12, 0.5, 0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw, 13)
+
+        local swStroke = Instance.new("UIStroke")
+        swStroke.Parent = sw
+        swStroke.Thickness = 1.8
+
+        local knob = Instance.new("Frame")
+        knob.Parent = sw
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
+
+        local currentOn = false
+
+        local function updateVisual(on)
+            currentOn = on
+            swStroke.Color = on and THEME.GREEN or THEME.RED
+            tween(knob, {
+                Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
+            }, 0.08)
+        end
+
+        local function setState(on, fireCallback)
+            fireCallback = (fireCallback ~= false)
+            if currentOn == on then return end
+            updateVisual(on)
+            if fireCallback and onToggle then
+                onToggle(on)
+            end
+        end
+
+        local btn = Instance.new("TextButton")
+        btn.Parent = sw
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.MouseButton1Click:Connect(function()
+            setState(not currentOn, true)
+        end)
+
+        updateVisual(false)
+
+        return {
+            row      = row,
+            setState = setState,
+            getState = function() return currentOn end,
+        }
+    end
+
+    -----------------------------------------------------------------
+    -- Row1: Auto Sell Ores (เชื่อมกับ AA1 ShopAutoSell)
+    -----------------------------------------------------------------
+    local autoSellRow
+
+    autoSellRow = makeRowSwitch("A1_Shop_AutoSell", base + 2, "Auto Sell Ores", function(state)
+        if AA1 and AA1.setEnabled then
+            AA1.setEnabled(state)
+        else
+            -- fallback แบบตรง ๆ (เผื่อ AA1 ไม่มี)
+            local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+                get = function(_, _, d) return d end,
+                set = function() end,
+            }
+            local GAME_ID  = tonumber(game.GameId)  or 0
+            local PLACE_ID = tonumber(game.PlaceId) or 0
+            local BASE_SCOPE  = ("AA1/%s/%d/%d"):format("ShopAutoSell", GAME_ID, PLACE_ID)
+            local function K(field) return BASE_SCOPE .. "/" .. field end
+            pcall(function()
+                SAVE.set(K("Enabled"), state and true or false)
+            end)
+        end
+    end)
+
+    -----------------------------------------------------------------
+    -- Sync UI จาก STATE เซฟ (เปิดแท็บ Shop ครั้งแรก)
+    -----------------------------------------------------------------
+    task.defer(function()
+        if savedOn and autoSellRow then
+            autoSellRow.setState(true, false) -- อัปเดต UI เฉย ๆ ไม่ยิง onToggle ซ้ำ
+        end
+    end)
+end)
 -- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
 registerRight("Update", function(scroll)
     local Players = game:GetService("Players")
