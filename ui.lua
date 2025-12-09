@@ -3690,17 +3690,101 @@ registerRight("Player", function(scroll)
         startAction()
     end)
 end)
---===== UFO HUB X • Home – Auto Farm (Model A V1 + AA1) =====
+--===== UFO HUB X • Home – Auto Farm (Model A V1 + AA1 REAL AUTO-RUN) =====
 -- Tab: Home
 -- Header: Auto Farm 🚀
 -- Row1: Auto Mine  -> Toggle Setting: "AutoMine"
 -- Row2: Auto Train -> Toggle Setting: "AutoTrain"
--- เปิดได้ทีละอัน + มีระบบเซฟ AA1 (Auto-Run จาก SaveState)
+-- เปิดได้ทีละอัน
+-- ถ้า STATE เคยเซฟไว้ว่าเปิดอยู่ → จะยิง Remote ให้ทำงานทันทีตั้งแต่โหลดสคริปต์
+-- ไม่ต้องรอเปิดแท็บ Home
 
+local TweenService      = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+---------------------------------------------------------------------
+-- AA1 SAVE (HomeAutoFarm) • ใช้ getgenv().UFOX_SAVE
+---------------------------------------------------------------------
+local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+    get = function(_, _, d) return d end,
+    set = function() end,
+}
+
+local GAME_ID  = tonumber(game.GameId)  or 0
+local PLACE_ID = tonumber(game.PlaceId) or 0
+
+-- AA1/HomeAutoFarm/<GAME>/<PLACE>/AutoMine / AutoTrain
+local BASE_SCOPE = ("AA1/HomeAutoFarm/%d/%d"):format(GAME_ID, PLACE_ID)
+
+local function K(field)
+    return BASE_SCOPE .. "/" .. field
+end
+
+local function SaveGet(field, default)
+    local ok, v = pcall(function()
+        return SAVE.get(K(field), default)
+    end)
+    return ok and v or default
+end
+
+local function SaveSet(field, value)
+    pcall(function()
+        SAVE.set(K(field), value)
+    end)
+end
+
+-- STATE จาก Save
+local STATE = {
+    AutoMine  = SaveGet("AutoMine",  false),
+    AutoTrain = SaveGet("AutoTrain", false),
+}
+
+-- บังคับไม่ให้เซฟมาสองอันเปิดพร้อมกัน
+if STATE.AutoMine and STATE.AutoTrain then
+    STATE.AutoTrain = false
+    SaveSet("AutoTrain", false)
+end
+
+---------------------------------------------------------------------
+-- REMOTE: Toggle Setting (AutoMine / AutoTrain)
+---------------------------------------------------------------------
+local function fireSetting(settingName)
+    local ok, err = pcall(function()
+        local paper   = ReplicatedStorage:WaitForChild("Paper")
+        local remotes = paper:WaitForChild("Remotes")
+        local evt     = remotes:WaitForChild("__remoteevent")
+        local args = {
+            "Toggle Setting",
+            settingName
+        }
+        evt:FireServer(unpack(args))
+    end)
+    if not ok then
+        warn("[UFO HUB X • Auto Farm] FireSetting error:", settingName, err)
+    end
+end
+
+---------------------------------------------------------------------
+-- AA1 AUTO-RUN: ทำงานทันทีตอนโหลดสคริปต์ (ไม่ต้องเปิดแท็บ Home)
+---------------------------------------------------------------------
+task.defer(function()
+    -- ถ้าทั้งคู่ true ให้เลือก AutoMine เป็นหลัก
+    if STATE.AutoMine and STATE.AutoTrain then
+        STATE.AutoTrain = false
+        SaveSet("AutoTrain", false)
+    end
+
+    if STATE.AutoMine then
+        fireSetting("AutoMine")   -- เปิด AutoMine จริงในเกม
+    elseif STATE.AutoTrain then
+        fireSetting("AutoTrain")  -- หรือเปิด AutoTrain
+    end
+end)
+
+---------------------------------------------------------------------
+-- UI ฝั่งขวา: Model A V1 (ใช้ STATE เดิม + ไม่ไปยุ่งกับ AA1 auto-run)
+---------------------------------------------------------------------
 registerRight("Home", function(scroll)
-    local TweenService       = game:GetService("TweenService")
-    local ReplicatedStorage  = game:GetService("ReplicatedStorage")
-
     ------------------------------------------------------------------------
     -- THEME + HELPERS (หน้าตาเดียวกับ Model A V1)
     ------------------------------------------------------------------------
@@ -3734,49 +3818,6 @@ registerRight("Home", function(scroll)
     end
 
     ------------------------------------------------------------------------
-    -- AA1 SAVE (HomeAutoFarm) • ใช้ getgenv().UFOX_SAVE
-    ------------------------------------------------------------------------
-    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
-        get = function(_, _, d) return d end,
-        set = function() end,
-    }
-
-    local GAME_ID  = tonumber(game.GameId)  or 0
-    local PLACE_ID = tonumber(game.PlaceId) or 0
-
-    -- AA1/HomeAutoFarm/<GAME>/<PLACE>/AutoMine / AutoTrain
-    local BASE_SCOPE = ("AA1/HomeAutoFarm/%d/%d"):format(GAME_ID, PLACE_ID)
-
-    local function K(field)
-        return BASE_SCOPE .. "/" .. field
-    end
-
-    local function SaveGet(field, default)
-        local ok, v = pcall(function()
-            return SAVE.get(K(field), default)
-        end)
-        return ok and v or default
-    end
-
-    local function SaveSet(field, value)
-        pcall(function()
-            SAVE.set(K(field), value)
-        end)
-    end
-
-    -- STATE เริ่มจาก AA1
-    local STATE = {
-        AutoMine  = SaveGet("AutoMine",  false),
-        AutoTrain = SaveGet("AutoTrain", false),
-    }
-
-    -- บังคับให้เปิดได้ทีละอัน จากค่าเซฟ (ถ้าเซฟมาทั้งคู่ true ให้优先 AutoMine)
-    if STATE.AutoMine and STATE.AutoTrain then
-        STATE.AutoTrain = false
-        SaveSet("AutoTrain", false)
-    end
-
-    ------------------------------------------------------------------------
     -- UIListLayout (ตามกฎ Model A V1: มีแค่ 1 ตัว + ใช้ base LayoutOrder เดิม)
     ------------------------------------------------------------------------
     local vlist = scroll:FindFirstChildOfClass("UIListLayout")
@@ -3792,25 +3833,6 @@ registerRight("Home", function(scroll)
     for _, ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("GuiObject") and ch ~= vlist then
             base = math.max(base, ch.LayoutOrder or 0)
-        end
-    end
-
-    ------------------------------------------------------------------------
-    -- REMOTE: Toggle Setting (AutoMine / AutoTrain)
-    ------------------------------------------------------------------------
-    local function fireSetting(settingName)
-        local ok, err = pcall(function()
-            local paper   = ReplicatedStorage:WaitForChild("Paper")
-            local remotes = paper:WaitForChild("Remotes")
-            local evt     = remotes:WaitForChild("__remoteevent")
-            local args = {
-                "Toggle Setting",
-                settingName
-            }
-            evt:FireServer(unpack(args))
-        end)
-        if not ok then
-            warn("[UFO HUB X • Auto Farm] FireSetting error:", settingName, err)
         end
     end
 
@@ -3903,7 +3925,7 @@ registerRight("Home", function(scroll)
             setState(not currentOn, true)
         end)
 
-        -- เริ่มต้นปิด
+        -- เริ่มต้นปิด (เดี๋ยวค่อย sync จาก STATE ด้านล่าง)
         updateVisual(false)
 
         return {
@@ -3920,34 +3942,28 @@ registerRight("Home", function(scroll)
     local autoTrainRow
 
     autoMineRow = makeRowSwitch("A1_Home_AutoMine", base + 2, "Auto Mine", function(state)
-        -- เซฟสถานะ AA1
         STATE.AutoMine  = state
         SaveSet("AutoMine", state)
 
-        -- ทุกครั้งที่กดสวิตช์ AutoMine => ยิง Toggle Setting: AutoMine
         fireSetting("AutoMine")
 
         if state then
-            -- ถ้าเปิด AutoMine ให้ปิด AutoTrain ทั้ง UI + Server + Save
             if autoTrainRow and autoTrainRow.getState() then
-                autoTrainRow.setState(false, false) -- ปิด UI, ไม่เรียก onToggle ซ้ำ
+                autoTrainRow.setState(false, false)
                 STATE.AutoTrain = false
                 SaveSet("AutoTrain", false)
-                fireSetting("AutoTrain")           -- toggle ปิดฝั่งเกม
+                fireSetting("AutoTrain")
             end
         end
     end)
 
     autoTrainRow = makeRowSwitch("A1_Home_AutoTrain", base + 3, "Auto Train", function(state)
-        -- เซฟสถานะ AA1
         STATE.AutoTrain = state
         SaveSet("AutoTrain", state)
 
-        -- ทุกครั้งที่กดสวิตช์ AutoTrain => ยิง Toggle Setting: AutoTrain
         fireSetting("AutoTrain")
 
         if state then
-            -- ถ้าเปิด AutoTrain ให้ปิด AutoMine
             if autoMineRow and autoMineRow.getState() then
                 autoMineRow.setState(false, false)
                 STATE.AutoMine = false
@@ -3958,24 +3974,20 @@ registerRight("Home", function(scroll)
     end)
 
     ------------------------------------------------------------------------
-    -- AA1 APPLY จาก STATE ตอนโหลด (Auto-Run)
+    -- SYNC UI กับ STATE ที่เซฟไว้ (ไม่ยิง Remote ซ้ำ)
     ------------------------------------------------------------------------
     task.defer(function()
-        -- บังคับให้เปิดทีละอัน
         if STATE.AutoMine and STATE.AutoTrain then
             STATE.AutoTrain = false
             SaveSet("AutoTrain", false)
         end
 
-        -- Sync UI + ยิงรีโมตให้ตรงกับ Save
-        if STATE.AutoMine then
-            autoMineRow.setState(true, false)   -- อัปเดต UI อย่างเดียว
-            fireSetting("AutoMine")            -- sync ฝั่งเกม
+        if STATE.AutoMine and autoMineRow then
+            autoMineRow.setState(true, false)   -- แค่ปรับ UI
         end
 
-        if STATE.AutoTrain then
+        if STATE.AutoTrain and autoTrainRow then
             autoTrainRow.setState(true, false)
-            fireSetting("AutoTrain")
         end
     end)
 end)
