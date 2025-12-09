@@ -3690,79 +3690,80 @@ registerRight("Player", function(scroll)
         startAction()
     end)
 end)
---======================================================
---  UFO HUB X • Home – Auto Farm (Model A V1 • 2 Switches)
---  - Tab: Home
---  - Header: "Auto Farm 🚀"
---  - Row 1: Auto Mine  -> Toggle Setting: "AutoMine"
---  - Row 2: Auto Train -> Toggle Setting: "AutoTrain"
---  - เปิดอันใดอันหนึ่ง อีกอันจะปิดอัตโนมัติ
---======================================================
+--===== UFO HUB X • Home – Auto Farm (Model A V1) =====
+-- Tab: Home
+-- Header: Auto Farm 🚀
+-- Row1: Auto Mine  -> Toggle Setting: "AutoMine"
+-- Row2: Auto Train -> Toggle Setting: "AutoTrain"
+-- เปิดอันใดอันหนึ่ง อีกอันจะปิด + ส่งรีโมตไปปิดให้ด้วย
 
 registerRight("Home", function(scroll)
-    --------------------------------------------------
-    -- THEME + HELPERS (Model A V1)
-    --------------------------------------------------
+    local TweenService       = game:GetService("TweenService")
+    local ReplicatedStorage  = game:GetService("ReplicatedStorage")
+
+    ------------------------------------------------------------------------
+    -- THEME + HELPERS (หน้าตาเดียวกับ Model A V1)
+    ------------------------------------------------------------------------
     local THEME = {
-        GREEN       = Color3.fromRGB(25,255,125),
-        GREEN_DARK  = Color3.fromRGB(0,120,60),
-        WHITE       = Color3.fromRGB(255,255,255),
-        BLACK       = Color3.fromRGB(0,0,0),
-        ROW_BG      = Color3.fromRGB(5,5,5),
-        ROW_BORDER  = Color3.fromRGB(25,255,125),
-        TOGGLE_OFF  = Color3.fromRGB(45,45,45),
-        TOGGLE_ON   = Color3.fromRGB(25,255,125),
-        KNOB        = Color3.fromRGB(0,0,0),
+        GREEN = Color3.fromRGB(25,255,125),
+        RED   = Color3.fromRGB(255,40,40),
+        WHITE = Color3.fromRGB(255,255,255),
+        BLACK = Color3.fromRGB(0,0,0),
     }
 
     local function corner(ui, r)
         local c = Instance.new("UICorner")
         c.CornerRadius = UDim.new(0, r or 12)
         c.Parent = ui
-        return c
     end
 
     local function stroke(ui, th, col)
         local s = Instance.new("UIStroke")
         s.Thickness = th or 2.2
-        s.Color = col or THEME.ROW_BORDER
+        s.Color = col or THEME.GREEN
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.LineJoinMode = Enum.LineJoinMode.Round
         s.Parent = ui
-        return s
     end
 
-    -- มี UIListLayout แค่ 1 อันตาม Model A V1
-    local layout = scroll:FindFirstChildOfClass("UIListLayout")
-    if not layout then
-        layout = Instance.new("UIListLayout")
-        layout.FillDirection = Enum.FillDirection.Vertical
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Padding = UDim.new(0, 8)
-        layout.Parent = scroll
+    local function tween(o, p, d)
+        TweenService:Create(
+            o,
+            TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            p
+        ):Play()
     end
 
-    -- หาค่า LayoutOrder เริ่มต้น ตาม baseline A V1
-    local function getBaseOrder()
-        local maxOrder = 0
-        for _, child in ipairs(scroll:GetChildren()) do
-            if child:IsA("Frame") or child:IsA("TextLabel") then
-                if typeof(child.LayoutOrder) == "number" and child.LayoutOrder > maxOrder then
-                    maxOrder = child.LayoutOrder
-                end
-            end
+    ------------------------------------------------------------------------
+    -- UIListLayout (ตามกฎ Model A V1: มีแค่ 1 ตัว + ใช้ base LayoutOrder เดิม)
+    ------------------------------------------------------------------------
+    local vlist = scroll:FindFirstChildOfClass("UIListLayout")
+    if not vlist then
+        vlist = Instance.new("UIListLayout")
+        vlist.Parent = scroll
+        vlist.Padding   = UDim.new(0, 12)
+        vlist.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+    local base = 0
+    for _, ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("GuiObject") and ch ~= vlist then
+            base = math.max(base, ch.LayoutOrder or 0)
         end
-        return maxOrder + 1
     end
 
+    ------------------------------------------------------------------------
+    -- REMOTE: Toggle Setting (AutoMine / AutoTrain)
+    ------------------------------------------------------------------------
     local function fireSetting(settingName)
         local ok, err = pcall(function()
-            local rs = game:GetService("ReplicatedStorage")
-            local paper = rs:WaitForChild("Paper")
+            local paper   = ReplicatedStorage:WaitForChild("Paper")
             local remotes = paper:WaitForChild("Remotes")
-            local evt = remotes:WaitForChild("__remoteevent")
-            local args = { "Toggle Setting", settingName }
+            local evt     = remotes:WaitForChild("__remoteevent")
+            local args = {
+                "Toggle Setting",
+                settingName
+            }
             evt:FireServer(unpack(args))
         end)
         if not ok then
@@ -3770,161 +3771,134 @@ registerRight("Home", function(scroll)
         end
     end
 
-    --------------------------------------------------
-    -- สร้าง Header: "Auto Farm 🚀"
-    --------------------------------------------------
-    local baseOrder = getBaseOrder()
-
-    local header = Instance.new("Frame")
-    header.Name = "AutoFarm_Header"
-    header.BackgroundColor3 = THEME.BLACK
-    header.BorderSizePixel = 0
-    header.Size = UDim2.new(1, -20, 0, 36)
-    header.LayoutOrder = baseOrder
+    ------------------------------------------------------------------------
+    -- HEADER: Auto Farm 🚀  (สูง 36, GothamBold 16, ซ้าย, สีขาว)
+    ------------------------------------------------------------------------
+    local header = Instance.new("TextLabel")
+    header.Name = "A1_Home_AutoFarm_Header"
     header.Parent = scroll
-    corner(header, 12)
-    stroke(header, 1.8, THEME.GREEN_DARK)
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, 0, 0, 36)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 16
+    header.TextColor3 = THEME.WHITE
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Text = "Auto Farm 🚀"
+    header.LayoutOrder = base + 1
 
-    local headerLabel = Instance.new("TextLabel")
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Font = Enum.Font.GothamBold
-    headerLabel.Text = "Auto Farm 🚀"
-    headerLabel.TextSize = 16
-    headerLabel.TextColor3 = THEME.WHITE
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.Position = UDim2.new(0, 12, 0, 0)
-    headerLabel.Size = UDim2.new(1, -24, 1, 0)
-    headerLabel.Parent = header
-
-    --------------------------------------------------
-    -- Helper สร้างแถวสวิตช์สไตล์ Model A V1
-    --------------------------------------------------
-    local function createSwitchRow(titleText, layoutOrder, onToggle)
+    ------------------------------------------------------------------------
+    -- แถวแบบสวิตช์ (ดีไซน์เดียวกับ Model A V1 Player tab)
+    ------------------------------------------------------------------------
+    local function makeRowSwitch(name, order, labelText, onToggle)
         local row = Instance.new("Frame")
-        row.Name = "Row_" .. titleText
-        row.BackgroundColor3 = THEME.ROW_BG
-        row.BorderSizePixel = 0
-        row.Size = UDim2.new(1, -20, 0, 46)
-        row.LayoutOrder = layoutOrder
+        row.Name = name
         row.Parent = scroll
+        row.Size = UDim2.new(1, -6, 0, 46)
+        row.BackgroundColor3 = THEME.BLACK
         corner(row, 12)
-        stroke(row, 2.2, THEME.ROW_BORDER)
+        stroke(row, 2.2, THEME.GREEN)
+        row.LayoutOrder = order
 
-        local label = Instance.new("TextLabel")
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.GothamBold
-        label.Text = titleText
-        label.TextSize = 13
-        label.TextColor3 = THEME.WHITE
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Position = UDim2.new(0, 14, 0, 0)
-        label.Size = UDim2.new(1, -120, 1, 0)
-        label.Parent = row
+        -- Label ซ้าย
+        local lab = Instance.new("TextLabel")
+        lab.Parent = row
+        lab.BackgroundTransparency = 1
+        lab.Size = UDim2.new(1, -160, 1, 0)
+        lab.Position = UDim2.new(0, 16, 0, 0)
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 13
+        lab.TextColor3 = THEME.WHITE
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.Text = labelText
 
-        -- Toggle container (ขวา)
-        local toggle = Instance.new("Frame")
-        toggle.Name = "Toggle"
-        toggle.AnchorPoint = Vector2.new(1, 0.5)
-        toggle.Position = UDim2.new(1, -16, 0.5, 0)
-        toggle.Size = UDim2.new(0, 50, 0, 22)
-        toggle.BackgroundColor3 = THEME.TOGGLE_OFF
-        toggle.BorderSizePixel = 0
-        toggle.Parent = row
-        corner(toggle, 9999)
+        -- กล่องสวิตช์ขวา
+        local sw = Instance.new("Frame")
+        sw.Parent = row
+        sw.AnchorPoint = Vector2.new(1,0.5)
+        sw.Position = UDim2.new(1, -12, 0.5, 0)
+        sw.Size = UDim2.fromOffset(52,26)
+        sw.BackgroundColor3 = THEME.BLACK
+        corner(sw, 13)
+
+        local swStroke = Instance.new("UIStroke")
+        swStroke.Parent = sw
+        swStroke.Thickness = 1.8
 
         local knob = Instance.new("Frame")
-        knob.Name = "Knob"
-        knob.Size = UDim2.new(0, 20, 0, 20)
-        knob.Position = UDim2.new(0, 1, 0, 1) -- ซ้าย
-        knob.BackgroundColor3 = THEME.KNOB
-        knob.BorderSizePixel = 0
-        knob.Parent = toggle
-        corner(knob, 9999)
+        knob.Parent = sw
+        knob.Size = UDim2.fromOffset(22,22)
+        knob.BackgroundColor3 = THEME.WHITE
+        knob.Position = UDim2.new(0,2,0.5,-11)
+        corner(knob,11)
 
-        local uiStroke = Instance.new("UIStroke")
-        uiStroke.Thickness = 1.6
-        uiStroke.Color = THEME.WHITE
-        uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        uiStroke.Parent = knob
+        local currentOn = false
 
-        -- ปุ่มกดโปร่งใสทับ
-        local hitBtn = Instance.new("TextButton")
-        hitBtn.BackgroundTransparency = 1
-        hitBtn.BorderSizePixel = 0
-        hitBtn.Text = ""
-        hitBtn.Size = UDim2.new(1, 0, 1, 0)
-        hitBtn.Parent = row
-
-        -- state ภายใน
-        row:SetAttribute("On", false)
-
-        local function setVisual(state)
-            row:SetAttribute("On", state)
-            if state then
-                toggle.BackgroundColor3 = THEME.TOGGLE_ON
-                knob.Position = UDim2.new(1, -21, 0, 1) -- ขวา
-            else
-                toggle.BackgroundColor3 = THEME.TOGGLE_OFF
-                knob.Position = UDim2.new(0, 1, 0, 1) -- ซ้าย
-            end
+        local function updateVisual(on)
+            currentOn = on
+            swStroke.Color = on and THEME.GREEN or THEME.RED
+            tween(knob, {
+                Position = UDim2.new(on and 1 or 0, on and -24 or 2, 0.5, -11)
+            }, 0.08)
         end
 
-        local function setState(state, fireCallback)
+        local function setState(on, fireCallback)
             fireCallback = (fireCallback ~= false)
-            if row:GetAttribute("On") == state then return end
-            setVisual(state)
+            if currentOn == on then return end
+            updateVisual(on)
             if fireCallback and onToggle then
-                onToggle(state)
+                onToggle(on)
             end
         end
 
-        hitBtn.MouseButton1Click:Connect(function()
-            local current = row:GetAttribute("On")
-            setState(not current, true)
+        local btn = Instance.new("TextButton")
+        btn.Parent = sw
+        btn.BackgroundTransparency = 1
+        btn.Size = UDim2.fromScale(1,1)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.MouseButton1Click:Connect(function()
+            setState(not currentOn, true)
         end)
 
-        -- default OFF
-        setVisual(false)
+        -- เริ่มต้นปิด
+        updateVisual(false)
 
         return {
-            row = row,
+            row      = row,
             setState = setState,
-            getState = function()
-                return row:GetAttribute("On")
-            end,
+            getState = function() return currentOn end,
         }
     end
 
-    --------------------------------------------------
-    -- สร้าง 2 แถว: Auto Mine / Auto Train
-    --------------------------------------------------
-    local autoMineRow, autoTrainRow
+    ------------------------------------------------------------------------
+    -- สร้าง 2 สวิตช์: Auto Mine / Auto Train (เปิดได้ทีละอัน)
+    ------------------------------------------------------------------------
+    local autoMineRow  -- table {setState,getState}
+    local autoTrainRow
 
-    autoMineRow = createSwitchRow("Auto Mine", baseOrder + 1, function(state)
+    autoMineRow = makeRowSwitch("A1_Home_AutoMine", base + 2, "Auto Mine", function(state)
+        -- ทุกครั้งที่กดสวิตช์ AutoMine => ยิง Toggle Setting: AutoMine
+        fireSetting("AutoMine")
+
         if state then
-            -- เปิด AutoMine -> ปิด AutoTrain ถ้าเปิดอยู่
+            -- ถ้าเปิด AutoMine ให้ปิด AutoTrain ทั้ง UI + Server
             if autoTrainRow and autoTrainRow.getState() then
-                autoTrainRow.setState(false, false) -- ปิด UI เฉย ๆ
-                fireSetting("AutoTrain")           -- ส่งไปปิดฝั่งเซิร์ฟเวอร์
+                autoTrainRow.setState(false, false) -- ปิด UI, ไม่เรียก onToggle ซ้ำ
+                fireSetting("AutoTrain")           -- toggle ปิดฝั่งเกม
             end
-            fireSetting("AutoMine")
-        else
-            -- ปิด AutoMine
-            fireSetting("AutoMine")
         end
     end)
 
-    autoTrainRow = createSwitchRow("Auto Train", baseOrder + 2, function(state)
+    autoTrainRow = makeRowSwitch("A1_Home_AutoTrain", base + 3, "Auto Train", function(state)
+        -- ทุกครั้งที่กดสวิตช์ AutoTrain => ยิง Toggle Setting: AutoTrain
+        fireSetting("AutoTrain")
+
         if state then
-            -- เปิด AutoTrain -> ปิด AutoMine ถ้าเปิดอยู่
+            -- ถ้าเปิด AutoTrain ให้ปิด AutoMine
             if autoMineRow and autoMineRow.getState() then
                 autoMineRow.setState(false, false)
                 fireSetting("AutoMine")
             end
-            fireSetting("AutoTrain")
-        else
-            -- ปิด AutoTrain
-            fireSetting("AutoTrain")
         end
     end)
 
