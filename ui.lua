@@ -3690,12 +3690,12 @@ registerRight("Player", function(scroll)
         startAction()
     end)
 end)
---===== UFO HUB X • Home – Auto Farm (Model A V1) =====
+--===== UFO HUB X • Home – Auto Farm (Model A V1 + AA1) =====
 -- Tab: Home
 -- Header: Auto Farm 🚀
 -- Row1: Auto Mine  -> Toggle Setting: "AutoMine"
 -- Row2: Auto Train -> Toggle Setting: "AutoTrain"
--- เปิดอันใดอันหนึ่ง อีกอันจะปิด + ส่งรีโมตไปปิดให้ด้วย
+-- เปิดได้ทีละอัน + มีระบบเซฟ AA1 (Auto-Run จาก SaveState)
 
 registerRight("Home", function(scroll)
     local TweenService       = game:GetService("TweenService")
@@ -3731,6 +3731,49 @@ registerRight("Home", function(scroll)
             TweenInfo.new(d or 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             p
         ):Play()
+    end
+
+    ------------------------------------------------------------------------
+    -- AA1 SAVE (HomeAutoFarm) • ใช้ getgenv().UFOX_SAVE
+    ------------------------------------------------------------------------
+    local SAVE = (getgenv and getgenv().UFOX_SAVE) or {
+        get = function(_, _, d) return d end,
+        set = function() end,
+    }
+
+    local GAME_ID  = tonumber(game.GameId)  or 0
+    local PLACE_ID = tonumber(game.PlaceId) or 0
+
+    -- AA1/HomeAutoFarm/<GAME>/<PLACE>/AutoMine / AutoTrain
+    local BASE_SCOPE = ("AA1/HomeAutoFarm/%d/%d"):format(GAME_ID, PLACE_ID)
+
+    local function K(field)
+        return BASE_SCOPE .. "/" .. field
+    end
+
+    local function SaveGet(field, default)
+        local ok, v = pcall(function()
+            return SAVE.get(K(field), default)
+        end)
+        return ok and v or default
+    end
+
+    local function SaveSet(field, value)
+        pcall(function()
+            SAVE.set(K(field), value)
+        end)
+    end
+
+    -- STATE เริ่มจาก AA1
+    local STATE = {
+        AutoMine  = SaveGet("AutoMine",  false),
+        AutoTrain = SaveGet("AutoTrain", false),
+    }
+
+    -- บังคับให้เปิดได้ทีละอัน จากค่าเซฟ (ถ้าเซฟมาทั้งคู่ true ให้优先 AutoMine)
+    if STATE.AutoMine and STATE.AutoTrain then
+        STATE.AutoTrain = false
+        SaveSet("AutoTrain", false)
     end
 
     ------------------------------------------------------------------------
@@ -3877,19 +3920,29 @@ registerRight("Home", function(scroll)
     local autoTrainRow
 
     autoMineRow = makeRowSwitch("A1_Home_AutoMine", base + 2, "Auto Mine", function(state)
+        -- เซฟสถานะ AA1
+        STATE.AutoMine  = state
+        SaveSet("AutoMine", state)
+
         -- ทุกครั้งที่กดสวิตช์ AutoMine => ยิง Toggle Setting: AutoMine
         fireSetting("AutoMine")
 
         if state then
-            -- ถ้าเปิด AutoMine ให้ปิด AutoTrain ทั้ง UI + Server
+            -- ถ้าเปิด AutoMine ให้ปิด AutoTrain ทั้ง UI + Server + Save
             if autoTrainRow and autoTrainRow.getState() then
                 autoTrainRow.setState(false, false) -- ปิด UI, ไม่เรียก onToggle ซ้ำ
+                STATE.AutoTrain = false
+                SaveSet("AutoTrain", false)
                 fireSetting("AutoTrain")           -- toggle ปิดฝั่งเกม
             end
         end
     end)
 
     autoTrainRow = makeRowSwitch("A1_Home_AutoTrain", base + 3, "Auto Train", function(state)
+        -- เซฟสถานะ AA1
+        STATE.AutoTrain = state
+        SaveSet("AutoTrain", state)
+
         -- ทุกครั้งที่กดสวิตช์ AutoTrain => ยิง Toggle Setting: AutoTrain
         fireSetting("AutoTrain")
 
@@ -3897,11 +3950,34 @@ registerRight("Home", function(scroll)
             -- ถ้าเปิด AutoTrain ให้ปิด AutoMine
             if autoMineRow and autoMineRow.getState() then
                 autoMineRow.setState(false, false)
+                STATE.AutoMine = false
+                SaveSet("AutoMine", false)
                 fireSetting("AutoMine")
             end
         end
     end)
 
+    ------------------------------------------------------------------------
+    -- AA1 APPLY จาก STATE ตอนโหลด (Auto-Run)
+    ------------------------------------------------------------------------
+    task.defer(function()
+        -- บังคับให้เปิดทีละอัน
+        if STATE.AutoMine and STATE.AutoTrain then
+            STATE.AutoTrain = false
+            SaveSet("AutoTrain", false)
+        end
+
+        -- Sync UI + ยิงรีโมตให้ตรงกับ Save
+        if STATE.AutoMine then
+            autoMineRow.setState(true, false)   -- อัปเดต UI อย่างเดียว
+            fireSetting("AutoMine")            -- sync ฝั่งเกม
+        end
+
+        if STATE.AutoTrain then
+            autoTrainRow.setState(true, false)
+            fireSetting("AutoTrain")
+        end
+    end)
 end)
 -- ===== UFO HUB X • Update Tab — Map Update 🗺️ =====
 registerRight("Update", function(scroll)
